@@ -1,13 +1,3 @@
-//------------------------------------------------------------------------------
-// Tooling sample. Demonstrates:
-//
-// * How to write a simple source tool using libTooling.
-// * How to use RecursiveASTVisitor to find interesting AST nodes.
-// * How to use the Rewriter API to rewrite the source code.
-//
-// Eli Bendersky (eliben@gmail.com)
-// This code is in the public domain
-//------------------------------------------------------------------------------
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -78,55 +68,6 @@ class MyASTVisitor : public RecursiveASTVisitor<MyASTVisitor> {
 public:
   MyASTVisitor(Rewriter &R, CompilerInstance &c)
       : TheRewriter(R), TheCompInst(c) {}
-
-  bool VisitStmt(Stmt *s) {
-    // Only care about If statements.
-    if (isa<IfStmt>(s)) {
-      IfStmt *IfStatement = cast<IfStmt>(s);
-      Stmt *Then = IfStatement->getThen();
-
-      TheRewriter.InsertText(Then->getBeginLoc(), "// the 'if' part\n", true,
-                             true);
-
-      Stmt *Else = IfStatement->getElse();
-      if (Else)
-        TheRewriter.InsertText(Else->getBeginLoc(), "// the 'else' part\n",
-                               true, true);
-    }
-
-    return true;
-  }
-
-  bool VisitFunctionDecl(FunctionDecl *f) {
-
-    // Only function definitions (with bodies), not declarations.
-    if (f->hasBody()) {
-      Stmt *FuncBody = f->getBody();
-
-      // Type name as string
-      QualType QT = f->getReturnType();
-      std::string TypeStr = QT.getAsString();
-
-      // Function name
-      DeclarationName DeclName = f->getNameInfo().getName();
-      std::string FuncName = DeclName.getAsString();
-
-      // Add comment before
-      std::stringstream SSBefore;
-      SSBefore << "// Begin function " << FuncName << " returning " << TypeStr
-               << "\n";
-      SourceLocation ST = f->getSourceRange().getBegin();
-      TheRewriter.InsertText(ST, SSBefore.str(), true, true);
-
-      // And after
-      std::stringstream SSAfter;
-      SSAfter << "\n// End function " << FuncName;
-      ST = FuncBody->getEndLoc().getLocWithOffset(1);
-      TheRewriter.InsertText(ST, SSAfter.str(), true, true);
-    }
-
-    return true;
-  }
   bool TraverseLambdaBody(LambdaExpr *LE) {
     SourceManager &SM = TheRewriter.getSourceMgr();
     LangOptions &lo = TheCompInst.getLangOpts();
@@ -203,14 +144,12 @@ private:
 class MyASTConsumer : public ASTConsumer {
 public:
   MyASTConsumer(Rewriter &R, CompilerInstance &c) : Visitor(R, c) {}
-
   // Override the method that gets called for each parsed top-level
   // declaration.
   bool HandleTopLevelDecl(DeclGroupRef DR) override {
     for (DeclGroupRef::iterator b = DR.begin(), e = DR.end(); b != e; ++b) {
       // Traverse the declaration using our AST visitor.
       Visitor.TraverseDecl(*b);
-    //   (*b)->dump();
     }
     return true;
   }
@@ -227,7 +166,6 @@ public:
     SourceManager &SM = TheRewriter.getSourceMgr();
     llvm::errs() << "** EndSourceFileAction for: "
                  << SM.getFileEntryForID(SM.getMainFileID())->getName() << "\n";
-
     // Now emit the rewritten buffer.
     TheRewriter.getEditBuffer(SM.getMainFileID()).write(llvm::outs());
   }

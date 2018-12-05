@@ -1,0 +1,9 @@
+version: '2'
+
+services:
+  qcor-dev:
+    image: qcor/dev-ide
+    volumes:
+      - ../../..:/home/project
+    ports:
+      - 3000:3000
