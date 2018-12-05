@@ -7,4 +7,5 @@ pass off to XACC.
 
 To build run 'make', to execute 
 
-$ build/fuzzy_parsing test.c
+$ build/fuzzy_parsing test.c (to see errors)
+$ build/fuzzy_parsing test.c 1 (to see no errors)
