@@ -2,7 +2,7 @@ version: '2'
 
 services:
   qcor-dev:
-    image: qcor/dev-ide
+    image: xacc/qcor-dev-ide
     volumes:
       - ../../..:/home/project
     ports:
