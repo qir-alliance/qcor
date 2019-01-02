@@ -1,4 +1,4 @@
-from theiaide/theia-full:next
+from theiaide/theia-full:latest
 user root
 run apt-get -y update \ 
     && unlink /usr/bin/clangd \
@@ -26,6 +26,6 @@ run apt-get -y update \
     && cmake .. -DXACC_DIR=~/.xacc -DPYTHON_INCLUDE_DIR=/usr/include/python3.5 \
     && make -j4 install && cd ../..
 add settings.json /home/.theia/
-user xacc-theia
+user theia
 
 
