@@ -13,7 +13,7 @@ run apt-get -y update \
     && ln -s /usr/bin/clang-8 /usr/bin/clang \
     && git clone --recursive https://github.com/eclipse/xacc \
     && cd xacc && mkdir build && cd build \
-    && CC=clang CXX=clang++ cmake .. -DPYTHON_INCLUDE_DIR=/usr/include/python3.5 -DCMAKE_EXPORT_COMPILE_COMMANDS=TRUE \
+    && cmake .. -DPYTHON_INCLUDE_DIR=/usr/include/python3.5 -DCMAKE_EXPORT_COMPILE_COMMANDS=TRUE \
     && make -j4 install && cd ../.. \
     && git clone --recursive https://github.com/ornl-qci/xacc-ibm \
     && cd xacc-ibm && mkdir build && cd build \
@@ -26,6 +26,6 @@ run apt-get -y update \
     && cmake .. -DXACC_DIR=~/.xacc -DPYTHON_INCLUDE_DIR=/usr/include/python3.5 \
     && make -j4 install && cd ../..
 add settings.json /home/.theia/
-user theia
+#user theia
 
 
