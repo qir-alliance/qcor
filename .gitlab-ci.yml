@@ -16,3 +16,5 @@ docker push:
   script:
   - echo "$REGISTRY_PASSWORD" | docker login -u xacc --password-stdin
   - docker push xacc/qcor-dev-ide
+  - docker rmi -f $(docker images -f "dangling=true" -q)
+  - docker rmi -f xacc/qcor-dev-ide
