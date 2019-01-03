@@ -1,0 +1,18 @@
+image: docker:stable
+
+stages:
+  - build
+  - push
+
+docker build:
+  stage: build
+  script:
+  - cd docker/dev && docker build -t xacc/qcor-dev-ide . --no-cache
+
+docker push:
+  stage: push
+  only:
+  - master
+  script:
+  - echo "$REGISTRY_PASSWORD" | docker login -u xacc --password-stdin
+  - docker push xacc/qcor-dev-ide
