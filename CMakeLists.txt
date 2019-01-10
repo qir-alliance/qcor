@@ -31,10 +31,11 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CppMicroServicesConfig_DIR}")
 include(tests)
 include(CppMicroServicesConfig)
 
-#include_directories(${XACC_INCLUDE_DIRS})
+include_directories(${XACC_INCLUDE_DIRS})
 
-#link_directories(${XACC_LIBRARY_DIR})
+link_directories(${XACC_LIBRARY_DIR})
 
 message(STATUS "${CLANG_INCLUDE_DIRS}")
 
 add_subdirectory(compiler)
+add_subdirectory(instructions)
