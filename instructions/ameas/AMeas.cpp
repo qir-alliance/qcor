@@ -63,11 +63,8 @@ void AMeas::customVisitAction(BaseInstructionVisitor &iv) {
      << "\", \"t0\":" << options["t0"].toString();
   iv.getNativeAssembly() += "{ " + ss.str() + " },";
   iv.getNativeAssembly() +=
-      "{\"name\": \"acquire\", \"qubits\": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, "
-      "11, 12, 13, 14, 15, 16, 17, 18, 19], \"memory_slot\": [0, 1, 2, 3, 4, "
-      "5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19], "
-      "\"register_slot\": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, "
-      "15, 16, 17, 18, 19], \"duration\": 512, \"kernels\": [{\"name\": "
+      "{\"name\": \"acquire\", \"qubits\": ["+std::to_string(bits()[0])+"], \"memory_slot\": [0], "
+      "\"register_slot\": [0], \"duration\": 512, \"kernels\": [{\"name\": "
       "\"boxcar\", \"params\": {\"start_window\": 0, \"stop_window\": 512}}], "
       "\"t0\": 64},";
 }
