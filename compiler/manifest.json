@@ -1,0 +1,6 @@
+{
+  "bundle.symbolic_name" : "qcor_compiler",
+  "bundle.activator" : true,
+  "bundle.name" : "QCOR Compiler",
+  "bundle.description" : ""
+}

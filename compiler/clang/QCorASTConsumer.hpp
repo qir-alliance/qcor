@@ -24,11 +24,11 @@ public:
   bool HandleTopLevelDecl(DeclGroupRef DR) override {
     QcorASTVisitor Visitor(ci);
     ci.getSema().addExternalSource(handler.get());
-    Visitor.TraverseDecl(ci.getASTContext().getTranslationUnitDecl());
-    // for (DeclGroupRef::iterator b = DR.begin(), e = DR.end(); b != e; ++b) {
-    //   // Traverse the declaration using our AST visitor.
-    //   Visitor.TraverseDecl(*b);
-    // }
+    // Visitor.TraverseDecl(ci.getASTContext().getTranslationUnitDecl());
+    for (DeclGroupRef::iterator b = DR.begin(), e = DR.end(); b != e; ++b) {
+      // Traverse the declaration using our AST visitor.
+      Visitor.TraverseDecl(*b);
+    }
     // (*DR.begin())->dump();
     return true;
   }

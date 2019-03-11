@@ -2,7 +2,7 @@ version: '2'
 
 services:
   qcor-dev:
-    image: xacc/qcor-dev-ide
+    image: code.ornl.gov:4567/qci/qcor
     volumes:
       - ../../..:/home/project
     ports:

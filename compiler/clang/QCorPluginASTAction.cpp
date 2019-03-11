@@ -14,6 +14,7 @@ bool QCorPluginASTAction::ParseArgs(const CompilerInstance &ci,
   if (!xacc::isInitialized()) {
     xacc::Initialize(args);
   }
+  for (auto a : args) xacc::info("ARG: " + a);
   return true;
 }
 
@@ -24,4 +25,4 @@ PluginASTAction::ActionType QCorPluginASTAction::getActionType() {
 } // namespace qcor
 
 static FrontendPluginRegistry::Add<qcor::QCorPluginASTAction>
-    X("-enable-quantum", "Enable quantum language extension via XACC.");
+    X("enable-quantum", "Enable quantum language extension via XACC.");

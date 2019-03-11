@@ -37,5 +37,16 @@ link_directories(${XACC_LIBRARY_DIR})
 
 message(STATUS "${CLANG_INCLUDE_DIRS}")
 
+macro(qcor_enable_rpath LIBNAME)
+  if(APPLE)
+    set_target_properties(${LIBNAME} PROPERTIES INSTALL_RPATH "@loader_path/../lib")
+    set_target_properties(${LIBNAME}
+                          PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
+  else()
+    set_target_properties(${LIBNAME} PROPERTIES INSTALL_RPATH "$ORIGIN/../lib")
+    set_target_properties(${LIBNAME} PROPERTIES LINK_FLAGS "-shared")
+  endif()
+endmacro()
+
 add_subdirectory(compiler)
 add_subdirectory(instructions)
