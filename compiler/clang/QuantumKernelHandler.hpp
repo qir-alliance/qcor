@@ -20,6 +20,7 @@ public:
   QuantumKernelHandler(ASTContext &context) : m_Context(context) {
     auto irProvider = xacc::getService<xacc::IRProvider>("gate");
     validInstructions = irProvider->getInstructions();
+    validInstructions.push_back("CX");
   }
 
   bool LookupUnqualified(clang::LookupResult &R, clang::Scope *S) override {
@@ -34,12 +35,23 @@ public:
 
       IdentifierInfo *II = Name.getAsIdentifierInfo();
       SourceLocation Loc = R.getNameLoc();
-      VarDecl *Result =
-          VarDecl::Create(m_Context, R.getSema().getFunctionLevelDeclContext(),
-                          Loc, Loc, II, m_Context.DependentTy, 0, SC_None);
+    //   VarDecl *Result =
+    //       VarDecl::Create(m_Context, R.getSema().getFunctionLevelDeclContext(),
+    //                       Loc, Loc, II, m_Context.DependentTy, 0, SC_None);
+      auto fdecl = FunctionDecl::Create(
+          m_Context, R.getSema().getFunctionLevelDeclContext(), Loc, Loc, Name,
+          m_Context.DependentTy, 0, SC_None);
+    //   CompoundStmt *CS =
+    //       new (m_Context) clang::CompoundStmt(clang::SourceLocation());
 
-      if (Result) {
-        R.addDecl(Result);
+      Stmt *S = new (m_Context) NullStmt(Stmt::EmptyShell()); //::CreateEmpty(m_Context, false);
+
+      std::cout << "HAS BODY: " << fdecl->hasBody() << "\n";
+      fdecl->setBody(S);
+      std::cout << "HAS BODY: " << fdecl->hasBody() << "\n";
+
+      if (fdecl) {
+        R.addDecl(fdecl);
         return true;
       } else {
         return false;

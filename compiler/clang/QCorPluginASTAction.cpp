@@ -14,7 +14,8 @@ bool QCorPluginASTAction::ParseArgs(const CompilerInstance &ci,
   if (!xacc::isInitialized()) {
     xacc::Initialize(args);
   }
-  for (auto a : args) xacc::info("ARG: " + a);
+  for (auto a : args)
+    xacc::info("qcor argument: " + a);
   return true;
 }
 
