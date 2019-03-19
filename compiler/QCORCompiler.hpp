@@ -20,22 +20,6 @@ using namespace xacc;
 namespace qcor {
 
 /**
- * An Antlr error listener for handling parsing errors.
- */
-class QCORCompilerErrorListener : public antlr4::BaseErrorListener {
-public:
-  void syntaxError(antlr4::Recognizer *recognizer,
-                   antlr4::Token *offendingSymbol, size_t line,
-                   size_t charPositionInLine, const std::string &msg,
-                   std::exception_ptr e) override {
-    std::ostringstream output;
-    output << "Invalid QCOR source: ";
-    output << "line " << line << ":" << charPositionInLine << " " << msg;
-    xacc::error(output.str());
-  }
-};
-
-/**
  * The PyXACCCompiler is an XACC Compiler that compiles
  * python-like gate instruction source code to produce a
  * XACC IR.

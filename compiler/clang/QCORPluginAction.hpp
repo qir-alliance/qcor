@@ -9,7 +9,8 @@
 using namespace clang;
 
 namespace qcor {
-class QCorPluginASTAction : public PluginASTAction {
+namespace compiler {
+class QCORPluginAction : public PluginASTAction {
 protected:
   std::unique_ptr<ASTConsumer> CreateASTConsumer(CompilerInstance &CI,
                                                  llvm::StringRef) override;
@@ -17,6 +18,7 @@ protected:
                  const std::vector<std::string> &args) override;
   PluginASTAction::ActionType getActionType() override;
 };
+}
 } // namespace qcor
 
 #endif
