@@ -18,7 +18,7 @@ option(QCOR_BUILD_TESTS "Build qcor tests" OFF)
 
 include(CTest)
 
-find_package(Clang 8.0.0 REQUIRED)
+find_package(Clang 9.0.0 REQUIRED)
 find_package(XACC REQUIRED)
 
 if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
@@ -35,7 +35,7 @@ include_directories(${XACC_INCLUDE_DIRS})
 
 link_directories(${XACC_LIBRARY_DIR})
 
-message(STATUS "${CLANG_INCLUDE_DIRS}")
+#message(STATUS "${CLANG_INCLUDE_DIRS}")
 
 macro(qcor_enable_rpath LIBNAME)
   if(APPLE)
@@ -48,5 +48,6 @@ macro(qcor_enable_rpath LIBNAME)
   endif()
 endmacro()
 
+add_subdirectory(runtime)
 add_subdirectory(compiler)
 add_subdirectory(instructions)

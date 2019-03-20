@@ -6,29 +6,44 @@ with args
 
 clang++-9 -std=c++11 -Xclang -load -Xclang compiler/clang/libqcor-ast-plugin.so -Xclang -add-plugin -Xclang enable-quantum -Xclang -plugin-arg-enable-quantum -Xclang test -Xclang -v test.cpp
 
+A better example
+
+clang++-9 -std=c++11 -Xclang -load -Xclang compiler/clang/libqcor-ast-plugin.so
+    -Xclang -add-plugin -Xclang enable-quantum
+    -Xclang -plugin-arg-enable-quantum -Xclang accelerator
+    -Xclang -plugin-arg-enable-quantum -Xclang tnqvm
+    -Xclang -plugin-arg-enable-quantum -Xclang transform
+    -Xclang -plugin-arg-enable-quantum -Xclang circuit-optimizer
+    test.cpp
+
 test.cpp looks like this
 
 #include <stdio.h>
+#include "qcor.hpp"
 
-void foo(int* a, int *b) {
-  if (a[0] > 1) {
-    b[0] = 2;
-  }
+void foo() {
 
   printf("hi\n");
 
-  auto l = [&]() {
-      int i = 1;
-      printf("%d \n", 2);
-    // X(0);
-    // analog("ibm-hamiltonian-evolve");
-    // autogen("uccsd",2);
-  };
-  l();
+  qcor::submit([&](qcor::qpu_handler& qh){
+    qh.vqe([&](double t0){
+      X(0);
+      Ry(t0,0);
+      CX(1,0);
+    }, 1, 1);
+  });
+
+ auto future = qcor::submit([&](qcor::qpu_handler& qh){
+    qh.execute([&](double t0){
+      X(2);
+      Ry(t0,1);
+      CX(1,2);
+    });
+  });
+
+  printf("hi %d\n", future.get());
 }
 
 int main() {
-    int a = 1;
-    int b = 2;
-    foo(&a, &b);
+    foo();
 }

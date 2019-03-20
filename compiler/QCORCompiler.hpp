@@ -13,7 +13,6 @@
 #ifndef COMPILER_QCORCOMPILER_HPP_
 #define COMPILER_QCORCOMPILER_HPP_
 #include "XACC.hpp"
-#include "antlr4-runtime.h"
 
 using namespace xacc;
 
@@ -51,6 +50,9 @@ public:
    */
   virtual std::shared_ptr<xacc::IR> compile(const std::string &src);
 
+  const std::shared_ptr<Function>
+  compile(std::shared_ptr<Function> f, std::shared_ptr<Accelerator> acc) override;
+  
   /**
    * Return the command line options for this compiler
    *

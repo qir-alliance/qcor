@@ -20,6 +20,19 @@ namespace compiler {
 class LambdaVisitor : public RecursiveASTVisitor<LambdaVisitor> {
 
 protected:
+  class IsQuantumKernelVisitor
+      : public RecursiveASTVisitor<IsQuantumKernelVisitor> {
+  protected:
+    ASTContext &context;
+    bool _isQuantumKernel = false;
+    std::vector<std::string> validInstructions;
+
+  public:
+    IsQuantumKernelVisitor(ASTContext &c);
+    bool VisitDeclRefExpr(DeclRefExpr *expr);
+    bool isQuantumKernel() { return _isQuantumKernel; }
+  };
+
   class CppToXACCIRVisitor : public RecursiveASTVisitor<CppToXACCIRVisitor> {
   protected:
     ASTContext &context;
