@@ -53,18 +53,6 @@ public:
   const std::shared_ptr<Function>
   compile(std::shared_ptr<Function> f, std::shared_ptr<Accelerator> acc) override;
   
-  /**
-   * Return the command line options for this compiler
-   *
-   * @return options Description of command line options.
-   */
-  virtual std::shared_ptr<options_description> getOptions() {
-    auto desc =
-        std::make_shared<options_description>("QCOR Compiler Options");
-    return desc;
-  }
-
-  virtual bool handleOptions(variables_map &map) { return false; }
 
   /**
    * We don't allow translations for the PyXACC Compiler.

@@ -14,36 +14,30 @@ clang++-9 -std=c++11 -Xclang -load -Xclang compiler/clang/libqcor-ast-plugin.so
     -Xclang -plugin-arg-enable-quantum -Xclang tnqvm
     -Xclang -plugin-arg-enable-quantum -Xclang transform
     -Xclang -plugin-arg-enable-quantum -Xclang circuit-optimizer
-    test.cpp
+    -I /root/.xacc/include/xacc -I /root/.xacc/include/cppmicroservices4
+    -I /home/project/qcor/runtime -L /home/project/qcor/build/runtime
+    -lqcor -L /root/.xacc/lib -lxacc test.cpp -o test
 
 test.cpp looks like this
 
-#include <stdio.h>
 #include "qcor.hpp"
+#include <stdio.h>
+#include <string>
 
-void foo() {
-
-  printf("hi\n");
-
-  qcor::submit([&](qcor::qpu_handler& qh){
-    qh.vqe([&](double t0){
-      X(0);
-      Ry(t0,0);
-      CX(1,0);
-    }, 1, 1);
-  });
-
- auto future = qcor::submit([&](qcor::qpu_handler& qh){
-    qh.execute([&](double t0){
-      X(2);
-      Ry(t0,1);
-      CX(1,2);
+int main() {
+  xacc::Initialize({"--accelerator", "local-ibm"});
+  auto future2 = qcor::submit([&](qcor::qpu_handler &qh) {
+    qh.execute([&]() {
+      H(0);
+      CX(0, 1);
+      Measure(0);
+      Measure(1);
     });
   });
 
-  printf("hi %d\n", future.get());
-}
+  auto results = future2.get();
 
-int main() {
-    foo();
+  results->print();
+
+  printf("\n");
 }

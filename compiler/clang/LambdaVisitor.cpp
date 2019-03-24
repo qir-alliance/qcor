@@ -4,6 +4,7 @@
 #include "XACC.hpp"
 
 #include "qcor.hpp"
+#include "clang/Basic/SourceLocation.h"
 
 using namespace clang;
 using namespace xacc;
@@ -69,6 +70,10 @@ bool LambdaVisitor::CppToXACCIRVisitor::VisitDeclRefExpr(DeclRefExpr *expr) {
 bool LambdaVisitor::CppToXACCIRVisitor::VisitIntegerLiteral(
     IntegerLiteral *literal) {
   bits.push_back(literal->getValue().getLimitedValue());
+  if (gateName == "Measure") {
+    InstructionParameter p(bits[0]);
+    parameters.push_back(p);
+  }
   return true;
 }
 
@@ -128,12 +133,58 @@ bool LambdaVisitor::VisitLambdaExpr(LambdaExpr *LE) {
 
     auto fileName = qcor::persistCompiledCircuit(function);
 
-    // write function ir to file
+    // Create the const char * QualType
+    SourceLocation sl;
+    QualType StrTy = ci.getASTContext().getConstantArrayType(
+        ci.getASTContext().adjustStringLiteralBaseType(
+            ci.getASTContext().CharTy.withConst()),
+        llvm::APInt(32, fileName.length() + 1), ArrayType::Normal, 0);
+    auto fnameSL = StringLiteral::Create(ci.getASTContext(), StringRef(fileName.c_str()),
+                                      StringLiteral::Ascii,
+                                      /*Pascal*/ false, StrTy, &sl, 1);
+
+    // Create New Return type for CallOperator
+    auto D = LE->getCallOperator()->getAsFunction();
+    FunctionProtoType::ExtProtoInfo fpi;
+    fpi.Variadic = D->isVariadic();
+    std::vector<QualType> ParamTypes;
+    llvm::ArrayRef<QualType> Args(ParamTypes);
+    QualType newFT = D->getASTContext().getFunctionType(StrTy, Args, fpi);
+    D->setType(newFT);
+
+    // Create the return statement that will return
+    // the string literal
+    auto rtrn =
+        ReturnStmt::Create(ci.getASTContext(), SourceLocation(), fnameSL, nullptr);
+    std::vector<Stmt *> svec;
+    svec.push_back(rtrn);
+    llvm::ArrayRef<Stmt *> stmts(svec);
+    auto cmp = CompoundStmt::Create(ci.getASTContext(), stmts, SourceLocation(),
+                                    SourceLocation());
+    LE->getCallOperator()->setBody(cmp);
+
+    // std::cout << "CallOperator getType().asstring(): "
+    //           << LE->getCallOperator()->getType().getAsString() << "\n";
+    // std::cout << "CallOperator getType()->dump(): ";
+    // LE->getCallOperator()->getType()->dump();
+
+    // std::cout << "CallOperator Result Type: "
+    //           << LE->getCallOperator()->getCallResultType().getAsString()
+    //           << "\n";
+    // std::cout << "CallOperator dump(): ";
+    // LE->getCallOperator()->dump();
+
+    // LE->dump();
+
+    // MY GOAL... write function ir to file
     // update LE body to
     //   [](...) {
     //       return qcor::loadCompiledCircuit(filename);
     //   }
   }
+  //   LE->getCallOperator()->getBody()
+  //   std::cout << "DUMP AGAIN\n";
+  //   LE->getBody()->dump();
   return true;
 }
 
