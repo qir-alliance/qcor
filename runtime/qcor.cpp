@@ -62,4 +62,8 @@ std::future<std::shared_ptr<AcceleratorBuffer>> submit(HandlerLambda &&totalJob)
   });
 }
 
+std::shared_ptr<Optimizer> getOptimizer(const std::string& name) {
+    return xacc::getService<qcor::Optimizer>(name);
+}
+
 } // namespace qcor

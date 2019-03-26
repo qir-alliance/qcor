@@ -3,6 +3,7 @@
 
 #include "AcceleratorBuffer.hpp"
 #include <future>
+#include "optimizer.hpp"
 
 
 namespace xacc {
@@ -30,6 +31,8 @@ std::shared_ptr<Function> loadCompiledCircuit(const std::string &fileName);
 // Submit an asynchronous job to the QPU
 using HandlerLambda = std::function<void(qpu_handler &)>;
 std::future<std::shared_ptr<AcceleratorBuffer>> submit(HandlerLambda &&);
+
+std::shared_ptr<Optimizer> getOptimizer(const std::string& name);
 
 } // namespace qcor
 

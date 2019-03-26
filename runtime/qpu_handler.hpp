@@ -1,11 +1,13 @@
 #ifndef RUNTIME_QPU_HANDLER_HPP_
 #define RUNTIME_QPU_HANDLER_HPP_
 
-#include "XACC.hpp"
 #include "qcor.hpp"
+
 #include "Function.hpp"
 #include "AcceleratorBuffer.hpp"
 #include "InstructionIterator.hpp"
+#include "XACC.hpp"
+
 #include <string>
 
 namespace qcor {
@@ -23,10 +25,15 @@ public:
   }
 
   template <typename QuantumKernel>
-  void vqe(QuantumKernel &&kernel, double observable, double optimizer) {
+  void vqe(QuantumKernel &&kernel, double observable, std::shared_ptr<Optimizer> optimizer) {
     xacc::info("[qcor] Executing vqe! :)");
+    xacc::info("[qcor] vqe running with " + optimizer->name() + " optimizer.");
 
-    
+    auto function = qcor::loadCompiledCircuit(kernel());
+
+    // Here we just need to make a lambda function
+    // to optimize that makes calls to the targeted QPU.
+
   }
 
   template <typename QuantumKernel> void execute(QuantumKernel &&kernel) {
