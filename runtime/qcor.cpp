@@ -9,6 +9,13 @@ using namespace xacc;
 
 namespace qcor {
 
+void Initialize(int argc, char** argv) {
+    xacc::Initialize(argc,argv);
+}
+void Initialize(std::vector<std::string> argv) {
+    xacc::Initialize(argv);
+}
+
 const std::string persistCompiledCircuit(std::shared_ptr<Function> function) {
       std::function<char()> randChar = []() -> char {
     const char charset[] = "0123456789"

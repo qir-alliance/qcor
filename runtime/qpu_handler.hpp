@@ -25,6 +25,8 @@ public:
   template <typename QuantumKernel>
   void vqe(QuantumKernel &&kernel, double observable, double optimizer) {
     xacc::info("[qcor] Executing vqe! :)");
+
+    
   }
 
   template <typename QuantumKernel> void execute(QuantumKernel &&kernel) {

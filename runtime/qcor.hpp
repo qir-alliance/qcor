@@ -16,7 +16,9 @@ namespace qcor {
 
 class qpu_handler;
 
-using HandlerLambda = std::function<void(qpu_handler &)>;
+
+void Initialize(int argc, char** argv);
+void Initialize(std::vector<std::string> argv);
 
 // Persist the given function to file, return
 // the file name
@@ -26,6 +28,7 @@ const std::string persistCompiledCircuit(std::shared_ptr<Function> function);
 std::shared_ptr<Function> loadCompiledCircuit(const std::string &fileName);
 
 // Submit an asynchronous job to the QPU
+using HandlerLambda = std::function<void(qpu_handler &)>;
 std::future<std::shared_ptr<AcceleratorBuffer>> submit(HandlerLambda &&);
 
 } // namespace qcor
