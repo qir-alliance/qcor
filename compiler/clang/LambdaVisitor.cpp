@@ -1,5 +1,4 @@
 #include "LambdaVisitor.hpp"
-#include "/home/project/qcor/runtime/qcor.hpp"
 #include "IRProvider.hpp"
 #include "XACC.hpp"
 
@@ -163,28 +162,8 @@ bool LambdaVisitor::VisitLambdaExpr(LambdaExpr *LE) {
                                     SourceLocation());
     LE->getCallOperator()->setBody(cmp);
 
-    // std::cout << "CallOperator getType().asstring(): "
-    //           << LE->getCallOperator()->getType().getAsString() << "\n";
-    // std::cout << "CallOperator getType()->dump(): ";
-    // LE->getCallOperator()->getType()->dump();
 
-    // std::cout << "CallOperator Result Type: "
-    //           << LE->getCallOperator()->getCallResultType().getAsString()
-    //           << "\n";
-    // std::cout << "CallOperator dump(): ";
-    // LE->getCallOperator()->dump();
-
-    // LE->dump();
-
-    // MY GOAL... write function ir to file
-    // update LE body to
-    //   [](...) {
-    //       return qcor::loadCompiledCircuit(filename);
-    //   }
   }
-  //   LE->getCallOperator()->getBody()
-  //   std::cout << "DUMP AGAIN\n";
-  //   LE->getBody()->dump();
   return true;
 }
 
