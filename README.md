@@ -35,3 +35,5 @@ $ cmake .. -DXACC_DIR=~/.xacc (or wherever you installed XACC)
 $ make install
 ```
 
+To target IBM, Rigetti, or TNQVM, please also build the
+corresponding XACC plugins. See https://xacc.readthedocs.io/en/latest/plugins.html.
