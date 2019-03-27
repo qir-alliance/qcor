@@ -3,6 +3,7 @@ import argparse
 import sys
 import subprocess
 
+
 def parse_args(args):
     parser = argparse.ArgumentParser(description="QCOR Quantum-Classical C++ Compiler.",
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -26,7 +27,7 @@ def parse_args(args):
 def main(argv=None):
     opts = parse_args(sys.argv[1:])
 
-    command = ["@CLANG_COMPILER@", '-std=c++11', '-Xclang', '-load', '-Xclang', '@CMAKE_INSTALL_PREFIX@/lib/libqcor-ast-plugin.so',
+    command = ["@CLANG_COMPILER@", '-std=c++11', '-Wl,-rpath,@CMAKE_INSTALL_PREFIX@/lib', '-Xclang', '-load', '-Xclang', '@CMAKE_INSTALL_PREFIX@/lib/libqcor-ast-plugin.so',
                '-Xclang', '-add-plugin', '-Xclang', 'enable-quantum']
     if opts.accelerator:
         command += ['-plugin-arg-enable-quantum', '-Xclang', 'accelerator', '-Xclang',

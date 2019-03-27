@@ -19,7 +19,7 @@ target_include_directories(
   ${LIBRARY_NAME}
   PUBLIC . .. ${CMAKE_BUILD_DIR}/runtime/nlopt-optimizers/nlopt/src/api)
 
-target_link_libraries(${LIBRARY_NAME} PUBLIC nlopt)
+target_link_libraries(${LIBRARY_NAME} PUBLIC nlopt CppMicroServices)
 
 set(_bundle_name qcor_runtime_nlopt)
 set_target_properties(${LIBRARY_NAME}

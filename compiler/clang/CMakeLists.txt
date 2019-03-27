@@ -15,5 +15,11 @@ target_include_directories(${LIBRARY_NAME}
                                   ${XACC_INCLUDE_ROOT}/cppmicroservices4)
 target_link_libraries(${LIBRARY_NAME}
                       PUBLIC ${CLANG_LIBS} ${XACC_LIBRARIES} qcor)
-
+if(APPLE)
+   set_target_properties(${LIBRARY_NAME} PROPERTIES INSTALL_RPATH "@loader_path")
+   set_target_properties(${LIBRARY_NAME} PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
+else()
+   set_target_properties(${LIBRARY_NAME} PROPERTIES INSTALL_RPATH "$ORIGIN")
+   set_target_properties(${LIBRARY_NAME} PROPERTIES LINK_FLAGS "-shared")
+endif()
 install(TARGETS ${LIBRARY_NAME} DESTINATION lib)
