@@ -15,3 +15,5 @@ target_include_directories(${LIBRARY_NAME}
                                   ${XACC_INCLUDE_ROOT}/cppmicroservices4)
 target_link_libraries(${LIBRARY_NAME}
                       PUBLIC ${CLANG_LIBS} ${XACC_LIBRARIES} qcor)
+
+install(TARGETS ${LIBRARY_NAME} DESTINATION lib)

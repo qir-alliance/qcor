@@ -4,6 +4,7 @@
 #include "AcceleratorBuffer.hpp"
 #include "IRProvider.hpp"
 #include "XACC.hpp"
+#include <regex>
 
 using namespace xacc;
 
@@ -31,25 +32,21 @@ const std::string persistCompiledCircuit(std::shared_ptr<Function> function) {
     return str;
   };
 
-
-
-  return generateRandomString();
+  auto file_name = generateRandomString();
+  auto persistedFunction = xacc::getCompiler("xacc-py")->translate("", function);
+  persistedFunction = persistedFunction.substr(7,persistedFunction.length());
+  xacc::appendCache(file_name, "compiled", InstructionParameter(persistedFunction), ".qcor_cache");
+  return file_name;
 }
 
 std::shared_ptr<Function> loadCompiledCircuit(const std::string& fileName) {
-  auto provider = xacc::getService<IRProvider>("gate");
-  auto function = provider->createFunction("tmp", {});
-  auto h = provider->createInstruction("H", {0});
-  auto cx = provider->createInstruction("CNOT", {0,1});
-  auto m1 = provider->createInstruction("Measure", {0}, {InstructionParameter(0)});
-  auto m2 = provider->createInstruction("Measure", {1}, {InstructionParameter(1)});
+  auto cache = xacc::getCache(fileName, ".qcor_cache");
+  if (!cache.count("compiled")) {
+    xacc::error("Invalid quantum compilation cache.");
+  }
 
-  function->addInstruction(h);
-  function->addInstruction(cx);
-  function->addInstruction(m1);
-  function->addInstruction(m2);
-
-  return function;
+  auto compiled = cache["compiled"].as<std::string>();
+  return xacc::getCompiler("xacc-py")->compile(compiled)->getKernels()[0];
 }
 
 std::future<std::shared_ptr<AcceleratorBuffer>> submit(HandlerLambda &&totalJob) {

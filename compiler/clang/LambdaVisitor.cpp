@@ -111,14 +111,14 @@ bool LambdaVisitor::VisitLambdaExpr(LambdaExpr *LE) {
   if (isqk.isQuantumKernel()) {
 
     // For debugging for now
-    std::cout << "\n\n";
-    q_kernel_body->dump();
+    // std::cout << "\n\n";
+    // q_kernel_body->dump();
 
     CppToXACCIRVisitor visitor(ci.getASTContext());
     visitor.TraverseStmt(LE->getBody());
 
     auto function = visitor.getFunction();
-    std::cout << "\n\nXACC IR:\n" << function->toString() << "\n";
+    // std::cout << "\n\nXACC IR:\n" << function->toString() << "\n";
 
     // Kick off quantum compilation
     auto qcor = xacc::getCompiler("qcor");

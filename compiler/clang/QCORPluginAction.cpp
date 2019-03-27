@@ -19,9 +19,9 @@ bool QCORPluginAction::ParseArgs(const CompilerInstance &ci,
 
     xacc::Initialize(local);
   }
-  for (auto a : args) {
-    xacc::info("qcor argument: " + a);
-  }
+//   for (auto a : args) {
+//     xacc::info("qcor argument: " + a);
+//   }
 
   auto it = std::find(args.begin(), args.end(), "accelerator");
   if (it != args.end()) {

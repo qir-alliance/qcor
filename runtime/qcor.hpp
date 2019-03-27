@@ -1,10 +1,11 @@
 #ifndef RUNTIME_QCOR_HPP_
 #define RUNTIME_QCOR_HPP_
 
-#include "AcceleratorBuffer.hpp"
 #include <future>
 #include "optimizer.hpp"
 
+#include "PauliOperator.hpp"
+using namespace xacc::quantum;
 
 namespace xacc {
 class Function;

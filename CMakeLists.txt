@@ -20,6 +20,7 @@ include(CTest)
 
 find_package(Clang 9.0.0 REQUIRED)
 find_package(XACC REQUIRED)
+set(CLANG_COMPILER /usr/bin/clang++-9)
 
 if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
     set (CMAKE_INSTALL_PREFIX "${XACC_ROOT}" CACHE PATH "default install path" FORCE )
@@ -35,7 +36,8 @@ include_directories(${XACC_INCLUDE_DIRS})
 
 link_directories(${XACC_LIBRARY_DIR})
 
-#message(STATUS "${CLANG_INCLUDE_DIRS}")
+configure_file(${CMAKE_SOURCE_DIR}/scripts/qcor.in
+               ${CMAKE_BINARY_DIR}/qcor)
 
 macro(qcor_enable_rpath LIBNAME)
   if(APPLE)
@@ -51,3 +53,5 @@ endmacro()
 add_subdirectory(runtime)
 add_subdirectory(compiler)
 add_subdirectory(instructions)
+
+install(PROGRAMS ${CMAKE_BINARY_DIR}/qcor DESTINATION bin)
