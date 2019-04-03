@@ -29,7 +29,6 @@ endif()
 set(CppMicroServicesConfig_DIR "${XACC_ROOT}/share/cppmicroservices4/cmake")
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${XACC_ROOT}/share/xacc")
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CppMicroServicesConfig_DIR}")
-include(tests)
 include(CppMicroServicesConfig)
 
 include_directories(${XACC_INCLUDE_DIRS})

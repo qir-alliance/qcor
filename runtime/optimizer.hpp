@@ -27,9 +27,13 @@ public:
 };
 
 class Optimizer : public xacc::Identifiable {
+protected:
+  std::map<std::string, xacc::InstructionParameter> options;
 public:
-  virtual OptResult optimize(OptFunction &function,
-                             OptimizerOptions options = OptimizerOptions{}) = 0;
+  virtual OptResult optimize(OptFunction &function) = 0;
+  void setOptions(const std::map<std::string, xacc::InstructionParameter>& opts) {
+      options = opts;
+  }
 };
 } // namespace qcor
 #endif

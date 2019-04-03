@@ -5,8 +5,7 @@
 #include <iostream>
 
 namespace qcor {
-OptResult NLOptimizer::optimize(OptFunction &function,
-                                OptimizerOptions options) {
+OptResult NLOptimizer::optimize(OptFunction &function) {
 
   auto dim = function.dimensions();
   nlopt::algorithm algo = nlopt::algorithm::LN_COBYLA;

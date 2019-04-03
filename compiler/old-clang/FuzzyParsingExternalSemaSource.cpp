@@ -3,7 +3,6 @@
 #include "IRProvider.hpp"
 #include "XACC.hpp"
 #include "IRGenerator.hpp"
-#include "xacc_service.hpp"
 
 using namespace clang;
 

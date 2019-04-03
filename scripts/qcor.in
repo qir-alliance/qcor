@@ -18,6 +18,8 @@ def parse_args(args):
                         help="Name of output binary", required=False)
     parser.add_argument("-v", '--verbose', action='store_true',
                         help="Print verbose compiler output.", required=False)
+    parser.add_argument("--keep-tmp-src", action='store_true',
+                        help="Keep qcor generated hidden source file.", required=False)
 
     opts = parser.parse_args(args)
 
@@ -27,23 +29,28 @@ def parse_args(args):
 def main(argv=None):
     opts = parse_args(sys.argv[1:])
 
-    command = ["@CLANG_COMPILER@", '-std=c++11', '-Wl,-rpath,@CMAKE_INSTALL_PREFIX@/lib', '-Xclang', '-load', '-Xclang', '@CMAKE_INSTALL_PREFIX@/lib/libqcor-ast-plugin.so',
-               '-Xclang', '-add-plugin', '-Xclang', 'enable-quantum']
-    if opts.accelerator:
-        command += ['-plugin-arg-enable-quantum', '-Xclang', 'accelerator', '-Xclang',
-                    '-plugin-arg-enable-quantum', '-Xclang', opts.accelerator]
+    command = ["qcor-driver"]
+    includes = []
+    if opts.include:
+        for include in opts.include:
+            includes.append('-I'+include)
 
-    command += ['-I', '@CMAKE_INSTALL_PREFIX@/include/xacc', '-I', '@CMAKE_INSTALL_PREFIX@/include/quantum/gate',
+    command += includes
+
+    if opts.accelerator:
+        command += ['--accelerator', opts.accelerator]
+
+
+    baseIncludes = ['-I', '@CMAKE_INSTALL_PREFIX@/include/xacc', '-I', '@CMAKE_INSTALL_PREFIX@/include/quantum/gate',
                 '-I', '@CMAKE_INSTALL_PREFIX@/include/cppmicroservices4', '-I', '@CMAKE_INSTALL_PREFIX@/include/qcor']
-    command += ['-L', '@CMAKE_INSTALL_PREFIX@/lib', '-lxacc',
-                '-lqcor', '-lCppMicroServices', '-lxacc-quantum-gate']
+    baseLibs = ['-L', '@CMAKE_INSTALL_PREFIX@/lib', '-lxacc',
+                '-lqcor', '-lCppMicroServices', '-lxacc-quantum-gate', '-lxacc-pauli']
 
     command += [opts.file]
-    if opts.output:
-        command += ['-o', opts.output]
     if opts.verbose:
         command += ['-v']
 
+    print(command)
     try:
         result = subprocess.run(command, check=True)
     except subprocess.CalledProcessError as e:
@@ -51,6 +58,26 @@ def main(argv=None):
         print(e.returncode)
         return e.returncode
 
+    command.clear()
+
+    command = ['@CLANG_COMPILER@', '-std=c++11', '-Wl,-rpath,@CMAKE_INSTALL_PREFIX@/lib']
+    command += includes + baseIncludes + baseLibs
+    command += ['.' + opts.file.replace('.','_out.')]
+
+    if opts.output:
+        command += ['-o', opts.output]
+
+    print('Final command', command)
+    try:
+        result = subprocess.run(command, check=True)
+    except subprocess.CalledProcessError as e:
+        print(e.output)
+        print(e.returncode)
+        return e.returncode
+
+    if opts.keep_tmp_src == None:
+        os.remove('.'+opts.file.replace('.','_out.'))
+    
     return 0
 
 

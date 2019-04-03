@@ -35,8 +35,7 @@ using OptimizerOptions = std::map<std::string, xacc::InstructionParameter>;
 
 class NLOptimizer : public Optimizer {
 public:
-  OptResult optimize(OptFunction &function,
-                             OptimizerOptions options = OptimizerOptions{}) override;
+  OptResult optimize(OptFunction &function) override;
 
   const std::string name() const override {
       return "nlopt";

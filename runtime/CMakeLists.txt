@@ -15,7 +15,7 @@ file(GLOB SRC *.cpp)
 
 add_library(${LIBRARY_NAME} SHARED ${SRC})
 
-target_include_directories(${LIBRARY_NAME} PUBLIC . ${XACC_INCLUDE_DIRS})
+target_include_directories(${LIBRARY_NAME} PUBLIC . algorithm ${XACC_INCLUDE_DIRS})
 
 target_link_libraries(${LIBRARY_NAME} PUBLIC xacc)
 
@@ -35,4 +35,5 @@ file(GLOB HEADERS *.hpp)
 install(FILES ${HEADERS} DESTINATION include/qcor)
 install(TARGETS ${LIBRARY_NAME} DESTINATION lib)
 
+add_subdirectory(algorithms)
 add_subdirectory(nlopt-optimizers)

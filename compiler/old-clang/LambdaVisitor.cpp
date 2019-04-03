@@ -2,7 +2,6 @@
 #include "IRGenerator.hpp"
 #include "IRProvider.hpp"
 #include "XACC.hpp"
-#include "xacc_service.hpp"
 
 #include "qcor.hpp"
 #include "clang/AST/Decl.h"
@@ -131,7 +130,7 @@ std::shared_ptr<Function> LambdaVisitor::CppToXACCIRVisitor::getFunction() {
   }
   return function;
 }
-LambdaVisitor::LambdaVisitor(CompilerInstance &c, Rewriter& rw) : ci(c), rewriter(rw) {}
+LambdaVisitor::LambdaVisitor(CompilerInstance &c) : ci(c) {}
 
 bool LambdaVisitor::VisitLambdaExpr(LambdaExpr *LE) {
 
@@ -146,11 +145,15 @@ bool LambdaVisitor::VisitLambdaExpr(LambdaExpr *LE) {
   // If it is, then map it to XACC IR
   if (isqk.isQuantumKernel()) {
 
+    // For debugging for now
+    // std::cout << "\n\n";
+    // q_kernel_body->dump();
+
     CppToXACCIRVisitor visitor(ci.getASTContext());
     visitor.TraverseStmt(LE);
 
     auto function = visitor.getFunction();
-    // std::cout << "\n\nXACC IR:\n" << function->toString() << "\n";
+    std::cout << "\n\nXACC IR:\n" << function->toString() << "\n";
 
     // Kick off quantum compilation
     auto qcor = xacc::getCompiler("qcor");
@@ -164,12 +167,7 @@ bool LambdaVisitor::VisitLambdaExpr(LambdaExpr *LE) {
 
     auto fileName = qcor::persistCompiledCircuit(function, targetAccelerator);
 
-    auto sr = LE->getSourceRange();
-
-    rewriter.ReplaceText(sr, "[&](){return \"" + fileName + "\";}");
-
-    // Here we update the AST Node to change the
-    // function prototype to string ()
+    // Create the const char * QualType
     SourceLocation sl;
     QualType StrTy = ci.getASTContext().getConstantArrayType(
         ci.getASTContext().adjustStringLiteralBaseType(
@@ -177,7 +175,8 @@ bool LambdaVisitor::VisitLambdaExpr(LambdaExpr *LE) {
         llvm::APInt(32, fileName.length() + 1), ArrayType::Normal, 0);
     auto fnameSL =
         StringLiteral::Create(ci.getASTContext(), StringRef(fileName.c_str()),
-                    StringLiteral::Ascii, false, StrTy, &sl, 1);
+                              StringLiteral::Ascii, false, StrTy, &sl, 1);
+
     // Create New Return type for CallOperator
     std::vector<QualType> ParamTypes;
     auto D = LE->getCallOperator()->getAsFunction();
@@ -187,7 +186,49 @@ bool LambdaVisitor::VisitLambdaExpr(LambdaExpr *LE) {
     QualType newFT = D->getASTContext().getFunctionType(StrTy, Args, fpi);
     D->setType(newFT);
 
+    /*
+       Here we need to create instructions that add capture variables
+       to a runtime parameter map, so that when this lambda is called,
+       any runtime valued variables are added to the map and available
+       on the qcor runtime side.
+    */
+
     std::vector<Stmt *> svec;
+
+    auto cb = LE->implicit_capture_begin();
+    auto ce = LE->implicit_capture_end();
+    for (auto it = cb; it != ce; ++it) {
+
+      it->getCapturedVar()->dump();
+      auto e = it->getCapturedVar()->getInit();
+      auto value = dyn_cast<IntegerLiteral>(e);
+      if (value) {
+        std::cout << "THIS VALUE IS KNOWN AT COMPILE TIME: "
+                  << (int)value->getValue().signedRoundToDouble()
+                  << "\n"; // getAsString(ci.getASTContext(),
+                           // it->getCapturedVar()->getType()) << "\n";
+      }
+      auto varName = it->getCapturedVar()->getNameAsString();
+      auto varType =
+          it->getCapturedVar()->getType().getCanonicalType().getAsString();
+      std::cout << "TYPE: " << varType << "\n";
+      auto action = new ASTGeneratorAction();
+      std::vector<std::string> args{"-std=c++11"};
+      auto src = "#include <fstream>\nint main() {\n" + varType + " " +
+                 varName +
+                 ";\nauto l = [&]() {\n"
+                 "std::ofstream os;\nos.open(\"out.txt\");\nos << \"" +
+                 varName + ":\" << " + varName +
+                 " << \"\\n\";\nos.close();\n};\nreturn 0;\n}";
+      std::cout << "SRC:\n" << src << "\n";
+      auto ast = tooling::buildASTFromCodeWithArgs(src, args);
+      auto tl = ast->getASTContext().getTranslationUnitDecl();
+      CallExprCloner cev;
+      cev.TraverseDecl(tl);
+
+      svec.push_back(cev.cloned->getCallOperator()->getAsFunction()->getBody());
+    }
+
     // Create the return statement that will return
     // the string literal file name
     auto rtrn = ReturnStmt::Create(ci.getASTContext(), SourceLocation(),
@@ -199,6 +240,8 @@ bool LambdaVisitor::VisitLambdaExpr(LambdaExpr *LE) {
     auto cmp = CompoundStmt::Create(ci.getASTContext(), stmts, SourceLocation(),
                                     SourceLocation());
     LE->getCallOperator()->setBody(cmp);
+    LE->getCallOperator()->dump();
+    exit(0);
   }
   return true;
 }
@@ -207,66 +250,6 @@ bool LambdaVisitor::VisitLambdaExpr(LambdaExpr *LE) {
 } // namespace qcor
   //  LE->getType().dump();
 
-
-    // Create the const char * QualType
-    // SourceLocation sl;
-    // QualType StrTy = ci.getASTContext().getConstantArrayType(
-    //     ci.getASTContext().adjustStringLiteralBaseType(
-    //         ci.getASTContext().CharTy.withConst()),
-    //     llvm::APInt(32, fileName.length() + 1), ArrayType::Normal, 0);
-    // auto fnameSL =
-    //     StringLiteral::Create(ci.getASTContext(), StringRef(fileName.c_str()),
-    //                           StringLiteral::Ascii, false, StrTy, &sl, 1);
-
-    // // // Create New Return type for CallOperator
-    // std::vector<QualType> ParamTypes;
-    // auto D = LE->getCallOperator()->getAsFunction();
-    // FunctionProtoType::ExtProtoInfo fpi;
-    // fpi.Variadic = D->isVariadic();
-    // llvm::ArrayRef<QualType> Args(ParamTypes);
-    // QualType newFT = D->getASTContext().getFunctionType(StrTy, Args, fpi);
-    // D->setType(newFT);
-
-    // /*
-    //    Here we need to create instructions that add capture variables
-    //    to a runtime parameter map, so that when this lambda is called,
-    //    any runtime valued variables are added to the map and available
-    //    on the qcor runtime side.
-    // */
-
-    // std::vector<Stmt *> svec;
-
-    // auto cb = LE->implicit_capture_begin();
-    // auto ce = LE->implicit_capture_end();
-    // for (auto it = cb; it != ce; ++it) {
-
-    //   it->getCapturedVar()->dump();
-    //   auto e = it->getCapturedVar()->getInit();
-    //   auto value = dyn_cast<IntegerLiteral>(e);
-    //   if (value) {
-    //     std::cout << "THIS VALUE IS KNOWN AT COMPILE TIME: "
-    //               << (int)value->getValue().signedRoundToDouble()
-    //               << "\n"; // getAsString(ci.getASTContext(),
-    //                        // it->getCapturedVar()->getType()) << "\n";
-    //   }
-    //   auto varName = it->getCapturedVar()->getNameAsString();
-    //   auto varType =
-    //       it->getCapturedVar()->getType().getCanonicalType().getAsString();
-    //   std::cout << "TYPE: " << varType << "\n";
-    // }
-
-    // Create the return statement that will return
-    // the string literal file name
-    // auto rtrn = ReturnStmt::Create(ci.getASTContext(), SourceLocation(),
-    //                                fnameSL, nullptr);
-
-    // svec.push_back(rtrn);
-
-    // llvm::ArrayRef<Stmt *> stmts(svec);
-    // auto cmp = CompoundStmt::Create(ci.getASTContext(), stmts, SourceLocation(),
-    //                                 SourceLocation());
-    // LE->getCallOperator()->setBody(cmp);
-    // LE->getCallOperator()->dump();
 // create empty statement, does nothing
 // Stmt *tmp = (Stmt *)new (ci.getASTContext()) NullStmt(nopos);
 // std::vector<Stmt *> stmts;

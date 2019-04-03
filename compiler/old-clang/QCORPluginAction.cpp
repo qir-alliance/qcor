@@ -48,9 +48,9 @@ bool QCORPluginAction::ParseArgs(const CompilerInstance &ci,
   return true;
 }
 
-// PluginASTAction::ActionType QCORPluginAction::getActionType() {
-//   return PluginASTAction::AddBeforeMainAction;
-// }
+PluginASTAction::ActionType QCORPluginAction::getActionType() {
+  return PluginASTAction::AddBeforeMainAction;
+}
 } // namespace compiler
 } // namespace qcor
 

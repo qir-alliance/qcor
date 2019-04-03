@@ -16,7 +16,7 @@ protected:
                                                  llvm::StringRef) override;
   bool ParseArgs(const CompilerInstance &CI,
                  const std::vector<std::string> &args) override;
-//   PluginASTAction::ActionType getActionType() override;
+  PluginASTAction::ActionType getActionType() override;
 };
 } // namespace compiler
 } // namespace qcor

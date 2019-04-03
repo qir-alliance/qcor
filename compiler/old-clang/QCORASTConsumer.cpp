@@ -5,17 +5,18 @@ using namespace clang;
 
 namespace qcor {
 namespace compiler {
-QCORASTConsumer::QCORASTConsumer(CompilerInstance &c, Rewriter& rw)
+QCORASTConsumer::QCORASTConsumer(CompilerInstance &c)
     : ci(c), fuzzyParser(std::make_shared<FuzzyParsingExternalSemaSource>(
-                 c.getASTContext())), rewriter(rw) {}
+                 c.getASTContext())){}
 
 bool QCORASTConsumer::HandleTopLevelDecl(DeclGroupRef DR) {
-
-  LambdaVisitor visitor(ci, rewriter);
+  LambdaVisitor visitor(ci);
   ci.getSema().addExternalSource(fuzzyParser.get());
   for (DeclGroupRef::iterator b = DR.begin(), e = DR.end(); b != e; ++b) {
+    //   (*b)->dump();
     visitor.TraverseDecl(*b);
   }
+
 
   return true;
 }

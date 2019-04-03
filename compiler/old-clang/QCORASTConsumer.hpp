@@ -2,7 +2,6 @@
 #define COMPILER_QCORASTCONSUMER_HPP_
 
 #include "clang/AST/ASTConsumer.h"
-#include "clang/Rewrite/Core/Rewriter.h"
 
 #include "FuzzyParsingExternalSemaSource.hpp"
 
@@ -15,14 +14,13 @@ namespace qcor {
 namespace compiler {
 class QCORASTConsumer : public ASTConsumer {
 public:
-  QCORASTConsumer(CompilerInstance &c, Rewriter& rw);
+  QCORASTConsumer(CompilerInstance &c);
 
   bool HandleTopLevelDecl(DeclGroupRef DR) override;
 
 private:
   CompilerInstance &ci;
   std::shared_ptr<FuzzyParsingExternalSemaSource> fuzzyParser;
-  Rewriter& rewriter;
 };
 } // namespace compiler
 } // namespace qcor

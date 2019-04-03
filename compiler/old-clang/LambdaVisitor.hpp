@@ -8,7 +8,6 @@
 #include "clang/Frontend/FrontendAction.h"
 #include "clang/Parse/ParseAST.h"
 #include "clang/Tooling/Tooling.h"
-#include "clang/Rewrite/Core/Rewriter.h"
 
 #include "QCORASTConsumer.hpp"
 
@@ -22,6 +21,32 @@ class IRProvider;
 }
 namespace qcor {
 namespace compiler {
+
+class CallExprCloner : public RecursiveASTVisitor<CallExprCloner> {
+public:
+  LambdaExpr *cloned;
+  bool VisitLambdaExpr(LambdaExpr *Node) {
+      cloned = Node;
+    return true;
+  }
+};
+
+class ASTGeneratorAction : public clang::ASTFrontendAction {
+
+protected:
+  std::unique_ptr<clang::ASTConsumer>
+  CreateASTConsumer(clang::CompilerInstance &Compiler,
+                    llvm::StringRef /* dummy */) override {
+    return llvm::make_unique<compiler::QCORASTConsumer>(Compiler);
+  }
+
+  void ExecuteAction() override {
+    CompilerInstance &CI = getCompilerInstance();
+    CI.createSema(getTranslationUnitKind(), nullptr);
+    ParseAST(CI.getSema());
+  }
+
+};
 
 class LambdaVisitor : public RecursiveASTVisitor<LambdaVisitor> {
 
@@ -62,14 +87,12 @@ protected:
   };
 
 public:
-  LambdaVisitor(CompilerInstance &c, Rewriter& rw);
+  LambdaVisitor(CompilerInstance &c);
 
   bool VisitLambdaExpr(LambdaExpr *LE);
 
 private:
   CompilerInstance &ci;
-  Rewriter& rewriter;
-
 };
 } // namespace compiler
 } // namespace qcor

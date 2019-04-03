@@ -1,15 +1,14 @@
 #include "qcor.hpp"
 
-int main() {
+int main(int argc, char **argv) {
 
-  qcor::Initialize({"--accelerator", "tnqvm"});
+  qcor::Initialize(argc, argv);
 
-  auto optimizer = qcor::getOptimizer("nlopt");
+  auto optimizer = qcor::getOptimizer(
+      "nlopt", {{"nlopt-optimizer", "cobyla"}, {"nlopt-maxeval", 20}});
 
-  const std::string deuteronH2 =
-      R"deuteronH2((5.907,0) + (-2.1433,0) X0 X1 + (-2.1433,0) Y0 Y1 + (.21829,0) Z0 + (-6.125,0) Z1)deuteronH2";
-  PauliOperator op;
-  op.fromString(deuteronH2);
+  auto op = qcor::getObservable(
+      "pauli", "5.907 - 2.1433 X0X1 - 2.1433 Y0Y1 + .21829 Z0 - 6.125 Z1");
 
   auto future = qcor::submit([&](qcor::qpu_handler &qh) {
     qh.vqe(
@@ -22,6 +21,5 @@ int main() {
   });
 
   auto results = future.get();
-  results->print();
+  //   results->print();
 }
-

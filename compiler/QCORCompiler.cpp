@@ -17,7 +17,7 @@ const std::shared_ptr<Function>
 QCORCompiler::compile(std::shared_ptr<Function> f, std::shared_ptr<Accelerator> acc) {
 
    if (acc) {
-       xacc::info("[qcor] Compiling for " + acc->name());
+    //    xacc::info("[qcor] Compiling for " + acc->name());
    }
 
    // Hardware Independent Transformation
@@ -27,7 +27,7 @@ QCORCompiler::compile(std::shared_ptr<Function> f, std::shared_ptr<Accelerator> 
    if (acc) {
 
    }
-   
+
    // Program Verification???
 
    return f;
