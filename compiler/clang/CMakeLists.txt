@@ -29,6 +29,6 @@ endif()
 
 configure_file(qcor-driver.in.cpp
                ${CMAKE_BINARY_DIR}/compiler/clang/qcor-driver.cpp)
-add_executable(qcor-driver ${CMAKE_BINARY_DIR}/qcor-driver.cpp)
+add_executable(qcor-driver ${CMAKE_BINARY_DIR}/compiler/clang/qcor-driver.cpp)
 target_link_libraries(qcor-driver PRIVATE qcor-ast-plugin qcor xacc)
 install(PROGRAMS ${CMAKE_BINARY_DIR}/compiler/clang/qcor-driver DESTINATION bin)

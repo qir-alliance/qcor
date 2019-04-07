@@ -10,6 +10,7 @@
 #include "clang/Basic/SourceLocation.h"
 #include "clang/Sema/Sema.h"
 #include "clang/Tooling/Tooling.h"
+#include <memory>
 
 using namespace clang;
 using namespace xacc;
@@ -30,17 +31,22 @@ LambdaVisitor::IsQuantumKernelVisitor::IsQuantumKernelVisitor(ASTContext &c)
 
 bool LambdaVisitor::IsQuantumKernelVisitor::VisitDeclRefExpr(
     DeclRefExpr *expr) {
-  if (expr->getType() == context.DependentTy) {
+  if (expr->getType() == context.DependentTy && !foundSubLambda) {
     auto gateName = expr->getNameInfo().getAsString();
     if (std::find(validInstructions.begin(), validInstructions.end(),
                   gateName) != validInstructions.end()) {
       _isQuantumKernel = true;
     }
   }
+  return true;
 }
 
-LambdaVisitor::CppToXACCIRVisitor::CppToXACCIRVisitor(ASTContext &c)
-    : context(c) {
+bool LambdaVisitor::IsQuantumKernelVisitor::VisitLambdaExpr(LambdaExpr *expr) {
+  foundSubLambda = true;
+  return true;
+}
+
+LambdaVisitor::CppToXACCIRVisitor::CppToXACCIRVisitor() {
   provider = xacc::getService<IRProvider>("gate");
   function = provider->createFunction("tmp", {});
 
@@ -50,88 +56,128 @@ LambdaVisitor::CppToXACCIRVisitor::CppToXACCIRVisitor(ASTContext &c)
   }
 }
 
-bool LambdaVisitor::CppToXACCIRVisitor::VisitCallExpr(CallExpr *expr) {
-  if (gateName != "") {
-    // create the gate instruction
-    if (gateName == "CX") {
-      gateName = "CNOT";
-    }
-
-    if (std::find(irGeneratorNames.begin(), irGeneratorNames.end(), gateName) !=
-        irGeneratorNames.end()) {
-      std::cout << "This is an IR Generator\n";
-      auto irg = xacc::getService<IRGenerator>(gateName);
-      function->addInstruction(irg);
-
-    } else {
-      auto inst = provider->createInstruction(gateName, bits, parameters);
-      function->addInstruction(inst);
-    }
-  }
-  gateName = "";
-  bits.clear();
-  parameters.clear();
-  return true;
-}
-
-bool LambdaVisitor::CppToXACCIRVisitor::VisitDeclRefExpr(DeclRefExpr *expr) {
-
-  if (expr->getType() == context.DependentTy) {
-    gateName = expr->getNameInfo().getAsString();
-
-    //  std::cout << "VISITING " << gateName << ", " <<
-    //  expr->getType().getAsString() << "\n";
-  } else if (expr->getType() == context.DoubleTy) {
-    InstructionParameter p(expr->getNameInfo().getAsString());
-    parameters.push_back(p);
-  }
-
-  return true;
-}
-bool LambdaVisitor::CppToXACCIRVisitor::VisitParmVarDecl(ParmVarDecl *decl) {
-  //   std::cout << "FOUND PARM VAR DECL, " << decl->getNameAsString() << "\n";
-  parameters.push_back(InstructionParameter(decl->getNameAsString()));
-  return true;
-}
-
-bool LambdaVisitor::CppToXACCIRVisitor::VisitIntegerLiteral(
-    IntegerLiteral *literal) {
-  bits.push_back(literal->getValue().getLimitedValue());
-  if (gateName == "Measure") {
+bool LambdaVisitor::CallExprToGateInstructionVisitor::VisitIntegerLiteral(
+    IntegerLiteral *il) {
+  bits.push_back(il->getValue().getLimitedValue());
+  if (name == "Measure") {
     InstructionParameter p(bits[0]);
     parameters.push_back(p);
   }
   return true;
 }
 
-bool LambdaVisitor::CppToXACCIRVisitor::VisitFloatingLiteral(
+bool LambdaVisitor::CallExprToGateInstructionVisitor::VisitFloatingLiteral(
     FloatingLiteral *literal) {
   InstructionParameter p(literal->getValue().convertToDouble());
   parameters.push_back(p);
   return true;
 }
 
-std::shared_ptr<Function> LambdaVisitor::CppToXACCIRVisitor::getFunction() {
-  // add the last one
-  if (gateName != "") {
-    // create the gate instruction
-    if (gateName == "CX") {
-      gateName = "CNOT";
-    }
-
-    if (std::find(irGeneratorNames.begin(), irGeneratorNames.end(), gateName) !=
-        irGeneratorNames.end()) {
-      std::cout << "This is an IR Generator " << gateName << "\n";
-      auto irg = xacc::getService<IRGenerator>(gateName);
-      function->addInstruction(irg);
-    } else {
-      auto inst = provider->createInstruction(gateName, bits, parameters);
-      function->addInstruction(inst);
-    }
+bool LambdaVisitor::CallExprToGateInstructionVisitor::VisitDeclRefExpr(
+    DeclRefExpr *decl) {
+  if (dyn_cast<ParmVarDecl>(decl->getDecl())) {
+    parameters.push_back(
+        InstructionParameter(decl->getNameInfo().getAsString()));
   }
+  return true;
+}
+
+std::shared_ptr<Instruction>
+LambdaVisitor::CallExprToGateInstructionVisitor::getInstruction() {
+  return provider->createInstruction(name, bits, parameters);
+}
+
+bool LambdaVisitor::CallExprToIRGenerator::VisitInitListExpr(
+    InitListExpr *expr) {
+  if (haveSeenFirstInit) {
+    ScanInitListExpr visitor;
+    visitor.TraverseStmt(expr);
+    options.insert({visitor.key, visitor.value});
+    std::cout << "Inserting " << visitor.key << ", " << visitor.value.toString()
+              << "\n";
+  } else {
+    haveSeenFirstInit = true;
+  }
+  return true;
+}
+std::shared_ptr<IRGenerator>
+LambdaVisitor::CallExprToIRGenerator::getIRGenerator() {
+  auto irg = xacc::getService<IRGenerator>(name);
+  for (auto &kv : options) {
+    irg->setOption(kv.first, kv.second);
+  }
+  return irg;
+}
+
+bool LambdaVisitor::ScanInitListExpr::VisitDeclRefExpr(DeclRefExpr *expr) {
+  value = InstructionParameter(expr->getNameInfo().getAsString());
+  return true;
+}
+
+bool LambdaVisitor::ScanInitListExpr::VisitStringLiteral(
+    StringLiteral *literal) {
+  if (isFirstStringLiteral) {
+    isFirstStringLiteral = false;
+    key = literal->getString().str();
+  } else {
+    value = InstructionParameter(literal->getString().str());
+  }
+  return true;
+}
+bool LambdaVisitor::ScanInitListExpr::VisitFloatingLiteral(
+    FloatingLiteral *literal) {
+  value = InstructionParameter(literal->getValue().convertToDouble());
+  return true;
+}
+bool LambdaVisitor::ScanInitListExpr::VisitIntegerLiteral(
+    IntegerLiteral *literal) {
+  value = InstructionParameter((int)literal->getValue().getLimitedValue());
+  return true;
+}
+
+bool LambdaVisitor::CppToXACCIRVisitor::VisitCallExpr(CallExpr *expr) {
+  auto gate_name = dyn_cast<DeclRefExpr>(*(expr->child_begin()))
+                       ->getNameInfo()
+                       .getAsString();
+
+  if (std::find(irGeneratorNames.begin(), irGeneratorNames.end(), gate_name) !=
+      irGeneratorNames.end()) {
+
+    // This is an IRGenerator
+    // Map this CallExpr to an IRGenerator
+    CallExprToIRGenerator visitor(gate_name, provider);
+    visitor.TraverseStmt(expr);
+    auto irg = visitor.getIRGenerator();
+    if (irg->validateOptions()) {
+      auto generated =
+          irg->generate(std::map<std::string, InstructionParameter>{});
+      for (auto inst : generated->getInstructions()) {
+        function->addInstruction(inst);
+      }
+    } else {
+      function->addInstruction(irg);
+    }
+  } else {
+    // This is a regular gate
+    // Map this Call Expr to a GateInstruction
+    if (gate_name == "CX") {
+      gate_name = "CNOT";
+    }
+    CallExprToGateInstructionVisitor visitor(gate_name, provider);
+    visitor.TraverseStmt(expr);
+    auto inst = visitor.getInstruction();
+    function->addInstruction(inst);
+  }
+
+  return true;
+}
+
+std::shared_ptr<Function> LambdaVisitor::CppToXACCIRVisitor::getFunction() {
   return function;
 }
-LambdaVisitor::LambdaVisitor(CompilerInstance &c, Rewriter& rw) : ci(c), rewriter(rw) {}
+
+LambdaVisitor::LambdaVisitor(CompilerInstance &c, Rewriter &rw)
+    : ci(c), rewriter(rw) {}
 
 bool LambdaVisitor::VisitLambdaExpr(LambdaExpr *LE) {
 
@@ -143,14 +189,85 @@ bool LambdaVisitor::VisitLambdaExpr(LambdaExpr *LE) {
   isqk.TraverseStmt(LE->getBody());
   //   LE->dump();
 
+  std::map<std::string, InstructionParameter> captures;
   // If it is, then map it to XACC IR
   if (isqk.isQuantumKernel()) {
 
-    CppToXACCIRVisitor visitor(ci.getASTContext());
+    // LE->dumpColor();
+
+    auto cb = LE->capture_begin(); // implicit_capture_begin();
+    auto ce = LE->capture_end();
+    VarDecl* v;
+    for (auto it = cb; it != ce; ++it) {
+      auto varName = it->getCapturedVar()->getNameAsString();
+
+    //   it->getCapturedVar()->dumpColor();
+      auto e = it->getCapturedVar()->getInit();
+      auto int_value = dyn_cast<IntegerLiteral>(e);
+      auto float_value = dyn_cast<FloatingLiteral>(e);
+      if (int_value) {
+        std::cout << "THIS VALUE IS KNOWN AT COMPILE TIME: "
+                  << (int)int_value->getValue().signedRoundToDouble()
+                  << "\n"; // getAsString(ci.getASTContext(),
+                           // it->getCapturedVar()->getType()) << "\n";
+        captures.insert(
+            {varName, (int)int_value->getValue().signedRoundToDouble()});
+        continue;
+      } else if (float_value) {
+
+        continue;
+      }
+
+      auto varType =
+          it->getCapturedVar()->getType().getCanonicalType().getAsString();
+    //   std::cout << "TYPE: " << varType << "\n";
+    //   it->getCapturedVar()->dumpColor();
+      captures.insert({varName, varName});
+    //   v = it->getCapturedVar();
+    }
+
+    // q_kernel_body->dumpColor();
+    CppToXACCIRVisitor visitor;
     visitor.TraverseStmt(LE);
 
     auto function = visitor.getFunction();
     // std::cout << "\n\nXACC IR:\n" << function->toString() << "\n";
+
+    // Check if we have IRGenerators in the tree
+    if (function->hasIRGenerators()) {
+    //   std::cout << "We have IRGenerators, checking to see if we know enough to "
+                //    "generate it\n";
+      int idx = 0;
+      std::shared_ptr<IRGenerator> irg;
+      for (auto &inst : function->getInstructions()) {
+        irg = std::dynamic_pointer_cast<IRGenerator>(inst);
+        if (irg) {
+          for (auto &kv : captures) {
+            if (kv.second.isNumeric()) {
+              std::string key = "";
+              auto opts = irg->getOptions();
+              for (auto &kv2 : opts) {
+                if (kv2.second.isVariable() &&
+                    kv2.second.toString() == kv.first) {
+                  key = kv2.first;
+                }
+              }
+              if (!key.empty()) {
+                irg->setOption(key, kv.second);
+              }
+            }
+          }
+
+          if (irg->validateOptions()) {
+            function->expandIRGenerators(
+                std::map<std::string, InstructionParameter>{});
+          }
+        }
+        idx++;
+      }
+    }
+
+    // std::cout << "\n\nAgain XACC IR:\n" << function->toString() << "\n";
 
     // Kick off quantum compilation
     auto qcor = xacc::getCompiler("qcor");
@@ -166,7 +283,33 @@ bool LambdaVisitor::VisitLambdaExpr(LambdaExpr *LE) {
 
     auto sr = LE->getSourceRange();
 
-    rewriter.ReplaceText(sr, "[&](){return \"" + fileName + "\";}");
+    if (function->hasIRGenerators()) {
+      auto begin = q_kernel_body->getBeginLoc();
+      std::string replacement = "[&]() {\n";
+      std::shared_ptr<Instruction> irg;
+      for (auto i : function->getInstructions()) {
+          if (std::dynamic_pointer_cast<IRGenerator>(i)) {
+              irg = i;
+              break;
+          }
+      }
+      for (auto &kv : captures) {
+        std::string key = "";
+        auto opts = irg->getOptions();
+        for (auto &kv2 : opts) {
+           if (kv2.second.isVariable() &&
+              kv2.second.toString() == kv.first) {
+              key = kv2.first;
+            }
+        }
+        replacement += "qcor::storeRuntimeVariable(\"" + key +"\", " + kv.first + ");\n";
+      }
+      replacement += "return \"" + fileName + "\";\n}";
+      rewriter.ReplaceText(sr, replacement);
+
+    } else {
+      rewriter.ReplaceText(sr, "[&](){return \"" + fileName + "\";}");
+    }
 
     // Here we update the AST Node to change the
     // function prototype to string ()
@@ -177,7 +320,7 @@ bool LambdaVisitor::VisitLambdaExpr(LambdaExpr *LE) {
         llvm::APInt(32, fileName.length() + 1), ArrayType::Normal, 0);
     auto fnameSL =
         StringLiteral::Create(ci.getASTContext(), StringRef(fileName.c_str()),
-                    StringLiteral::Ascii, false, StrTy, &sl, 1);
+                              StringLiteral::Ascii, false, StrTy, &sl, 1);
     // Create New Return type for CallOperator
     std::vector<QualType> ParamTypes;
     auto D = LE->getCallOperator()->getAsFunction();
@@ -193,13 +336,25 @@ bool LambdaVisitor::VisitLambdaExpr(LambdaExpr *LE) {
     auto rtrn = ReturnStmt::Create(ci.getASTContext(), SourceLocation(),
                                    fnameSL, nullptr);
 
+
+    auto cs = LE->getCallOperator()->getBody();
+    for (auto it = cs->child_begin(); it != cs->child_end(); ++it) {
+        svec.push_back(*it);
+    }
+
+    // svec.push_back(LE->getCallOperator()->getBody());
     svec.push_back(rtrn);
 
     llvm::ArrayRef<Stmt *> stmts(svec);
     auto cmp = CompoundStmt::Create(ci.getASTContext(), stmts, SourceLocation(),
                                     SourceLocation());
     LE->getCallOperator()->setBody(cmp);
+    // LE->getCallOperator()->dumpColor();
+
+    // std::cout << "LE DUMP\n";
+    // LE->dumpColor();
   }
+
   return true;
 }
 
@@ -207,66 +362,65 @@ bool LambdaVisitor::VisitLambdaExpr(LambdaExpr *LE) {
 } // namespace qcor
   //  LE->getType().dump();
 
+// Create the const char * QualType
+// SourceLocation sl;
+// QualType StrTy = ci.getASTContext().getConstantArrayType(
+//     ci.getASTContext().adjustStringLiteralBaseType(
+//         ci.getASTContext().CharTy.withConst()),
+//     llvm::APInt(32, fileName.length() + 1), ArrayType::Normal, 0);
+// auto fnameSL =
+//     StringLiteral::Create(ci.getASTContext(), StringRef(fileName.c_str()),
+//                           StringLiteral::Ascii, false, StrTy, &sl, 1);
 
-    // Create the const char * QualType
-    // SourceLocation sl;
-    // QualType StrTy = ci.getASTContext().getConstantArrayType(
-    //     ci.getASTContext().adjustStringLiteralBaseType(
-    //         ci.getASTContext().CharTy.withConst()),
-    //     llvm::APInt(32, fileName.length() + 1), ArrayType::Normal, 0);
-    // auto fnameSL =
-    //     StringLiteral::Create(ci.getASTContext(), StringRef(fileName.c_str()),
-    //                           StringLiteral::Ascii, false, StrTy, &sl, 1);
+// // // Create New Return type for CallOperator
+// std::vector<QualType> ParamTypes;
+// auto D = LE->getCallOperator()->getAsFunction();
+// FunctionProtoType::ExtProtoInfo fpi;
+// fpi.Variadic = D->isVariadic();
+// llvm::ArrayRef<QualType> Args(ParamTypes);
+// QualType newFT = D->getASTContext().getFunctionType(StrTy, Args, fpi);
+// D->setType(newFT);
 
-    // // // Create New Return type for CallOperator
-    // std::vector<QualType> ParamTypes;
-    // auto D = LE->getCallOperator()->getAsFunction();
-    // FunctionProtoType::ExtProtoInfo fpi;
-    // fpi.Variadic = D->isVariadic();
-    // llvm::ArrayRef<QualType> Args(ParamTypes);
-    // QualType newFT = D->getASTContext().getFunctionType(StrTy, Args, fpi);
-    // D->setType(newFT);
+// /*
+//    Here we need to create instructions that add capture variables
+//    to a runtime parameter map, so that when this lambda is called,
+//    any runtime valued variables are added to the map and available
+//    on the qcor runtime side.
+// */
 
-    // /*
-    //    Here we need to create instructions that add capture variables
-    //    to a runtime parameter map, so that when this lambda is called,
-    //    any runtime valued variables are added to the map and available
-    //    on the qcor runtime side.
-    // */
+// std::vector<Stmt *> svec;
 
-    // std::vector<Stmt *> svec;
+// auto cb = LE->implicit_capture_begin();
+// auto ce = LE->implicit_capture_end();
+// for (auto it = cb; it != ce; ++it) {
 
-    // auto cb = LE->implicit_capture_begin();
-    // auto ce = LE->implicit_capture_end();
-    // for (auto it = cb; it != ce; ++it) {
+//   it->getCapturedVar()->dump();
+//   auto e = it->getCapturedVar()->getInit();
+//   auto value = dyn_cast<IntegerLiteral>(e);
+//   if (value) {
+//     std::cout << "THIS VALUE IS KNOWN AT COMPILE TIME: "
+//               << (int)value->getValue().signedRoundToDouble()
+//               << "\n"; // getAsString(ci.getASTContext(),
+//                        // it->getCapturedVar()->getType()) << "\n";
+//   }
+//   auto varName = it->getCapturedVar()->getNameAsString();
+//   auto varType =
+//       it->getCapturedVar()->getType().getCanonicalType().getAsString();
+//   std::cout << "TYPE: " << varType << "\n";
+// }
 
-    //   it->getCapturedVar()->dump();
-    //   auto e = it->getCapturedVar()->getInit();
-    //   auto value = dyn_cast<IntegerLiteral>(e);
-    //   if (value) {
-    //     std::cout << "THIS VALUE IS KNOWN AT COMPILE TIME: "
-    //               << (int)value->getValue().signedRoundToDouble()
-    //               << "\n"; // getAsString(ci.getASTContext(),
-    //                        // it->getCapturedVar()->getType()) << "\n";
-    //   }
-    //   auto varName = it->getCapturedVar()->getNameAsString();
-    //   auto varType =
-    //       it->getCapturedVar()->getType().getCanonicalType().getAsString();
-    //   std::cout << "TYPE: " << varType << "\n";
-    // }
+// Create the return statement that will return
+// the string literal file name
+// auto rtrn = ReturnStmt::Create(ci.getASTContext(), SourceLocation(),
+//                                fnameSL, nullptr);
 
-    // Create the return statement that will return
-    // the string literal file name
-    // auto rtrn = ReturnStmt::Create(ci.getASTContext(), SourceLocation(),
-    //                                fnameSL, nullptr);
+// svec.push_back(rtrn);
 
-    // svec.push_back(rtrn);
-
-    // llvm::ArrayRef<Stmt *> stmts(svec);
-    // auto cmp = CompoundStmt::Create(ci.getASTContext(), stmts, SourceLocation(),
-    //                                 SourceLocation());
-    // LE->getCallOperator()->setBody(cmp);
-    // LE->getCallOperator()->dump();
+// llvm::ArrayRef<Stmt *> stmts(svec);
+// auto cmp = CompoundStmt::Create(ci.getASTContext(), stmts, SourceLocation(),
+//                                 SourceLocation());
+// LE->getCallOperator()->setBody(cmp);
+// LE->getCallOperator()->dump();
 // create empty statement, does nothing
 // Stmt *tmp = (Stmt *)new (ci.getASTContext()) NullStmt(nopos);
 // std::vector<Stmt *> stmts;

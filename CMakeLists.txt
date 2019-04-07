@@ -51,6 +51,6 @@ endmacro()
 
 add_subdirectory(runtime)
 add_subdirectory(compiler)
-add_subdirectory(instructions)
+add_subdirectory(ir)
 
 install(PROGRAMS ${CMAKE_BINARY_DIR}/qcor DESTINATION bin)

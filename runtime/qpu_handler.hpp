@@ -16,7 +16,7 @@ public:
   std::shared_ptr<xacc::AcceleratorBuffer> getResults() { return buffer; }
 
   template <typename QuantumKernel>
-  void vqe(QuantumKernel &&kernel, std::shared_ptr<Observable> observable,
+  void vqe(QuantumKernel kernel, std::shared_ptr<Observable> observable,
            std::shared_ptr<Optimizer> optimizer) {
     auto function = qcor::loadCompiledCircuit(kernel());
     auto nPhysicalQubits = function->nPhysicalBits();

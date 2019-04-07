@@ -55,9 +55,11 @@ const std::string persistCompiledCircuit(std::shared_ptr<Function> function,
     // std::cout << "Generating random string " << file_name << "\n";
   }
 
-  auto persistedFunction =
-      xacc::getCompiler("xacc-py")->translate("", function);
-  persistedFunction = persistedFunction.substr(7, persistedFunction.length());
+  std::stringstream ss;
+  function->persist(ss);
+  auto persistedFunction = ss.str();
+    //   xacc::getCompiler("xacc-py")->translate("", function);
+//   persistedFunction = persistedFunction.substr(7, persistedFunction.length());
   xacc::appendCache(file_name, "compiled",
                     InstructionParameter(persistedFunction), ".qcor_cache");
 
@@ -81,6 +83,7 @@ const std::string persistCompiledCircuit(std::shared_ptr<Function> function,
 }
 
 std::shared_ptr<Function> loadCompiledCircuit(const std::string &fileName) {
+  std::cout << "Loading Circuit " << fileName << "\n";
   auto cache = xacc::getCache(fileName, ".qcor_cache");
   if (!cache.count("compiled")) {
     xacc::error("Invalid quantum compilation cache.");
@@ -118,27 +121,32 @@ std::shared_ptr<Function> loadCompiledCircuit(const std::string &fileName) {
   xacc::setAccelerator(targetAccelerator->name());
 
   auto compiled = cache["compiled"].as<std::string>();
-  auto loaded =
-      xacc::getCompiler("xacc-py")->compile(compiled)->getKernels()[0];
+  auto loaded = xacc::getService<IRProvider>("gate")->createFunction("loaded", {});
+  std::istringstream iss(compiled);
+  loaded->load(iss);
 
+//   std::cout << "Lodaded: " << loaded->toString() << "\n";
   if (cache["requires-jit"].as<std::string>() == "true") {
     auto runtimeMap = getRuntimeMap();
 
+    // for (auto& kv : runtimeMap) {
+        // std::cout << "Runtime: " << kv.first << ", " << kv.second.toString() << "\n";
+    // }
     loaded->expandIRGenerators(runtimeMap);
 
     // Kick off quantum compilation
     auto qcor = xacc::getCompiler("qcor");
     loaded = qcor->compile(loaded, targetAccelerator);
+    // std::cout << "NPARAMS: " << loaded->nParameters() << "\n";
   }
 
+//   std::cout<< "Loaded IR:\n" << loaded->toString() <<"\n";
   return loaded;
 }
 
-void storeRuntimeVariable(const std::string name, int param) {
-  storeRuntimeVariable(name, InstructionParameter(param));
-}
 void storeRuntimeVariable(const std::string name,
-                          InstructionParameter &&param) {
+                          InstructionParameter param) {
+//   std::cout << "Storing Runtime Variable " << name << ", " << param.toString() << "\n";
   runtimeMap.insert({name, param});
 }
 
@@ -150,8 +158,8 @@ std::future<std::shared_ptr<AcceleratorBuffer>>
 submit(HandlerLambda &&totalJob) {
   // Create the QPU Handler to pass to the given
   // Handler HandlerLambda
-  qpu_handler handler;
-  return std::async(std::launch::async, [&]() {
+  return std::async(std::launch::async, [=]() { // bug must be by value...
+    qpu_handler handler;
     totalJob(handler);
     return handler.getResults();
   });

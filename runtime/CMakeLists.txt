@@ -17,7 +17,7 @@ add_library(${LIBRARY_NAME} SHARED ${SRC})
 
 target_include_directories(${LIBRARY_NAME} PUBLIC . algorithm ${XACC_INCLUDE_DIRS})
 
-target_link_libraries(${LIBRARY_NAME} PUBLIC xacc)
+target_link_libraries(${LIBRARY_NAME} PUBLIC xacc xacc-pauli)
 
 if(QCOR_BUILD_TESTS)
   # add_subdirectory(tests)

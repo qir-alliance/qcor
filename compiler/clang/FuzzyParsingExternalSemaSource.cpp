@@ -27,6 +27,7 @@ bool FuzzyParsingExternalSemaSource::LookupUnqualified(clang::LookupResult &R,
                                                        clang::Scope *S) {
   DeclarationName Name = R.getLookupName();
   std::string unknownName = Name.getAsString();
+
   // If this is a valid quantum instruction, tell Clang its
   // all gonna be ok, we got this...
   if (std::find(validInstructions.begin(), validInstructions.end(),

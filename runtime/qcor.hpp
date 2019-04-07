@@ -19,6 +19,7 @@ using namespace xacc;
 namespace qcor {
 
 class qpu_handler;
+using HandlerLambda = std::function<void(qpu_handler &)>;
 
 extern std::map<std::string, InstructionParameter> runtimeMap;
 
@@ -31,13 +32,13 @@ const std::string persistCompiledCircuit(std::shared_ptr<Function> function,
                                          std::shared_ptr<Accelerator> acc);
 std::shared_ptr<Function> loadCompiledCircuit(const std::string &fileName);
 
-void storeRuntimeVariable(const std::string name, int param);
-void storeRuntimeVariable(const std::string name, InstructionParameter &&param);
+// void storeRuntimeVariable(const std::string name, int param);
+void storeRuntimeVariable(const std::string name, InstructionParameter param);
 std::map<std::string, InstructionParameter> getRuntimeMap();
 
 // Submit an asynchronous job to the QPU
-using HandlerLambda = std::function<void(qpu_handler &)>;
-std::future<std::shared_ptr<AcceleratorBuffer>> submit(HandlerLambda &&);
+std::future<std::shared_ptr<AcceleratorBuffer>> submit(HandlerLambda &&lambda);
+// std::shared_ptr<AcceleratorBuffer> submit(HandlerLambda &&lambda);
 
 std::shared_ptr<Optimizer> getOptimizer(const std::string &name);
 std::shared_ptr<Optimizer>
