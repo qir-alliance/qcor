@@ -113,6 +113,25 @@ bool LambdaVisitor::ScanInitListExpr::VisitDeclRefExpr(DeclRefExpr *expr) {
   value = InstructionParameter(expr->getNameInfo().getAsString());
   return true;
 }
+// bool LambdaVisitor::ScanInitListExpr::VisitInitListExpr(InitListExpr *expr) {
+
+//     ScanInitListExpr visitor(true);
+//     visitor.TraverseStmt(expr);
+
+//     if (!visitor.intsFound.empty()) {
+//         // for (int i = 0; i < )
+
+
+//     } else if (!visitor.realsFound.empty()) {
+
+//     } else {
+//         xacc::error("Invalid pair type.");
+//     }
+
+
+//     return true;
+
+// }
 
 bool LambdaVisitor::ScanInitListExpr::VisitStringLiteral(
     StringLiteral *literal) {
@@ -193,7 +212,7 @@ bool LambdaVisitor::VisitLambdaExpr(LambdaExpr *LE) {
   // If it is, then map it to XACC IR
   if (isqk.isQuantumKernel()) {
 
-    // LE->dumpColor();
+    LE->dumpColor();
 
     auto cb = LE->capture_begin(); // implicit_capture_begin();
     auto ce = LE->capture_end();

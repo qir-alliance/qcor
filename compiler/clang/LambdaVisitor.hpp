@@ -90,14 +90,18 @@ protected:
   class ScanInitListExpr : public RecursiveASTVisitor<ScanInitListExpr> {
   protected:
     bool isFirstStringLiteral = true;
-
+    // bool isSubInit;
   public:
+    // std::vector<int> intsFound;
+    // std::vector<double> realsFound;
     std::string key;
     InstructionParameter value;
+    // ScanInitListExpr(bool isSubInitList = false) :isSubInit(isSubInitList) {}
     bool VisitDeclRefExpr(DeclRefExpr *expr);
     bool VisitStringLiteral(StringLiteral *literal);
     bool VisitFloatingLiteral(FloatingLiteral *literal);
     bool VisitIntegerLiteral(IntegerLiteral *literal);
+    // bool VisitInitListExpr(InitListExpr *initList);
   };
 
 public:
