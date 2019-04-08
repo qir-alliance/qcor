@@ -120,6 +120,20 @@ int main(int argc, char** argv){
     };
     return 0;
 })hwe3";
+
+const std::string hwe4 = R"hwe4(#include <vector>
+int main(int argc, char** argv){
+    int nq = argc;
+    auto l = [&](std::vector<double> x) {
+        hwe(x, {
+            {"n-qubits", nq},
+            {"layers",1},
+            {"coupling", {{1,0}, {0,1}} },
+            {"testVector", {1,2,3,4,5,6} },
+            });
+    };
+    return 0;
+})hwe4";
 TEST(LambdaVisitorTester, checkSimple) {
   Rewriter rewriter1, rewriter2;
   auto action1 = new TestQCORFrontendAction(rewriter1);
@@ -260,6 +274,39 @@ TEST(LambdaVisitorTester, checkRuntimeGeneratorWithVectorPair) {
     const std::string exp1 = R"exp1(#include <vector>
 int main(int argc, char** argv){
     int nq = argc;
+    std::vector<std::pair<int,int>> c{{1,0}};
+    auto l = [&]() {
+qcor::storeRuntimeVariable("coupling", c);
+qcor::storeRuntimeVariable("n-qubits", nq);
+return "lambda_visitor_tester";
+};
+    return 0;
+})exp1";
+
+    EXPECT_EQ(exp1,src2);
+}
+
+TEST(LambdaVisitorTester, checkRuntimeGeneratorWithVectorPairAndVector) {
+    Rewriter rewriter1, rewriter2;
+    auto action1 = new TestQCORFrontendAction(rewriter1);
+
+    xacc::setOption("qcor-compiled-filename", "lambda_visitor_tester");
+
+    std::vector<std::string> args{"-std=c++11"};
+
+    std::cout << "Source Code:\n" << hwe4 << "\n";
+    // first case, I know compile time values, so ahead-of-time compilation
+    EXPECT_TRUE(tooling::runToolOnCodeWithArgs(action1, hwe4, args));
+
+    std::ifstream t1(".output.cpp");
+    std::string src2((std::istreambuf_iterator<char>(t1)),
+                     std::istreambuf_iterator<char>());
+    std::remove(".output.cpp");
+
+    std::cout << "HELLO:\n" << src2 <<"\n";
+    const std::string exp1 = R"exp1(#include <vector>
+int main(int argc, char** argv){
+    int nq = argc;
     auto l = [&]() {
 qcor::storeRuntimeVariable("n-qubits", nq);
 return "lambda_visitor_tester";
@@ -267,7 +314,7 @@ return "lambda_visitor_tester";
     return 0;
 })exp1";
 
-    // EXPECT_EQ(exp1,src2);
+    EXPECT_EQ(exp1,src2);
 }
 int main(int argc, char **argv) {
   qcor::Initialize(argc, argv);

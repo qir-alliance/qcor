@@ -89,14 +89,24 @@ LambdaVisitor::CallExprToGateInstructionVisitor::getInstruction() {
 
 bool LambdaVisitor::CallExprToIRGenerator::VisitInitListExpr(
     InitListExpr *expr) {
-  if (haveSeenFirstInit) {
-    ScanInitListExpr visitor;
-    visitor.TraverseStmt(expr);
-    options.insert({visitor.key, visitor.value});
-    std::cout << "Inserting " << visitor.key << ", " << visitor.value.toString()
-              << "\n";
+  if (haveSeenFirstInit && keepSearching) {
+
+    for (auto child : immediate_children) {
+      ScanInitListExpr visitor;
+      visitor.TraverseStmt(child);
+      options.insert({visitor.key, visitor.value});
+      std::cout << "Inserting " << visitor.key << ", "
+                << visitor.value.toString() << "\n";
+    }
+
+    keepSearching = false;
+
   } else {
     haveSeenFirstInit = true;
+    auto children = expr->children();
+    for (auto it = children.begin(); it != children.end(); ++it) {
+      immediate_children.push_back(*it);
+    }
   }
   return true;
 }
@@ -113,47 +123,109 @@ bool LambdaVisitor::ScanInitListExpr::VisitDeclRefExpr(DeclRefExpr *expr) {
   value = InstructionParameter(expr->getNameInfo().getAsString());
   return true;
 }
-// bool LambdaVisitor::ScanInitListExpr::VisitInitListExpr(InitListExpr *expr) {
+bool LambdaVisitor::ScanInitListExpr::VisitInitListExpr(InitListExpr *expr) {
 
-//     ScanInitListExpr visitor(true);
-//     visitor.TraverseStmt(expr);
+  if (skipSubInits) {
+    return true;
+  }
 
-//     if (!visitor.intsFound.empty()) {
-//         // for (int i = 0; i < )
+  if (hasSeenFirstIL) {
+    HasSubInitListExpr visitor;
+    visitor.TraverseStmt(*expr->children().begin());
+    if (visitor.hasSubInitLists) {
+      isVectorValue = true;
+      // this is a vector of pairs or doubles.
 
+      GetPairVisitor visitor;
+      visitor.TraverseStmt(expr);
+      if (!visitor.intsFound.empty()) {
+        std::vector<std::pair<int, int>> tmp;
+        for (int i = 0; i < visitor.intsFound.size(); i += 2) {
+          tmp.push_back({visitor.intsFound[i], visitor.intsFound[i + 1]});
+        }
+        value = InstructionParameter(tmp);
+      } else if (!visitor.realsFound.empty()) {
+        std::vector<std::pair<double, double>> tmp;
+        for (int i = 0; i < visitor.realsFound.size(); i += 2) {
+          tmp.push_back({visitor.realsFound[i], visitor.realsFound[i + 1]});
+        }
+        value = InstructionParameter(tmp);
+      } else {
+        xacc::error("invalid vector<pair> type for IRGenerator options.");
+      }
 
-//     } else if (!visitor.realsFound.empty()) {
+      skipSubInits = true;
+    } else {
 
-//     } else {
-//         xacc::error("Invalid pair type.");
-//     }
-
-
-//     return true;
-
-// }
+      // this is a vector...
+      ScanInitListExpr visitor(true);
+      visitor.TraverseStmt(expr);
+      if (!visitor.intsFound.empty()) {
+        value = InstructionParameter(visitor.intsFound);
+      } else if (!visitor.realsFound.empty()) {
+        value = InstructionParameter(visitor.realsFound);
+      } else if (!visitor.stringsFound.empty()) {
+        value = InstructionParameter(visitor.stringsFound);
+      } else {
+        xacc::error("invalid vector type for IRGenerator options.");
+      }
+    }
+  } else {
+    hasSeenFirstIL = true;
+  }
+  return true;
+}
 
 bool LambdaVisitor::ScanInitListExpr::VisitStringLiteral(
     StringLiteral *literal) {
-  if (isFirstStringLiteral) {
-    isFirstStringLiteral = false;
-    key = literal->getString().str();
+
+  if (isVectorValue) {
+    stringsFound.push_back(literal->getString().str());
   } else {
-    value = InstructionParameter(literal->getString().str());
+    if (isFirstStringLiteral) {
+      isFirstStringLiteral = false;
+      key = literal->getString().str();
+    } else {
+      value = InstructionParameter(literal->getString().str());
+    }
   }
   return true;
 }
 bool LambdaVisitor::ScanInitListExpr::VisitFloatingLiteral(
     FloatingLiteral *literal) {
-  value = InstructionParameter(literal->getValue().convertToDouble());
+
+  if (isVectorValue) {
+
+    realsFound.push_back(literal->getValue().convertToDouble());
+
+  } else {
+    value = InstructionParameter(literal->getValue().convertToDouble());
+  }
   return true;
 }
 bool LambdaVisitor::ScanInitListExpr::VisitIntegerLiteral(
     IntegerLiteral *literal) {
-  value = InstructionParameter((int)literal->getValue().getLimitedValue());
+
+  if (isVectorValue) {
+
+    intsFound.push_back((int)literal->getValue().getLimitedValue());
+
+  } else {
+    value = InstructionParameter((int)literal->getValue().getLimitedValue());
+  }
   return true;
 }
 
+bool LambdaVisitor::GetPairVisitor::VisitFloatingLiteral(
+    FloatingLiteral *literal) {
+  realsFound.push_back(literal->getValue().convertToDouble());
+  return true;
+}
+bool LambdaVisitor::GetPairVisitor::VisitIntegerLiteral(
+    IntegerLiteral *literal) {
+  intsFound.push_back((int)literal->getValue().getLimitedValue());
+  return true;
+}
 bool LambdaVisitor::CppToXACCIRVisitor::VisitCallExpr(CallExpr *expr) {
   auto gate_name = dyn_cast<DeclRefExpr>(*(expr->child_begin()))
                        ->getNameInfo()
@@ -216,11 +288,11 @@ bool LambdaVisitor::VisitLambdaExpr(LambdaExpr *LE) {
 
     auto cb = LE->capture_begin(); // implicit_capture_begin();
     auto ce = LE->capture_end();
-    VarDecl* v;
+    VarDecl *v;
     for (auto it = cb; it != ce; ++it) {
       auto varName = it->getCapturedVar()->getNameAsString();
 
-    //   it->getCapturedVar()->dumpColor();
+      //   it->getCapturedVar()->dumpColor();
       auto e = it->getCapturedVar()->getInit();
       auto int_value = dyn_cast<IntegerLiteral>(e);
       auto float_value = dyn_cast<FloatingLiteral>(e);
@@ -239,10 +311,10 @@ bool LambdaVisitor::VisitLambdaExpr(LambdaExpr *LE) {
 
       auto varType =
           it->getCapturedVar()->getType().getCanonicalType().getAsString();
-    //   std::cout << "TYPE: " << varType << "\n";
-    //   it->getCapturedVar()->dumpColor();
+      //   std::cout << "TYPE: " << varType << "\n";
+      //   it->getCapturedVar()->dumpColor();
       captures.insert({varName, varName});
-    //   v = it->getCapturedVar();
+      //   v = it->getCapturedVar();
     }
 
     // q_kernel_body->dumpColor();
@@ -254,8 +326,9 @@ bool LambdaVisitor::VisitLambdaExpr(LambdaExpr *LE) {
 
     // Check if we have IRGenerators in the tree
     if (function->hasIRGenerators()) {
-    //   std::cout << "We have IRGenerators, checking to see if we know enough to "
-                //    "generate it\n";
+      //   std::cout << "We have IRGenerators, checking to see if we know enough
+      //   to "
+      //    "generate it\n";
       int idx = 0;
       std::shared_ptr<IRGenerator> irg;
       for (auto &inst : function->getInstructions()) {
@@ -307,21 +380,21 @@ bool LambdaVisitor::VisitLambdaExpr(LambdaExpr *LE) {
       std::string replacement = "[&]() {\n";
       std::shared_ptr<Instruction> irg;
       for (auto i : function->getInstructions()) {
-          if (std::dynamic_pointer_cast<IRGenerator>(i)) {
-              irg = i;
-              break;
-          }
+        if (std::dynamic_pointer_cast<IRGenerator>(i)) {
+          irg = i;
+          break;
+        }
       }
       for (auto &kv : captures) {
         std::string key = "";
         auto opts = irg->getOptions();
         for (auto &kv2 : opts) {
-           if (kv2.second.isVariable() &&
-              kv2.second.toString() == kv.first) {
-              key = kv2.first;
-            }
+          if (kv2.second.isVariable() && kv2.second.toString() == kv.first) {
+            key = kv2.first;
+          }
         }
-        replacement += "qcor::storeRuntimeVariable(\"" + key +"\", " + kv.first + ");\n";
+        replacement +=
+            "qcor::storeRuntimeVariable(\"" + key + "\", " + kv.first + ");\n";
       }
       replacement += "return \"" + fileName + "\";\n}";
       rewriter.ReplaceText(sr, replacement);
@@ -355,10 +428,9 @@ bool LambdaVisitor::VisitLambdaExpr(LambdaExpr *LE) {
     auto rtrn = ReturnStmt::Create(ci.getASTContext(), SourceLocation(),
                                    fnameSL, nullptr);
 
-
     auto cs = LE->getCallOperator()->getBody();
     for (auto it = cs->child_begin(); it != cs->child_end(); ++it) {
-        svec.push_back(*it);
+      svec.push_back(*it);
     }
 
     // svec.push_back(LE->getCallOperator()->getBody());

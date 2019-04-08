@@ -79,6 +79,8 @@ protected:
     std::map<std::string, InstructionParameter> options;
     bool haveSeenFirstDeclRef = false;
     bool haveSeenFirstInit = false;
+    bool keepSearching = true;
+    std::vector<Stmt*> immediate_children;
 
   public:
     CallExprToIRGenerator(const std::string n, std::shared_ptr<IRProvider> p)
@@ -90,20 +92,39 @@ protected:
   class ScanInitListExpr : public RecursiveASTVisitor<ScanInitListExpr> {
   protected:
     bool isFirstStringLiteral = true;
-    // bool isSubInit;
+    bool isVectorValue;
+    bool hasSeenFirstIL = false;
+    bool skipSubInits = false;
+
   public:
-    // std::vector<int> intsFound;
-    // std::vector<double> realsFound;
+    std::vector<int> intsFound;
+    std::vector<double> realsFound;
+    std::vector<std::string> stringsFound;
+
     std::string key;
     InstructionParameter value;
-    // ScanInitListExpr(bool isSubInitList = false) :isSubInit(isSubInitList) {}
+    ScanInitListExpr(bool isVecValued = false) :isVectorValue(isVecValued) {}
     bool VisitDeclRefExpr(DeclRefExpr *expr);
     bool VisitStringLiteral(StringLiteral *literal);
     bool VisitFloatingLiteral(FloatingLiteral *literal);
     bool VisitIntegerLiteral(IntegerLiteral *literal);
-    // bool VisitInitListExpr(InitListExpr *initList);
+    bool VisitInitListExpr(InitListExpr *initList);
   };
-
+class HasSubInitListExpr : public RecursiveASTVisitor<HasSubInitListExpr> {
+  public:
+    bool hasSubInitLists = false;
+    bool VisitInitListExpr(InitListExpr *initList) {
+        hasSubInitLists = true;
+        return true;
+    }
+  };
+  class GetPairVisitor : public RecursiveASTVisitor<GetPairVisitor> {
+  public:
+    std::vector<int> intsFound;
+    std::vector<double> realsFound;
+    bool VisitFloatingLiteral(FloatingLiteral *literal);
+    bool VisitIntegerLiteral(IntegerLiteral *literal);
+  };
 public:
   LambdaVisitor(CompilerInstance &c, Rewriter &rw);
 
