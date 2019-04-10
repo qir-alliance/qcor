@@ -1,0 +1,6 @@
+{
+  "bundle.symbolic_name" : "qcor_observable_chemistry",
+  "bundle.activator" : true,
+  "bundle.name" : "QCOR Chemistry Observable",
+  "bundle.description" : ""
+}

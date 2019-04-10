@@ -196,6 +196,11 @@ std::shared_ptr<Observable> getObservable(const std::string &representation) {
   return getObservable("pauli", representation);
 }
 
+std::shared_ptr<Observable> getObservable(const std::string &type, std::map<std::string, InstructionParameter> &&options) {
+    auto observable = xacc::getService<Observable>(type);
+    observable->fromOptions(options);
+    return observable;
+}
 std::shared_ptr<algorithm::Algorithm> getAlgorithm(const std::string name) {
   return xacc::getService<qcor::algorithm::Algorithm>(name);
 }

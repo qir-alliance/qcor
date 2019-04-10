@@ -49,6 +49,7 @@ std::shared_ptr<Observable> getObservable(const std::string &type,
                                           const std::string &representation);
 std::shared_ptr<Observable> getObservable();
 std::shared_ptr<Observable> getObservable(const std::string &representation);
+std::shared_ptr<Observable> getObservable(const std::string &type, std::map<std::string, InstructionParameter> &&options);
 
 std::shared_ptr<algorithm::Algorithm> getAlgorithm(const std::string name);
 } // namespace qcor
