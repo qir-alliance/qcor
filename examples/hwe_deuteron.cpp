@@ -11,6 +11,7 @@ int main(int argc, char **argv) {
       "pauli", "5.907 - 2.1433 X0X1 - 2.1433 Y0Y1 + .21829 Z0 - 6.125 Z1");
 
   int nq = op->nBits();
+  
   auto future = qcor::submit([&](qcor::qpu_handler &qh) {
     qh.vqe(
         [&](std::vector<double> x) {

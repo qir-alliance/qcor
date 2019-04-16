@@ -21,6 +21,6 @@ int main(int argc, char **argv) {
   });
 
   auto results = future.get();
-  std::cout << "Results:\n";
-  results->print();
+//   std::cout << "Results:\n";
+//   results->print();
 }

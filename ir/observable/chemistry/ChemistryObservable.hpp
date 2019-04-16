@@ -31,11 +31,11 @@ public:
   const int nBits() override;
   void
   fromOptions(std::map<std::string, InstructionParameter> &&options) override;
-  void fromOptions(std::map<std::string, InstructionParameter>& options) override;
+  void
+  fromOptions(std::map<std::string, InstructionParameter> &options) override;
 
   const std::string name() const override { return "chemistry"; }
   const std::string description() const override { return ""; }
-
 };
 
 } // namespace observable

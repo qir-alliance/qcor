@@ -6,6 +6,7 @@
 
 #include "qcor.hpp"
 #include "clang/AST/Decl.h"
+#include "clang/AST/Expr.h"
 #include "clang/Basic/IdentifierTable.h"
 #include "clang/Basic/SourceLocation.h"
 #include "clang/Sema/Sema.h"
@@ -66,18 +67,34 @@ bool LambdaVisitor::CallExprToGateInstructionVisitor::VisitIntegerLiteral(
   return true;
 }
 
+bool LambdaVisitor::CallExprToGateInstructionVisitor::VisitUnaryOperator(UnaryOperator* op) {
+    if (op->getOpcode() == UnaryOperator::Opcode::UO_Minus) {
+        addMinus = true;
+    }
+    return true;
+}
+
 bool LambdaVisitor::CallExprToGateInstructionVisitor::VisitFloatingLiteral(
     FloatingLiteral *literal) {
-  InstructionParameter p(literal->getValue().convertToDouble());
+  double value = literal->getValue().convertToDouble();
+  InstructionParameter p(addMinus ? -1.0*value : value);
+  addMinus = false;
   parameters.push_back(p);
   return true;
 }
 
 bool LambdaVisitor::CallExprToGateInstructionVisitor::VisitDeclRefExpr(
     DeclRefExpr *decl) {
+  auto declName = decl->getNameInfo().getAsString();
+  if (addMinus) {
+     declName = "-"+declName;
+  }
   if (dyn_cast<ParmVarDecl>(decl->getDecl())) {
     parameters.push_back(
-        InstructionParameter(decl->getNameInfo().getAsString()));
+        InstructionParameter(declName));
+  } else if (dyn_cast<VarDecl>(decl->getDecl())) {
+      std::cout << "THIS IS A VARDECL: " << declName << "\n";
+      parameters.push_back(InstructionParameter(declName));
   }
   return true;
 }
@@ -305,7 +322,11 @@ bool LambdaVisitor::VisitLambdaExpr(LambdaExpr *LE) {
             {varName, (int)int_value->getValue().signedRoundToDouble()});
         continue;
       } else if (float_value) {
-
+         std::cout << varName << ", THIS DOUBLE VALUE IS KNOWN AT COMPILE TIME: "
+                  << float_value->getValue().convertToDouble()
+                  << "\n";
+        captures.insert(
+            {varName, float_value->getValue().convertToDouble()});
         continue;
       }
 
@@ -322,7 +343,28 @@ bool LambdaVisitor::VisitLambdaExpr(LambdaExpr *LE) {
     visitor.TraverseStmt(LE);
 
     auto function = visitor.getFunction();
-    // std::cout << "\n\nXACC IR:\n" << function->toString() << "\n";
+    for (auto &inst : function->getInstructions()) {
+        if (!inst->isComposite() && inst->nParameters() > 0) {
+            int counter = 0;
+            for (auto& p : inst->getParameters()) {
+                if (p.isVariable()) {
+                    // see if we have a runtime value in the captures map
+                    for (auto& kv : captures) {
+                        if (p.toString() == kv.first  && kv.second.isNumeric()) {
+                            inst->setParameter(counter, kv.second);
+                        } else if (p.toString() == "-"+kv.first && kv.second.which() == 1) {
+                            InstructionParameter pp(-1.0 * mpark::get<double>(kv.second));
+                            inst->setParameter(counter, pp);
+                        }
+                    }
+                }
+                counter++;
+            }
+        }
+    }
+
+
+    std::cout << "\n\nXACC IR:\n" << function->toString() << "\n";
 
     // Check if we have IRGenerators in the tree
     if (function->hasIRGenerators()) {

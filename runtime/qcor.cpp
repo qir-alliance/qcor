@@ -8,6 +8,7 @@
 #include "xacc_service.hpp"
 
 #include "PauliOperator.hpp"
+#include "FermionOperator.hpp"
 
 #include <regex>
 
@@ -83,7 +84,7 @@ const std::string persistCompiledCircuit(std::shared_ptr<Function> function,
 }
 
 std::shared_ptr<Function> loadCompiledCircuit(const std::string &fileName) {
-  std::cout << "Loading Circuit " << fileName << "\n";
+//   std::cout << "Loading Circuit " << fileName << "\n";
   auto cache = xacc::getCache(fileName, ".qcor_cache");
   if (!cache.count("compiled")) {
     xacc::error("Invalid quantum compilation cache.");
@@ -183,7 +184,11 @@ std::shared_ptr<Observable> getObservable(const std::string &type,
     return representation.empty()
                ? std::make_shared<PauliOperator>()
                : std::make_shared<PauliOperator>(representation);
-  } else {
+  } else if (type == "fermion") {
+     return representation.empty()
+               ? std::make_shared<FermionOperator>()
+               : std::make_shared<FermionOperator>(representation);
+  }else {
     xacc::error("Invalid observable type");
     return std::make_shared<PauliOperator>();
   }

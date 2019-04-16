@@ -85,6 +85,29 @@ int main() {
     };
     return 0;
 })param0";
+const std::string unary0 = R"unary0(
+int main() {
+    auto l = [&](double t) {
+        X(0);
+        Ry(t, 1);
+        CX(1,0);
+        Rx(-1.57,1);
+    };
+    return 0;
+})unary0";
+
+const std::string rtimeCapture = R"rtimeCapture(
+int main() {
+    double pi = 3.1415;
+    auto l = [&](double t) {
+        X(0);
+        Ry(t, 1);
+        CX(1,0);
+        Rx(pi,1);
+        Rx(-pi,1);
+    };
+    return 0;
+})rtimeCapture";
 
 const std::string hwe0 = R"hwe0(#include <vector>
 int main(int argc, char** argv){
@@ -315,6 +338,61 @@ return "lambda_visitor_tester";
 })exp1";
 
     EXPECT_EQ(exp1,src2);
+}
+
+TEST(LambdaVisitorTester, checkUnary) {
+    Rewriter rewriter1, rewriter2;
+    auto action1 = new TestQCORFrontendAction(rewriter1);
+
+    xacc::setOption("qcor-compiled-filename", "lambda_visitor_tester");
+
+    std::vector<std::string> args{"-std=c++11"};
+
+    std::cout << "Source Code:\n" << unary0 << "\n";
+    // first case, I know compile time values, so ahead-of-time compilation
+    EXPECT_TRUE(tooling::runToolOnCodeWithArgs(action1, unary0, args));
+
+    std::ifstream t1(".output.cpp");
+    std::string src2((std::istreambuf_iterator<char>(t1)),
+                     std::istreambuf_iterator<char>());
+    std::remove(".output.cpp");
+
+    std::cout << "HELLO:\n" << src2 <<"\n";
+    const std::string expectedSrc = R"expectedSrc(
+int main() {
+    auto l = [&](){return "lambda_visitor_tester";};
+    return 0;
+})expectedSrc";
+
+  EXPECT_EQ(expectedSrc, src2);
+}
+
+TEST(LambdaVisitorTester, checkRuntimeCapture) {
+    Rewriter rewriter1, rewriter2;
+    auto action1 = new TestQCORFrontendAction(rewriter1);
+
+    xacc::setOption("qcor-compiled-filename", "lambda_visitor_tester");
+
+    std::vector<std::string> args{"-std=c++11"};
+
+    std::cout << "Source Code:\n" << rtimeCapture << "\n";
+    // first case, I know compile time values, so ahead-of-time compilation
+    EXPECT_TRUE(tooling::runToolOnCodeWithArgs(action1, rtimeCapture, args));
+
+    std::ifstream t1(".output.cpp");
+    std::string src2((std::istreambuf_iterator<char>(t1)),
+                     std::istreambuf_iterator<char>());
+    std::remove(".output.cpp");
+
+    std::cout << "HELLO:\n" << src2 <<"\n";
+    const std::string expectedSrc = R"expectedSrc(
+int main() {
+    double pi = 3.1415;
+    auto l = [&](){return "lambda_visitor_tester";};
+    return 0;
+})expectedSrc";
+
+  EXPECT_EQ(expectedSrc, src2);
 }
 int main(int argc, char **argv) {
   qcor::Initialize(argc, argv);

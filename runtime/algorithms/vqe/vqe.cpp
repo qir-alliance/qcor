@@ -13,12 +13,12 @@ using namespace xacc;
 namespace qcor {
 namespace algorithm {
 void VQE::execute(xacc::Observable &observable, Optimizer &optimizer) {
+  auto kernels = observable.observe(kernel);
 
   // Here we just need to make a lambda kernel
   // to optimize that makes calls to the targeted QPU.
   OptFunction f(
       [&](const std::vector<double> &x) {
-        auto kernels = observable.observe(kernel);
         std::vector<double> coefficients;
         std::vector<std::string> kernelNames;
         std::vector<std::shared_ptr<Function>> fsToExec;

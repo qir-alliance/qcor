@@ -60,6 +60,7 @@ protected:
     std::vector<InstructionParameter> parameters;
     std::string name;
     std::shared_ptr<IRProvider> provider;
+    bool addMinus = false;
 
   public:
     CallExprToGateInstructionVisitor(const std::string n,
@@ -67,6 +68,7 @@ protected:
         : name(n), provider(p) {}
     std::shared_ptr<Instruction> getInstruction();
     bool VisitIntegerLiteral(IntegerLiteral *il);
+    bool VisitUnaryOperator(UnaryOperator* op);
     bool VisitFloatingLiteral(FloatingLiteral *fl);
     bool VisitDeclRefExpr(DeclRefExpr *expr);
   };

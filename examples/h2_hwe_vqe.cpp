@@ -12,20 +12,22 @@ int main(int argc, char **argv) {
 H          0.00000        0.00000        0.00000
 H          0.00000        0.00000        0.7474)geom";
 
-  auto op = qcor::getObservable("chemistry", {{"basis","sto-3g"}, {"geometry", geom}});
+  auto op = qcor::getObservable("chemistry",
+                                {{"basis", "sto-3g"}, {"geometry", geom}});
   int nq = op->nBits();
 
-  std::vector<std::pair<int,int>> coupling{{0,1},{1,2},{2,3}};
+  std::vector<std::pair<int, int>> coupling{{0, 1}, {1, 2}, {2, 3}};
 
   auto future = qcor::submit([&](qcor::qpu_handler &qh) {
     qh.vqe(
         [&](std::vector<double> x) {
-          hwe(x, {{"n-qubits",nq},{"layers",1}, {"coupling",coupling}});
+          hwe(x, {{"n-qubits", nq}, {"layers", 1}, {"coupling", coupling}});
         },
         op, optimizer);
   });
 
   auto results = future.get();
-  std::cout << "Results:\n";
-//   results->print();
+  auto energy = mpark::get<double>(results->getInformation("opt-val"));
+  std::cout << "Results: " << energy << "\n";
+  //   results->print();
 }

@@ -19,6 +19,8 @@ public:
   void vqe(QuantumKernel kernel, std::shared_ptr<Observable> observable,
            std::shared_ptr<Optimizer> optimizer) {
     auto function = qcor::loadCompiledCircuit(kernel());
+
+    // std::cout << "Function:\n" << function->toString() << "\n";
     auto nPhysicalQubits = function->nPhysicalBits();
     auto accelerator = xacc::getAccelerator();
     buffer = accelerator->createBuffer("q", nPhysicalQubits);

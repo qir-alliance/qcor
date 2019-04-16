@@ -1,3 +1,9 @@
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/libint-wrapper/cmake/Modules)
+
+find_package(Libint)
+
+if (Libint_FOUND)
+add_subdirectory(libint-wrapper)
 
 set(LIBRARY_NAME qcor-observable-chemistry)
 
@@ -9,9 +15,9 @@ usfunctiongeneratebundleinit(TARGET ${LIBRARY_NAME} OUT SRC)
 
 add_library(${LIBRARY_NAME} SHARED ${SRC})
 
-target_include_directories(${LIBRARY_NAME} PUBLIC . ../..)
+target_include_directories(${LIBRARY_NAME} PUBLIC . ../.. libint-wrapper/src)
 
-target_link_libraries(${LIBRARY_NAME} PUBLIC CppMicroServices PRIVATE xacc)
+target_link_libraries(${LIBRARY_NAME} PUBLIC CppMicroServices PRIVATE xacc libint-wrapper)
 
 set(_bundle_name qcor_chemistry_observable)
 set_target_properties(${LIBRARY_NAME}
@@ -34,3 +40,4 @@ if(QCOR_BUILD_TESTS)
 endif()
 
 install(TARGETS ${LIBRARY_NAME} DESTINATION ${CMAKE_INSTALL_PREFIX}/plugins)
+endif()
