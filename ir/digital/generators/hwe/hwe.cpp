@@ -56,10 +56,14 @@ std::shared_ptr<Function> HWE::generate(
     xacc::error("Could not cast HWE parameter to correct type: " +
                 std::string(e.what()));
   }
+  std::string paramLetter = "t";
+  if (options.count("param-id")) {
+      paramLetter = options["param-id"].toString();
+  }
 
   std::vector<InstructionParameter> fParams;
   for (int nP = 0; nP < (2*nQubits + 3 * nQubits * layers); nP++)
-    fParams.push_back(InstructionParameter("t" + std::to_string(nP)));
+    fParams.push_back(InstructionParameter(paramLetter + std::to_string(nP)));
 
   auto provider = xacc::getService<IRProvider>("gate");
   auto f = provider->createFunction("hwe", {}, fParams);
@@ -68,9 +72,9 @@ std::shared_ptr<Function> HWE::generate(
   // Zeroth layer, start with X and Z rotations
   for (int q = 0; q < nQubits; q++) {
     auto rx = provider->createInstruction(
-        "Rx", {q}, {InstructionParameter("t" + std::to_string(angleCounter))});
+        "Rx", {q}, {InstructionParameter(paramLetter + std::to_string(angleCounter))});
     auto rz = provider->createInstruction(
-        "Rz", {q}, {InstructionParameter("t" + std::to_string(angleCounter+1))});
+        "Rz", {q}, {InstructionParameter(paramLetter + std::to_string(angleCounter+1))});
     f->addInstruction(rx);
     f->addInstruction(rz);
     angleCounter+=2;
@@ -84,17 +88,17 @@ std::shared_ptr<Function> HWE::generate(
     for (int q = 0; q < nQubits; q++) {
       auto rz1 = provider->createInstruction(
           "Rz", {q},
-          {InstructionParameter("t" + std::to_string(angleCounter))});
+          {InstructionParameter(paramLetter + std::to_string(angleCounter))});
       f->addInstruction(rz1);
 
       auto rx = provider->createInstruction(
           "Rx", {q},
-          {InstructionParameter("t" + std::to_string(angleCounter+1))});
+          {InstructionParameter(paramLetter + std::to_string(angleCounter+1))});
       f->addInstruction(rx);
 
       auto rz2 = provider->createInstruction(
           "Rz", {q},
-          {InstructionParameter("t" + std::to_string(angleCounter + 2))});
+          {InstructionParameter(paramLetter + std::to_string(angleCounter + 2))});
       f->addInstruction(rz2);
 
       angleCounter += 3;

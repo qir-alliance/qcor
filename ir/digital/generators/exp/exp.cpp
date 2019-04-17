@@ -39,6 +39,10 @@ Exp::generate(std::map<std::string, InstructionParameter> &&parameters) {
     options = parameters;
   }
 
+  std::string paramLetter = "t";
+  if (options.count("param-id")) {
+      paramLetter = options["param-id"].toString();
+  }
   auto pauliStr = options["pauli"].toString();
   PauliOperator op(pauliStr);
 
@@ -92,7 +96,7 @@ Exp::generate(std::map<std::string, InstructionParameter> &&parameters) {
         // ss << 2 * std::imag(std::get<0>(spinInst.second)) << " * "
         //    << std::get<1>(spinInst.second);
         auto rz =
-            gateRegistry->createInstruction("Rz", std::vector<int>{qbitIdx}, {"t"});
+            gateRegistry->createInstruction("Rz", std::vector<int>{qbitIdx}, {paramLetter});
 
         // InstructionParameter p(ss.str());
         // rz->setParameter(0, p);

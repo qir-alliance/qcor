@@ -89,6 +89,7 @@ protected:
         : name(n), provider(p) {}
     // bool VisitDeclRefExpr(DeclRefExpr* expr);
     bool VisitInitListExpr(InitListExpr *expr);
+    bool VisitDeclRefExpr(DeclRefExpr *expr);
     std::shared_ptr<IRGenerator> getIRGenerator();
   };
   class ScanInitListExpr : public RecursiveASTVisitor<ScanInitListExpr> {
