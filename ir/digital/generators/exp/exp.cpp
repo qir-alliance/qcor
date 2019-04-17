@@ -1,8 +1,12 @@
 #include "exp.hpp"
+#include "FermionOperator.hpp"
 #include "IRProvider.hpp"
+#include "ObservableTransform.hpp"
 #include "PauliOperator.hpp"
+
 #include "XACC.hpp"
 #include "xacc_service.hpp"
+#include <memory>
 #include <regex>
 
 using namespace xacc;
@@ -11,10 +15,13 @@ using namespace xacc::quantum;
 namespace qcor {
 namespace instructions {
 bool Exp::validateOptions() {
-  if (!options.count("pauli")) {
-    return false;
+  if (options.count("pauli")) {
+    return true;
   }
-  return true;
+  if (options.count("fermion")) {
+    return true;
+  }
+  return false;
 }
 
 std::shared_ptr<Function>
@@ -41,17 +48,26 @@ Exp::generate(std::map<std::string, InstructionParameter> &&parameters) {
 
   std::string paramLetter = "t";
   if (options.count("param-id")) {
-      paramLetter = options["param-id"].toString();
+    paramLetter = options["param-id"].toString();
   }
-  auto pauliStr = options["pauli"].toString();
-  PauliOperator op(pauliStr);
+
+  std::unordered_map<std::string, xacc::quantum::Term> terms;
+  if (options.count("fermion")) {
+    auto fermionStr = options["fermion"].toString();
+    auto op = std::make_shared<FermionOperator>(fermionStr);
+    terms = std::dynamic_pointer_cast<PauliOperator>(
+                xacc::getService<ObservableTransform>("jw")->transform(op))
+                ->getTerms();
+  } else {
+    auto pauliStr = options["pauli"].toString();
+    PauliOperator op(pauliStr);
+    terms = op.getTerms();
+  }
 
   double pi = 3.1415926;
-
   auto gateRegistry = xacc::getService<IRProvider>("gate");
   auto function = gateRegistry->createFunction("temp", {}, {});
 
-  auto terms = op.getTerms();
   for (auto spinInst : terms) {
 
     // Get the individual pauli terms
@@ -95,8 +111,8 @@ Exp::generate(std::map<std::string, InstructionParameter> &&parameters) {
         // std::stringstream ss;
         // ss << 2 * std::imag(std::get<0>(spinInst.second)) << " * "
         //    << std::get<1>(spinInst.second);
-        auto rz =
-            gateRegistry->createInstruction("Rz", std::vector<int>{qbitIdx}, {paramLetter});
+        auto rz = gateRegistry->createInstruction(
+            "Rz", std::vector<int>{qbitIdx}, {paramLetter});
 
         // InstructionParameter p(ss.str());
         // rz->setParameter(0, p);
