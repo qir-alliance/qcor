@@ -32,6 +32,7 @@
 /.project
 /.settings/
 **/.ptp*
+**/.*.cpp
 /dist/
 /*egg*/
 /python/*egg*

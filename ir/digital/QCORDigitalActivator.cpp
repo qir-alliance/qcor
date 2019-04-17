@@ -1,4 +1,5 @@
 #include "hwe.hpp"
+#include "exp.hpp"
 
 #include "cppmicroservices/BundleActivator.h"
 #include "cppmicroservices/BundleContext.h"
@@ -12,7 +13,10 @@ public:
 
   void Start(BundleContext context) {
     auto hwe = std::make_shared<qcor::instructions::HWE>();
+    auto expit = std::make_shared<qcor::instructions::Exp>();
     context.RegisterService<xacc::IRGenerator>(hwe);
+    context.RegisterService<xacc::IRGenerator>(expit);
+
   }
 
   void Stop(BundleContext context) {}
