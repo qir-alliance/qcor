@@ -10,7 +10,8 @@ int main(int argc, char **argv) {
   auto geom = R"geom(2
 
     H          0.00000        0.00000        0.00000
-    H          0.00000        0.00000        0.7474)geom";
+    H          0.00000        0.00000        0.7474
+    )geom";
 
   auto op = qcor::getObservable("chemistry",
                                 {{"basis", "sto-3g"}, {"geometry", geom}});
