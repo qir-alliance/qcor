@@ -39,6 +39,7 @@ protected:
     bool VisitDeclRefExpr(DeclRefExpr *expr);
     bool VisitLambdaExpr(LambdaExpr* expr);
     bool isQuantumKernel() { return _isQuantumKernel; }
+    std::string irType = "gate";
   };
 
   class CppToXACCIRVisitor : public RecursiveASTVisitor<CppToXACCIRVisitor> {
@@ -48,13 +49,13 @@ protected:
     std::vector<std::string> irGeneratorNames;
 
   public:
-    CppToXACCIRVisitor();
+    CppToXACCIRVisitor(IsQuantumKernelVisitor& v);
     bool VisitCallExpr(CallExpr *expr);
     std::shared_ptr<Function> getFunction();
   };
 
-  class CallExprToGateInstructionVisitor
-      : public RecursiveASTVisitor<CallExprToGateInstructionVisitor> {
+  class CallExprToXACCInstructionVisitor
+      : public RecursiveASTVisitor<CallExprToXACCInstructionVisitor> {
   protected:
     std::vector<int> bits;
     std::vector<InstructionParameter> parameters;
@@ -63,7 +64,7 @@ protected:
     bool addMinus = false;
 
   public:
-    CallExprToGateInstructionVisitor(const std::string n,
+    CallExprToXACCInstructionVisitor(const std::string n,
                                      std::shared_ptr<IRProvider> p)
         : name(n), provider(p) {}
     std::shared_ptr<Instruction> getInstruction();

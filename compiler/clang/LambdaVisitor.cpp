@@ -21,7 +21,7 @@ namespace compiler {
 
 LambdaVisitor::IsQuantumKernelVisitor::IsQuantumKernelVisitor(ASTContext &c)
     : context(c) {
-  auto irProvider = xacc::getService<xacc::IRProvider>("gate");
+  auto irProvider = xacc::getService<xacc::IRProvider>("quantum");
   validInstructions = irProvider->getInstructions();
   validInstructions.push_back("CX");
   auto irgens = xacc::getRegisteredIds<xacc::IRGenerator>();
@@ -37,6 +37,9 @@ bool LambdaVisitor::IsQuantumKernelVisitor::VisitDeclRefExpr(
     if (std::find(validInstructions.begin(), validInstructions.end(),
                   gateName) != validInstructions.end()) {
       _isQuantumKernel = true;
+      if (irType != "anneal" && (gateName == "qmi" || gateName == "anneal")) {
+          irType = "anneal";
+      }
     }
   }
   return true;
@@ -47,9 +50,13 @@ bool LambdaVisitor::IsQuantumKernelVisitor::VisitLambdaExpr(LambdaExpr *expr) {
   return true;
 }
 
-LambdaVisitor::CppToXACCIRVisitor::CppToXACCIRVisitor() {
-  provider = xacc::getService<IRProvider>("gate");
-  function = provider->createFunction("tmp", {});
+LambdaVisitor::CppToXACCIRVisitor::CppToXACCIRVisitor(IsQuantumKernelVisitor& v) {
+  provider = xacc::getService<IRProvider>("quantum");
+  if (v.irType == "gate") {
+    function = provider->createFunction("tmp", {}, {InstructionParameter("gate")});
+  } else {
+    function = provider->createFunction("tmp", {}, {InstructionParameter("anneal")});
+  }
 
   auto irgens = xacc::getRegisteredIds<xacc::IRGenerator>();
   for (auto &irg : irgens) {
@@ -57,17 +64,60 @@ LambdaVisitor::CppToXACCIRVisitor::CppToXACCIRVisitor() {
   }
 }
 
-bool LambdaVisitor::CallExprToGateInstructionVisitor::VisitIntegerLiteral(
+bool LambdaVisitor::CppToXACCIRVisitor::VisitCallExpr(CallExpr *expr) {
+  auto gate_name = dyn_cast<DeclRefExpr>(*(expr->child_begin()))
+                       ->getNameInfo()
+                       .getAsString();
+
+  if (std::find(irGeneratorNames.begin(), irGeneratorNames.end(), gate_name) !=
+      irGeneratorNames.end()) {
+
+    // This is an IRGenerator
+    // Map this CallExpr to an IRGenerator
+    CallExprToIRGenerator visitor(gate_name, provider);
+    visitor.TraverseStmt(expr);
+    auto irg = visitor.getIRGenerator();
+    if (irg->validateOptions()) {
+      auto generated =
+          irg->generate(std::map<std::string, InstructionParameter>{});
+      for (auto inst : generated->getInstructions()) {
+        function->addInstruction(inst);
+      }
+    } else {
+      function->addInstruction(irg);
+    }
+  } else {
+    // This is a regular gate
+    // Map this Call Expr to a Instruction
+    if (gate_name == "CX") {
+      gate_name = "CNOT";
+    }
+    CallExprToXACCInstructionVisitor visitor(gate_name, provider);
+    visitor.TraverseStmt(expr);
+    auto inst = visitor.getInstruction();
+    function->addInstruction(inst);
+  }
+
+  return true;
+}
+
+bool LambdaVisitor::CallExprToXACCInstructionVisitor::VisitIntegerLiteral(
     IntegerLiteral *il) {
+  if (name == "anneal") {
+      int i = il->getValue().getLimitedValue();
+    InstructionParameter p(i);
+    parameters.push_back(p);
+  } else {
   bits.push_back(il->getValue().getLimitedValue());
   if (name == "Measure") {
     InstructionParameter p(bits[0]);
     parameters.push_back(p);
   }
+  }
   return true;
 }
 
-bool LambdaVisitor::CallExprToGateInstructionVisitor::VisitUnaryOperator(
+bool LambdaVisitor::CallExprToXACCInstructionVisitor::VisitUnaryOperator(
     UnaryOperator *op) {
   if (op->getOpcode() == UnaryOperator::Opcode::UO_Minus) {
     addMinus = true;
@@ -75,7 +125,7 @@ bool LambdaVisitor::CallExprToGateInstructionVisitor::VisitUnaryOperator(
   return true;
 }
 
-bool LambdaVisitor::CallExprToGateInstructionVisitor::VisitFloatingLiteral(
+bool LambdaVisitor::CallExprToXACCInstructionVisitor::VisitFloatingLiteral(
     FloatingLiteral *literal) {
   double value = literal->getValue().convertToDouble();
   InstructionParameter p(addMinus ? -1.0 * value : value);
@@ -84,7 +134,7 @@ bool LambdaVisitor::CallExprToGateInstructionVisitor::VisitFloatingLiteral(
   return true;
 }
 
-bool LambdaVisitor::CallExprToGateInstructionVisitor::VisitDeclRefExpr(
+bool LambdaVisitor::CallExprToXACCInstructionVisitor::VisitDeclRefExpr(
     DeclRefExpr *decl) {
   auto declName = decl->getNameInfo().getAsString();
   if (addMinus) {
@@ -93,14 +143,14 @@ bool LambdaVisitor::CallExprToGateInstructionVisitor::VisitDeclRefExpr(
   if (dyn_cast<ParmVarDecl>(decl->getDecl())) {
     parameters.push_back(InstructionParameter(declName));
   } else if (dyn_cast<VarDecl>(decl->getDecl())) {
-    std::cout << "THIS IS A VARDECL: " << declName << "\n";
+    // std::cout << "THIS IS A VARDECL: " << declName << "\n";
     parameters.push_back(InstructionParameter(declName));
   }
   return true;
 }
 
 std::shared_ptr<Instruction>
-LambdaVisitor::CallExprToGateInstructionVisitor::getInstruction() {
+LambdaVisitor::CallExprToXACCInstructionVisitor::getInstruction() {
   return provider->createInstruction(name, bits, parameters);
 }
 
@@ -253,42 +303,6 @@ bool LambdaVisitor::GetPairVisitor::VisitIntegerLiteral(
   intsFound.push_back((int)literal->getValue().getLimitedValue());
   return true;
 }
-bool LambdaVisitor::CppToXACCIRVisitor::VisitCallExpr(CallExpr *expr) {
-  auto gate_name = dyn_cast<DeclRefExpr>(*(expr->child_begin()))
-                       ->getNameInfo()
-                       .getAsString();
-
-  if (std::find(irGeneratorNames.begin(), irGeneratorNames.end(), gate_name) !=
-      irGeneratorNames.end()) {
-
-    // This is an IRGenerator
-    // Map this CallExpr to an IRGenerator
-    CallExprToIRGenerator visitor(gate_name, provider);
-    visitor.TraverseStmt(expr);
-    auto irg = visitor.getIRGenerator();
-    if (irg->validateOptions()) {
-      auto generated =
-          irg->generate(std::map<std::string, InstructionParameter>{});
-      for (auto inst : generated->getInstructions()) {
-        function->addInstruction(inst);
-      }
-    } else {
-      function->addInstruction(irg);
-    }
-  } else {
-    // This is a regular gate
-    // Map this Call Expr to a GateInstruction
-    if (gate_name == "CX") {
-      gate_name = "CNOT";
-    }
-    CallExprToGateInstructionVisitor visitor(gate_name, provider);
-    visitor.TraverseStmt(expr);
-    auto inst = visitor.getInstruction();
-    function->addInstruction(inst);
-  }
-
-  return true;
-}
 
 std::shared_ptr<Function> LambdaVisitor::CppToXACCIRVisitor::getFunction() {
   return function;
@@ -324,16 +338,16 @@ bool LambdaVisitor::VisitLambdaExpr(LambdaExpr *LE) {
       auto int_value = dyn_cast<IntegerLiteral>(e);
       auto float_value = dyn_cast<FloatingLiteral>(e);
       if (int_value) {
-        std::cout << "THIS VALUE IS KNOWN AT COMPILE TIME: "
-                  << (int)int_value->getValue().signedRoundToDouble()
-                  << "\n"; // getAsString(ci.getASTContext(),
-                           // it->getCapturedVar()->getType()) << "\n";
+        // std::cout << "THIS VALUE IS KNOWN AT COMPILE TIME: "
+        //           << (int)int_value->getValue().signedRoundToDouble()
+        //           << "\n"; // getAsString(ci.getASTContext(),
+        //                    // it->getCapturedVar()->getType()) << "\n";
         captures.insert(
             {varName, (int)int_value->getValue().signedRoundToDouble()});
         continue;
       } else if (float_value) {
-        std::cout << varName << ", THIS DOUBLE VALUE IS KNOWN AT COMPILE TIME: "
-                  << float_value->getValue().convertToDouble() << "\n";
+        // std::cout << varName << ", THIS DOUBLE VALUE IS KNOWN AT COMPILE TIME: "
+        //           << float_value->getValue().convertToDouble() << "\n";
         captures.insert({varName, float_value->getValue().convertToDouble()});
         continue;
       }
@@ -347,7 +361,7 @@ bool LambdaVisitor::VisitLambdaExpr(LambdaExpr *LE) {
     }
 
     // q_kernel_body->dumpColor();
-    CppToXACCIRVisitor visitor;
+    CppToXACCIRVisitor visitor(isqk);
     visitor.TraverseStmt(LE);
 
     auto function = visitor.getFunction();

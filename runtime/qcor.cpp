@@ -7,8 +7,8 @@
 #include "XACC.hpp"
 #include "xacc_service.hpp"
 
-#include "PauliOperator.hpp"
 #include "FermionOperator.hpp"
+#include "PauliOperator.hpp"
 
 #include <regex>
 
@@ -59,8 +59,10 @@ const std::string persistCompiledCircuit(std::shared_ptr<Function> function,
   std::stringstream ss;
   function->persist(ss);
   auto persistedFunction = ss.str();
-    //   xacc::getCompiler("xacc-py")->translate("", function);
-//   persistedFunction = persistedFunction.substr(7, persistedFunction.length());
+//   std::cout << "PERSISTED\n" << persistedFunction << "\n";
+  //   xacc::getCompiler("xacc-py")->translate("", function);
+  //   persistedFunction = persistedFunction.substr(7,
+  //   persistedFunction.length());
   xacc::appendCache(file_name, "compiled",
                     InstructionParameter(persistedFunction), ".qcor_cache");
 
@@ -80,11 +82,26 @@ const std::string persistCompiledCircuit(std::shared_ptr<Function> function,
                       ".qcor_cache");
   }
 
+  bool isDw = false;
+  for (auto& inst : function->getInstructions()) {
+      if (inst->name() == "dw-qmi" || inst->name() == "anneal") {
+          isDw = true;
+          break;
+      }
+  }
+
+  if (isDw) {
+    xacc::appendCache(file_name, "ir-type", InstructionParameter("anneal"),
+                      ".qcor_cache");
+  } else {
+    xacc::appendCache(file_name, "ir-type", InstructionParameter("gate"),
+                      ".qcor_cache");
+  }
   return file_name;
 }
 
 std::shared_ptr<Function> loadCompiledCircuit(const std::string &fileName) {
-//   std::cout << "Loading Circuit " << fileName << "\n";
+  //   std::cout << "Loading Circuit " << fileName << "\n";
   auto cache = xacc::getCache(fileName, ".qcor_cache");
   if (!cache.count("compiled")) {
     xacc::error("Invalid quantum compilation cache.");
@@ -121,17 +138,20 @@ std::shared_ptr<Function> loadCompiledCircuit(const std::string &fileName) {
 
   xacc::setAccelerator(targetAccelerator->name());
 
+  auto type = cache["ir-type"].as<std::string>();
   auto compiled = cache["compiled"].as<std::string>();
-  auto loaded = xacc::getService<IRProvider>("gate")->createFunction("loaded", {});
+  auto loaded =
+      xacc::getService<IRProvider>("quantum")->createFunction("loaded", {}, {InstructionParameter(type)});
   std::istringstream iss(compiled);
   loaded->load(iss);
 
-//   std::cout << "Lodaded: " << loaded->toString() << "\n";
+  //   std::cout << "Lodaded: " << loaded->toString() << "\n";
   if (cache["requires-jit"].as<std::string>() == "true") {
     auto runtimeMap = getRuntimeMap();
 
     // for (auto& kv : runtimeMap) {
-        // std::cout << "Runtime: " << kv.first << ", " << kv.second.toString() << "\n";
+    // std::cout << "Runtime: " << kv.first << ", " << kv.second.toString() <<
+    // "\n";
     // }
     loaded->expandIRGenerators(runtimeMap);
 
@@ -141,13 +161,13 @@ std::shared_ptr<Function> loadCompiledCircuit(const std::string &fileName) {
     // std::cout << "NPARAMS: " << loaded->nParameters() << "\n";
   }
 
-//   std::cout<< "Loaded IR:\n" << loaded->toString() <<"\n";
+  //   std::cout<< "Loaded IR:\n" << loaded->toString() <<"\n";
   return loaded;
 }
 
-void storeRuntimeVariable(const std::string name,
-                          InstructionParameter param) {
-//   std::cout << "Storing Runtime Variable " << name << ", " << param.toString() << "\n";
+void storeRuntimeVariable(const std::string name, InstructionParameter param) {
+  //   std::cout << "Storing Runtime Variable " << name << ", " <<
+  //   param.toString() << "\n";
   runtimeMap.insert({name, param});
 }
 
@@ -185,10 +205,10 @@ std::shared_ptr<Observable> getObservable(const std::string &type,
                ? std::make_shared<PauliOperator>()
                : std::make_shared<PauliOperator>(representation);
   } else if (type == "fermion") {
-     return representation.empty()
+    return representation.empty()
                ? std::make_shared<FermionOperator>()
                : std::make_shared<FermionOperator>(representation);
-  }else {
+  } else {
     xacc::error("Invalid observable type");
     return std::make_shared<PauliOperator>();
   }
@@ -201,10 +221,12 @@ std::shared_ptr<Observable> getObservable(const std::string &representation) {
   return getObservable("pauli", representation);
 }
 
-std::shared_ptr<Observable> getObservable(const std::string &type, std::map<std::string, InstructionParameter> &&options) {
-    auto observable = xacc::getService<Observable>(type);
-    observable->fromOptions(options);
-    return observable;
+std::shared_ptr<Observable>
+getObservable(const std::string &type,
+              std::map<std::string, InstructionParameter> &&options) {
+  auto observable = xacc::getService<Observable>(type);
+  observable->fromOptions(options);
+  return observable;
 }
 std::shared_ptr<algorithm::Algorithm> getAlgorithm(const std::string name) {
   return xacc::getService<qcor::algorithm::Algorithm>(name);

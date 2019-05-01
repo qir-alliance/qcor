@@ -157,6 +157,17 @@ int main(int argc, char** argv){
     };
     return 0;
 })hwe4";
+
+const std::string dw = R"dw(
+int main() {
+    auto l = [&]() {
+        qmi(0,0,2.2);
+        qmi(1,1,3.3);
+        qmi(0,1,3.4);
+        anneal(20,0,0,0);
+    };
+    return 0;
+})dw";
 TEST(LambdaVisitorTester, checkSimple) {
   Rewriter rewriter1, rewriter2;
   auto action1 = new TestQCORFrontendAction(rewriter1);
@@ -394,6 +405,43 @@ int main() {
 
   EXPECT_EQ(expectedSrc, src2);
 }
+
+TEST(LambdaVisitorTester, checkSimpleDW) {
+  Rewriter rewriter1, rewriter2;
+  auto action1 = new TestQCORFrontendAction(rewriter1);
+  auto action2 = new TestQCORFrontendAction(rewriter2);
+
+  xacc::setOption("qcor-compiled-filename", "lambda_visitor_tester");
+
+  std::vector<std::string> args{"-std=c++11"};
+
+  EXPECT_TRUE(tooling::runToolOnCodeWithArgs(action1, dw, args));
+
+  const std::string expectedSrc = R"expectedSrc(
+int main() {
+    auto l = [&](){return "lambda_visitor_tester";};
+    return 0;
+})expectedSrc";
+  std::ifstream t(".output.cpp");
+  std::string src((std::istreambuf_iterator<char>(t)),
+                  std::istreambuf_iterator<char>());
+  std::remove(".output.cpp");
+
+  std::cout << "SOURCE\n" << src << "\n";
+  EXPECT_EQ(expectedSrc, src);
+
+  auto function = qcor::loadCompiledCircuit("lambda_visitor_tester");
+  EXPECT_EQ(4, function->nInstructions());
+  EXPECT_EQ(0, function->getInstruction(0)->bits()[0]);
+  EXPECT_EQ(0, function->getInstruction(0)->bits()[1]);
+  EXPECT_EQ(1, function->getInstruction(1)->bits()[0]);
+  EXPECT_EQ(1, function->getInstruction(1)->bits()[1]);
+  EXPECT_EQ(0, function->getInstruction(2)->bits()[0]);
+  EXPECT_EQ(1, function->getInstruction(2)->bits()[1]);
+
+  std::cout << "HOWDY:\n" << function->getInstruction(3)->toString() <<"\n";
+}
+
 int main(int argc, char **argv) {
   qcor::Initialize(argc, argv);
   ::testing::InitGoogleTest(&argc, argv);

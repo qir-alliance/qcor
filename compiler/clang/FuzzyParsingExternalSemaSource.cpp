@@ -13,7 +13,7 @@ namespace compiler {
 FuzzyParsingExternalSemaSource::FuzzyParsingExternalSemaSource(
     ASTContext &context)
     : m_Context(context) {
-  auto irProvider = xacc::getService<xacc::IRProvider>("gate");
+  auto irProvider = xacc::getService<xacc::IRProvider>("quantum");
   validInstructions = irProvider->getInstructions();
   validInstructions.push_back("CX");
   auto irgens = xacc::getRegisteredIds<xacc::IRGenerator>();
