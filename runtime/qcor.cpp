@@ -1,5 +1,4 @@
 #include "qcor.hpp"
-#include "/home/project/xacc/xacc/XACC.hpp"
 #include "qpu_handler.hpp"
 
 #include "AcceleratorBuffer.hpp"

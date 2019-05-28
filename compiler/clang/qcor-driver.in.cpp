@@ -85,6 +85,7 @@ int main(int argc, char **argv) {
   if (!xacc::fileExists(fileName)) {
     xacc::error("File " + fileName + " does not exist.");
   }
+  
 
   std::ifstream t(fileName);
   std::string src((std::istreambuf_iterator<char>(t)),

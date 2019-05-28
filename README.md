@@ -5,7 +5,7 @@ for variational quantum computation on near-term, noisy devices.
 
 
 ## Dependencies
-Compiler (C++11): GNU 5+, Clang 3+
+Compiler (C++11): GNU 5+, Clang 8+
 CMake 3.9+
 XACC: see https://xacc.readthedocs.io/en/latest/install.html#building-xacc
 
@@ -20,9 +20,9 @@ $ export PATH=$PATH:/usr/local/bin
 On Ubuntu 16+, install latest clang and llvm libraries and headers (you may need sudo)
 ```bash
 $ wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add -
-$ add-apt-repository "deb http://apt.llvm.org/jessie/ llvm-toolchain-jessie main"
+$ echo "deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial main" > /etc/apt/sources.list.d/llvm.list
 $ apt-get update
-$ apt-get install libclang-9-dev llvm-9-dev clang-9
+$ apt-get install -y libclang-9-dev llvm-9-dev
 $ ln -s /usr/bin/llvm-config-9 /usr/bin/llvm-config
 ```
 
@@ -39,9 +39,6 @@ Update your PATH to ensure that the ```qcor``` compiler is available.
 $ export PATH=$PATH:$HOME/.xacc/bin
 ```
 
-To target IBM, Rigetti, or TNQVM, please also build the
-corresponding XACC plugins. See https://xacc.readthedocs.io/en/latest/plugins.html.
-
 ## Example Usage
 
 Here we demonstrate how to program, compile, and run the Deuteron H2 VQE problem. Create
@@ -50,19 +47,18 @@ the following file
 ```cpp
 #include "qcor.hpp"
 
-int main() {
+int main(int argc, char** argv) {
 
   // Initialize the QCOR Runtime
-  qcor::Initialize({"--accelerator", "tnqvm"});
+  qcor::Initialize(argc, argv);
+  
+  auto optimizer = qcor::getOptimizer(
+      "nlopt", {{"nlopt-optimizer", "cobyla"},
+                {"nlopt-maxeval", 20}});
 
-  // Create an Optimizer, default is NLOpt COBYLA
-  auto optimizer = qcor::getOptimizer("nlopt");
-
-  // Create the Deuteron Observable
-  const std::string deuteronH2 =
-      R"deuteronH2((5.907,0) + (-2.1433,0) X0 X1 + (-2.1433,0) Y0 Y1 + (.21829,0) Z0 + (-6.125,0) Z1)deuteronH2";
-  PauliOperator op;
-  op.fromString(deuteronH2);
+  auto op = qcor::getObservable("pauli", "5.907 - 2.1433 X0X1 "
+                                         "- 2.1433 Y0Y1"
+                                         "+ .21829 Z0 - 6.125 Z1");
 
   // Schedule an asynchronous VQE execution
   // with the given quantum kernel ansatz

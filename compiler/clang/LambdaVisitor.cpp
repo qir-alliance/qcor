@@ -39,7 +39,7 @@ bool LambdaVisitor::IsQuantumKernelVisitor::VisitDeclRefExpr(
       _isQuantumKernel = true;
       if (irType != "anneal" && (gateName == "qmi" || gateName == "anneal")) {
           irType = "anneal";
-      }
+      } // FIXME else if (IS AN IRGEN AND THE IRGEN PRODUCES DWAVE IR) {}
     }
   }
   return true;
