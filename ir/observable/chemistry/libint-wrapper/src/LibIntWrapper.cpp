@@ -54,15 +54,10 @@ Eigen::MatrixXd compute_2body_fock(const libint2::BasisSet &shells,
           auto s12_34_deg = (s1 == s3) ? (s2 == s4 ? 1.0 : 2.0) : 2.0;
           auto s1234_deg = s12_deg * s34_deg * s12_34_deg;
 
-          const auto tstart = std::chrono::high_resolution_clock::now();
-
           engine.compute(shells[s1], shells[s2], shells[s3], shells[s4]);
           const auto *buf_1234 = buf[0];
           if (buf_1234 == nullptr)
             continue; // if all integrals screened out, skip to next quartet
-
-          const auto tstop = std::chrono::high_resolution_clock::now();
-          time_elapsed += tstop - tstart;
 
           for (auto f1 = 0, f1234 = 0; f1 != n1; ++f1) {
             const auto bf1 = f1 + bf1_first;
@@ -96,11 +91,11 @@ Eigen::MatrixXd compute_2body_fock(const libint2::BasisSet &shells,
   Eigen::MatrixXd Gt = G.transpose();
   return 0.5 * (G + Gt);
 }
-void LibIntWrapper::generate(std::map<std::string, std::string> &&options) {
-  generate(options);
+void LibIntWrapper::generate(std::map<std::string, std::string> &&options, std::vector<int> active, std::vector<int> frozen) {
+  generate(options, active, frozen);
 }
 
-void LibIntWrapper::generate(std::map<std::string, std::string> &options) {
+void LibIntWrapper::generate(std::map<std::string, std::string> &options, std::vector<int> active, std::vector<int> frozen) {
 
   auto basis = options["basis"];
   auto geom = options["geometry"];
@@ -137,12 +132,6 @@ void LibIntWrapper::generate(std::map<std::string, std::string> &options) {
 
   libint2::Shell::do_enforce_unit_normalization(false);
 
-//   std::cout << "Atomic Cartesian coordinates (a.u.):" << std::endl;
-//   for (const auto &a : atoms) {
-//     std::cout << a.atomic_number << " " << a.x << " " << a.y << " " << a.z
-//               << std::endl;
-//   }
-
   libint2::initialize();
 
   libint2::BasisSet obs(basis, atoms, true);
@@ -170,24 +159,19 @@ void LibIntWrapper::generate(std::map<std::string, std::string> &options) {
   // const auto& is very important!
   nBasis = obs.nbf();
   auto nshells = obs.size();
-//   std::cout << "NBF: " << nBasis << "\n";
 
+  Eigen::Tensor<double,4> eri_data_t(nBasis, nBasis, nBasis, nBasis);
+  eri_data_t.setZero();
   Eigen::Tensor<double, 1> data_(std::pow(nBasis, 4));
   int ii = 0;
-  //   std::cout << "MATRIX:\n" << result << "\n";
   for (auto s1 = 0; s1 != obs.size(); ++s1) {
     for (auto s2 = 0; s2 != obs.size(); ++s2) {
       for (auto s3 = 0; s3 != obs.size(); ++s3) {
         for (auto s4 = 0; s4 != obs.size(); ++s4) {
-
-        //   std::cout << "compute shell set {" << s1 << "," << s2 << "," << s3
-                    // << "," << s4 << "} ... ";
           eri_engine.compute(obs[s1], obs[s2], obs[s3], obs[s4]);
-        //   std::cout << "done. ";
 
           auto ints_shellset = buf[0];
 
-        //   std::cout << ii << ", " << ints_shellset[0] << "\n";
           data_(ii) = ints_shellset[0];
           eri_data.push_back(ints_shellset[0]);
           ii++;
@@ -196,12 +180,8 @@ void LibIntWrapper::generate(std::map<std::string, std::string> &options) {
     }
   }
 
-//   std::cout << "ERI Vec:\n" << data_ << "\n";
-
-//   std::cout << "obs size: " << obs.size() << "\n";
   const auto &kinetic_buf_vec =
-      kinetic_engine.results(); // will point to computed shell sets
-                                // const auto& is very important!
+      kinetic_engine.results();
 
   Eigen::Tensor<double, 2> T(nBasis, nBasis);
   for (auto s1 = 0; s1 != obs.size(); ++s1) {
@@ -233,6 +213,7 @@ void LibIntWrapper::generate(std::map<std::string, std::string> &options) {
         }
     }
   }
+//   kinetic_data =
 
   //   std::cout << "T:\n" << T << "\n";
 
@@ -317,6 +298,8 @@ void LibIntWrapper::generate(std::map<std::string, std::string> &options) {
 
   Eigen::MatrixXd H = T_ + V_;
 
+  std::cout << "T:\n" << T << "\n\n";
+  std::cout << "V:\n" << V << "\n\n";
   Eigen::MatrixXd D;
   // solve H C = e S C
   Eigen::GeneralizedSelfAdjointEigenSolver<Eigen::MatrixXd> gen_eig_solver(H,
@@ -469,15 +452,17 @@ void LibIntWrapper::generate(std::map<std::string, std::string> &options) {
   Eigen::Tensor<double, 4> gmo =
       tmp3.contract(CTensor, Eigen::array<IP, 1>{IP(0, 0)});
 
-  Eigen::Tensor<double, 2> H_core_ao = getAOKinetic() + getAOPotential();
+  Eigen::Tensor<double, 2> H_core_ao = Eigen::TensorMap<Eigen::Tensor<double,2>>(H.data(), nBasis,nBasis);
 
-  Eigen::MatrixXd H_core_ao_m =
-      Eigen::Map<Eigen::MatrixXd>(H_core_ao.data(), nBasis, nBasis);
+//   std::cout << "HCOREAO:\n" << H_core_ao << "\n\n";
+  Eigen::MatrixXd H_core_ao_m = H;
+    //   Eigen::Map<Eigen::MatrixXd>(H_core_ao.data(), nBasis, nBasis);
 
   Eigen::MatrixXd H_1body_ao(2 * nBasis, 2 * nBasis);
   H_1body_ao.block(0, 0, nBasis, nBasis) = H_core_ao_m;
   H_1body_ao.block(nBasis, nBasis, nBasis, nBasis) = H_core_ao_m;
 
+  std::cout << "AO:\n" << H_1body_ao << "\n\n";
   Eigen::Tensor<double, 2> H_1body_ao_Tensor =
       Eigen::TensorMap<Eigen::Tensor<double, 2>>(H_1body_ao.data(), 2 * nBasis,
                                                  2 * nBasis);
@@ -492,39 +477,36 @@ void LibIntWrapper::generate(std::map<std::string, std::string> &options) {
   Eigen::Tensor<double, 2> H_1body_Final =
       CTensorT.contract(tmpTensor, Eigen::array<IP, 1>{IP(1, 0)});
 
-
-//   int c = 0;
-//   for (int i = 0; i < 4; i++) {
-//     for (int j = 0; j < 4; j++) {
-//       for (int k = 0; k < 4; k++) {
-//         for (int l = 0; l < 4; l++) {
-//             if (std::fabs(gmo(i,j,k,l)) > 1e-12) {
-//           std::cout << c << ", " << (std::fabs(gmo(i, j, k, l)) > 1e-10 ? gmo(i, j, k, l)
-//                                                            : 0.0)
-//                     << "\n";
-//                     c++;
-//             }
-//         }
-//       }
-//     }
-//   }
-
-
   std::vector<int> active_list(2*nBasis), frozen_list;
   std::iota(active_list.begin(), active_list.end(),0);
-  int nActive = active_list.size();
-  int nFrozen = 0;
-
-  auto tmp_enuc = enuc;
-  for (int i = 0; i < nFrozen; i++) {
-      auto ia = frozen_list[i];
-      tmp_enuc += H_1body_Final(ia,ia);
-      for (int b = 0; b < i; b++) {
-          auto ib = frozen_list[b];
-          tmp_enuc += gmo(ia,ib,ia,ib);
-      }
+  if (!active.empty() && !frozen.empty()) {
+     active_list.clear();
+     active_list = active;
+     frozen_list = frozen;
+     for (auto& a : active_list) {
+         std::cout << "Active: " << a << "\n";
+     }
+    for (auto& a : frozen_list) {
+         std::cout << "frozen_list: " << a << "\n";
+     }
   }
 
+  int nActive = active_list.size();
+  int nFrozen = frozen_list.size();
+
+//   std::cout << Eigen::Map<Eigen::MatrixXd>(H_1body_Final.data(), 20,20).diagonal() << "\n";
+  auto tmp_enuc = enuc;
+  for (int a = 0; a < nFrozen; a++) {
+      auto ia = frozen_list[a];
+      tmp_enuc += H_1body_Final(ia,ia);
+      for (int b = 0; b < a; b++) {
+          auto ib = frozen_list[b];
+          tmp_enuc += gmo(ia,ib,ia,ib);
+          std::cout << ia << ", " << ib << ", " <<  gmo(ia,ib,ia,ib) << "\n";
+
+      }
+  }
+  std::cout << nBasis <<  ", TMPNUC: " << enuc << ", " << tmp_enuc << "\n";
   Eigen::Tensor<double, 2> h_fc_1body(nActive,nActive); h_fc_1body.setZero();
   for (int p = 0; p < nActive; p++ ){
       auto ip = active_list[p];
@@ -557,10 +539,6 @@ void LibIntWrapper::generate(std::map<std::string, std::string> &options) {
   Eigen::Tensor<double, 4> tmp_shuffle = h_fc_2body.shuffle(Eigen::array<int,4>{0,1,3,2});
   Eigen::Tensor<double, 4> h_fc_2body_tmp = tmp_shuffle * 0.25;
 
-// std::cout << "One BOdy:\n"
-//             << Eigen::Map<Eigen::MatrixXd>(h_fc_1body.data(), 2 * nBasis,
-//                                            2 * nBasis)
-//             << "\n";
   _hpq = h_fc_1body;//H_1body_Final;
   _hpqrs = h_fc_2body_tmp;
   _e_nuc = tmp_enuc;

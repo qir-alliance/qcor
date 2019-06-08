@@ -1,17 +1,17 @@
 #ifndef RUNTIME_QCOR_HPP_
 #define RUNTIME_QCOR_HPP_
 
-#include "optimizer.hpp"
 #include <future>
 
-#include "Observable.hpp"
+#include "optimizer.hpp"
 #include "algorithm.hpp"
+
+#include "Observable.hpp"
 
 namespace xacc {
 class Function;
 class AcceleratorBuffer;
 class Accelerator;
-class Observable;
 } // namespace xacc
 
 using namespace xacc;
@@ -19,6 +19,7 @@ using namespace xacc;
 namespace qcor {
 
 class qpu_handler;
+
 using HandlerLambda = std::function<void(qpu_handler &)>;
 
 extern std::map<std::string, InstructionParameter> runtimeMap;

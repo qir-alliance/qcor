@@ -30,9 +30,12 @@ bool FuzzyParsingExternalSemaSource::LookupUnqualified(clang::LookupResult &R,
 
   // If this is a valid quantum instruction, tell Clang its
   // all gonna be ok, we got this...
-  if (std::find(validInstructions.begin(), validInstructions.end(),
-                unknownName) != validInstructions.end()) {
+  if (std::find(validInstructions.begin(), validInstructions.end(), // not template scope
+                unknownName) != validInstructions.end() && S->getFlags() != 128 && S->getBlockParent() != nullptr) {
 
+    // std::cout << "HELLO FP: " << unknownName << ", " << S->getFlags() << "\n";
+    // S->dump();
+    // S->getBlockParent()->dump();
     IdentifierInfo *II = Name.getAsIdentifierInfo();
     SourceLocation Loc = R.getNameLoc();
     auto fdecl = FunctionDecl::Create(

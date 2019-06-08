@@ -8,8 +8,8 @@
 namespace libintwrapper {
 class LibIntWrapper {
 public:
-  void generate(std::map<std::string, std::string> &&options);
-  void generate(std::map<std::string, std::string> &options);
+  void generate(std::map<std::string, std::string> &&options, std::vector<int> active = {}, std::vector<int> frozen = {});
+  void generate(std::map<std::string, std::string> &options, std::vector<int> active = {}, std::vector<int> frozen = {});
   Eigen::Tensor<double, 2> getAOKinetic();
   Eigen::Tensor<double, 2> getAOPotential();
   Eigen::Tensor<double, 4> getERI();

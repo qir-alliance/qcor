@@ -29,6 +29,7 @@ def parse_args(args):
 def main(argv=None):
     opts = parse_args(sys.argv[1:])
 
+    import time
     command = ["qcor-driver"]
     includes = []
     if opts.include:
@@ -40,25 +41,26 @@ def main(argv=None):
     if opts.accelerator:
         command += ['--accelerator', opts.accelerator]
 
-
-    baseIncludes = ['-I', '@CMAKE_INSTALL_PREFIX@/include/xacc', '-I', '@CMAKE_INSTALL_PREFIX@/include/quantum/gate',
-                '-I', '@CMAKE_INSTALL_PREFIX@/include/cppmicroservices4', '-I', '@CMAKE_INSTALL_PREFIX@/include/qcor']
-    baseLibs = ['-L', '@CMAKE_INSTALL_PREFIX@/lib', '-lxacc',
-                '-lqcor', '-lCppMicroServices', '-lxacc-quantum-gate', '-lxacc-pauli']
-
     command += [opts.file]
     if opts.verbose:
         command += ['-v']
 
     print(command)
     try:
+        s = time.time()
         result = subprocess.run(command, check=True)
+        e = time.time()
+        print('time: ', (e-s))
     except subprocess.CalledProcessError as e:
         print(e.output)
         print(e.returncode)
         return e.returncode
 
     command.clear()
+
+    baseIncludes = ['-I', '@CMAKE_INSTALL_PREFIX@/include/xacc', '-I', '@CMAKE_INSTALL_PREFIX@/include/qcor']
+    baseLibs = ['-L', '@CMAKE_INSTALL_PREFIX@/lib', '-lxacc',
+                '-lqcor', '-lCppMicroServices', '-lxacc-quantum-gate', '-lxacc-pauli']
 
     command = ['@CLANG_COMPILER@', '-std=c++11', '-Wl,-rpath,@CMAKE_INSTALL_PREFIX@/lib']
     command += includes + baseIncludes + baseLibs
@@ -69,7 +71,10 @@ def main(argv=None):
 
     print('Final command', command)
     try:
+        s = time.time()
         result = subprocess.run(command, check=True)
+        e = time.time()
+        print('final compile time: ', (e-s))
     except subprocess.CalledProcessError as e:
         print(e.output)
         print(e.returncode)
@@ -77,7 +82,7 @@ def main(argv=None):
 
     if opts.keep_tmp_src == None:
         os.remove('.'+opts.file.replace('.','_out.'))
-    
+
     return 0
 
 

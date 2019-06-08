@@ -6,37 +6,37 @@
 
 using namespace xacc;
 
-namespace qcor{
+namespace qcor {
 namespace instructions {
 bool HWE::validateOptions() {
   if (options.count("n-qubits")) {
-      if (!options["n-qubits"].isNumeric()) {
-          return false;
-      }
+    if (!options["n-qubits"].isNumeric()) {
+      return false;
+    }
   }
   return true;
 }
 
-std::shared_ptr<Function> HWE::generate(
-			std::shared_ptr<AcceleratorBuffer> buffer,
-			std::vector<InstructionParameter> parameters) {
+std::shared_ptr<Function>
+HWE::generate(std::shared_ptr<AcceleratorBuffer> buffer,
+              std::vector<InstructionParameter> parameters) {
   xacc::error("qcor::HWE::generate(buffer,params) not implemented.");
   return nullptr;
 }
 
-std::shared_ptr<xacc::Function> HWE::generate(
-			std::map<std::string, xacc::InstructionParameter>& parameters) {
- if (!parameters.empty()) {
-      options = parameters;
+std::shared_ptr<xacc::Function>
+HWE::generate(std::map<std::string, xacc::InstructionParameter> &parameters) {
+  if (!parameters.empty()) {
+    options = parameters;
   }
   return generate(std::map<std::string, InstructionParameter>{});
 }
 
-std::shared_ptr<Function> HWE::generate(
-			std::map<std::string, InstructionParameter>&& parameters ) {
+std::shared_ptr<Function>
+HWE::generate(std::map<std::string, InstructionParameter> &&parameters) {
 
   if (!parameters.empty()) {
-      options = parameters;
+    options = parameters;
   }
 
   int nQubits = 0, layers = 1;
@@ -45,11 +45,11 @@ std::shared_ptr<Function> HWE::generate(
     nQubits = options["n-qubits"].as<int>();
     layers = options.count("layers") ? options["layers"].as<int>() : layers;
     if (options.count("coupling")) {
-        connectivity = options["coupling"].as<std::vector<std::pair<int, int>>>();
+      connectivity = options["coupling"].as<std::vector<std::pair<int, int>>>();
     } else {
-        for (int i = 0; i < nQubits-1; i++) {
-            connectivity.push_back({i,i+1});
-        }
+      for (int i = 0; i < nQubits - 1; i++) {
+        connectivity.push_back({i, i + 1});
+      }
     }
 
   } catch (std::exception &e) {
@@ -58,11 +58,11 @@ std::shared_ptr<Function> HWE::generate(
   }
   std::string paramLetter = "t";
   if (options.count("param-id")) {
-      paramLetter = options["param-id"].toString();
+    paramLetter = options["param-id"].toString();
   }
 
   std::vector<InstructionParameter> fParams;
-  for (int nP = 0; nP < (2*nQubits + 3 * nQubits * layers); nP++)
+  for (int nP = 0; nP < (2 * nQubits + 3 * nQubits * layers); nP++)
     fParams.push_back(InstructionParameter(paramLetter + std::to_string(nP)));
 
   auto provider = xacc::getService<IRProvider>("gate");
@@ -72,12 +72,14 @@ std::shared_ptr<Function> HWE::generate(
   // Zeroth layer, start with X and Z rotations
   for (int q = 0; q < nQubits; q++) {
     auto rx = provider->createInstruction(
-        "Rx", {q}, {InstructionParameter(paramLetter + std::to_string(angleCounter))});
+        "Rx", {q},
+        {InstructionParameter(paramLetter + std::to_string(angleCounter))});
     auto rz = provider->createInstruction(
-        "Rz", {q}, {InstructionParameter(paramLetter + std::to_string(angleCounter+1))});
+        "Rz", {q},
+        {InstructionParameter(paramLetter + std::to_string(angleCounter + 1))});
     f->addInstruction(rx);
     f->addInstruction(rz);
-    angleCounter+=2;
+    angleCounter += 2;
   }
 
   for (int d = 0; d < layers; d++) {
@@ -93,12 +95,14 @@ std::shared_ptr<Function> HWE::generate(
 
       auto rx = provider->createInstruction(
           "Rx", {q},
-          {InstructionParameter(paramLetter + std::to_string(angleCounter+1))});
+          {InstructionParameter(paramLetter +
+                                std::to_string(angleCounter + 1))});
       f->addInstruction(rx);
 
       auto rz2 = provider->createInstruction(
           "Rz", {q},
-          {InstructionParameter(paramLetter + std::to_string(angleCounter + 2))});
+          {InstructionParameter(paramLetter +
+                                std::to_string(angleCounter + 2))});
       f->addInstruction(rz2);
 
       angleCounter += 3;
@@ -108,5 +112,5 @@ std::shared_ptr<Function> HWE::generate(
   return f;
 }
 
-}
-}
+} // namespace instructions
+} // namespace qcor

@@ -21,6 +21,8 @@
 #include <fstream>
 #include <string>
 
+#include "FuzzyParsingExternalSemaSource.hpp"
+
 #include "QCORASTConsumer.hpp"
 #include "XACC.hpp"
 using namespace clang;
@@ -45,6 +47,9 @@ protected:
     CompilerInstance &CI = getCompilerInstance();
     CI.createSema(getTranslationUnitKind(), nullptr);
     rewriter.setSourceMgr(CI.getSourceManager(), CI.getLangOpts());
+
+    qcor::compiler::FuzzyParsingExternalSemaSource source(CI.getASTContext());
+    CI.getSema().addExternalSource(&source);
 
     ParseAST(CI.getSema());
 
@@ -85,7 +90,6 @@ int main(int argc, char **argv) {
   if (!xacc::fileExists(fileName)) {
     xacc::error("File " + fileName + " does not exist.");
   }
-  
 
   std::ifstream t(fileName);
   std::string src((std::istreambuf_iterator<char>(t)),
@@ -96,10 +100,8 @@ int main(int argc, char **argv) {
 
   auto action = new QCORFrontendAction(Rewrite, fileName);
   std::vector<std::string> args{
-      "-std=c++11", "-I@CMAKE_INSTALL_PREFIX@/include/qcor",
-      "-I@CMAKE_INSTALL_PREFIX@/include/xacc",
-      "-I@CMAKE_INSTALL_PREFIX@/include/cppmicroservices4",
-      "-I@CMAKE_INSTALL_PREFIX@/include/quantum/gate"};
+      "-ftime-report", "-std=c++11", "-I@CMAKE_INSTALL_PREFIX@/include/qcor",
+      "-I@CMAKE_INSTALL_PREFIX@/include/xacc"};
 
   if (!tooling::runToolOnCodeWithArgs(action, src, args)) {
       xacc::error("Error running qcor compiler.");

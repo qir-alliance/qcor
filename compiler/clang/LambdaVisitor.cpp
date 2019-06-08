@@ -162,8 +162,8 @@ bool LambdaVisitor::CallExprToIRGenerator::VisitInitListExpr(
       ScanInitListExpr visitor;
       visitor.TraverseStmt(child);
       options.insert({visitor.key, visitor.value});
-      std::cout << "Inserting " << visitor.key << ", "
-                << visitor.value.toString() << "\n";
+    //   std::cout << "Inserting " << visitor.key << ", "
+    //             << visitor.value.toString() << "\n";
     }
 
     keepSearching = false;
@@ -182,7 +182,6 @@ bool LambdaVisitor::CallExprToIRGenerator::VisitDeclRefExpr(DeclRefExpr *decl) {
 
   if (dyn_cast<ParmVarDecl>(decl->getDecl())) {
     auto declName = decl->getNameInfo().getAsString();
-    // std::cout << "IRGENERATOR FOUND PARAM: " << declName << "\n";
     options.insert({"param-id", declName});
   }
   return true;
@@ -268,6 +267,7 @@ bool LambdaVisitor::ScanInitListExpr::VisitStringLiteral(
   }
   return true;
 }
+
 bool LambdaVisitor::ScanInitListExpr::VisitFloatingLiteral(
     FloatingLiteral *literal) {
 
@@ -280,6 +280,7 @@ bool LambdaVisitor::ScanInitListExpr::VisitFloatingLiteral(
   }
   return true;
 }
+
 bool LambdaVisitor::ScanInitListExpr::VisitIntegerLiteral(
     IntegerLiteral *literal) {
 
@@ -325,8 +326,8 @@ bool LambdaVisitor::VisitLambdaExpr(LambdaExpr *LE) {
   // If it is, then map it to XACC IR
   if (isqk.isQuantumKernel()) {
 
-    LE->dumpColor();
-
+    // LE->dumpColor();
+    // exit(0);
     auto cb = LE->capture_begin(); // implicit_capture_begin();
     auto ce = LE->capture_end();
     VarDecl *v;
@@ -386,7 +387,7 @@ bool LambdaVisitor::VisitLambdaExpr(LambdaExpr *LE) {
       }
     }
 
-    std::cout << "\n\nXACC IR:\n" << function->toString() << "\n";
+    // std::cout << "\n\nXACC IR:\n" << function->toString() << "\n";
 
     // Check if we have IRGenerators in the tree
     if (function->hasIRGenerators()) {

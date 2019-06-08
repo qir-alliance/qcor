@@ -1,11 +1,12 @@
 
 #include "QCORCompiler.hpp"
+#include "IRProvider.hpp"
+#include "xacc_service.hpp"
 
 namespace qcor {
 
 std::shared_ptr<IR> QCORCompiler::compile(const std::string &src,
                                             std::shared_ptr<Accelerator> acc) {
-
   return nullptr;
 }
 
@@ -16,19 +17,21 @@ std::shared_ptr<IR> QCORCompiler::compile(const std::string &src) {
 const std::shared_ptr<Function>
 QCORCompiler::compile(std::shared_ptr<Function> f, std::shared_ptr<Accelerator> acc) {
 
-   if (acc) {
-    //    xacc::info("[qcor] Compiling for " + acc->name());
-   }
+   auto provider = xacc::getService<xacc::IRProvider>("quantum");
+   auto ir = provider->createIR();
+   ir->addKernel(f);
 
-   // Hardware Independent Transformation
-
+   // FIXME Hardware Independent Transformation
 
    // Hardware Dependent Transformations
    if (acc) {
-
+       auto ts = acc->getIRTransformations();
+       for (auto& t : ts) {
+           ir = t->transform(ir);
+       }
    }
 
-   // Program Verification???
+   // FIXME Program Verification???
 
    return f;
 }
