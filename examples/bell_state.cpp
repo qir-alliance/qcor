@@ -1,8 +1,8 @@
 #include "qcor.hpp"
 
-int main() {
+int main(int argc, char** argv) {
 
-  qcor::Initialize({"--accelerator", "local-ibm"});
+  qcor::Initialize(argc, argv); 
 
   auto future = qcor::submit([&](qcor::qpu_handler &qh) {
     qh.execute([&]() { 

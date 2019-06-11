@@ -66,8 +66,12 @@ const std::string persistCompiledCircuit(std::shared_ptr<Function> function,
                     InstructionParameter(persistedFunction), ".qcor_cache");
 
   if (acc) {
+    auto accName = acc->name();
+    if (xacc::optionExists(accName+"-backend")) {
+       accName = accName + ":" + xacc::getOption(accName+"-backend");
+    }
     xacc::appendCache(file_name, "accelerator",
-                      InstructionParameter(acc->name()), ".qcor_cache");
+                      InstructionParameter(accName), ".qcor_cache");
   } else {
     xacc::appendCache(file_name, "accelerator",
                       InstructionParameter("default-sim"), ".qcor_cache");
