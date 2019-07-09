@@ -19,10 +19,8 @@
 #include "QCORASTConsumer.hpp"
 #include "QCORPluginAction.hpp"
 
-#include "CNOT.hpp"
+#include "DigitalGates.hpp"
 #include "CountGatesOfTypeVisitor.hpp"
-#include "Hadamard.hpp"
-#include "Measure.hpp"
 #include "XACC.hpp"
 #include "xacc_service.hpp"
 
