@@ -17,7 +17,6 @@
 #include "FuzzyParsingExternalSemaSource.hpp"
 #include "LambdaVisitor.hpp"
 #include "QCORASTConsumer.hpp"
-#include "QCORPluginAction.hpp"
 
 #include "DigitalGates.hpp"
 #include "CountGatesOfTypeVisitor.hpp"
