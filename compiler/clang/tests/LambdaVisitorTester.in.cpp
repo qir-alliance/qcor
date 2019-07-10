@@ -48,7 +48,8 @@ protected:
   void ExecuteAction() override {
     CompilerInstance &CI = getCompilerInstance();
     CI.createSema(getTranslationUnitKind(), nullptr);
-    compiler::FuzzyParsingExternalSemaSource fuzzyParser(CI.getASTContext());
+    compiler::FuzzyParsingExternalSemaSource fuzzyParser;
+    fuzzyParser.setASTContext(&CI.getASTContext());
     CI.getSema().addExternalSource(&fuzzyParser);
 
     rewriter.setSourceMgr(CI.getSourceManager(), CI.getLangOpts());

@@ -10,9 +10,7 @@ using namespace clang;
 namespace qcor {
 namespace compiler {
 
-FuzzyParsingExternalSemaSource::FuzzyParsingExternalSemaSource(
-    ASTContext &context)
-    : m_Context(context) {
+void FuzzyParsingExternalSemaSource::initialize() {
   auto irProvider = xacc::getService<xacc::IRProvider>("quantum");
   validInstructions = irProvider->getInstructions();
   validInstructions.push_back("CX");
@@ -20,7 +18,6 @@ FuzzyParsingExternalSemaSource::FuzzyParsingExternalSemaSource(
   for (auto& irg : irgens) {
       validInstructions.push_back(irg);
   }
-
 }
 
 bool FuzzyParsingExternalSemaSource::LookupUnqualified(clang::LookupResult &R,
@@ -39,10 +36,10 @@ bool FuzzyParsingExternalSemaSource::LookupUnqualified(clang::LookupResult &R,
     IdentifierInfo *II = Name.getAsIdentifierInfo();
     SourceLocation Loc = R.getNameLoc();
     auto fdecl = FunctionDecl::Create(
-        m_Context, R.getSema().getFunctionLevelDeclContext(), Loc, Loc, Name,
-        m_Context.DependentTy, 0, SC_None);
+        *m_Context, R.getSema().getFunctionLevelDeclContext(), Loc, Loc, Name,
+        m_Context->DependentTy, 0, SC_None);
 
-    Stmt *S = new (m_Context) NullStmt(Stmt::EmptyShell());
+    Stmt *S = new (*m_Context) NullStmt(Stmt::EmptyShell());
 
     fdecl->setBody(S);
 

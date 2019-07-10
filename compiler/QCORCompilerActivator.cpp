@@ -2,6 +2,8 @@
 
 #include "cppmicroservices/BundleActivator.h"
 #include "cppmicroservices/BundleContext.h"
+#include "clang/FuzzyParsingExternalSemaSource.hpp"
+#include "clang/QCORExternalSemaSource.hpp"
 
 #include <memory>
 #include <set>
@@ -23,6 +25,9 @@ public:
 
     auto s = std::make_shared<qcor::QCORCompiler>();
     context.RegisterService<xacc::Compiler>(s);
+
+    auto es = std::make_shared<qcor::compiler::FuzzyParsingExternalSemaSource>();
+    context.RegisterService<qcor::compiler::QCORExternalSemaSource>(es);
   }
 
   /**

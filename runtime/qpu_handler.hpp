@@ -13,6 +13,9 @@ class qpu_handler {
 protected:
   std::shared_ptr<xacc::AcceleratorBuffer> buffer;
 public:
+  qpu_handler() = default;
+  qpu_handler(std::shared_ptr<xacc::AcceleratorBuffer> b) : buffer(b) {}
+
   std::shared_ptr<xacc::AcceleratorBuffer> getResults() { return buffer; }
 
   template <typename QuantumKernel>
@@ -23,7 +26,10 @@ public:
     // std::cout << "Function:\n" << function->toString() << "\n";
     auto nPhysicalQubits = function->nPhysicalBits();
     auto accelerator = xacc::getAccelerator();
-    buffer = accelerator->createBuffer("q", nPhysicalQubits);
+
+    if(!buffer) {
+      buffer = accelerator->createBuffer("q", nPhysicalQubits);
+    }
 
     auto vqeAlgo = qcor::getAlgorithm("vqe");
     vqeAlgo->initialize(function, accelerator, buffer);
@@ -35,7 +41,10 @@ public:
     auto nPhysicalQubits = function->nPhysicalBits();
 
     auto accelerator = xacc::getAccelerator();
-    buffer = accelerator->createBuffer("q", nPhysicalQubits);
+
+    if (!buffer) {
+      buffer = accelerator->createBuffer("q", nPhysicalQubits);
+    }
     accelerator->execute(buffer, function);
   }
 

@@ -1,21 +1,20 @@
 #ifndef COMPILER_FUZZYPARSINGEXTERNALSEMASOURCE_HPP_
 #define COMPILER_FUZZYPARSINGEXTERNALSEMASOURCE_HPP_
 
-#include "clang/AST/ASTContext.h"
-#include "clang/Sema/ExternalSemaSource.h"
-#include "clang/Sema/Lookup.h"
+#include "QCORExternalSemaSource.hpp"
 
 using namespace clang;
 
 namespace qcor {
 namespace compiler {
-class FuzzyParsingExternalSemaSource : public ExternalSemaSource {
+class FuzzyParsingExternalSemaSource : public QCORExternalSemaSource {
 private:
-  ASTContext &m_Context;
   std::vector<std::string> validInstructions;
 
 public:
-  FuzzyParsingExternalSemaSource(ASTContext &context);
+  FuzzyParsingExternalSemaSource() = default;
+  void initialize() override;
+
   bool LookupUnqualified(clang::LookupResult &R, clang::Scope *S) override;
 };
 } // namespace compiler

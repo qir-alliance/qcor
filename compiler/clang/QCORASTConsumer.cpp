@@ -12,8 +12,7 @@ using namespace clang;
 namespace qcor {
 namespace compiler {
 QCORASTConsumer::QCORASTConsumer(CompilerInstance &c, Rewriter &rw)
-    : ci(c), fuzzyParser(std::make_shared<FuzzyParsingExternalSemaSource>(
-                 c.getASTContext())),
+    : ci(c),
       rewriter(rw) {}
 
 bool QCORASTConsumer::HandleTopLevelDecl(DeclGroupRef DR) {

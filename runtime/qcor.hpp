@@ -39,6 +39,8 @@ std::map<std::string, InstructionParameter> getRuntimeMap();
 
 // Submit an asynchronous job to the QPU
 std::future<std::shared_ptr<AcceleratorBuffer>> submit(HandlerLambda &&lambda);
+std::future<std::shared_ptr<AcceleratorBuffer>> submit(HandlerLambda &&lambda, std::shared_ptr<AcceleratorBuffer> buffer);
+
 // std::shared_ptr<AcceleratorBuffer> submit(HandlerLambda &&lambda);
 
 std::shared_ptr<Optimizer> getOptimizer(const std::string &name);

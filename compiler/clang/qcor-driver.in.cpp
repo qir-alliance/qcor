@@ -22,9 +22,12 @@
 #include <string>
 
 #include "FuzzyParsingExternalSemaSource.hpp"
+#include "QCORPragmaHandler.hpp"
 
 #include "QCORASTConsumer.hpp"
 #include "XACC.hpp"
+#include "xacc_service.hpp"
+
 using namespace clang;
 
 class QCORFrontendAction : public clang::ASTFrontendAction {
@@ -48,8 +51,18 @@ protected:
     CI.createSema(getTranslationUnitKind(), nullptr);
     rewriter.setSourceMgr(CI.getSourceManager(), CI.getLangOpts());
 
-    qcor::compiler::FuzzyParsingExternalSemaSource source(CI.getASTContext());
-    CI.getSema().addExternalSource(&source);
+    auto externalSemaSources = xacc::getServices<qcor::compiler::QCORExternalSemaSource>();
+    for (auto es : externalSemaSources) {
+        es->setASTContext(&CI.getASTContext());
+        es->initialize();
+        CI.getSema().addExternalSource(es.get());
+    }
+
+    auto pragmaHandlers = xacc::getServices<qcor::compiler::QCORPragmaHandler>();
+    for (auto p : pragmaHandlers) {
+        p->setRewriter(&rewriter);
+        CI.getSema().getPreprocessor().AddPragmaHandler(p.get());
+    }
 
     ParseAST(CI.getSema());
 

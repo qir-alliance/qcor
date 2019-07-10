@@ -189,6 +189,16 @@ submit(HandlerLambda &&totalJob) {
   });
 }
 
+std::future<std::shared_ptr<AcceleratorBuffer>>
+submit(HandlerLambda &&totalJob, std::shared_ptr<AcceleratorBuffer> buffer) {
+    return std::async(std::launch::async, [&]() {
+    qpu_handler handler(buffer);
+    totalJob(handler);
+    return handler.getResults();
+  });
+}
+
+
 std::shared_ptr<Optimizer> getOptimizer(const std::string &name) {
   return xacc::getService<qcor::Optimizer>(name);
 }

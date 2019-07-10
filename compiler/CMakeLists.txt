@@ -12,9 +12,11 @@ add_library(${LIBRARY_NAME} SHARED ${SRC})
 target_include_directories(${LIBRARY_NAME}
                             PUBLIC .
                                 ${XACC_INCLUDE_DIRS}
+                                ${CLANG_INCLUDE_DIRS}
+                                ${LLVM_INCLUDE_DIRS}
                                 )
 
-target_link_libraries(${LIBRARY_NAME} PUBLIC xacc)
+target_link_libraries(${LIBRARY_NAME} PUBLIC xacc qcor-ast-plugin ${CLANG_LIBS} ${LLVM_LIBS})
 
 set(_bundle_name qcor_compiler)
 set_target_properties(${LIBRARY_NAME}

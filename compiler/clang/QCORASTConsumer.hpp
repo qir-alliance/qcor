@@ -21,7 +21,6 @@ public:
 
 private:
   CompilerInstance &ci;
-  std::shared_ptr<FuzzyParsingExternalSemaSource> fuzzyParser;
   Rewriter& rewriter;
 };
 } // namespace compiler
