@@ -28,7 +28,7 @@ $ ln -s /usr/bin/llvm-config-9 /usr/bin/llvm-config
 
 Note that, for now, developers must clone QCOR manually:
 ``` bash
-$ git clone https://code.ornl.gov/qci/qcor
+$ git clone https://github.com/ornl-qci/qcor
 $ cd qcor
 $ mkdir build && cd build
 $ cmake .. -DXACC_DIR=~/.xacc (or wherever you installed XACC)
