@@ -3,8 +3,8 @@
 
 #include <future>
 
-#include "optimizer.hpp"
-#include "algorithm.hpp"
+#include "Optimizer.hpp"
+#include "Algorithm.hpp"
 
 #include "Observable.hpp"
 
@@ -54,7 +54,7 @@ std::shared_ptr<Observable> getObservable();
 std::shared_ptr<Observable> getObservable(const std::string &representation);
 std::shared_ptr<Observable> getObservable(const std::string &type, std::map<std::string, InstructionParameter> &&options);
 
-std::shared_ptr<algorithm::Algorithm> getAlgorithm(const std::string name);
+std::shared_ptr<Algorithm> getAlgorithm(const std::string name);
 } // namespace qcor
 
 #include "qpu_handler.hpp"

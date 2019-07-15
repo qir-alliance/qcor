@@ -49,6 +49,7 @@ protected:
     CompilerInstance &CI = getCompilerInstance();
     CI.createSema(getTranslationUnitKind(), nullptr);
     compiler::FuzzyParsingExternalSemaSource fuzzyParser;
+    fuzzyParser.initialize();
     fuzzyParser.setASTContext(&CI.getASTContext());
     CI.getSema().addExternalSource(&fuzzyParser);
 

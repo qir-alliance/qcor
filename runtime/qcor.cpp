@@ -200,7 +200,7 @@ submit(HandlerLambda &&totalJob, std::shared_ptr<AcceleratorBuffer> buffer) {
 
 
 std::shared_ptr<Optimizer> getOptimizer(const std::string &name) {
-  return xacc::getService<qcor::Optimizer>(name);
+  return xacc::getService<xacc::Optimizer>(name);
 }
 std::shared_ptr<Optimizer>
 getOptimizer(const std::string &name,
@@ -241,8 +241,8 @@ getObservable(const std::string &type,
   observable->fromOptions(options);
   return observable;
 }
-std::shared_ptr<algorithm::Algorithm> getAlgorithm(const std::string name) {
-  return xacc::getService<qcor::algorithm::Algorithm>(name);
+std::shared_ptr<xacc::Algorithm> getAlgorithm(const std::string name) {
+  return xacc::getService<xacc::Algorithm>(name);
 }
 
 } // namespace qcor

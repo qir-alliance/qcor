@@ -69,6 +69,7 @@ protected:
     for (auto& p : pragmaHandlers) {
         CI.getSema().getPreprocessor().RemovePragmaHandler(p.get());
     }
+
     CI.getDiagnosticClient().EndSourceFile();
 
     std::string outName(fileName);

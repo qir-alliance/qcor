@@ -32,8 +32,10 @@ public:
     }
 
     auto vqeAlgo = qcor::getAlgorithm("vqe");
-    vqeAlgo->initialize(function, accelerator, buffer);
-    vqeAlgo->execute(*observable.get(), *optimizer.get());
+    if(!vqeAlgo->initialize({{"ansatz",function}, {"accelerator",accelerator}, {"observable",observable},{"optimizer",optimizer}})) {
+        xacc::error("Error initializing VQE algorithm.");
+    }
+    vqeAlgo->execute(buffer);
   }
 
   template <typename QuantumKernel> void execute(QuantumKernel &&kernel) {

@@ -31,9 +31,9 @@ else()
    set_target_properties(${LIBRARY_NAME} PROPERTIES LINK_FLAGS "-shared")
 endif()
 
-file(GLOB HEADERS *.hpp)
+file(GLOB HEADERS qcor.hpp qpu_handler.hpp)
 install(FILES ${HEADERS} DESTINATION include/qcor)
 install(TARGETS ${LIBRARY_NAME} DESTINATION lib)
 
-add_subdirectory(algorithms)
-add_subdirectory(nlopt-optimizers)
+#add_subdirectory(algorithms)
+#add_subdirectory(nlopt-optimizers)
