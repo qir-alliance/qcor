@@ -16,7 +16,7 @@ target_include_directories(${LIBRARY_NAME}
                                 ${LLVM_INCLUDE_DIRS}
                                 )
 
-target_link_libraries(${LIBRARY_NAME} PUBLIC xacc qcor-ast-plugin ${CLANG_LIBS} ${LLVM_LIBS})
+target_link_libraries(${LIBRARY_NAME} PUBLIC xacc::xacc qcor-ast-plugin ${CLANG_LIBS} ${LLVM_LIBS})
 
 set(_bundle_name qcor_compiler)
 set_target_properties(${LIBRARY_NAME}
@@ -32,7 +32,7 @@ usfunctionembedresources(TARGET
                          FILES
                          manifest.json)
 
-qcor_enable_rpath(${LIBRARY_NAME})
+xacc_configure_plugin_rpath(${LIBRARY_NAME})
 
 if(QCOR_BUILD_TESTS)
   #add_subdirectory(tests)

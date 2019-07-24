@@ -11,7 +11,7 @@ target_include_directories(
   ${LIBRARY_NAME}
   PUBLIC . generators/hwe generators/exp)
 
-target_link_libraries(${LIBRARY_NAME} PUBLIC xacc CppMicroServices PRIVATE xacc-pauli xacc-fermion)
+target_link_libraries(${LIBRARY_NAME} PUBLIC xacc::xacc PRIVATE xacc::pauli xacc::fermion)
 
 set(_bundle_name qcor_digital)
 set_target_properties(${LIBRARY_NAME}
@@ -27,7 +27,7 @@ usfunctionembedresources(TARGET
                          FILES
                          manifest.json)
 
-qcor_enable_rpath(${LIBRARY_NAME})
+xacc_configure_plugin_rpath(${LIBRARY_NAME})
 
 if(QCOR_BUILD_TESTS)
   add_subdirectory(generators/hwe/tests)
