@@ -1,3 +1,0 @@
-[submodule "runtime/nlopt-optimizers/nlopt"]
-	path = runtime/nlopt-optimizers/nlopt
-	url = https://github.com/stevengj/nlopt

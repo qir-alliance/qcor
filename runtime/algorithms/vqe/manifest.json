@@ -1,6 +1,0 @@
-{
-  "bundle.symbolic_name" : "qcor_algorithm_vqe",
-  "bundle.activator" : true,
-  "bundle.name" : "QCOR VQE Algorithm",
-  "bundle.description" : ""
-}
