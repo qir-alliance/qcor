@@ -69,7 +69,6 @@ Exp::generate(std::map<std::string, InstructionParameter> &&parameters) {
   auto function = gateRegistry->createFunction("temp", {}, {});
 
   for (auto spinInst : terms) {
-
     // Get the individual pauli terms
     auto termsMap = std::get<2>(spinInst.second);
 
@@ -79,6 +78,8 @@ Exp::generate(std::map<std::string, InstructionParameter> &&parameters) {
         terms.push_back({kv.first, kv.second});
       }
     }
+
+    if (!terms.empty()) {
     // The largest qubit index is on the last term
     int largestQbitIdx = terms[terms.size() - 1].first;
 
@@ -111,14 +112,16 @@ Exp::generate(std::map<std::string, InstructionParameter> &&parameters) {
         // std::stringstream ss;
         // ss << 2 * std::imag(std::get<0>(spinInst.second)) << " * "
         //    << std::get<1>(spinInst.second);
+
         auto rz = gateRegistry->createInstruction(
-            "Rz", std::vector<int>{qbitIdx}, {paramLetter});
+            "Rz", std::vector<int>{qbitIdx}, {std::to_string(std::real(spinInst.second.coeff()))+" * " + paramLetter});
 
         // InstructionParameter p(ss.str());
         // rz->setParameter(0, p);
         function->addInstruction(rz);
       }
     }
+  }
 
     int counter = function->nInstructions();
     // Add the instruction on the backend of the circuit
