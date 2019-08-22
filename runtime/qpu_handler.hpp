@@ -4,7 +4,7 @@
 #include "qcor.hpp"
 
 #include "AcceleratorBuffer.hpp"
-#include "Function.hpp"
+#include "CompositeInstruction.hpp"
 #include "XACC.hpp"
 
 namespace qcor {
@@ -21,33 +21,33 @@ public:
   template <typename QuantumKernel>
   void vqe(QuantumKernel kernel, std::shared_ptr<Observable> observable,
            std::shared_ptr<Optimizer> optimizer) {
-    auto function = qcor::loadCompiledCircuit(kernel());
+    // auto function = std::make_shared<CompositeInstruction>();//qcor::loadCompiledCircuit(kernel());
 
-    // std::cout << "Function:\n" << function->toString() << "\n";
-    auto nPhysicalQubits = function->nPhysicalBits();
-    auto accelerator = xacc::getAccelerator();
+    // // std::cout << "Function:\n" << function->toString() << "\n";
+    // auto nPhysicalQubits = function->nPhysicalBits();
+    // auto accelerator = xacc::getAccelerator();
 
-    if(!buffer) {
-      buffer = accelerator->createBuffer("q", nPhysicalQubits);
-    }
+    // // if(!buffer) {
+    //   buffer = accelerator->createBuffer("q", nPhysicalQubits);
+    // }
 
-    auto vqeAlgo = qcor::getAlgorithm("vqe");
-    if(!vqeAlgo->initialize({{"ansatz",function}, {"accelerator",accelerator}, {"observable",observable},{"optimizer",optimizer}})) {
-        xacc::error("Error initializing VQE algorithm.");
-    }
-    vqeAlgo->execute(buffer);
+    // auto vqeAlgo = qcor::getAlgorithm("vqe");
+    // if(!vqeAlgo->initialize({{"ansatz",function}, {"accelerator",accelerator}, {"observable",observable},{"optimizer",optimizer}})) {
+    //     xacc::error("Error initializing VQE algorithm.");
+    // }
+    // vqeAlgo->execute(buffer);
   }
 
   template <typename QuantumKernel> void execute(QuantumKernel &&kernel) {
-    auto function = qcor::loadCompiledCircuit(kernel());
-    auto nPhysicalQubits = function->nPhysicalBits();
+    // auto function = qcor::loadCompiledCircuit(kernel());
+    // auto nPhysicalQubits = function->nPhysicalBits();
 
-    auto accelerator = xacc::getAccelerator();
+    // auto accelerator = xacc::getAccelerator();
 
-    if (!buffer) {
-      buffer = accelerator->createBuffer("q", nPhysicalQubits);
-    }
-    accelerator->execute(buffer, function);
+    // if (!buffer) {
+    //   buffer = accelerator->createBuffer("q", nPhysicalQubits);
+    // }
+    // accelerator->execute(buffer, function);
   }
 
   template <typename QuantumKernel>

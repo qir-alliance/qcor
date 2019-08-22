@@ -21,7 +21,7 @@ find_package(XACC REQUIRED)
 
 configure_file(${CMAKE_SOURCE_DIR}/scripts/qcor.in
                ${CMAKE_BINARY_DIR}/qcor)
-
+include_directories(/home/cades/dev/llvm-project/clang/include)
 add_subdirectory(runtime)
 add_subdirectory(compiler)
 add_subdirectory(ir)

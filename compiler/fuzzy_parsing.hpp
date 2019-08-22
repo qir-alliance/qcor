@@ -4,6 +4,7 @@
 #include "clang/AST/ASTContext.h"
 #include "clang/Sema/ExternalSemaSource.h"
 #include "clang/Sema/Lookup.h"
+#include "clang/Frontend/ASTUnit.h"
 
 using namespace clang;
 
@@ -11,11 +12,21 @@ namespace qcor {
 namespace compiler {
 class FuzzyParsingExternalSemaSource : public ExternalSemaSource {
 private:
-  ASTContext &m_Context;
   std::vector<std::string> validInstructions;
+  ASTContext *m_Context;
 
+  // Keep a vector of ASTs for each FunctionDecl
+  // representation of our quantum instructions.
+  // This ExternalSemaSource should exist throughout
+  // the tooling lifetime, so we should be good with
+  // regards to these nodes being deleted
+  std::vector<std::unique_ptr<ASTUnit>> ASTs;
+  
 public:
-  FuzzyParsingExternalSemaSource(ASTContext &context);
+  FuzzyParsingExternalSemaSource() = default;
+  void initialize();
+  void setASTContext(ASTContext *context) {m_Context = context;}
+
   bool LookupUnqualified(clang::LookupResult &R, clang::Scope *S) override;
 };
 } // namespace compiler

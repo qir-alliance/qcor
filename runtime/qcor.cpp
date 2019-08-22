@@ -14,7 +14,7 @@
 using namespace xacc;
 
 namespace qcor {
-std::map<std::string, InstructionParameter> runtimeMap = {};
+// std::map<std::string, InstructionParameter> runtimeMap = {};
 
 void Initialize(int argc, char **argv) {
   std::vector<const char *> tmp(argv, argv + argc);
@@ -29,154 +29,161 @@ void Initialize(std::vector<std::string> argv) {
   xacc::Initialize(argv);
 }
 
-const std::string persistCompiledCircuit(std::shared_ptr<Function> function,
-                                         std::shared_ptr<Accelerator> acc) {
-  srand(time(NULL));
-  std::function<char()> randChar = []() -> char {
-    const char charset[] = "0123456789"
-                           "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-                           "abcdefghijklmnopqrstuvwxyz";
-    const size_t max_index = (sizeof(charset) - 1);
-    return charset[rand() % max_index];
-  };
+// std::shared_ptr<Function> loadFromIR(const std::string &ir) {
+//   auto function =
+//       xacc::getService<xacc::IRProvider>("gate")->createFunction("f", {}, {});
+//   std::istringstream iss(ir);
+//   function->load(iss);
+//   return function;
+// }
+// const std::string persistCompiledCircuit(std::shared_ptr<Function> function,
+//                                          std::shared_ptr<Accelerator> acc) {
+//   srand(time(NULL));
+//   std::function<char()> randChar = []() -> char {
+//     const char charset[] = "0123456789"
+//                            "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+//                            "abcdefghijklmnopqrstuvwxyz";
+//     const size_t max_index = (sizeof(charset) - 1);
+//     return charset[rand() % max_index];
+//   };
 
-  auto generateRandomString = [&](const int length = 10) -> const std::string {
-    std::string str(length, 0);
-    std::generate_n(str.begin(), length, randChar);
-    return str;
-  };
+//   auto generateRandomString = [&](const int length = 10) -> const std::string {
+//     std::string str(length, 0);
+//     std::generate_n(str.begin(), length, randChar);
+//     return str;
+//   };
 
-  std::string file_name;
-  if (xacc::optionExists("qcor-compiled-filename")) {
-    file_name = xacc::getOption("qcor-compiled-filename");
-  } else {
+//   std::string file_name;
+//   if (xacc::optionExists("qcor-compiled-filename")) {
+//     file_name = xacc::getOption("qcor-compiled-filename");
+//   } else {
 
-    file_name = generateRandomString();
-    // std::cout << "Generating random string " << file_name << "\n";
-  }
+//     file_name = generateRandomString();
+//     // std::cout << "Generating random string " << file_name << "\n";
+//   }
 
-  std::stringstream ss;
-  function->persist(ss);
-  auto persistedFunction = ss.str();
-//   std::cout << "PERSISTED\n" << persistedFunction << "\n";
-  //   xacc::getCompiler("xacc-py")->translate("", function);
-  //   persistedFunction = persistedFunction.substr(7,
-  //   persistedFunction.length());
-  xacc::appendCache(file_name, "compiled",
-                    InstructionParameter(persistedFunction), ".qcor_cache");
+//   std::stringstream ss;
+//   function->persist(ss);
+//   auto persistedFunction = ss.str();
+// //   std::cout << "PERSISTED\n" << persistedFunction << "\n";
+//   //   xacc::getCompiler("xacc-py")->translate("", function);
+//   //   persistedFunction = persistedFunction.substr(7,
+//   //   persistedFunction.length());
+//   xacc::appendCache(file_name, "compiled",
+//                     InstructionParameter(persistedFunction), ".qcor_cache");
 
-  if (acc) {
-    auto accName = acc->name();
-    if (xacc::optionExists(accName+"-backend")) {
-       accName = accName + ":" + xacc::getOption(accName+"-backend");
-    }
-    xacc::appendCache(file_name, "accelerator",
-                      InstructionParameter(accName), ".qcor_cache");
-  } else {
-    xacc::appendCache(file_name, "accelerator",
-                      InstructionParameter("default-sim"), ".qcor_cache");
-  }
+//   if (acc) {
+//     auto accName = acc->name();
+//     if (xacc::optionExists(accName+"-backend")) {
+//        accName = accName + ":" + xacc::getOption(accName+"-backend");
+//     }
+//     xacc::appendCache(file_name, "accelerator",
+//                       InstructionParameter(accName), ".qcor_cache");
+//   } else {
+//     xacc::appendCache(file_name, "accelerator",
+//                       InstructionParameter("default-sim"), ".qcor_cache");
+//   }
 
-  if (function->hasIRGenerators()) {
-    xacc::appendCache(file_name, "requires-jit", InstructionParameter("true"),
-                      ".qcor_cache");
-  } else {
-    xacc::appendCache(file_name, "requires-jit", InstructionParameter("false"),
-                      ".qcor_cache");
-  }
+//   if (function->hasIRGenerators()) {
+//     xacc::appendCache(file_name, "requires-jit", InstructionParameter("true"),
+//                       ".qcor_cache");
+//   } else {
+//     xacc::appendCache(file_name, "requires-jit", InstructionParameter("false"),
+//                       ".qcor_cache");
+//   }
 
-  bool isDw = false;
-  for (auto& inst : function->getInstructions()) {
-      if (inst->name() == "dw-qmi" || inst->name() == "anneal") {
-          isDw = true;
-          break;
-      }
-  }
+//   bool isDw = false;
+//   for (auto& inst : function->getInstructions()) {
+//       if (inst->name() == "dw-qmi" || inst->name() == "anneal") {
+//           isDw = true;
+//           break;
+//       }
+//   }
 
-  if (isDw) {
-    xacc::appendCache(file_name, "ir-type", InstructionParameter("anneal"),
-                      ".qcor_cache");
-  } else {
-    xacc::appendCache(file_name, "ir-type", InstructionParameter("gate"),
-                      ".qcor_cache");
-  }
-  return file_name;
-}
+//   if (isDw) {
+//     xacc::appendCache(file_name, "ir-type", InstructionParameter("anneal"),
+//                       ".qcor_cache");
+//   } else {
+//     xacc::appendCache(file_name, "ir-type", InstructionParameter("gate"),
+//                       ".qcor_cache");
+//   }
+//   return file_name;
+// }
 
-std::shared_ptr<Function> loadCompiledCircuit(const std::string &fileName) {
-  //   std::cout << "Loading Circuit " << fileName << "\n";
-  auto cache = xacc::getCache(fileName, ".qcor_cache");
-  if (!cache.count("compiled")) {
-    xacc::error("Invalid quantum compilation cache.");
-  }
+// std::shared_ptr<Function> loadCompiledCircuit(const std::string &fileName) {
+//   //   std::cout << "Loading Circuit " << fileName << "\n";
+//   auto cache = xacc::getCache(fileName, ".qcor_cache");
+//   if (!cache.count("compiled")) {
+//     xacc::error("Invalid quantum compilation cache.");
+//   }
 
-  std::shared_ptr<Accelerator> targetAccelerator;
-  if (cache["accelerator"] == "default-sim") {
-    // First, if this is compiled for simulation,
-    // let users set the simulator at the command line
-    // if they didnt, check for tnqvm, then local-ibm
-    if (xacc::optionExists("accelerator")) {
-      targetAccelerator = xacc::getAccelerator();
-    } else if (xacc::hasAccelerator("tnqvm")) {
-      targetAccelerator = xacc::getAccelerator("tnqvm");
-    } else if (xacc::hasAccelerator("local-ibm")) {
-      targetAccelerator = xacc::getAccelerator("local-ibm");
-    }
-  } else {
-    auto accStr = cache["accelerator"].as<std::string>();
-    if ((accStr == "tnqvm" || accStr == "local-ibm") &&
-        xacc::optionExists("accelerator")) {
-      targetAccelerator = xacc::getAccelerator();
-    } else {
-      targetAccelerator =
-          xacc::getAccelerator(cache["accelerator"].as<std::string>());
-    }
-  }
+//   std::shared_ptr<Accelerator> targetAccelerator;
+//   if (cache["accelerator"] == "default-sim") {
+//     // First, if this is compiled for simulation,
+//     // let users set the simulator at the command line
+//     // if they didnt, check for tnqvm, then local-ibm
+//     if (xacc::optionExists("accelerator")) {
+//       targetAccelerator = xacc::getAccelerator();
+//     } else if (xacc::hasAccelerator("tnqvm")) {
+//       targetAccelerator = xacc::getAccelerator("tnqvm");
+//     } else if (xacc::hasAccelerator("local-ibm")) {
+//       targetAccelerator = xacc::getAccelerator("local-ibm");
+//     }
+//   } else {
+//     auto accStr = cache["accelerator"].as<std::string>();
+//     if ((accStr == "tnqvm" || accStr == "local-ibm") &&
+//         xacc::optionExists("accelerator")) {
+//       targetAccelerator = xacc::getAccelerator();
+//     } else {
+//       targetAccelerator =
+//           xacc::getAccelerator(cache["accelerator"].as<std::string>());
+//     }
+//   }
 
-  // If for some reason we still dont have an
-  // accelerator, force them to specify at command line
-  if (!targetAccelerator) {
-    targetAccelerator = xacc::getAccelerator();
-  }
+//   // If for some reason we still dont have an
+//   // accelerator, force them to specify at command line
+//   if (!targetAccelerator) {
+//     targetAccelerator = xacc::getAccelerator();
+//   }
 
-  xacc::setAccelerator(targetAccelerator->name());
+//   xacc::setAccelerator(targetAccelerator->name());
 
-  auto type = cache["ir-type"].as<std::string>();
-  auto compiled = cache["compiled"].as<std::string>();
-  auto loaded =
-      xacc::getService<IRProvider>("quantum")->createFunction("loaded", {}, {InstructionParameter(type)});
-  std::istringstream iss(compiled);
-  loaded->load(iss);
+//   auto type = cache["ir-type"].as<std::string>();
+//   auto compiled = cache["compiled"].as<std::string>();
+//   auto loaded =
+//       xacc::getService<IRProvider>("quantum")->createFunction("loaded", {}, {InstructionParameter(type)});
+//   std::istringstream iss(compiled);
+//   loaded->load(iss);
 
-  //   std::cout << "Lodaded: " << loaded->toString() << "\n";
-  if (cache["requires-jit"].as<std::string>() == "true") {
-    auto runtimeMap = getRuntimeMap();
+//   //   std::cout << "Lodaded: " << loaded->toString() << "\n";
+//   if (cache["requires-jit"].as<std::string>() == "true") {
+//     auto runtimeMap = getRuntimeMap();
 
-    // for (auto& kv : runtimeMap) {
-    // std::cout << "Runtime: " << kv.first << ", " << kv.second.toString() <<
-    // "\n";
-    // }
-    loaded->expandIRGenerators(runtimeMap);
+//     // for (auto& kv : runtimeMap) {
+//     // std::cout << "Runtime: " << kv.first << ", " << kv.second.toString() <<
+//     // "\n";
+//     // }
+//     loaded->expandIRGenerators(runtimeMap);
 
-    // Kick off quantum compilation
-    auto qcor = xacc::getCompiler("qcor");
-    loaded = qcor->compile(loaded, targetAccelerator);
-    // std::cout << "NPARAMS: " << loaded->nParameters() << "\n";
-  }
+//     // Kick off quantum compilation
+//     auto qcor = xacc::getCompiler("qcor");
+//     loaded = qcor->compile(loaded, targetAccelerator);
+//     // std::cout << "NPARAMS: " << loaded->nParameters() << "\n";
+//   }
 
-  //   std::cout<< "Loaded IR:\n" << loaded->toString() <<"\n";
-  return loaded;
-}
+//   //   std::cout<< "Loaded IR:\n" << loaded->toString() <<"\n";
+//   return loaded;
+// }
 
-void storeRuntimeVariable(const std::string name, InstructionParameter param) {
-  //   std::cout << "Storing Runtime Variable " << name << ", " <<
-  //   param.toString() << "\n";
-  runtimeMap.insert({name, param});
-}
+// void storeRuntimeVariable(const std::string name, InstructionParameter param) {
+//   //   std::cout << "Storing Runtime Variable " << name << ", " <<
+//   //   param.toString() << "\n";
+//   runtimeMap.insert({name, param});
+// }
 
-std::map<std::string, InstructionParameter> getRuntimeMap() {
-  return runtimeMap;
-}
+// std::map<std::string, InstructionParameter> getRuntimeMap() {
+//   return runtimeMap;
+// }
 
 std::future<std::shared_ptr<AcceleratorBuffer>>
 submit(HandlerLambda &&totalJob) {
@@ -204,7 +211,7 @@ std::shared_ptr<Optimizer> getOptimizer(const std::string &name) {
 }
 std::shared_ptr<Optimizer>
 getOptimizer(const std::string &name,
-             std::map<std::string, InstructionParameter> &&options) {
+             const HeterogeneousMap &&options) {
   auto opt = getOptimizer(name);
   opt->setOptions(options);
   return opt;
@@ -228,7 +235,7 @@ std::shared_ptr<Observable> getObservable(const std::string &type,
 }
 
 std::shared_ptr<Observable> getObservable() {
-  return getObservable("pauli", "");
+  return getObservable("pauli", std::string(""));
 }
 std::shared_ptr<Observable> getObservable(const std::string &representation) {
   return getObservable("pauli", representation);
@@ -236,7 +243,7 @@ std::shared_ptr<Observable> getObservable(const std::string &representation) {
 
 std::shared_ptr<Observable>
 getObservable(const std::string &type,
-              std::map<std::string, InstructionParameter> &&options) {
+              const HeterogeneousMap &&options) {
   auto observable = xacc::getService<Observable>(type);
   observable->fromOptions(options);
   return observable;

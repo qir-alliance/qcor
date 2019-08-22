@@ -1,4 +1,3 @@
-
 #include "clang/Frontend/FrontendAction.h"
 
 #include "clang/AST/ASTConsumer.h"
@@ -21,10 +20,9 @@
 #include <fstream>
 #include <string>
 
-#include "FuzzyParsingExternalSemaSource.hpp"
-#include "QCORPragmaHandler.hpp"
+#include "fuzzy_parsing.hpp"
 
-#include "QCORASTConsumer.hpp"
+#include "qcor_ast_consumer.hpp"
 #include "XACC.hpp"
 #include "xacc_service.hpp"
 
@@ -42,33 +40,36 @@ protected:
   std::unique_ptr<clang::ASTConsumer>
   CreateASTConsumer(clang::CompilerInstance &Compiler,
                     llvm::StringRef /* dummy */) override {
-    return llvm::make_unique<qcor::compiler::QCORASTConsumer>(Compiler,
+    return std::make_unique<qcor::compiler::QCORASTConsumer>(Compiler,
                                                               rewriter);
   }
 
   void ExecuteAction() override {
     CompilerInstance &CI = getCompilerInstance();
+    // CI.getLangOpts().CPlusPlus14 = 1;
     CI.createSema(getTranslationUnitKind(), nullptr);
     rewriter.setSourceMgr(CI.getSourceManager(), CI.getLangOpts());
 
-    auto externalSemaSources = xacc::getServices<qcor::compiler::QCORExternalSemaSource>();
-    for (auto es : externalSemaSources) {
-        es->setASTContext(&CI.getASTContext());
-        es->initialize();
-        CI.getSema().addExternalSource(es.get());
-    }
+    // auto externalSemaSources = xacc::getServices<qcor::compiler::QCORExternalSemaSource>();
+    auto fuzzyParser = std::make_shared<qcor::compiler::FuzzyParsingExternalSemaSource>();
+    fuzzyParser->initialize();
+    // for (auto es : externalSemaSources) {
+    //     es->setASTContext(&CI.getASTContext());
+    //     es->initialize();
+        CI.getSema().addExternalSource(fuzzyParser.get());
+    // }
 
-    auto pragmaHandlers = xacc::getServices<qcor::compiler::QCORPragmaHandler>();
-    for (auto p : pragmaHandlers) {
-        p->setRewriter(&rewriter);
-        CI.getSema().getPreprocessor().AddPragmaHandler(p.get());
-    }
+    // auto pragmaHandlers = xacc::getServices<qcor::compiler::QCORPragmaHandler>();
+    // for (auto p : pragmaHandlers) {
+    //     p->setRewriter(&rewriter);
+    //     CI.getSema().getPreprocessor().AddPragmaHandler(p.get());
+    // }
 
     ParseAST(CI.getSema());
 
-    for (auto& p : pragmaHandlers) {
-        CI.getSema().getPreprocessor().RemovePragmaHandler(p.get());
-    }
+    // for (auto& p : pragmaHandlers) {
+    //     CI.getSema().getPreprocessor().RemovePragmaHandler(p.get());
+    // }
 
     CI.getDiagnosticClient().EndSourceFile();
 

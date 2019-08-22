@@ -1,11 +1,6 @@
-#include "QCORASTConsumer.hpp"
-#include "LambdaVisitor.hpp"
+#include "qcor_ast_consumer.hpp"
+#include "qcor_ast_visitor.hpp"
 #include <chrono>
-
-// #include "clang/ASTMatchers/ASTMatchFinder.h"
-// #include "clang/ASTMatchers/ASTMatchers.h"
-
-// using namespace clang::ast_matchers;
 
 using namespace clang;
 
@@ -16,7 +11,7 @@ QCORASTConsumer::QCORASTConsumer(CompilerInstance &c, Rewriter &rw)
       rewriter(rw) {}
 
 bool QCORASTConsumer::HandleTopLevelDecl(DeclGroupRef DR) {
-  LambdaVisitor visitor(ci, rewriter);
+  QCORASTVisitor visitor(ci, rewriter);
   for (DeclGroupRef::iterator b = DR.begin(), e = DR.end(); b != e; ++b) {
       visitor.TraverseDecl(*b);
   }
