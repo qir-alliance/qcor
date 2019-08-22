@@ -17,13 +17,14 @@ $ python -m pip install --upgrade cmake
 $ export PATH=$PATH:/usr/local/bin
 ```
 
-On Ubuntu 16+, install latest clang and llvm libraries and headers (you may need sudo)
+On Ubuntu 16.04 (for others, replace xenial with Ubuntu release name), install latest clang and llvm libraries and headers (you may need sudo)
 ```bash
 $ wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add -
-$ echo "deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial main" > /etc/apt/sources.list.d/llvm.list
+$ echo "deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-9 main" > /etc/apt/sources.list.d/llvm.list
 $ apt-get update
-$ apt-get install -y libclang-9-dev llvm-9-dev
+$ apt-get install -y libclang-9-dev llvm-9-dev clangd-9
 $ ln -s /usr/bin/llvm-config-9 /usr/bin/llvm-config
+$ (for theia) ls -s /usr/bin/clangd-9 /usr/bin/clangd
 ```
 
 Note that, for now, developers must clone QCOR manually:
