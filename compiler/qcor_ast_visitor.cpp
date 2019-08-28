@@ -8,9 +8,12 @@
 #include "clang/AST/Expr.h"
 #include "clang/Basic/IdentifierTable.h"
 #include "clang/Basic/SourceLocation.h"
+#include "clang/Basic/Specifiers.h"
 #include "clang/Sema/Sema.h"
 #include "clang/Tooling/Tooling.h"
 #include <memory>
+
+#include "qcor_clang_utils.hpp"
 
 using namespace clang;
 using namespace xacc;
@@ -23,12 +26,11 @@ QCORASTVisitor::IsQuantumKernelVisitor::IsQuantumKernelVisitor(ASTContext &c)
   auto irProvider = xacc::getService<xacc::IRProvider>("quantum");
   validInstructions = irProvider->getInstructions();
   validInstructions.push_back("CX");
-
 }
 
 bool QCORASTVisitor::IsQuantumKernelVisitor::VisitDeclRefExpr(
     DeclRefExpr *expr) {
-  if ( !foundSubLambda) {
+  if (!foundSubLambda) {
     auto gateName = expr->getNameInfo().getAsString();
     if (std::find(validInstructions.begin(), validInstructions.end(),
                   gateName) != validInstructions.end()) {
@@ -48,14 +50,13 @@ QCORASTVisitor::QCORASTVisitor(CompilerInstance &c, Rewriter &rw)
 
 bool QCORASTVisitor::VisitLambdaExpr(LambdaExpr *LE) {
 
-  std::cout << "VISITING LAMBDA\n";
   // Get the Lambda Function Body
   Stmt *q_kernel_body = LE->getBody();
 
   // Double check... Is this a Quantum Kernel Lambda?
   IsQuantumKernelVisitor isqk(ci.getASTContext());
   isqk.TraverseStmt(LE->getBody());
-    LE->dump();
+//   LE->dump();
 
   std::map<std::string, InstructionParameter> captures;
   // If it is, then map it to XACC IR
@@ -157,16 +158,70 @@ bool QCORASTVisitor::VisitLambdaExpr(LambdaExpr *LE) {
     // Argument analysis
     // can be (qbit q, double t, double tt, double ttt, ...)
     // can be (qbit q, std::vector<double> t)
-
     auto F = LE->getCallOperator()->getAsFunction();
     auto bufferName = F->getParamDecl(0)->getNameAsString();
     int nArgs = F->getNumParams();
 
+    auto sl = F->getParamDecl(0)->getInnerLocStart();
+    auto end = F->getParamDecl(nArgs-1)->getEndLoc();
+    auto lambdaDefinition =
+        Lexer::getSourceText(CharSourceRange(SourceRange(sl,end), true), SM,
+                             lo)
+            .str();
+    // auto endOfParams =
+    //     F->getParamDecl(nArgs - 1)->getEndLoc().getLocWithOffset(1);
+    // rewriter.InsertText(endOfParams, ", bool execute = true");
+
+    // std::cout << "LAMBDA DEF: " << lambdaDefinition << "\n";
+    // std::string lambdaDefinition = "void _ast_visitor_function(bool execute = true) { return;};";
+    // auto ast = tooling::buildASTFromCodeWithArgs(lambdaDefinition, {"-std=c++11"});
+
+    // auto Matcher = namedDecl(hasName("_ast_visitor_function"));
+    // FunctionDecl *tmp = FirstDeclMatcher<FunctionDecl>().match(ast
+    //         ->getASTContext()
+    //         .getTranslationUnitDecl(),
+    //     Matcher);
+
+    // tmp->dump();
+    // // LE->getCallOperator()->getAsFunction() = tmp;
+    // // LE = tmpRewriteF;
+
+    // LE->getCallOperator()->setBody(tmp->getBody());
+    // LE->getCallOperator()->setAttrs(tmp->getAttrs());
+    // std::vector<ParmVarDecl*> params;
+    // for (int i = 0; i < F->getNumParams(); i++ ){
+    //     params.push_back(F->getParamDecl(i));
+    // }
+
+    // static IdentifierInfo& boolname(ci.getASTContext().Idents.get(StringRef("execute")));
+    // auto boolExec = new (this->ci.getASTContext()) CXXBoolLiteralExpr(true, ci.getASTContext().BoolTy, SourceLocation());
+    // auto newVar = ParmVarDecl::Create(ci.getASTContext(), ci.getSema().getFunctionLevelDeclContext(), SourceLocation(), SourceLocation(), &boolname, ci.getASTContext().BoolTy,  0, SC_None, boolExec);
+    // params.push_back(newVar);
+
+    // llvm::ArrayRef<ParmVarDecl *> parms(params);
+    // LE->getCallOperator()->dump();
+    // LE->getCallOperator()->setParams(parms);
+    // std::cout << "AFTER\n";
+
+    // LE->getCallOperator()->dump();
+    // rewriter.ReplaceText(SourceRange(sl, end), "qbit " + bufferName +", std::vector<double> params, bool execute = true");
     // Rewrite the args list to have a boolean at the end
     // that is default to true and used to execute the accelerator
-    // Also rewrite to (qbit q, std::vector<double> params)
-    auto endOfParams = F->getParamDecl(nArgs-1)->getEndLoc().getLocWithOffset(1);
-    rewriter.InsertText(endOfParams, ", bool execute = true");
+    // ESSENTIALLY rewrite to
+    // n(qbit q, std::vector<double> params, bool execute = true)
+
+    // Thought - I should design a QuantumKernel class, that
+    // can be initialized with the IR string, and methods to toggle
+    // execution, and a variadic template execute method.
+
+ std::cout << "BEFORE:\n";
+    LE->getCallOperator()->dump();
+
+    std::vector<ParmVarDecl*> params;
+    for (int i = 0; i < LE->getCallOperator()->getNumParams(); i++ ){
+        std::cout << "ADDING PARAM: " << LE->getCallOperator()->getParamDecl(i)->getNameAsString() << "\n";
+        params.push_back(LE->getCallOperator()->getParamDecl(i));
+    }
 
     // Always write the Function to json string first
     std::stringstream ss;
@@ -174,9 +229,11 @@ bool QCORASTVisitor::VisitLambdaExpr(LambdaExpr *LE) {
     std::string replacement =
         "{\nauto irstr = R\"irstr(" + ss.str() + ")irstr\";\n";
 
-    replacement += "if (execute) {\n";
-    replacement += "auto function = xacc::getIRProvider(\"quantum\")->createComposite(\"f\");\n";
-    replacement += "std::istringstream iss(ir);\n";
+    replacement += "if (qcor::executeKernel) {\n";
+    replacement +=
+        "auto function = "
+        "xacc::getIRProvider(\"quantum\")->createComposite(\"f\");\n";
+    replacement += "std::istringstream iss(irstr);\n";
     replacement += "function->load(iss);\n";
     replacement +=
         "auto acc = xacc::getAccelerator(\"" + acceleratorName + "\");\n";
@@ -198,54 +255,60 @@ bool QCORASTVisitor::VisitLambdaExpr(LambdaExpr *LE) {
     replacement += "}\n";
     rewriter.ReplaceText(sr, replacement);
 
-    // // Kick off quantum compilation
-    // auto qcor = xacc::getCompiler("qcor");
 
-    // std::shared_ptr<Accelerator> targetAccelerator;
-    // if (xacc::optionExists("accelerator")) {
-    //   targetAccelerator = xacc::getAccelerator();
-    // }
+   SourceLocation sll;
+    QualType StrTy = ci.getASTContext().getConstantArrayType(
+        ci.getASTContext().adjustStringLiteralBaseType(
+            ci.getASTContext().CharTy.withConst()),
+        llvm::APInt(32, ss.str().length() + 1), ArrayType::Normal, 0);
+    auto fnameSL =
+        StringLiteral::Create(ci.getASTContext(), StringRef(ss.str().c_str()),
+                              StringLiteral::Ascii, false, StrTy, &sll, 1);
+    // Create New Return type for CallOperator
+    std::vector<QualType> ParamTypes;
+    for (auto& p : params) {
+        ParamTypes.push_back(p->getType());
+    }
+    auto D = LE->getCallOperator()->getAsFunction();
+    FunctionProtoType::ExtProtoInfo fpi;
+    fpi.Variadic = D->isVariadic();
+    llvm::ArrayRef<QualType> Args(ParamTypes);
+    QualType newFT = D->getASTContext().getFunctionType(StrTy, Args, fpi);
+    D->setType(newFT);
 
-    // function = qcor->compile(function, targetAccelerator);
+    std::vector<Stmt *> svec;
+    // Create the return statement that will return
+    // the string literal file name
+    auto rtrn = ReturnStmt::Create(ci.getASTContext(), SourceLocation(),
+                                   fnameSL, nullptr);
 
-    // auto fileName = qcor::persistCompiledCircuit(function,
-    // targetAccelerator);
 
-    // if (function->hasIRGenerators()) {
-    //   auto begin = q_kernel_body->getBeginLoc();
-    //   std::string replacement = "[&]() {\n";
-    //   std::shared_ptr<Instruction> irg;
-    //   for (auto i : function->getInstructions()) {
-    //     if (std::dynamic_pointer_cast<IRGenerator>(i)) {
-    //       irg = i;
-    //       break;
-    //     }
-    //   }
-    //   for (auto &kv : captures) {
-    //     std::string key = "";
-    //     auto opts = irg->getOptions();
-    //     for (auto &kv2 : opts) {
-    //       if (kv2.second.isVariable() && kv2.second.toString() == kv.first) {
-    //         key = kv2.first;
-    //       }
-    //     }
-    //     replacement +=
-    //         "qcor::storeRuntimeVariable(\"" + key + "\", " + kv.first +
-    //         ");\n";
-    //   }
-    //   replacement += "return \"" + fileName + "\";\n}";
-    //   rewriter.ReplaceText(sr, replacement);
+    auto cs = LE->getCallOperator()->getBody();
+    for (auto it = cs->child_begin(); it != cs->child_end(); ++it) {
+      svec.push_back(*it);
+    }
 
-    // } else {
-    //   rewriter.ReplaceText(sr, "[&](){return \"" + fileName + "\";}");
-    // }
+    // svec.push_back(LE->getCallOperator()->getBody());
+    svec.push_back(rtrn);
+
+    llvm::ArrayRef<Stmt *> stmts(svec);
+    auto cmp = CompoundStmt::Create(ci.getASTContext(), stmts, SourceLocation(),
+                                    SourceLocation());
+    LE->getCallOperator()->setBody(cmp);
+
+
+    llvm::ArrayRef<ParmVarDecl *> parms(params);
+    // LE->getCallOperator()->dump();
+    LE->getCallOperator()->getAsFunction()->setParams(parms);
+    std::cout << "AFTER\n";
+    LE->getCallOperator()->dump();
+
+
   }
 
   return true;
 }
 
-bool QCORASTVisitor::VisitFunctionDecl(FunctionDecl* decl) {
-return true;
-}
+bool QCORASTVisitor::VisitFunctionDecl(FunctionDecl *decl) { return true; }
 } // namespace compiler
 } // namespace qcor

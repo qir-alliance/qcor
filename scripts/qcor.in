@@ -20,6 +20,8 @@ def parse_args(args):
                         help="Print verbose compiler output.", required=False)
     parser.add_argument("--keep-tmp-src", action='store_true',
                         help="Keep qcor generated hidden source file.", required=False)
+    parser.add_argument("-c", "--compile", action='store_true',
+                        help="Compile only.", required=False)
 
     opts = parser.parse_args(args)
 
@@ -59,10 +61,13 @@ def main(argv=None):
     command.clear()
 
     baseIncludes = ['-I', '@CMAKE_INSTALL_PREFIX@/include/xacc', '-I', '@CMAKE_INSTALL_PREFIX@/include/qcor']
-    baseLibs = ['-L', '@CMAKE_INSTALL_PREFIX@/lib', '-lxacc',
-                '-lqcor', '-lCppMicroServices', '-lxacc-quantum-gate', '-lxacc-pauli']
+    baseLibs = ['-L', '@CMAKE_INSTALL_PREFIX@/lib', '@CMAKE_INSTALL_PREFIX@/lib/libxacc.so',
+                '@CMAKE_INSTALL_PREFIX@/lib/libqcor.so', '@CMAKE_INSTALL_PREFIX@/lib/libCppMicroServices.so', '@CMAKE_INSTALL_PREFIX@/lib/libxacc-quantum-gate.so', '@CMAKE_INSTALL_PREFIX@/lib/libxacc-pauli.so']
 
-    command = ['@CLANG_COMPILER@', '-std=c++11', '-Wl,-rpath,@CMAKE_INSTALL_PREFIX@/lib']
+    command = ['@CMAKE_CXX_COMPILER@', '-std=c++14', '-Wno-dangling', '-rdynamic', '-Wl,-rpath,@CMAKE_INSTALL_PREFIX@/lib']
+    if opts.compile_only:
+        command += ['-c']
+        
     command += includes + baseIncludes + baseLibs
     command += ['.' + opts.file.replace('.','_out.')]
 
@@ -70,6 +75,7 @@ def main(argv=None):
         command += ['-o', opts.output]
 
     print('Final command', command)
+    print(' '.join([t for t in command]))
     try:
         s = time.time()
         result = subprocess.run(command, check=True)

@@ -23,7 +23,6 @@
 #include "XACC.hpp"
 #include "xacc_service.hpp"
 
-#include "qcor.hpp"
 #include "clang/Parse/ParseAST.h"
 
 #include <fstream>
@@ -170,7 +169,6 @@ int main() {
                   std::istreambuf_iterator<char>());
   std::remove(".output.cpp");
 
-  std::cout << "OUTPUT:\n" << src << "\n";
 
 //   EXPECT_EQ(expectedSrc, src);
 
@@ -183,12 +181,13 @@ int main() {
 //   EXPECT_EQ(1, cx.countGates());
 //   EXPECT_EQ(1, m.countGates());
 
-//   EXPECT_TRUE(tooling::runToolOnCodeWithArgs(action2, param0, args));
+  EXPECT_TRUE(tooling::runToolOnCodeWithArgs(action2, param0, args));
 
-//   std::ifstream t2(".output.cpp");
-//   std::string src2((std::istreambuf_iterator<char>(t2)),
-//                    std::istreambuf_iterator<char>());
-//   std::remove(".output.cpp");
+  std::ifstream t2(".output.cpp");
+  std::string src2((std::istreambuf_iterator<char>(t2)),
+                   std::istreambuf_iterator<char>());
+  std::remove(".output.cpp");
+  std::cout << "OUTPUT:\n" << src2 << "\n";
 
 //   EXPECT_EQ(expectedSrc, src2);
 }
@@ -426,7 +425,7 @@ int main() {
 // }
 
 int main(int argc, char **argv) {
-  qcor::Initialize(argc, argv);
+  xacc::Initialize(argc, argv);
   ::testing::InitGoogleTest(&argc, argv);
   auto ret = RUN_ALL_TESTS();
   return ret;

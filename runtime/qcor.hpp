@@ -24,9 +24,14 @@ class qpu_handler;
 using HandlerLambda = std::function<void(qpu_handler &)>;
 
 // extern std::map<std::string, InstructionParameter> runtimeMap;
+extern bool executeKernel;
 
 void Initialize(int argc, char **argv);
 void Initialize(std::vector<std::string> argv);
+
+void switchDefaultKernelExecution(bool execute);
+
+// std::shared_ptr<xacc::CompositeInstruction> extractFunction();
 
 // std::shared_ptr<CompositeInstruction> loadFromIR(const std::string &ir);
 

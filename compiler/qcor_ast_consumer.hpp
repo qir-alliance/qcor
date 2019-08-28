@@ -5,7 +5,7 @@
 #include "clang/Rewrite/Core/Rewriter.h"
 
 namespace clang {
-  class CompilerInstance;
+class CompilerInstance;
 }
 using namespace clang;
 
@@ -13,13 +13,13 @@ namespace qcor {
 namespace compiler {
 class QCORASTConsumer : public ASTConsumer {
 public:
-  QCORASTConsumer(CompilerInstance &c, Rewriter& rw);
+  QCORASTConsumer(CompilerInstance &c, Rewriter &rw);
 
   bool HandleTopLevelDecl(DeclGroupRef DR) override;
 
 private:
   CompilerInstance &ci;
-  Rewriter& rewriter;
+  Rewriter &rewriter;
 };
 } // namespace compiler
 } // namespace qcor

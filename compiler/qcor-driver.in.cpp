@@ -118,7 +118,7 @@ int main(int argc, char **argv) {
 
   auto action = new QCORFrontendAction(Rewrite, fileName);
   std::vector<std::string> args{
-      "-ftime-report", "-std=c++11", "-I@CMAKE_INSTALL_PREFIX@/include/qcor",
+      "-ftime-report", "-std=c++14", "-I@CMAKE_INSTALL_PREFIX@/include/qcor",
       "-I@CMAKE_INSTALL_PREFIX@/include/xacc"};
 
   if (!tooling::runToolOnCodeWithArgs(action, src, args)) {

@@ -2,9 +2,9 @@
 #define COMPILER_FUZZYPARSINGEXTERNALSEMASOURCE_HPP_
 
 #include "clang/AST/ASTContext.h"
+#include "clang/Frontend/ASTUnit.h"
 #include "clang/Sema/ExternalSemaSource.h"
 #include "clang/Sema/Lookup.h"
-#include "clang/Frontend/ASTUnit.h"
 
 using namespace clang;
 
@@ -20,12 +20,12 @@ private:
   // This ExternalSemaSource should exist throughout
   // the tooling lifetime, so we should be good with
   // regards to these nodes being deleted
-  std::vector<std::unique_ptr<ASTUnit>> ASTs;
-  
+  std::map<std::string, std::unique_ptr<ASTUnit>> quantumInstructionASTs;
+
 public:
   FuzzyParsingExternalSemaSource() = default;
   void initialize();
-  void setASTContext(ASTContext *context) {m_Context = context;}
+  void setASTContext(ASTContext *context) { m_Context = context; }
 
   bool LookupUnqualified(clang::LookupResult &R, clang::Scope *S) override;
 };

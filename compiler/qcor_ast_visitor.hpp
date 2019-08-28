@@ -31,10 +31,11 @@ protected:
     bool _isQuantumKernel = false;
     std::vector<std::string> validInstructions;
     bool foundSubLambda = false;
+
   public:
     IsQuantumKernelVisitor(ASTContext &c);
     bool VisitDeclRefExpr(DeclRefExpr *expr);
-    bool VisitLambdaExpr(LambdaExpr* expr);
+    bool VisitLambdaExpr(LambdaExpr *expr);
     bool isQuantumKernel() { return _isQuantumKernel; }
     std::string irType = "gate";
   };
@@ -43,7 +44,7 @@ public:
   QCORASTVisitor(CompilerInstance &c, Rewriter &rw);
 
   bool VisitLambdaExpr(LambdaExpr *LE);
-  bool VisitFunctionDecl(FunctionDecl * decl);
+  bool VisitFunctionDecl(FunctionDecl *decl);
 
 private:
   CompilerInstance &ci;

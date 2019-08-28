@@ -6,36 +6,57 @@
 #include "AcceleratorBuffer.hpp"
 #include "CompositeInstruction.hpp"
 #include "XACC.hpp"
+#include <heterogeneous.hpp>
 
 namespace qcor {
 
 class qpu_handler {
 protected:
   std::shared_ptr<xacc::AcceleratorBuffer> buffer;
+
 public:
   qpu_handler() = default;
   qpu_handler(std::shared_ptr<xacc::AcceleratorBuffer> b) : buffer(b) {}
 
   std::shared_ptr<xacc::AcceleratorBuffer> getResults() { return buffer; }
 
-  template <typename QuantumKernel>
-  void vqe(QuantumKernel kernel, std::shared_ptr<Observable> observable,
-           std::shared_ptr<Optimizer> optimizer) {
-    // auto function = std::make_shared<CompositeInstruction>();//qcor::loadCompiledCircuit(kernel());
+  template <typename QuantumKernel, typename... Args>
+  void vqe(QuantumKernel &kernel, std::shared_ptr<Observable> observable,
+           std::shared_ptr<Optimizer> optimizer, Args... args) {
 
-    // // std::cout << "Function:\n" << function->toString() << "\n";
-    // auto nPhysicalQubits = function->nPhysicalBits();
-    // auto accelerator = xacc::getAccelerator();
+    // Turn off backend execution so I can
+    // just execute the kernel lambda and get the function
+    qcor::switchDefaultKernelExecution(false);
 
-    // // if(!buffer) {
-    //   buffer = accelerator->createBuffer("q", nPhysicalQubits);
-    // }
+    auto qb = xacc::qalloc(1000);
+    auto persisted_function = kernel(qb, args...);
 
-    // auto vqeAlgo = qcor::getAlgorithm("vqe");
-    // if(!vqeAlgo->initialize({{"ansatz",function}, {"accelerator",accelerator}, {"observable",observable},{"optimizer",optimizer}})) {
-    //     xacc::error("Error initializing VQE algorithm.");
-    // }
-    // vqeAlgo->execute(buffer);
+    qcor::switchDefaultKernelExecution(true);
+
+    auto function = xacc::getIRProvider("quantum")->createComposite("f");
+    std::istringstream iss(persisted_function);
+    function->load(iss);
+
+    auto nLogicalBits = function->nPhysicalBits();
+    auto accelerator = xacc::getAccelerator();
+
+    if (!buffer) {
+      buffer = xacc::qalloc(nLogicalBits);
+    }
+
+    HeterogeneousMap options;
+    options.insert("observable", observable);
+    options.insert("ansatz", function);
+    options.insert("optimizer", optimizer);
+    options.insert("accelerator",accelerator);
+
+    auto vqeAlgo = qcor::getAlgorithm("vqe");
+    bool success = vqeAlgo->initialize(options);
+    if (!success) {
+      xacc::error("Error initializing VQE algorithm.");
+    }
+
+    vqeAlgo->execute(buffer);
   }
 
   template <typename QuantumKernel> void execute(QuantumKernel &&kernel) {
