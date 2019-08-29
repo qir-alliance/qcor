@@ -22,8 +22,8 @@
 
 #include "fuzzy_parsing.hpp"
 
-#include "qcor_ast_consumer.hpp"
 #include "XACC.hpp"
+#include "qcor_ast_consumer.hpp"
 #include "xacc_service.hpp"
 
 using namespace clang;
@@ -41,26 +41,23 @@ protected:
   CreateASTConsumer(clang::CompilerInstance &Compiler,
                     llvm::StringRef /* dummy */) override {
     return std::make_unique<qcor::compiler::QCORASTConsumer>(Compiler,
-                                                              rewriter);
+                                                             rewriter);
   }
 
   void ExecuteAction() override {
     CompilerInstance &CI = getCompilerInstance();
-    // CI.getLangOpts().CPlusPlus14 = 1;
     CI.createSema(getTranslationUnitKind(), nullptr);
     rewriter.setSourceMgr(CI.getSourceManager(), CI.getLangOpts());
 
-    // auto externalSemaSources = xacc::getServices<qcor::compiler::QCORExternalSemaSource>();
-    auto fuzzyParser = std::make_shared<qcor::compiler::FuzzyParsingExternalSemaSource>();
+    auto fuzzyParser =
+        std::make_shared<qcor::compiler::FuzzyParsingExternalSemaSource>();
     fuzzyParser->initialize();
-    // for (auto es : externalSemaSources) {
-    //     es->setASTContext(&CI.getASTContext());
-    //     es->initialize();
-        CI.getSema().addExternalSource(fuzzyParser.get());
-    // }
+    CI.getSema().addExternalSource(fuzzyParser.get());
 
-    // auto pragmaHandlers = xacc::getServices<qcor::compiler::QCORPragmaHandler>();
-    // for (auto p : pragmaHandlers) {
+    // FIXME Hook this back up
+    // auto pragmaHandlers =
+    // xacc::getServices<qcor::compiler::QCORPragmaHandler>(); for (auto p :
+    // pragmaHandlers) {
     //     p->setRewriter(&rewriter);
     //     CI.getSema().getPreprocessor().AddPragmaHandler(p.get());
     // }
@@ -73,29 +70,53 @@ protected:
 
     CI.getDiagnosticClient().EndSourceFile();
 
-    std::string outName(fileName);
-    size_t ext = outName.rfind(".");
-    if (ext == std::string::npos)
-      ext = outName.length();
-    outName.insert(ext, "_out");
-    outName = "."+outName;
+    // Get the rewrite buffer
+    const RewriteBuffer *RewriteBuf =
+        rewriter.getRewriteBufferFor(CI.getSourceManager().getMainFileID());
 
-    llvm::errs() << "Output to: " << outName << "\n";
-    std::error_code OutErrorInfo;
-    std::error_code ok;
-    llvm::raw_fd_ostream outFile(llvm::StringRef(outName), OutErrorInfo,
-                                 llvm::sys::fs::F_None);
+    // if not null, rewrite to .fileName_out.cpp
+    if (RewriteBuf) {
+      auto getFileName = [](const std::string &s) {
+        char sep = '/';
 
-    if (OutErrorInfo == ok) {
+        size_t i = s.rfind(sep, s.length());
+        if (i != std::string::npos) {
+          return (s.substr(i + 1, s.length() - i));
+        }
 
-      const RewriteBuffer *RewriteBuf = rewriter.getRewriteBufferFor(
-          CI.getSourceManager().getMainFileID());
-      outFile << std::string(RewriteBuf->begin(), RewriteBuf->end());
+        return std::string("");
+      };
+
+      auto fileNameNoPath = getFileName(fileName);
+
+      if (!fileNameNoPath.empty()) {
+          fileName = fileNameNoPath;
+      }
+      
+      std::string outName(fileName);
+      size_t ext = outName.rfind(".");
+      if (ext == std::string::npos)
+        ext = outName.length();
+      outName.insert(ext, "_out");
+      outName = "." + outName;
+
+      std::error_code OutErrorInfo;
+      std::error_code ok;
+      llvm::raw_fd_ostream outFile(llvm::StringRef(outName), OutErrorInfo,
+                                   llvm::sys::fs::F_None);
+
+      if (OutErrorInfo == ok) {
+        auto s = std::string(RewriteBuf->begin(), RewriteBuf->end());
+        outFile << s;
+      } else {
+        llvm::errs() << "Cannot open " << outName << " for writing\n";
+        llvm::errs() << OutErrorInfo.message() << "\n";
+      }
+      outFile.close();
     } else {
-      llvm::errs() << "Cannot open " << outName << " for writing\n";
-    }
 
-    outFile.close();
+      // Do we need to do anything here?
+    }
   }
 };
 
@@ -117,14 +138,13 @@ int main(int argc, char **argv) {
   Rewriter Rewrite;
 
   auto action = new QCORFrontendAction(Rewrite, fileName);
-  std::vector<std::string> args{
-      "-ftime-report", "-std=c++14", "-I@CMAKE_INSTALL_PREFIX@/include/qcor",
-      "-I@CMAKE_INSTALL_PREFIX@/include/xacc"};
+  std::vector<std::string> args{"-Wno-dangling", "-std=c++14",
+                                "-I@CMAKE_INSTALL_PREFIX@/include/qcor",
+                                "-I@CMAKE_INSTALL_PREFIX@/include/xacc"};
 
   if (!tooling::runToolOnCodeWithArgs(action, src, args)) {
-      xacc::error("Error running qcor compiler.");
+    xacc::error("Error running qcor compiler.");
   }
 
   return 0;
-
 }

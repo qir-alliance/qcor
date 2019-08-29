@@ -10,11 +10,6 @@ int main(int argc, char** argv) {
       CNOT(q[1], q[0]);
   };
 
-//   qbit buffer = xacc::qalloc(2);
-//   ansatz(buffer, std::vector<double>{2.2});
-//   buffer->print();
-
-
   auto optimizer = qcor::getOptimizer(
       "nlopt", {std::make_pair("nlopt-optimizer","cobyla"),
                 std::make_pair("nlopt-maxeval", 20)});

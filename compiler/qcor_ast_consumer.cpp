@@ -8,7 +8,7 @@ namespace qcor {
 namespace compiler {
 QCORASTConsumer::QCORASTConsumer(CompilerInstance &c, Rewriter &rw)
     : ci(c), rewriter(rw) {}
-
+    
 bool QCORASTConsumer::HandleTopLevelDecl(DeclGroupRef DR) {
   QCORASTVisitor visitor(ci, rewriter);
   for (DeclGroupRef::iterator b = DR.begin(), e = DR.end(); b != e; ++b) {

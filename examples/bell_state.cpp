@@ -2,14 +2,14 @@
 
 int main(int argc, char** argv) {
 
-  qcor::Initialize(argc, argv); 
+  qcor::Initialize(argc, argv);
 
   auto future = qcor::submit([&](qcor::qpu_handler &qh) {
-    qh.execute([&]() { 
-      H(0);
-      CX(0, 1);
-      Measure(0);
-      Measure(1);
+    qh.execute([&](qbit q) {
+      H(q[0]);
+      CX(q[0], q[1]);
+      Measure(q[0]);
+      Measure(q[1]);
     });
   });
 

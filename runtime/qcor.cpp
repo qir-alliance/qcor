@@ -1,5 +1,4 @@
 #include "qcor.hpp"
-#include "qpu_handler.hpp"
 
 #include "AcceleratorBuffer.hpp"
 #include "IRProvider.hpp"
@@ -14,9 +13,26 @@
 using namespace xacc;
 
 namespace qcor {
-// std::map<std::string, InstructionParameter> runtimeMap = {};
+
+namespace __internal {
 bool executeKernel = true;
-void switchDefaultKernelExecution(bool execute) {executeKernel = execute;}
+void switchDefaultKernelExecution(bool execute) { executeKernel = execute; }
+void updateMap(xacc::HeterogeneousMap &m, std::vector<double> &values) {
+  m.get_mutable<std::vector<double>>("initial-parameters") = values;
+}
+void updateMap(xacc::HeterogeneousMap &m, std::vector<double> &&values) {
+  m.get_mutable<std::vector<double>>("initial-parameters") = values;
+}
+void updateMap(xacc::HeterogeneousMap &m, double value) {
+  m.get_mutable<std::vector<double>>("initial-parameters").push_back(value);
+}
+
+void constructInitialParameters(xacc::HeterogeneousMap &m) { return; }
+} // namespace __internal
+
+void Initialize() {
+  Initialize(std::vector<std::string>{});
+}
 
 void Initialize(int argc, char **argv) {
   std::vector<const char *> tmp(argv, argv + argc);
@@ -25,11 +41,13 @@ void Initialize(int argc, char **argv) {
     newargv.push_back(std::string(t));
   Initialize(newargv);
 }
+
 void Initialize(std::vector<std::string> argv) {
   argv.push_back("--logger-name");
   argv.push_back("qcor");
   xacc::Initialize(argv);
 }
+void Finalize() { xacc::Finalize(); }
 
 std::future<std::shared_ptr<AcceleratorBuffer>>
 submit(HandlerLambda &&totalJob) {
@@ -44,20 +62,18 @@ submit(HandlerLambda &&totalJob) {
 
 std::future<std::shared_ptr<AcceleratorBuffer>>
 submit(HandlerLambda &&totalJob, std::shared_ptr<AcceleratorBuffer> buffer) {
-    return std::async(std::launch::async, [&]() {
+  return std::async(std::launch::async, [&]() {
     qpu_handler handler(buffer);
     totalJob(handler);
     return handler.getResults();
   });
 }
 
-
 std::shared_ptr<Optimizer> getOptimizer(const std::string &name) {
   return xacc::getService<xacc::Optimizer>(name);
 }
-std::shared_ptr<Optimizer>
-getOptimizer(const std::string &name,
-             const HeterogeneousMap &&options) {
+std::shared_ptr<Optimizer> getOptimizer(const std::string &name,
+                                        const HeterogeneousMap &&options) {
   auto opt = getOptimizer(name);
   opt->setOptions(options);
   return opt;
@@ -87,15 +103,11 @@ std::shared_ptr<Observable> getObservable(const std::string &representation) {
   return getObservable("pauli", representation);
 }
 
-std::shared_ptr<Observable>
-getObservable(const std::string &type,
-              const HeterogeneousMap &&options) {
+std::shared_ptr<Observable> getObservable(const std::string &type,
+                                          const HeterogeneousMap &&options) {
   auto observable = xacc::getService<Observable>(type);
   observable->fromOptions(options);
   return observable;
-}
-std::shared_ptr<xacc::Algorithm> getAlgorithm(const std::string name) {
-  return xacc::getService<xacc::Algorithm>(name);
 }
 
 } // namespace qcor
