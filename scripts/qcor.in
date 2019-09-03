@@ -2,7 +2,6 @@
 import argparse, sys, os, subprocess, mimetypes, re
 
 def main(argv=None):
-    print(sys.argv)
     compiler = '@CMAKE_CXX_COMPILER@'
 
     baseLibs = ['-rdynamic', '-Wl,-rpath,@CMAKE_INSTALL_PREFIX@/lib',

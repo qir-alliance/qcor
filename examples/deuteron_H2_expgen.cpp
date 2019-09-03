@@ -4,22 +4,25 @@ int main(int argc, char **argv) {
 
   qcor::Initialize(argc, argv);
 
-  auto optimizer = qcor::getOptimizer(
-      "nlopt", {{"nlopt-optimizer", "cobyla"}, {"nlopt-maxeval", 20}});
+  auto optimizer =
+      qcor::getOptimizer("nlopt", {std::make_pair("nlopt-optimizer", "cobyla"),
+                                   std::make_pair("nlopt-maxeval", 2000)});
 
-  auto op = qcor::getObservable(
-      "pauli", "5.907 - 2.1433 X0X1 - 2.1433 Y0Y1 + .21829 Z0 - 6.125 Z1");
-
+  auto observable =
+      qcor::getObservable("pauli", std::string("5.907 - 2.1433 X0X1 "
+                                               "- 2.1433 Y0Y1"
+                                               "+ .21829 Z0 - 6.125 Z1"));
   auto future = qcor::submit([&](qcor::qpu_handler &qh) {
     qh.vqe(
-        [&](double x) {
-          X(0);
-          exp_i_theta(x, {{"pauli", "X0 Y1 - Y0 X1"}});
+        [&](qbit q, double x) {
+          X(q[0]);
+          exp_i_theta(q, x, {{"pauli", "X0 Y1 - Y0 X1"}});
         },
-        op, optimizer);
+        observable, optimizer, 0.0);
   });
 
   auto results = future.get();
-  auto energy = mpark::get<double>(results->getInformation("opt-val"));
+  auto energy = results->getInformation("opt-val").as<double>();
   std::cout << "Results: " << energy << "\n";
+
 }

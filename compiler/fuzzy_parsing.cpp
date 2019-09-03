@@ -78,7 +78,7 @@ bool FuzzyParsingExternalSemaSource::LookupUnqualified(clang::LookupResult &R,
     quantumInstructionASTs.push_back(std::move(ast));
 
     R.addDecl(D0);
-    D0->dump();
+    // D0->dump();
   } else if (std::find(compositeInstructions.begin(),
                        compositeInstructions.end(),
                        unknownName + "__qcor_instruction") !=
@@ -137,7 +137,7 @@ bool FuzzyParsingExternalSemaSource::LookupUnqualified(clang::LookupResult &R,
     auto cmp = CompoundStmt::Create(ci.getASTContext(), stmts, SourceLocation(),
                                     SourceLocation());
     fdecl->setBody(cmp);
-    fdecl->dump();
+    // fdecl->dump();
 
     R.addDecl(fdecl);
     return true;

@@ -108,15 +108,25 @@ bool QCORASTVisitor::VisitLambdaExpr(LambdaExpr *LE) {
             .str();
 
     std::shared_ptr<Accelerator> targetAccelerator;
-    if (xacc::optionExists("accelerator")) {
-      targetAccelerator = xacc::getAccelerator();
+    if (!xacc::optionExists("accelerator")) {
+      if (xacc::hasAccelerator("tnqvm")) {
+        xacc::setOption("accelerator", "tnqvm");
+      } else if (xacc::hasAccelerator("local-ibm")) {
+        xacc::setOption("accelerator", "local-ibm");
+      } else {
+        xacc::error("No Accelerator specified for compilation. Compile with "
+                    "--accelerator and ensure you have the desired Accelerator "
+                    "installed.");
+      }
     }
 
-    std::cout << "LAMBDA STR:\n" << xaccKernelLambdaStr << "\n";
+    auto acceleratorName = xacc::getAccelerator()->name();
+    
+    // std::cout << "LAMBDA STR:\n" << xaccKernelLambdaStr << "\n";
     auto compiler = xacc::getCompiler("xasm");
     auto ir = compiler->compile(xaccKernelLambdaStr, targetAccelerator);
 
-    auto function = ir->getComposites()[0]; 
+    auto function = ir->getComposites()[0];
     for (auto &inst : function->getInstructions()) {
       if (!inst->isComposite() && inst->nParameters() > 0) {
         int counter = 0;
@@ -138,23 +148,9 @@ bool QCORASTVisitor::VisitLambdaExpr(LambdaExpr *LE) {
       }
     }
 
-    std::cout << "HELLO: " << function->getVariables() << "\n";
-    std::cout << "\n\nXACC IR:\n" << function->toString() << "\n";
+    // std::cout << "\n\nXACC IR:\n" << function->toString() << "\n";
 
     auto sr = LE->getBody()->getSourceRange();
-    if (!xacc::optionExists("accelerator")) {
-      if (xacc::hasAccelerator("tnqvm")) {
-        xacc::setOption("accelerator", "tnqvm");
-      } else if (xacc::hasAccelerator("local-ibm")) {
-        xacc::setOption("accelerator", "local-ibm");
-      } else {
-        xacc::error("No Accelerator specified for compilation. Compile with "
-                    "--accelerator and ensure you have the desired Accelerator "
-                    "installed.");
-      }
-    }
-
-    auto acceleratorName = xacc::getAccelerator()->name();
 
     // Argument analysis
     // can be (qbit q, double t, double tt, double ttt, ...)
