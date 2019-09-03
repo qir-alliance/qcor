@@ -56,7 +56,7 @@ bool QCORASTVisitor::VisitLambdaExpr(LambdaExpr *LE) {
   // Double check... Is this a Quantum Kernel Lambda?
   IsQuantumKernelVisitor isqk(ci.getASTContext());
   isqk.TraverseStmt(LE->getBody());
-//   LE->dump();
+  //   LE->dump();
 
   std::map<std::string, InstructionParameter> captures;
   // If it is, then map it to XACC IR
@@ -112,11 +112,11 @@ bool QCORASTVisitor::VisitLambdaExpr(LambdaExpr *LE) {
       targetAccelerator = xacc::getAccelerator();
     }
 
-    // std::cout << "LAMBDA STR:\n" << xaccKernelLambdaStr << "\n";
+    std::cout << "LAMBDA STR:\n" << xaccKernelLambdaStr << "\n";
     auto compiler = xacc::getCompiler("xasm");
     auto ir = compiler->compile(xaccKernelLambdaStr, targetAccelerator);
 
-    auto function = ir->getComposites()[0]; //.getFunction();
+    auto function = ir->getComposites()[0]; 
     for (auto &inst : function->getInstructions()) {
       if (!inst->isComposite() && inst->nParameters() > 0) {
         int counter = 0;
@@ -138,7 +138,8 @@ bool QCORASTVisitor::VisitLambdaExpr(LambdaExpr *LE) {
       }
     }
 
-    // std::cout << "\n\nXACC IR:\n" << function->toString() << "\n";
+    std::cout << "HELLO: " << function->getVariables() << "\n";
+    std::cout << "\n\nXACC IR:\n" << function->toString() << "\n";
 
     auto sr = LE->getBody()->getSourceRange();
     if (!xacc::optionExists("accelerator")) {
@@ -163,15 +164,15 @@ bool QCORASTVisitor::VisitLambdaExpr(LambdaExpr *LE) {
     int nArgs = F->getNumParams();
 
     auto sl = F->getParamDecl(0)->getInnerLocStart();
-    auto end = F->getParamDecl(nArgs-1)->getEndLoc();
+    auto end = F->getParamDecl(nArgs - 1)->getEndLoc();
     auto lambdaDefinition =
-        Lexer::getSourceText(CharSourceRange(SourceRange(sl,end), true), SM,
+        Lexer::getSourceText(CharSourceRange(SourceRange(sl, end), true), SM,
                              lo)
             .str();
 
-    std::vector<ParmVarDecl*> params;
-    for (int i = 0; i < LE->getCallOperator()->getNumParams(); i++ ){
-        params.push_back(LE->getCallOperator()->getParamDecl(i));
+    std::vector<ParmVarDecl *> params;
+    for (int i = 0; i < LE->getCallOperator()->getNumParams(); i++) {
+      params.push_back(LE->getCallOperator()->getParamDecl(i));
     }
 
     // Always write the Function to json string first
@@ -203,8 +204,7 @@ bool QCORASTVisitor::VisitLambdaExpr(LambdaExpr *LE) {
     replacement += "}\n";
     rewriter.ReplaceText(sr, replacement);
 
-
-   SourceLocation sll;
+    SourceLocation sll;
     QualType StrTy = ci.getASTContext().getConstantArrayType(
         ci.getASTContext().adjustStringLiteralBaseType(
             ci.getASTContext().CharTy.withConst()),
@@ -214,8 +214,8 @@ bool QCORASTVisitor::VisitLambdaExpr(LambdaExpr *LE) {
                               StringLiteral::Ascii, false, StrTy, &sll, 1);
     // Create New Return type for CallOperator
     std::vector<QualType> ParamTypes;
-    for (auto& p : params) {
-        ParamTypes.push_back(p->getType());
+    for (auto &p : params) {
+      ParamTypes.push_back(p->getType());
     }
     auto D = LE->getCallOperator()->getAsFunction();
     FunctionProtoType::ExtProtoInfo fpi;
@@ -230,7 +230,6 @@ bool QCORASTVisitor::VisitLambdaExpr(LambdaExpr *LE) {
     auto rtrn = ReturnStmt::Create(ci.getASTContext(), SourceLocation(),
                                    fnameSL, nullptr);
 
-
     auto cs = LE->getCallOperator()->getBody();
     for (auto it = cs->child_begin(); it != cs->child_end(); ++it) {
       svec.push_back(*it);
@@ -241,7 +240,6 @@ bool QCORASTVisitor::VisitLambdaExpr(LambdaExpr *LE) {
     auto cmp = CompoundStmt::Create(ci.getASTContext(), stmts, SourceLocation(),
                                     SourceLocation());
     LE->getCallOperator()->setBody(cmp);
-
 
     llvm::ArrayRef<ParmVarDecl *> parms(params);
     LE->getCallOperator()->getAsFunction()->setParams(parms);

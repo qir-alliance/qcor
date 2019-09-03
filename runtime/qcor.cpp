@@ -18,11 +18,23 @@ namespace __internal {
 bool executeKernel = true;
 void switchDefaultKernelExecution(bool execute) { executeKernel = execute; }
 void updateMap(xacc::HeterogeneousMap &m, std::vector<double> &values) {
-  m.get_mutable<std::vector<double>>("initial-parameters") = values;
+  if (values.empty()) {
+    m.get_mutable<std::vector<double>>("initial-parameters") =
+        std::vector<double>(m.get<std::size_t>("__internal_n_vars"));
+  } else {
+    m.get_mutable<std::vector<double>>("initial-parameters") = values;
+  }
 }
+
 void updateMap(xacc::HeterogeneousMap &m, std::vector<double> &&values) {
-  m.get_mutable<std::vector<double>>("initial-parameters") = values;
+  if (values.empty()) {
+    m.get_mutable<std::vector<double>>("initial-parameters") =
+        std::vector<double>(m.get<std::size_t>("__internal_n_vars"));
+  } else {
+    m.get_mutable<std::vector<double>>("initial-parameters") = values;
+  }
 }
+
 void updateMap(xacc::HeterogeneousMap &m, double value) {
   m.get_mutable<std::vector<double>>("initial-parameters").push_back(value);
 }
@@ -30,9 +42,7 @@ void updateMap(xacc::HeterogeneousMap &m, double value) {
 void constructInitialParameters(xacc::HeterogeneousMap &m) { return; }
 } // namespace __internal
 
-void Initialize() {
-  Initialize(std::vector<std::string>{});
-}
+void Initialize() { Initialize(std::vector<std::string>{}); }
 
 void Initialize(int argc, char **argv) {
   std::vector<const char *> tmp(argv, argv + argc);

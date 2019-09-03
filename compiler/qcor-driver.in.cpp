@@ -45,14 +45,18 @@ protected:
   }
 
   void ExecuteAction() override {
+
     CompilerInstance &CI = getCompilerInstance();
     CI.createSema(getTranslationUnitKind(), nullptr);
     rewriter.setSourceMgr(CI.getSourceManager(), CI.getLangOpts());
 
     auto fuzzyParser =
-        std::make_shared<qcor::compiler::FuzzyParsingExternalSemaSource>();
+        std::make_shared<qcor::compiler::FuzzyParsingExternalSemaSource>(CI);
     fuzzyParser->initialize();
+    // fuzzyParser->setASTContext(&CI.getASTContext());
+    // fuzzyParser->setFileManager(&CI.getFileManager());
     CI.getSema().addExternalSource(fuzzyParser.get());
+
 
     // FIXME Hook this back up
     // auto pragmaHandlers =
@@ -92,7 +96,7 @@ protected:
       if (!fileNameNoPath.empty()) {
           fileName = fileNameNoPath;
       }
-      
+
       std::string outName(fileName);
       size_t ext = outName.rfind(".");
       if (ext == std::string::npos)

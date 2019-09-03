@@ -1,10 +1,11 @@
 #ifndef RUNTIME_QCOR_HPP_
 #define RUNTIME_QCOR_HPP_
 
+#include "Observable.hpp"
+#include "XACC.hpp"
+#include "heterogeneous.hpp"
 #include <future>
 #include <vector>
-#include "XACC.hpp"
-#include "Observable.hpp"
 
 using namespace xacc;
 
@@ -16,41 +17,49 @@ using namespace xacc;
 //                  this call is to initialize the XACC framework, specifically
 //                  its plugin/service registry system.
 //
-// (2) Finalize - Finalize the QCOR runtime library. This should be called at the
+// (2) Finalize - Finalize the QCOR runtime library. This should be called at
+// the
 //                end of a QCOR-enabled program to cleanup and finalize QCOR.
-//                Specifically, this Finalizes the XACC framework which cleans up
-//                the provided service pointers.
+//                Specifically, this Finalizes the XACC framework which cleans
+//                up the provided service pointers.
 //
-// (3) submit - This function enables job or task submission to QCOR for asynchronous
-//              execution. Tasks are functor-like objects (lambdas for example) that
-//              take a single argument - a reference to a qcor::qpu_handler. Tasks can
-//              use this qpu_handler to execute desired objective functions or hybrid algorithms.
-//              This function returns a C++ future object wrapping the to-be-populated
-//              AcceleratorBuffer containing execution results (counts, and a heterogeneous map
-//              of execution data). This method is overloaded to accept an already created
-//              AcceleratorBuffer.
+// (3) submit - This function enables job or task submission to QCOR for
+// asynchronous
+//              execution. Tasks are functor-like objects (lambdas for example)
+//              that take a single argument - a reference to a
+//              qcor::qpu_handler. Tasks can use this qpu_handler to execute
+//              desired objective functions or hybrid algorithms. This function
+//              returns a C++ future object wrapping the to-be-populated
+//              AcceleratorBuffer containing execution results (counts, and a
+//              heterogeneous map of execution data). This method is overloaded
+//              to accept an already created AcceleratorBuffer.
 //
-// (4) getOptimizer - This function returns a concrete Optimizer implementation (such as the nlopt
-//                    optimizer). It is overloaded to optionally take a heterogeneous map of
-//                    optimizer options. This method leverages the XACC service registry to
-//                    get reference to the desired optimizer service implementation.
+// (4) getOptimizer - This function returns a concrete Optimizer implementation
+// (such as the nlopt
+//                    optimizer). It is overloaded to optionally take a
+//                    heterogeneous map of optimizer options. This method
+//                    leverages the XACC service registry to get reference to
+//                    the desired optimizer service implementation.
 //
-// (5) getObservable - This function returns a concrete Observable implementation instance.
-//                     This Observable dictates measurements on an unmeasured quantum kernel.
-//                     It is overloaded to enable creation of an Observable from a particular
-//                     string representation or a heterogeneous map of options.
+// (5) getObservable - This function returns a concrete Observable
+// implementation instance.
+//                     This Observable dictates measurements on an unmeasured
+//                     quantum kernel. It is overloaded to enable creation of an
+//                     Observable from a particular string representation or a
+//                     heterogeneous map of options.
 //
-// (6) add - This function adds to quantum kernels together, i.e. appends the instructions
-//           of the second one to the first. This returns a new quantum kernel representing this
-//           addition.
+// (6) add - This function adds to quantum kernels together, i.e. appends the
+// instructions
+//           of the second one to the first. This returns a new quantum kernel
+//           representing this addition.
 //
 // QCOR C++ Quantum Kernels:
 // -------------------------
-// Quantum Kernels in QCOR are represented as standard C++ functors, which may be
-// free functions or lambdas. These functors must take as its first argument a reference
-// to a register of qubits (of qbit type). The following arguments can be runtime parameters
-// (circuit parameters) that are either of double value, or a std::vector<double>. A
-// prototypical example looks like this:
+// Quantum Kernels in QCOR are represented as standard C++ functors, which may
+// be free functions or lambdas. These functors must take as its first argument
+// a reference to a register of qubits (of qbit type). The following arguments
+// can be runtime parameters (circuit parameters) that are either of double
+// value, or a std::vector<double>. A prototypical example looks like this:
 //
 // auto kernel = [&](qbit q, std::vector<double> p) {
 //  X(q[0]);
@@ -59,18 +68,18 @@ using namespace xacc;
 //  Measure(q[0]);
 // };
 //
-// Note that the default quantum language leveraged here is the XACC xasm language.
+// Note that the default quantum language leveraged here is the XACC xasm
+// language.
 //
-// If measure instructions are specified, one may execute quantum kernels just as
-// you would any other classical functor:
+// If measure instructions are specified, one may execute quantum kernels just
+// as you would any other classical functor:
 //
 // auto q = qcor::qalloc(2);
 // kernel(q, std::vector<double>{2.2});
 // auto counts = q->getMeasurementCounts();
 //
-// This form of quantum kernel execution is a serial. To enact asynchronous execution
-// please leverage the qcor::submit or qcor::taskInitiate API call.
-
+// This form of quantum kernel execution is a serial. To enact asynchronous
+// execution please leverage the qcor::submit or qcor::taskInitiate API call.
 
 namespace qcor {
 
@@ -98,20 +107,22 @@ void Initialize(int argc, char **argv);
 void Initialize(std::vector<std::string> argv);
 void Finalize();
 
-std::future<std::shared_ptr<xacc::AcceleratorBuffer>> submit(HandlerLambda &&lambda);
+std::future<std::shared_ptr<xacc::AcceleratorBuffer>>
+submit(HandlerLambda &&lambda);
 std::future<std::shared_ptr<xacc::AcceleratorBuffer>>
 submit(HandlerLambda &&lambda, std::shared_ptr<xacc::AcceleratorBuffer> buffer);
 
 std::shared_ptr<xacc::Optimizer> getOptimizer(const std::string &name);
-std::shared_ptr<xacc::Optimizer> getOptimizer(const std::string &name,
-                                        const xacc::HeterogeneousMap &&options);
+std::shared_ptr<xacc::Optimizer>
+getOptimizer(const std::string &name, const xacc::HeterogeneousMap &&options);
 
-std::shared_ptr<xacc::Observable> getObservable(const std::string &type,
-                                          const std::string &representation);
+std::shared_ptr<xacc::Observable>
+getObservable(const std::string &type, const std::string &representation);
 std::shared_ptr<xacc::Observable> getObservable();
-std::shared_ptr<xacc::Observable> getObservable(const std::string &representation);
-std::shared_ptr<xacc::Observable> getObservable(const std::string &type,
-                                          const xacc::HeterogeneousMap &&options);
+std::shared_ptr<xacc::Observable>
+getObservable(const std::string &representation);
+std::shared_ptr<xacc::Observable>
+getObservable(const std::string &type, const xacc::HeterogeneousMap &&options);
 
 template <typename QuantumKernelA, typename QuantumKernelB, typename... Args>
 std::function<std::string(qbit, Args...)>
@@ -157,12 +168,13 @@ add(QuantumKernelA &qka, QuantumKernelB &qkb, Args... args) {
 
 // QCOR QPU Handler:
 // The qpu_handler class is a convenience class for providing common algorithmic
-// primitives or objective functions for optimization. For example, the variational
-// quantum eigensolver algorithm is a commonly used hybrid algorithm, and the qpu_handler
-// exposes a function for executing it with a given quantum kernel, observable, and optimizer.
-// qpu_handler also exposes standard execute() methods for executing measured quantum kernels
-// (kernels with measurement instructions specified). This function is overloaded for
-// the execution of available XACC algorithms.
+// primitives or objective functions for optimization. For example, the
+// variational quantum eigensolver algorithm is a commonly used hybrid
+// algorithm, and the qpu_handler exposes a function for executing it with a
+// given quantum kernel, observable, and optimizer. qpu_handler also exposes
+// standard execute() methods for executing measured quantum kernels (kernels
+// with measurement instructions specified). This function is overloaded for the
+// execution of available XACC algorithms.
 class qpu_handler {
 protected:
   std::shared_ptr<xacc::AcceleratorBuffer> buffer;
@@ -172,6 +184,12 @@ public:
   qpu_handler(std::shared_ptr<xacc::AcceleratorBuffer> b) : buffer(b) {}
 
   std::shared_ptr<xacc::AcceleratorBuffer> getResults() { return buffer; }
+
+  template <typename QuantumKernel, typename... Args>
+  void vqe(QuantumKernel &&kernel, std::shared_ptr<Observable> observable,
+           std::shared_ptr<Optimizer> optimizer, Args... args) {
+    vqe(kernel, observable, optimizer, args...);
+  }
 
   template <typename QuantumKernel, typename... Args>
   void vqe(QuantumKernel &kernel, std::shared_ptr<Observable> observable,
@@ -204,8 +222,11 @@ public:
     options.insert("accelerator", accelerator);
 
     optParams.insert("initial-parameters", std::vector<double>{});
+    optParams.insert("__internal_n_vars", function->nVariables());
     __internal::constructInitialParameters(optParams, args...);
-    optimizer->setOptions(optParams);
+    optimizer->appendOption(
+        "initial-parameters",
+        optParams.get<std::vector<double>>("initial-parameters"));
 
     auto vqeAlgo = xacc::getAlgorithm("vqe");
     bool success = vqeAlgo->initialize(options);
