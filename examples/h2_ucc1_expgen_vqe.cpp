@@ -9,21 +9,20 @@ int main(int argc, char **argv) {
 
   auto geom = R"geom(2
 
-    H          0.00000        0.00000        0.00000
-    H          0.00000        0.00000        0.7474
-    )geom";
+H          0.00000        0.00000        0.00000
+H          0.00000        0.00000        0.7474)geom";
 
   auto op = qcor::getObservable("chemistry",
-                                {{"basis", "sto-3g"}, {"geometry", geom}});
+                                {std::make_pair("basis", "sto-3g"), std::make_pair("geometry", geom)});
 
   auto future = qcor::submit([&](qcor::qpu_handler &qh) {
     qh.vqe(
-        [&](double x) {
-          X(0);
-          X(2);
-          exp_i_theta(x, {{"pauli", "Y0 X1 X2 X3"}});
+        [&](qbit q, double x) {
+          X(q[0]);
+          X(q[2]);
+          exp_i_theta(q, x, {{"pauli", "Y0 X1 X2 X3"}});
         },
-        op, optimizer);
+        op, optimizer, 0.0);
   });
 
   auto results = future.get();
