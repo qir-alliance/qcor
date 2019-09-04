@@ -59,15 +59,12 @@ void Initialize(std::vector<std::string> argv) {
 }
 void Finalize() { xacc::Finalize(); }
 
-ResultBuffer qalloc(const std::size_t nBits) {return xacc::qalloc(nBits);}
-ResultBuffer qalloc() {return xacc::qalloc();}
+ResultBuffer qalloc(const std::size_t nBits) { return xacc::qalloc(nBits); }
+ResultBuffer qalloc() { return xacc::qalloc(); }
 
-ResultBuffer sync(Handle& handle) {
-    return handle.get();
-}
+ResultBuffer sync(Handle &handle) { return handle.get(); }
 
-Handle
-submit(HandlerLambda &&totalJob) {
+Handle submit(HandlerLambda &&totalJob) {
   // Create the QPU Handler to pass to the given
   // Handler HandlerLambda
   return std::async(std::launch::async, [=]() { // bug must be by value...
@@ -77,8 +74,8 @@ submit(HandlerLambda &&totalJob) {
   });
 }
 
-Handle
-submit(HandlerLambda &&totalJob, std::shared_ptr<AcceleratorBuffer> buffer) {
+Handle submit(HandlerLambda &&totalJob,
+              std::shared_ptr<AcceleratorBuffer> buffer) {
   return std::async(std::launch::async, [&]() {
     qpu_handler handler(buffer);
     totalJob(handler);

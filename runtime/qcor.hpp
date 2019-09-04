@@ -2,8 +2,8 @@
 #define RUNTIME_QCOR_HPP_
 
 #include "Observable.hpp"
-#include "xacc.hpp"
 #include "heterogeneous.hpp"
+#include "xacc.hpp"
 #include <future>
 #include <vector>
 
@@ -100,11 +100,31 @@ class qpu_handler;
 using HandlerLambda = std::function<void(qpu_handler &)>;
 
 namespace __internal {
+
 extern bool executeKernel;
+
 void switchDefaultKernelExecution(bool execute);
+
+template <typename QuantumKernel, typename... Args>
+std::shared_ptr<CompositeInstruction>
+getCompositeInstruction(QuantumKernel &kernel, Args... args) {
+  qcor::__internal::switchDefaultKernelExecution(false);
+
+  auto qb = xacc::qalloc(1000);
+  auto persisted_function = kernel(qb, args...);
+
+  qcor::__internal::switchDefaultKernelExecution(true);
+
+  auto function = xacc::getIRProvider("quantum")->createComposite("f");
+  std::istringstream iss(persisted_function);
+  function->load(iss);
+  return function;
+}
+
 void updateMap(xacc::HeterogeneousMap &m, std::vector<double> &values);
 void updateMap(xacc::HeterogeneousMap &m, std::vector<double> &&values);
 void updateMap(xacc::HeterogeneousMap &m, double value);
+
 void constructInitialParameters(xacc::HeterogeneousMap &m);
 template <typename First, typename... Rest>
 void constructInitialParameters(xacc::HeterogeneousMap &m, First firstArg,
@@ -122,12 +142,11 @@ void Finalize();
 ResultBuffer qalloc(const std::size_t nBits);
 ResultBuffer qalloc();
 
-Handle
-submit(HandlerLambda &&lambda);
-Handle
-submit(HandlerLambda &&lambda, std::shared_ptr<xacc::AcceleratorBuffer> buffer);
+Handle submit(HandlerLambda &&lambda);
+Handle submit(HandlerLambda &&lambda,
+              std::shared_ptr<xacc::AcceleratorBuffer> buffer);
 
-ResultBuffer sync(Handle& handle);
+ResultBuffer sync(Handle &handle);
 
 std::shared_ptr<xacc::Optimizer> getOptimizer(const std::string &name);
 std::shared_ptr<xacc::Optimizer>
@@ -145,20 +164,23 @@ template <typename QuantumKernelA, typename QuantumKernelB, typename... Args>
 std::function<std::string(qbit, Args...)>
 add(QuantumKernelA &qka, QuantumKernelB &qkb, Args... args) {
 
-  qcor::__internal::switchDefaultKernelExecution(false);
+  auto function1 = qcor::__internal::getCompositeInstruction(qka, args...);
+  auto function2 = qcor::__internal::getCompositeInstruction(qkb, args...);
 
-  auto qb = xacc::qalloc(1000);
-  auto persisted_function1 = qka(qb, args...);
-  auto persisted_function2 = qkb(qb, args...);
-  qcor::__internal::switchDefaultKernelExecution(true);
+  //   qcor::__internal::switchDefaultKernelExecution(false);
 
-  auto provider = xacc::getIRProvider("quantum");
-  auto function1 = provider->createComposite("f1");
-  std::istringstream iss(persisted_function1);
-  function1->load(iss);
-  auto function2 = provider->createComposite("f2");
-  std::istringstream iss2(persisted_function2);
-  function2->load(iss2);
+  //   auto qb = xacc::qalloc(1000);
+  //   auto persisted_function1 = qka(qb, args...);
+  //   auto persisted_function2 = qkb(qb, args...);
+  //   qcor::__internal::switchDefaultKernelExecution(true);
+
+  //   auto provider = xacc::getIRProvider("quantum");
+  //   auto function1 = provider->createComposite("f1");
+  //   std::istringstream iss(persisted_function1);
+  //   function1->load(iss);
+  //   auto function2 = provider->createComposite("f2");
+  //   std::istringstream iss2(persisted_function2);
+  //   function2->load(iss2);
 
   for (auto &inst : function2->getInstructions()) {
     function1->addInstruction(inst);
@@ -212,18 +234,7 @@ public:
   void vqe(QuantumKernel &kernel, std::shared_ptr<Observable> observable,
            std::shared_ptr<Optimizer> optimizer, Args... args) {
 
-    // Turn off backend execution so I can
-    // just execute the kernel lambda and get the function
-    qcor::__internal::switchDefaultKernelExecution(false);
-
-    auto qb = xacc::qalloc(1000);
-    auto persisted_function = kernel(qb, args...);
-
-    qcor::__internal::switchDefaultKernelExecution(true);
-
-    auto function = xacc::getIRProvider("quantum")->createComposite("f");
-    std::istringstream iss(persisted_function);
-    function->load(iss);
+    auto function = qcor::__internal::getCompositeInstruction(kernel, args...);
 
     auto nLogicalBits = function->nLogicalBits();
     auto accelerator = xacc::getAccelerator();
@@ -256,18 +267,7 @@ public:
 
   template <typename QuantumKernel, typename... Args>
   void execute(QuantumKernel &&kernel, Args... args) {
-    // Turn off backend execution so I can
-    // just execute the kernel lambda and get the function
-    qcor::__internal::switchDefaultKernelExecution(false);
-
-    auto qb = xacc::qalloc(1000);
-    auto persisted_function = kernel(qb, args...);
-
-    qcor::__internal::switchDefaultKernelExecution(true);
-
-    auto function = xacc::getIRProvider("quantum")->createComposite("f");
-    std::istringstream iss(persisted_function);
-    function->load(iss);
+    auto function = qcor::__internal::getCompositeInstruction(kernel, args...);
 
     auto nLogicalBits = function->nLogicalBits();
     auto accelerator = xacc::getAccelerator();
@@ -279,9 +279,163 @@ public:
     accelerator->execute(buffer, function);
   }
 
-  template <typename QuantumKernel>
-  void execute(const std::string &algorithm, QuantumKernel &&kernel) {}
+  template <typename QuantumKernel, typename... InitialArgs>
+  void execute(const std::string &algorithm, QuantumKernel &&kernel,
+               HeterogeneousMap &options, InitialArgs... args) {
+    auto function = qcor::__internal::getCompositeInstruction(kernel, args...);
+
+    auto nLogicalBits = function->nLogicalBits();
+    auto accelerator = xacc::getAccelerator();
+    if (!buffer) {
+      buffer = xacc::qalloc(nLogicalBits);
+    }
+
+    options.insert("ansatz", function);
+    options.insert("accelerator", accelerator);
+    auto algo = xacc::getAlgorithm(algorithm);
+    bool success = algo->initialize(options);
+    if (!success) {
+      xacc::error("Error initializing " + algorithm + " algorithm.");
+    }
+
+    algo->execute(buffer);
+  }
+
+  void execute(const std::string &algorithm, ResultBuffer buffer,
+               HeterogeneousMap &options) {
+    auto algo = xacc::getAlgorithm(algorithm);
+    bool success = algo->initialize(options);
+    if (!success) {
+      xacc::error("Error initializing " + algorithm + " algorithm.");
+    }
+
+    algo->execute(buffer);
+  }
 };
+
+// Full TaskInitiate, built in objective function (given by its name)
+template <typename QuantumKernel, typename... InitialArgs>
+Handle
+taskInitiate(QuantumKernel &&kernel, const std::string objectiveFunctionName,
+             std::shared_ptr<Optimizer> optimizer,
+             std::shared_ptr<Observable> observable, InitialArgs... args) {
+  return qcor::submit([&](qcor::qpu_handler &q) {
+    auto function = qcor::__internal::getCompositeInstruction(kernel, args...);
+
+    auto nLogicalBits = function->nLogicalBits();
+    auto accelerator = xacc::getAccelerator();
+    auto buffer = xacc::qalloc(nLogicalBits);
+
+    HeterogeneousMap m{std::make_pair("observable", observable),
+                       std::make_pair("optimizer", optimizer),
+                       std::make_pair("accelerator", accelerator),
+                       std::make_pair("ansatz", function)};
+    q.execute(objectiveFunctionName, kernel, m, args...);
+  });
+}
+
+// No observable, assume Z on all qubits
+template <typename QuantumKernel, typename... InitialArgs>
+Handle taskInitiate(QuantumKernel &&kernel,
+                    const std::string objectiveFunctionName,
+                    std::shared_ptr<Optimizer> optimizer, InitialArgs... args) {
+  return qcor::submit([&](qcor::qpu_handler &q) {
+    auto function = qcor::__internal::getCompositeInstruction(kernel, args...);
+    auto nLogicalBits = function->nLogicalBits();
+    auto accelerator = xacc::getAccelerator();
+    auto buffer = xacc::qalloc(nLogicalBits);
+    std::string allZsObsStr = "";
+    for (int i = 0; i < nLogicalBits; i++) {
+      allZsObsStr += "Z" + std::to_string(i) + " ";
+    }
+    auto observable = getObservable("pauli", allZsObsStr);
+    std::cout << "Obs:\n" << observable->toString() << "\n";
+    HeterogeneousMap m{std::make_pair("observable", observable),
+                       std::make_pair("optimizer", optimizer),
+                       std::make_pair("accelerator", accelerator),
+                       std::make_pair("ansatz", function)};
+    q.execute(objectiveFunctionName, kernel, m, args...);
+  });
+}
+
+// using ObjectiveFunction = xacc::OptFunction;
+
+
+// // Custom objective function
+// template <typename QuantumKernel, typename... InitialArgs>
+// Handle taskInitiate(QuantumKernel &&kernel, ObjectiveFunction &objFunction,
+//                     std::shared_ptr<Optimizer> optimizer, InitialArgs... args) {
+//   return qcor::submit([&](qcor::qpu_handler &q) {
+//     auto function = qcor::__internal::getCompositeInstruction(kernel, args...);
+//     auto nLogicalBits = function->nLogicalBits();
+//     auto accelerator = xacc::getAccelerator();
+//     auto buffer = xacc::qalloc(nLogicalBits);
+//     HeterogeneousMap optParams;
+
+//     optParams.insert("initial-parameters", std::vector<double>{});
+//     optParams.insert("__internal_n_vars", objFunction.dimensions());
+//     __internal::constructInitialParameters(optParams, args...);
+//     optimizer->appendOption(
+//         "initial-parameters",
+//         optParams.get<std::vector<double>>("initial-parameters"));
+//     auto result = optimizer->optimize(objFunction);
+//     buffer->addExtraInfo("opt-val", ExtraInfo(result.first));
+//     buffer->addExtraInfo("opt-params", ExtraInfo(result.second));
+//   });
+// }
+
+// // No ObjectiveFunction, assume that it is to return the expected value of
+// // observable
+// template <typename QuantumKernel, typename... InitialArgs>
+// Handle
+// taskInitiate(QuantumKernel &&kernel, std::shared_ptr<Optimizer> optimizer,
+//              std::shared_ptr<Observable> observable, InitialArgs... args) {
+//   auto function = qcor::__internal::getCompositeInstruction(kernel, args...);
+//   auto nLogicalBits = function->nLogicalBits();
+//   auto accelerator = xacc::getAccelerator();
+//   auto kernels = observable->observe(function);
+
+//   ObjectiveFunction obj(
+//       [=, &accelerator](const std::vector<double> &x) -> double {
+//         std::vector<double> coefficients;
+//         std::vector<std::string> kernelNames;
+//         std::vector<std::shared_ptr<CompositeInstruction>> fsToExec;
+//         double identityCoeff = 0.0;
+//         for (auto &f : kernels) {
+//           kernelNames.push_back(f->name());
+//           std::complex<double> coeff = f->getCoefficient();
+
+//           int nFunctionInstructions = 0;
+//           if (f->getInstruction(0)->isComposite()) {
+//             nFunctionInstructions =
+//                 function->nInstructions() + f->nInstructions() - 1;
+//           } else {
+//             nFunctionInstructions = f->nInstructions();
+//           }
+
+//           if (nFunctionInstructions > function->nInstructions()) {
+//             fsToExec.push_back(f->operator()(x));
+//             coefficients.push_back(std::real(coeff));
+//           } else {
+//             identityCoeff += std::real(coeff);
+//           }
+//         }
+
+//         auto tmpBuffer = xacc::qalloc(nLogicalBits);
+//         accelerator->execute(tmpBuffer, fsToExec);
+//         auto buffers = tmpBuffer->getChildren();
+
+//         double expVal = identityCoeff;
+//         for (int i = 0; i < buffers.size(); i++) {
+//           auto localexpval = buffers[i]->getExpectationValueZ();
+//           expVal += localexpval * coefficients[i];
+//         }
+//         return expVal;
+//       },
+//       function->nVariables());
+//   return taskInitiate(kernel, obj, optimizer, args...);
+// }
+
 
 } // namespace qcor
 
