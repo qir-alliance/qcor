@@ -19,10 +19,10 @@ int main(int argc, char **argv) {
                                                "+ .21829 Z0 - 6.125 Z1"));
   int nq = observable->nBits();
 
-  auto future = qcor::submit([&](qcor::qpu_handler &qh) {
+  auto handle = qcor::submit([&](qcor::qpu_handler &qh) {
     qh.vqe(ansatz,
         observable, optimizer, std::vector<double>{});
   });
 
-  auto results = future.get();
+  auto results = qcor::sync(handle);
 }

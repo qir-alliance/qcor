@@ -21,11 +21,12 @@ int main(int argc, char **argv) {
 
   // Schedule an asynchronous VQE execution
   // with the given quantum kernel ansatz
-  auto future = qcor::submit([&](qcor::qpu_handler &qh) {
+  auto handle = qcor::submit([&](qcor::qpu_handler &qh) {
     qh.vqe(ansatz, observable, optimizer, std::vector<double>{.5});
   });
 
-  auto results = future.get();
+  auto results = qcor::sync(handle);
+  
   std::cout << results->getInformation("opt-val").as<double>() << "\n";
 
 }

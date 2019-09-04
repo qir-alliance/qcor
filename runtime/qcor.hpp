@@ -83,8 +83,20 @@ using namespace xacc;
 
 namespace qcor {
 
-class qpu_handler;
+// The ResultBuffer concept from the QCOR specification
+// provides a means for connecting clients/programmers with
+// execution results.
+using ResultBuffer = xacc::qbit;
 
+// The Handle concept fromthe QCOR specification gives
+// programmers a data structure to hold on to while
+// asynchronous execution is on-going, they can use
+// this handle to query the results using the qcor::sync call
+using Handle = std::future<ResultBuffer>;
+
+// The QCOR submit API requires tasks be submitted as
+// functors that take a qpu_handler reference and return void.
+class qpu_handler;
 using HandlerLambda = std::function<void(qpu_handler &)>;
 
 namespace __internal {
@@ -107,10 +119,15 @@ void Initialize(int argc, char **argv);
 void Initialize(std::vector<std::string> argv);
 void Finalize();
 
-std::future<std::shared_ptr<xacc::AcceleratorBuffer>>
+ResultBuffer qalloc(const std::size_t nBits);
+ResultBuffer qalloc();
+
+Handle
 submit(HandlerLambda &&lambda);
-std::future<std::shared_ptr<xacc::AcceleratorBuffer>>
+Handle
 submit(HandlerLambda &&lambda, std::shared_ptr<xacc::AcceleratorBuffer> buffer);
+
+ResultBuffer sync(Handle& handle);
 
 std::shared_ptr<xacc::Optimizer> getOptimizer(const std::string &name);
 std::shared_ptr<xacc::Optimizer>
@@ -183,7 +200,7 @@ public:
   qpu_handler() = default;
   qpu_handler(std::shared_ptr<xacc::AcceleratorBuffer> b) : buffer(b) {}
 
-  std::shared_ptr<xacc::AcceleratorBuffer> getResults() { return buffer; }
+  ResultBuffer getResults() { return ResultBuffer(buffer); }
 
   template <typename QuantumKernel, typename... Args>
   void vqe(QuantumKernel &&kernel, std::shared_ptr<Observable> observable,

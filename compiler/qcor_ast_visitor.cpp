@@ -3,7 +3,6 @@
 #include "xacc.hpp"
 #include "xacc_service.hpp"
 
-// #include "qcor.hpp"
 #include "clang/AST/Decl.h"
 #include "clang/AST/Expr.h"
 #include "clang/Basic/IdentifierTable.h"
@@ -163,7 +162,6 @@ bool QCORASTVisitor::VisitLambdaExpr(LambdaExpr *LE) {
     function->persist(ss);
     std::string replacement =
         "\n{std::istringstream iss(R\"(" + ss.str() + ")\");\n";
-    // "{\nauto irstr = R\"irstr(" + ss.str() + ")irstr\";\n";
     replacement +=
         "auto function = "
         "xacc::getIRProvider(\"quantum\")->createComposite(\"f\");\n";

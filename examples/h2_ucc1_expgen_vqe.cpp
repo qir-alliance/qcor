@@ -40,7 +40,7 @@ int main(int argc, char **argv) {
 
   auto op = qcor::getObservable("fermion", src);
 
-  auto future = qcor::submit([&](qcor::qpu_handler &qh) {
+  auto handle = qcor::submit([&](qcor::qpu_handler &qh) {
     qh.vqe(
         [&](qbit q, double x) {
           X(q[0]);
@@ -50,6 +50,6 @@ int main(int argc, char **argv) {
         op, optimizer, 0.0);
   });
 
-  auto results = future.get();
+  auto results = qcor::sync(handle);
   auto energy = mpark::get<double>(results->getInformation("opt-val"));
 }

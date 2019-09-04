@@ -59,7 +59,14 @@ void Initialize(std::vector<std::string> argv) {
 }
 void Finalize() { xacc::Finalize(); }
 
-std::future<std::shared_ptr<AcceleratorBuffer>>
+ResultBuffer qalloc(const std::size_t nBits) {return xacc::qalloc(nBits);}
+ResultBuffer qalloc() {return xacc::qalloc();}
+
+ResultBuffer sync(Handle& handle) {
+    return handle.get();
+}
+
+Handle
 submit(HandlerLambda &&totalJob) {
   // Create the QPU Handler to pass to the given
   // Handler HandlerLambda
@@ -70,7 +77,7 @@ submit(HandlerLambda &&totalJob) {
   });
 }
 
-std::future<std::shared_ptr<AcceleratorBuffer>>
+Handle
 submit(HandlerLambda &&totalJob, std::shared_ptr<AcceleratorBuffer> buffer) {
   return std::async(std::launch::async, [&]() {
     qpu_handler handler(buffer);

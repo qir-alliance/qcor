@@ -16,7 +16,7 @@ H          0.00000        0.00000        0.7474)geom";
   auto op = qcor::getObservable("chemistry",
                                 {std::make_pair("basis", "sto-3g"), std::make_pair("geometry", geom)});
 
-  auto future = qcor::submit([&](qcor::qpu_handler &qh) {
+  auto handle = qcor::submit([&](qcor::qpu_handler &qh) {
     qh.vqe(
         [&](qbit q, double x) {
           X(q[0]);
@@ -40,8 +40,7 @@ H          0.00000        0.00000        0.7474)geom";
         op, optimizer, 0.0);
   });
 
-  auto results = future.get();
-  auto energy = results->getInformation("opt-val").as<double>()
+  auto results = qcor::sync(handle);
+  auto energy = results->getInformation("opt-val").as<double>();
   std::cout << "Results: " << energy << "\n";
-  //   results->print();
 }
