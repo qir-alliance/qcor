@@ -56,47 +56,33 @@ bool QCORASTVisitor::VisitLambdaExpr(LambdaExpr *LE) {
   // Double check... Is this a Quantum Kernel Lambda?
   IsQuantumKernelVisitor isqk(ci.getASTContext());
   isqk.TraverseStmt(LE->getBody());
-  //   LE->dump();
 
   std::map<std::string, InstructionParameter> captures;
+  std::vector<std::string> captureNames;
   // If it is, then map it to XACC IR
   if (isqk.isQuantumKernel()) {
 
-    // std::cout << "LAMBDA IS Quantum Kernel\n";
-    // LE->dumpColor();
-    // exit(0);
-    auto cb = LE->capture_begin(); // implicit_capture_begin();
+    auto cb = LE->capture_begin();
     auto ce = LE->capture_end();
     VarDecl *v;
     for (auto it = cb; it != ce; ++it) {
       auto varName = it->getCapturedVar()->getNameAsString();
-
-      //   it->getCapturedVar()->dumpColor();
+      captureNames.push_back(varName);
       auto e = it->getCapturedVar()->getInit();
       auto int_value = dyn_cast<IntegerLiteral>(e);
       auto float_value = dyn_cast<FloatingLiteral>(e);
       if (int_value) {
-        // std::cout << "THIS VALUE IS KNOWN AT COMPILE TIME: "
-        //           << (int)int_value->getValue().signedRoundToDouble()
-        //           << "\n"; // getAsString(ci.getASTContext(),
-        //                    // it->getCapturedVar()->getType()) << "\n";
         captures.insert(
             {varName, (int)int_value->getValue().signedRoundToDouble()});
         continue;
       } else if (float_value) {
-        // std::cout << varName << ", THIS DOUBLE VALUE IS KNOWN AT COMPILE
-        // TIME: "
-        //           << float_value->getValue().convertToDouble() << "\n";
         captures.insert({varName, float_value->getValue().convertToDouble()});
         continue;
       }
 
       auto varType =
           it->getCapturedVar()->getType().getCanonicalType().getAsString();
-      //   std::cout << "TYPE: " << varType << "\n";
-      //   it->getCapturedVar()->dumpColor();
       captures.insert({varName, varName});
-      //   v = it->getCapturedVar();
     }
 
     SourceManager &SM = ci.getSourceManager();
@@ -121,10 +107,11 @@ bool QCORASTVisitor::VisitLambdaExpr(LambdaExpr *LE) {
     }
 
     auto acceleratorName = xacc::getAccelerator()->name();
-    
+
     // std::cout << "LAMBDA STR:\n" << xaccKernelLambdaStr << "\n";
     auto compiler = xacc::getCompiler("xasm");
     auto ir = compiler->compile(xaccKernelLambdaStr, targetAccelerator);
+    auto runtimeVariables = ir->getRuntimeVariables();
 
     auto function = ir->getComposites()[0];
     for (auto &inst : function->getInstructions()) {
@@ -175,14 +162,21 @@ bool QCORASTVisitor::VisitLambdaExpr(LambdaExpr *LE) {
     std::stringstream ss;
     function->persist(ss);
     std::string replacement =
-        "{\nauto irstr = R\"irstr(" + ss.str() + ")irstr\";\n";
-
-    replacement += "if (qcor::__internal::executeKernel) {\n";
+        "\n{std::istringstream iss(R\"(" + ss.str() + ")\");\n";
+    // "{\nauto irstr = R\"irstr(" + ss.str() + ")irstr\";\n";
     replacement +=
         "auto function = "
         "xacc::getIRProvider(\"quantum\")->createComposite(\"f\");\n";
-    replacement += "std::istringstream iss(irstr);\n";
     replacement += "function->load(iss);\n";
+
+    // Do any function expansion work here...
+    std::stringstream sss;
+    make_pair_visitor vis(sss, captureNames);
+    runtimeVariables.visit(vis);
+    auto makePairStr = sss.str();
+    makePairStr = makePairStr.substr(0, makePairStr.length() - 1);
+    replacement += "function->expand({" + makePairStr + "});\n";
+    replacement += "if (qcor::__internal::executeKernel) {\n";
     replacement +=
         "auto acc = xacc::getAccelerator(\"" + acceleratorName + "\");\n";
     if (F->getNumParams() > 1) {
@@ -196,7 +190,8 @@ bool QCORASTVisitor::VisitLambdaExpr(LambdaExpr *LE) {
     }
     replacement += "acc->execute(" + bufferName + ",function);\n";
     replacement += "}\n";
-    replacement += "return irstr;\n";
+    replacement += "std::stringstream ss;\nfunction->persist(ss);\n";
+    replacement += "return ss.str();\n";
     replacement += "}\n";
     rewriter.ReplaceText(sr, replacement);
 

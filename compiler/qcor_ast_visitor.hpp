@@ -20,6 +20,23 @@ class IRProvider;
 }
 namespace qcor {
 namespace compiler {
+class make_pair_visitor : public visitor_base<int, double, std::string> {
+protected:
+  std::stringstream &s;
+  std::vector<std::string> captures;
+
+public:
+  make_pair_visitor(std::stringstream &ss, std::vector<std::string> &c)
+      : s(ss), captures(c) {}
+  template <typename T> void operator()(const std::string &key, const T &t) {
+    if (std::find(captures.begin(), captures.end(), key) !=
+        std::end(captures)) {
+      s << "std::make_pair(\"" << key << "\"," << t << "),";
+    } else {
+      s << "std::make_pair(\"" << key << "\",\"" << t << "\"),";
+    }
+  }
+};
 
 class QCORASTVisitor : public RecursiveASTVisitor<QCORASTVisitor> {
 
