@@ -10,7 +10,7 @@
 #include "clang/Rewrite/Core/Rewriter.h"
 #include "clang/Tooling/Tooling.h"
 
-#include "XACC.hpp"
+#include "xacc.hpp"
 
 using namespace xacc;
 using namespace clang;

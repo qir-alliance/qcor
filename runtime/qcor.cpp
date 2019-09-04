@@ -2,7 +2,7 @@
 
 #include "AcceleratorBuffer.hpp"
 #include "IRProvider.hpp"
-#include "XACC.hpp"
+#include "xacc.hpp"
 #include "xacc_service.hpp"
 
 #include "FermionOperator.hpp"

@@ -22,7 +22,7 @@
 
 #include "fuzzy_parsing.hpp"
 
-#include "XACC.hpp"
+#include "xacc.hpp"
 #include "qcor_ast_consumer.hpp"
 #include "xacc_service.hpp"
 

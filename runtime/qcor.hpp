@@ -2,7 +2,7 @@
 #define RUNTIME_QCOR_HPP_
 
 #include "Observable.hpp"
-#include "XACC.hpp"
+#include "xacc.hpp"
 #include "heterogeneous.hpp"
 #include <future>
 #include <vector>
