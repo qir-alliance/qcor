@@ -77,6 +77,9 @@ int main(int argc, char **argv) {
                                    std::vector<double>{0.0});
 
   // Go do other work, task is running asynchronously
+
+  // Now request the results, this will wait
+  // until the task finishes.
   auto results = qcor::sync(handle);
 
   // Get the results...
