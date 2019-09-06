@@ -82,9 +82,11 @@ bool FuzzyParsingExternalSemaSource::LookupUnqualified(clang::LookupResult &R,
   } else if (std::find(compositeInstructions.begin(),
                        compositeInstructions.end(),
                        unknownName + "__qcor_instruction") !=
-             std::end(compositeInstructions)) {
+             std::end(compositeInstructions) &&
+      S->getFlags() != 128 && S->getBlockParent() != nullptr) {
 
     if (!qbit) {
+        std::cout << unknownName <<  ", TRYING TO FIND QBIT\n";
       // Save pointers to xacc::qbit, xacc::HeterogeneousMap&& ParmVarDecl
       qbit = FirstDeclMatcher<ParmVarDecl>().match(
           ci.getASTContext().getTranslationUnitDecl(),

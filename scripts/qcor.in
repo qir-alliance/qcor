@@ -3,7 +3,7 @@ import argparse, sys, os, subprocess, mimetypes, re
 
 def main(argv=None):
     compiler = '@CMAKE_CXX_COMPILER@'
-
+    verbose=False
     baseLibs = ['-rdynamic', '-Wl,-rpath,@CMAKE_INSTALL_PREFIX@/lib',
                             '-L', '@CMAKE_INSTALL_PREFIX@/lib', '-lxacc',
                             '-lqcor', '-lCppMicroServices',
@@ -19,6 +19,8 @@ def main(argv=None):
         keepSrcFiles = True
         sys.argv.remove('--keep-temp-source')
 
+    if '--qcor-verbose' in sys.argv[1:]:
+        verbose=True
 
     filename = ''
     fileType = ''
@@ -44,7 +46,8 @@ def main(argv=None):
         except ValueError:
             pass
         #sys.argv[fileIdx+1:fileIdx+1] = baseIncludes
-        print('QCOR Driver: ', ' '.join([c for c in commands]))
+        if verbose:
+            print('QCOR Driver: ', ' '.join([c for c in commands]))
         try:
             result = subprocess.run(commands, check=True)
         except subprocess.CalledProcessError as e:
@@ -66,7 +69,8 @@ def main(argv=None):
                             '-lxacc-pauli']
 
 
-            print('Generated New file: ', ' '.join([c for c in sys.argv+baseIncludes+baseLibs]))
+            if verbose:
+                print('Generated New file: ', ' '.join([c for c in sys.argv+baseIncludes+baseLibs]))
             try:
                 result = subprocess.run(sys.argv+baseIncludes+baseLibs, check=True)
             except subprocess.CalledProcessError as e:
@@ -91,7 +95,8 @@ def main(argv=None):
 
     else:
         # delegate anything else to classical compiler
-        print('Running: ', ' '.join([c for c in sys.argv]))
+        if verbose:
+            print('Running: ', ' '.join([c for c in sys.argv]))
         sys.argv[0] = compiler
 
         try:
