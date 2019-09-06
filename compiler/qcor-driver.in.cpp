@@ -163,7 +163,9 @@ int main(int argc, char **argv) {
     }
   }
 
-  xacc::setAccelerator(accName);
+  if (!accName.empty()) {
+    xacc::setAccelerator(accName);
+  }
   if (!tooling::runToolOnCodeWithArgs(action, src, args)) {
     xacc::error("Error running qcor compiler.");
   }

@@ -1,5 +1,5 @@
 set(CMAKE_CXX_COMPILER qcor)
-
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -a local-ibm")
 message(STATUS "LINKING ${XACC_ROOT}/lib")
 
 link_directories(${XACC_ROOT}/lib)

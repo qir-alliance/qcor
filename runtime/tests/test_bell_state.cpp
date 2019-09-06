@@ -14,13 +14,17 @@ TEST(bell_state_tester, check_bell_state) {
   bell(q);
 
   q->print();
-
+  EXPECT_TRUE(q->getMeasurementCounts().count("00"));
+  EXPECT_TRUE(q->getMeasurementCounts().count("11"));
+  
   auto handle = qcor::submit([&](qcor::qpu_handler& qh) {
       qh.execute(bell);
   });
 
   auto results = qcor::sync(handle);
   results->print();
+  EXPECT_TRUE(results->getMeasurementCounts().count("00"));
+  EXPECT_TRUE(results->getMeasurementCounts().count("11"));
 
 }
 

@@ -79,14 +79,14 @@ def main(argv=None):
                             '-lxacc-pauli']
 
 
-                if verbose:
-                    print('Generated New file: ', ' '.join([c for c in sys.argv+baseIncludes+baseLibs]))
-                try:
-                    result = subprocess.run(sys.argv+baseIncludes+baseLibs, check=True)
-                except subprocess.CalledProcessError as e:
-                    print(e.output)
-                    print(e.returncode)
-                    return e.returncode
+            if verbose:
+                print('Generated New file: ', ' '.join([c for c in sys.argv+baseIncludes+baseLibs]))
+            try:
+                result = subprocess.run(sys.argv+baseIncludes+baseLibs, check=True)
+            except subprocess.CalledProcessError as e:
+                print(e.output)
+                print(e.returncode)
+                return e.returncode
 
             if not keepSrcFiles:
                 os.remove(expectedFile)
