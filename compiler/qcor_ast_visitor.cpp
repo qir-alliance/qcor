@@ -104,8 +104,9 @@ bool QCORASTVisitor::VisitLambdaExpr(LambdaExpr *LE) {
                     "installed.");
       }
     }
+    targetAccelerator = xacc::getAccelerator();
 
-    auto acceleratorName = xacc::getAccelerator()->name();
+    auto acceleratorName = targetAccelerator->name();
 
     // std::cout << "LAMBDA STR:\n" << xaccKernelLambdaStr << "\n";
     auto compiler = xacc::getCompiler("xasm");
@@ -161,7 +162,7 @@ bool QCORASTVisitor::VisitLambdaExpr(LambdaExpr *LE) {
     std::stringstream ss;
     function->persist(ss);
     std::string replacement =
-        "\n{std::istringstream iss(R\"(" + ss.str() + ")\");\n";
+        "{\nstd::istringstream iss(R\"(" + ss.str() + ")\");\n";
     replacement +=
         "auto function = "
         "xacc::getIRProvider(\"quantum\")->createComposite(\"f\");\n";
@@ -176,7 +177,7 @@ bool QCORASTVisitor::VisitLambdaExpr(LambdaExpr *LE) {
     replacement += "function->expand({" + makePairStr + "});\n";
     replacement += "if (qcor::__internal::executeKernel) {\n";
     replacement +=
-        "auto acc = xacc::getAccelerator(\"" + acceleratorName + "\");\n";
+        "auto acc = xacc::getAccelerator(function->accelerator_signature());\n";
     if (F->getNumParams() > 1) {
       replacement +=
           "std::vector<double> params{" + F->getParamDecl(1)->getNameAsString();

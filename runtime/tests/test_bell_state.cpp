@@ -3,8 +3,6 @@
 
 TEST(bell_state_tester, check_bell_state) {
 
-  xacc::setAccelerator("local-ibm");
-
   auto bell = [&](qbit q) {
       H(q[0]);
       CX(q[0],q[1]);

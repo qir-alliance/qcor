@@ -22,8 +22,8 @@
 
 #include "fuzzy_parsing.hpp"
 
-#include "xacc.hpp"
 #include "qcor_ast_consumer.hpp"
+#include "xacc.hpp"
 #include "xacc_service.hpp"
 
 using namespace clang;
@@ -56,7 +56,6 @@ protected:
     // fuzzyParser->setASTContext(&CI.getASTContext());
     // fuzzyParser->setFileManager(&CI.getFileManager());
     CI.getSema().addExternalSource(fuzzyParser.get());
-
 
     // FIXME Hook this back up
     // auto pragmaHandlers =
@@ -94,7 +93,7 @@ protected:
       auto fileNameNoPath = getFileName(fileName);
 
       if (!fileNameNoPath.empty()) {
-          fileName = fileNameNoPath;
+        fileName = fileNameNoPath;
       }
 
       std::string outName(fileName);
@@ -126,7 +125,7 @@ protected:
 
 int main(int argc, char **argv) {
 
-  xacc::Initialize();//argc, argv);
+  xacc::Initialize(); // argc, argv);
 
   // Get filename
   std::string fileName(argv[argc - 1]);
@@ -145,20 +144,26 @@ int main(int argc, char **argv) {
   std::vector<std::string> args{"-Wno-dangling", "-std=c++14",
                                 "-I@CMAKE_INSTALL_PREFIX@/include/qcor",
                                 "-I@CMAKE_INSTALL_PREFIX@/include/xacc"};
+
+  std::string accName = "";
   std::vector<std::string> arguments(argv + 1, argv + argc);
   // Add incoming includes...
   for (int i = 0; i < arguments.size(); i++) {
-      if (arguments[i] == "-I") {
-        //   std::cout << "Adding " << arguments[i+1] << "\n";
-        if (arguments[i+1] != "@CMAKE_INSTALL_PREFIX@/include/qcor" && arguments[i+1] != "@CMAKE_INSTALL_PREFIX@/include/xacc") {
-        args.push_back(arguments[i]+arguments[i+1]);
-        }
-      } else if (arguments[i].find("-I") != std::string::npos) {
-          args.push_back(arguments[i]);
+    if (arguments[i] == "-I") {
+      if (arguments[i + 1] != "@CMAKE_INSTALL_PREFIX@/include/qcor" &&
+          arguments[i + 1] != "@CMAKE_INSTALL_PREFIX@/include/xacc") {
+        args.push_back(arguments[i] + arguments[i + 1]);
       }
+    } else if (arguments[i].find("-I") != std::string::npos) {
+      args.push_back(arguments[i]);
+    } else if (arguments[i] == "--accelerator") {
+      accName = arguments[i + 1];
+    } else if (arguments[i] == "-a") {
+      accName = arguments[i + 1];
+    }
   }
-//   args.insert(args.end(), arguments.begin(), arguments.end());
 
+  xacc::setAccelerator(accName);
   if (!tooling::runToolOnCodeWithArgs(action, src, args)) {
     xacc::error("Error running qcor compiler.");
   }

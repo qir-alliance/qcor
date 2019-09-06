@@ -193,7 +193,7 @@ add(QuantumKernelA &qka, QuantumKernelB &qkb, Args... args) {
       qcor::__internal::constructInitialParameters(tmp, args...);
       std::vector<double> params =
           tmp.get<std::vector<double>>("initial-parameters");
-      auto accelerator = xacc::getAccelerator();
+      auto accelerator = xacc::getAccelerator(function1->accelerator_signature());
       auto evaled = function1->operator()(params);
       accelerator->execute(q, evaled);
     }
@@ -237,7 +237,7 @@ public:
     auto function = qcor::__internal::getCompositeInstruction(kernel, args...);
 
     auto nLogicalBits = function->nLogicalBits();
-    auto accelerator = xacc::getAccelerator();
+    auto accelerator = xacc::getAccelerator(function->accelerator_signature());
 
     if (!buffer) {
       buffer = xacc::qalloc(nLogicalBits);
@@ -270,7 +270,7 @@ public:
     auto function = qcor::__internal::getCompositeInstruction(kernel, args...);
 
     auto nLogicalBits = function->nLogicalBits();
-    auto accelerator = xacc::getAccelerator();
+    auto accelerator = xacc::getAccelerator(function->accelerator_signature());
 
     if (!buffer) {
       buffer = xacc::qalloc(nLogicalBits);
@@ -285,7 +285,7 @@ public:
     auto function = qcor::__internal::getCompositeInstruction(kernel, args...);
 
     auto nLogicalBits = function->nLogicalBits();
-    auto accelerator = xacc::getAccelerator();
+    auto accelerator = xacc::getAccelerator(function->accelerator_signature());
     if (!buffer) {
       buffer = xacc::qalloc(nLogicalBits);
     }
@@ -323,7 +323,7 @@ taskInitiate(QuantumKernel &&kernel, const std::string objectiveFunctionName,
     auto function = qcor::__internal::getCompositeInstruction(kernel, args...);
 
     auto nLogicalBits = function->nLogicalBits();
-    auto accelerator = xacc::getAccelerator();
+    auto accelerator = xacc::getAccelerator(function->accelerator_signature());
     auto buffer = xacc::qalloc(nLogicalBits);
 
     HeterogeneousMap m{std::make_pair("observable", observable),
@@ -342,7 +342,7 @@ Handle taskInitiate(QuantumKernel &&kernel,
   return qcor::submit([&](qcor::qpu_handler &q) {
     auto function = qcor::__internal::getCompositeInstruction(kernel, args...);
     auto nLogicalBits = function->nLogicalBits();
-    auto accelerator = xacc::getAccelerator();
+    auto accelerator = xacc::getAccelerator(function->accelerator_signature());
     auto buffer = xacc::qalloc(nLogicalBits);
     std::string allZsObsStr = "";
     for (int i = 0; i < nLogicalBits; i++) {

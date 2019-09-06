@@ -21,6 +21,22 @@ def main(argv=None):
 
     if '--qcor-verbose' in sys.argv[1:]:
         verbose=True
+        sys.argv.remove('--qcor-verbose')
+
+    hasAcc = False
+    accName = ''
+    if '--accelerator' in sys.argv[1:]:
+        hasAcc = True
+        accidx = sys.argv.index('--accelerator')
+        accName = sys.argv[accidx+1]
+        sys.argv.remove(accName)
+        sys.argv.remove('--accelerator')
+    if '-a' in sys.argv[1:]:
+        hasAcc = True
+        accidx = sys.argv.index('-a')
+        accName = sys.argv[accidx+1]
+        sys.argv.remove(accName)
+        sys.argv.remove('-a')
 
     filename = ''
     fileType = ''
@@ -35,17 +51,11 @@ def main(argv=None):
         idx = tmpFileName.find('.')
         expectedFile = '.'+tmpFileName[:idx]+'_out'+tmpFileName[idx:]
         sys.argv[0] = 'qcor-driver'
-        commands = [sys.argv[0]] + baseIncludes + sys.argv[1:]
-        try:
-            commands.remove('-std=gnu++14')
-            commands.remove('-fPIE')
-        except ValueError:
-            pass
-        try:
-            commands.remove('-fPIE')
-        except ValueError:
-            pass
-        #sys.argv[fileIdx+1:fileIdx+1] = baseIncludes
+        if hasAcc:
+            commands = [sys.argv[0]] + baseIncludes + ['--accelerator',accName] + sys.argv[1:]
+        else:
+            commands = [sys.argv[0]] + baseIncludes + sys.argv[1:]
+
         if verbose:
             print('QCOR Driver: ', ' '.join([c for c in commands]))
         try:
@@ -69,14 +79,14 @@ def main(argv=None):
                             '-lxacc-pauli']
 
 
-            if verbose:
-                print('Generated New file: ', ' '.join([c for c in sys.argv+baseIncludes+baseLibs]))
-            try:
-                result = subprocess.run(sys.argv+baseIncludes+baseLibs, check=True)
-            except subprocess.CalledProcessError as e:
-                print(e.output)
-                print(e.returncode)
-                return e.returncode
+                if verbose:
+                    print('Generated New file: ', ' '.join([c for c in sys.argv+baseIncludes+baseLibs]))
+                try:
+                    result = subprocess.run(sys.argv+baseIncludes+baseLibs, check=True)
+                except subprocess.CalledProcessError as e:
+                    print(e.output)
+                    print(e.returncode)
+                    return e.returncode
 
             if not keepSrcFiles:
                 os.remove(expectedFile)
