@@ -1,22 +1,4 @@
 #include <gtest/gtest.h>
-#include <llvm/Support/raw_ostream.h>
-
-#include "clang/AST/ASTConsumer.h"
-#include "clang/AST/ASTContext.h"
-#include "clang/AST/RecursiveASTVisitor.h"
-#include "clang/Frontend/CompilerInstance.h"
-#include "clang/Frontend/FrontendAction.h"
-#include "clang/Frontend/FrontendOptions.h"
-#include "clang/Tooling/CommonOptionsParser.h"
-#include "clang/Tooling/Tooling.h"
-
-#include "clang/Lex/PreprocessorOptions.h"
-#include "llvm/Support/MemoryBuffer.h"
-#include "llvm/Support/raw_ostream.h"
-
-#include "fuzzy_parsing.hpp"
-#include "qcor_ast_visitor.hpp"
-#include "qcor_ast_consumer.hpp"
 
 #include "CommonGates.hpp"
 #include "CountGatesOfTypeVisitor.hpp"
@@ -25,55 +7,14 @@
 
 #include "clang/Parse/ParseAST.h"
 
+#include "qcor_frontend_action.hpp"
+
 #include <fstream>
 using namespace llvm;
 using namespace clang;
 using namespace qcor;
+using namespace qcor::compiler;
 
-class TestQCORFrontendAction : public clang::ASTFrontendAction {
-
-public:
-  TestQCORFrontendAction(Rewriter &rw) : rewriter(rw) {}
-
-protected:
-  Rewriter &rewriter;
-  std::unique_ptr<clang::ASTConsumer>
-  CreateASTConsumer(clang::CompilerInstance &Compiler,
-                    llvm::StringRef /* dummy */) override {
-    return std::make_unique<compiler::QCORASTConsumer>(Compiler, rewriter);
-  }
-
-  void ExecuteAction() override {
-    CompilerInstance &CI = getCompilerInstance();
-    CI.createSema(getTranslationUnitKind(), nullptr);
-    compiler::FuzzyParsingExternalSemaSource fuzzyParser(CI);
-    fuzzyParser.initialize();
-    // fuzzyParser.setASTContext(&CI.getASTContext());
-    CI.getSema().addExternalSource(&fuzzyParser);
-
-    rewriter.setSourceMgr(CI.getSourceManager(), CI.getLangOpts());
-
-    ParseAST(CI.getSema());
-    CI.getDiagnosticClient().EndSourceFile();
-
-    std::error_code error_code;
-    llvm::raw_fd_ostream outFile(".output.cpp", error_code,
-                                 llvm::sys::fs::F_None);
-    rewriter.getEditBuffer(CI.getSourceManager().getMainFileID())
-        .write(outFile);
-  }
-};
-
-const std::string bell = R"bell(#include <vector>
-using qbit = std::vector<int>;
-int main() {
-    auto l = [&](qbit q) {
-        H(q[0]);
-        CX(q[0],q[1]);
-        Measure(q[0]);
-    };
-    return 0;
-})bell";
 const std::string param0 = R"param0(#include <vector>
 using qbit = std::vector<int>;
 int main() {
@@ -150,12 +91,23 @@ int main() {
 
 TEST(LambdaVisitorTester, checkSimple) {
   Rewriter rewriter1, rewriter2;
-  auto action1 = new TestQCORFrontendAction(rewriter1);
-  auto action2 = new TestQCORFrontendAction(rewriter2);
+  auto action1 = new QCORFrontendAction(rewriter1, "temp.cpp");
+//   auto action2 = new TestQCORFrontendAction(rewriter2);
 
   xacc::setOption("qcor-compiled-filename", "lambda_visitor_tester");
 
   std::vector<std::string> args{"-std=c++14","-I/usr/lib/gcc/x86_64-linux-gnu/8/include"};
+
+const std::string bell = R"bell(#include <vector>
+using qbit = std::vector<int>;
+int main() {
+    auto l = [&](qbit q) {
+        H(q[0]);
+        CX(q[0],q[1]);
+        Measure(q[0]);
+    };
+    return 0;
+})bell";
 
   EXPECT_TRUE(tooling::runToolOnCodeWithArgs(action1, bell, args));
 
@@ -164,30 +116,30 @@ int main() {
     auto l = [&](){return "lambda_visitor_tester";};
     return 0;
 })expectedSrc";
-  std::ifstream t(".output.cpp");
+  std::ifstream t(".temp_out.cpp");
   std::string src((std::istreambuf_iterator<char>(t)),
                   std::istreambuf_iterator<char>());
-  std::remove(".output.cpp");
+  std::remove(".temp_out.cpp");
+  std::cout << "OUTPUT:\n" << src << "\n";
 
 
-//   EXPECT_EQ(expectedSrc, src);
+  EXPECT_EQ(R"()", src);
 
-//   auto function = qcor::loadCompiledCircuit("lambda_visitor_tester");
-//   xacc::quantum::CountGatesOfTypeVisitor<xacc::quantum::Hadamard> h(function);
-//   xacc::quantum::CountGatesOfTypeVisitor<xacc::quantum::CNOT> cx(function);
-//   xacc::quantum::CountGatesOfTypeVisitor<xacc::quantum::Measure> m(function);
+// //   auto function = qcor::loadCompiledCircuit("lambda_visitor_tester");
+// //   xacc::quantum::CountGatesOfTypeVisitor<xacc::quantum::Hadamard> h(function);
+// //   xacc::quantum::CountGatesOfTypeVisitor<xacc::quantum::CNOT> cx(function);
+// //   xacc::quantum::CountGatesOfTypeVisitor<xacc::quantum::Measure> m(function);
 
-//   EXPECT_EQ(1, h.countGates());
-//   EXPECT_EQ(1, cx.countGates());
-//   EXPECT_EQ(1, m.countGates());
+// //   EXPECT_EQ(1, h.countGates());
+// //   EXPECT_EQ(1, cx.countGates());
+// //   EXPECT_EQ(1, m.countGates());
 
-  EXPECT_TRUE(tooling::runToolOnCodeWithArgs(action2, param0, args));
+//   EXPECT_TRUE(tooling::runToolOnCodeWithArgs(action2, param0, args));
 
-  std::ifstream t2(".output.cpp");
-  std::string src2((std::istreambuf_iterator<char>(t2)),
-                   std::istreambuf_iterator<char>());
-  std::remove(".output.cpp");
-  std::cout << "OUTPUT:\n" << src2 << "\n";
+//   std::ifstream t2(".output.cpp");
+//   std::string src2((std::istreambuf_iterator<char>(t2)),
+//                    std::istreambuf_iterator<char>());
+//   std::remove(".output.cpp");
 
 //   EXPECT_EQ(expectedSrc, src2);
 }

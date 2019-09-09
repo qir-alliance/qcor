@@ -3,7 +3,8 @@ add_library(${LIBRARY_NAME}
             SHARED
             fuzzy_parsing.cpp
             qcor_ast_visitor.cpp
-            qcor_ast_consumer.cpp)
+            qcor_ast_consumer.cpp
+            qcor_frontend_action.cpp)
 
 target_include_directories(${LIBRARY_NAME}
                            PUBLIC .
