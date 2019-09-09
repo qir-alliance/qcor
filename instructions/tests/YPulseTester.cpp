@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include "XACC.hpp"
+#include "xacc.hpp"
 #include "YPulse.hpp"
 
 using namespace xacc;

@@ -1,90 +1,122 @@
 #!/usr/bin/env python3
-import argparse
-import sys
-import subprocess
-
-
-def parse_args(args):
-    parser = argparse.ArgumentParser(description="QCOR Quantum-Classical C++ Compiler.",
-                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-                                     fromfile_prefix_chars='@')
-    parser.add_argument(
-        'file', help='The quantum-classical C++ file to compile.')
-    parser.add_argument("-a", "--accelerator", type=str,
-                        help="The target quantum accelerator", required=False)
-    parser.add_argument("-I", '--include', action='append', type=str,
-                        help="Extra include paths to search", required=False)
-    parser.add_argument("-o", '--output', type=str,
-                        help="Name of output binary", required=False)
-    parser.add_argument("-v", '--verbose', action='store_true',
-                        help="Print verbose compiler output.", required=False)
-    parser.add_argument("--keep-tmp-src", action='store_true',
-                        help="Keep qcor generated hidden source file.", required=False)
-
-    opts = parser.parse_args(args)
-
-    return opts
-
+import argparse, sys, os, subprocess, mimetypes, re
 
 def main(argv=None):
-    opts = parse_args(sys.argv[1:])
-
-    import time
-    command = ["qcor-driver"]
-    includes = []
-    if opts.include:
-        for include in opts.include:
-            includes.append('-I'+include)
-
-    command += includes
-
-    if opts.accelerator:
-        command += ['--accelerator', opts.accelerator]
-
-    command += [opts.file]
-    if opts.verbose:
-        command += ['-v']
-
-    print(command)
-    try:
-        s = time.time()
-        result = subprocess.run(command, check=True)
-        e = time.time()
-        print('time: ', (e-s))
-    except subprocess.CalledProcessError as e:
-        print(e.output)
-        print(e.returncode)
-        return e.returncode
-
-    command.clear()
-
+    compiler = '@CMAKE_CXX_COMPILER@'
+    verbose=False
+    baseLibs = ['-rdynamic', '-Wl,-rpath,@CMAKE_INSTALL_PREFIX@/lib',
+                            '-L', '@CMAKE_INSTALL_PREFIX@/lib', '-lxacc',
+                            '-lqcor', '-lCppMicroServices',
+                            '-lxacc-quantum-gate',
+                            '-lxacc-pauli']
     baseIncludes = ['-I', '@CMAKE_INSTALL_PREFIX@/include/xacc', '-I', '@CMAKE_INSTALL_PREFIX@/include/qcor']
-    baseLibs = ['-L', '@CMAKE_INSTALL_PREFIX@/lib', '-lxacc',
-                '-lqcor', '-lCppMicroServices', '-lxacc-quantum-gate', '-lxacc-pauli']
 
-    command = ['@CLANG_COMPILER@', '-std=c++11', '-Wl,-rpath,@CMAKE_INSTALL_PREFIX@/lib']
-    command += includes + baseIncludes + baseLibs
-    command += ['.' + opts.file.replace('.','_out.')]
+    # Need to know if this is compile-only
+    compileOnly = '-c' in sys.argv[1:]
 
-    if opts.output:
-        command += ['-o', opts.output]
+    keepSrcFiles = False
+    if '--keep-temp-source' in sys.argv[1:]:
+        keepSrcFiles = True
+        sys.argv.remove('--keep-temp-source')
 
-    print('Final command', command)
-    try:
-        s = time.time()
-        result = subprocess.run(command, check=True)
-        e = time.time()
-        print('final compile time: ', (e-s))
-    except subprocess.CalledProcessError as e:
-        print(e.output)
-        print(e.returncode)
-        return e.returncode
+    if '--qcor-verbose' in sys.argv[1:]:
+        verbose=True
+        sys.argv.remove('--qcor-verbose')
 
-    if opts.keep_tmp_src == None:
-        os.remove('.'+opts.file.replace('.','_out.'))
+    hasAcc = False
+    accName = ''
+    if '--accelerator' in sys.argv[1:]:
+        hasAcc = True
+        accidx = sys.argv.index('--accelerator')
+        accName = sys.argv[accidx+1]
+        sys.argv.remove(accName)
+        sys.argv.remove('--accelerator')
+    if '-a' in sys.argv[1:]:
+        hasAcc = True
+        accidx = sys.argv.index('-a')
+        accName = sys.argv[accidx+1]
+        sys.argv.remove(accName)
+        sys.argv.remove('-a')
+
+    filename = ''
+    fileType = ''
+    for arg in sys.argv[1:]:
+        if os.path.isfile(arg) and '.o' != os.path.splitext(arg)[1]:
+            filename = arg
+            fileType = mimetypes.guess_type(filename)[0]
+
+    if fileType == 'text/x-c++src':
+        fileIdx = sys.argv[1:].index(filename)
+        tmpFileName = os.path.basename(filename)
+        idx = tmpFileName.find('.')
+        expectedFile = '.'+tmpFileName[:idx]+'_out'+tmpFileName[idx:]
+        sys.argv[0] = 'qcor-driver'
+        if hasAcc:
+            commands = [sys.argv[0]] + baseIncludes + ['--accelerator',accName] + sys.argv[1:]
+        else:
+            commands = [sys.argv[0]] + baseIncludes + sys.argv[1:]
+
+        if verbose:
+            print('QCOR Driver: ', ' '.join([c for c in commands]))
+        try:
+            result = subprocess.run(commands, check=True)
+        except subprocess.CalledProcessError as e:
+            print(e.output)
+            print(e.returncode)
+            return e.returncode
+
+        if os.path.exists(expectedFile):
+            # need to compile now with standard compiler
+            sys.argv[0] = compiler
+            sys.argv[fileIdx+1] = expectedFile
+            commands = [sys.argv[0]]
+            baseLibs = []
+            if not compileOnly:
+                baseLibs = ['-rdynamic', '-Wl,-rpath,@CMAKE_INSTALL_PREFIX@/lib',
+                            '-L', '@CMAKE_INSTALL_PREFIX@/lib', '-lxacc',
+                            '-lqcor', '-lCppMicroServices',
+                            '-lxacc-quantum-gate',
+                            '-lxacc-pauli']
+
+
+            if verbose:
+                print('Generated New file: ', ' '.join([c for c in sys.argv+baseIncludes+baseLibs]))
+            try:
+                result = subprocess.run(sys.argv+baseIncludes+baseLibs, check=True)
+            except subprocess.CalledProcessError as e:
+                print(e.output)
+                print(e.returncode)
+                return e.returncode
+
+            if not keepSrcFiles:
+                os.remove(expectedFile)
+
+        else:
+            # This means that there were no quantum kernels
+            sys.argv[0] = compiler
+            print('Was not a hybrid quantum-classical code. Will compile with ', compiler)
+            print('Running: ', ' '.join([c for c in sys.argv]))
+            try:
+                result = subprocess.run(sys.argv, check=True)
+            except subprocess.CalledProcessError as e:
+                print(e.output)
+                print(e.returncode)
+                return e.returncode
+
+    else:
+        # delegate anything else to classical compiler
+        if verbose:
+            print('Running: ', ' '.join([c for c in sys.argv]))
+        sys.argv[0] = compiler
+
+        try:
+            result = subprocess.run(sys.argv+baseLibs, check=True)
+        except subprocess.CalledProcessError as e:
+            print(e.output)
+            print(e.returncode)
+            return e.returncode
 
     return 0
-
 
 if __name__ == "__main__":
     sys.exit(main())

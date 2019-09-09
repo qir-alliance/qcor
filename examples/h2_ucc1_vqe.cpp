@@ -4,8 +4,9 @@ int main(int argc, char **argv) {
 
   qcor::Initialize(argc, argv);
 
-  auto optimizer = qcor::getOptimizer(
-      "nlopt", {{"nlopt-optimizer", "cobyla"}, {"nlopt-maxeval", 1000}});
+  auto optimizer =
+      qcor::getOptimizer("nlopt", {std::make_pair("nlopt-optimizer", "cobyla"),
+                                   std::make_pair("nlopt-maxeval", 2000)});
 
   auto geom = R"geom(2
 
@@ -13,33 +14,33 @@ H          0.00000        0.00000        0.00000
 H          0.00000        0.00000        0.7474)geom";
 
   auto op = qcor::getObservable("chemistry",
-                                {{"basis", "sto-3g"}, {"geometry", geom}});
-  auto future = qcor::submit([&](qcor::qpu_handler &qh) {
+                                {std::make_pair("basis", "sto-3g"), std::make_pair("geometry", geom)});
+
+  auto handle = qcor::submit([&](qcor::qpu_handler &qh) {
     qh.vqe(
-        [&](double x) {
-          X(0);
-          X(2);
-          Rx(1.57,0);
-          H(1);
-          H(2);
-          H(3);
-          CX(0,1);
-          CX(1,2);
-          CX(2,3);
-          Rz(x, 3);
-          CX(2,3);
-          CX(1,2);
-          CX(0,1);
-          Rx(-1.57,0);
-          H(1);
-          H(2);
-          H(3);
+        [&](qbit q, double x) {
+          X(q[0]);
+          X(q[2]);
+          Rx(q[0], 1.57);
+          H(q[1]);
+          H(q[2]);
+          H(q[3]);
+          CX(q[0],q[1]);
+          CX(q[1],q[2]);
+          CX(q[2],q[3]);
+          Rz(q[3], x);
+          CX(q[2],q[3]);
+          CX(q[1],q[2]);
+          CX(q[0],q[1]);
+          Rx(q[0], -1.57);
+          H(q[1]);
+          H(q[2]);
+          H(q[3]);
         },
-        op, optimizer);
+        op, optimizer, 0.0);
   });
 
-  auto results = future.get();
-  auto energy = mpark::get<double>(results->getInformation("opt-val"));
+  auto results = qcor::sync(handle);
+  auto energy = results->getInformation("opt-val").as<double>();
   std::cout << "Results: " << energy << "\n";
-  //   results->print();
 }

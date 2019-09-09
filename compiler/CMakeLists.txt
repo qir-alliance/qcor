@@ -1,43 +1,30 @@
-add_subdirectory(clang)
-
-set(LIBRARY_NAME qcor-compiler)
-
-file(GLOB SRC *.cpp)
-
-usfunctiongetresourcesource(TARGET ${LIBRARY_NAME} OUT SRC)
-usfunctiongeneratebundleinit(TARGET ${LIBRARY_NAME} OUT SRC)
-
-add_library(${LIBRARY_NAME} SHARED ${SRC})
+set(LIBRARY_NAME qcor-ast-plugin)
+add_library(${LIBRARY_NAME}
+            SHARED
+            fuzzy_parsing.cpp
+            qcor_ast_visitor.cpp
+            qcor_ast_consumer.cpp
+            qcor_frontend_action.cpp)
 
 target_include_directories(${LIBRARY_NAME}
-                            PUBLIC .
-                                ${XACC_INCLUDE_DIRS}
-                                ${CLANG_INCLUDE_DIRS}
-                                ${LLVM_INCLUDE_DIRS}
-                                )
+                           PUBLIC .
+                                  ${CLANG_INCLUDE_DIRS}
+                                  ${LLVM_INCLUDE_DIRS})
 
-target_link_libraries(${LIBRARY_NAME} PUBLIC xacc::xacc qcor-ast-plugin ${CLANG_LIBS} ${LLVM_LIBS})
 
-set(_bundle_name qcor_compiler)
-set_target_properties(${LIBRARY_NAME}
-                      PROPERTIES COMPILE_DEFINITIONS
-                                 US_BUNDLE_NAME=${_bundle_name}
-                                 US_BUNDLE_NAME
-                                 ${_bundle_name})
+target_link_libraries(${LIBRARY_NAME}
+                      PUBLIC ${CLANG_LIBS} ${LLVM_LIBS} tinfo xacc::xacc)
 
-usfunctionembedresources(TARGET
-                         ${LIBRARY_NAME}
-                         WORKING_DIRECTORY
-                         ${CMAKE_CURRENT_SOURCE_DIR}
-                         FILES
-                         manifest.json)
+xacc_configure_library_rpath(${LIBRARY_NAME})
 
-xacc_configure_plugin_rpath(${LIBRARY_NAME})
+install(TARGETS ${LIBRARY_NAME} DESTINATION lib)
 
 if(QCOR_BUILD_TESTS)
-  #add_subdirectory(tests)
+  add_subdirectory(tests)
 endif()
 
-file(GLOB HEADERS *.hpp)
-
-install(TARGETS ${LIBRARY_NAME} DESTINATION ${CMAKE_INSTALL_PREFIX}/plugins)
+configure_file(qcor-driver.in.cpp
+               ${CMAKE_BINARY_DIR}/compiler/qcor-driver.cpp)
+add_executable(qcor-driver ${CMAKE_BINARY_DIR}/compiler/qcor-driver.cpp)
+target_link_libraries(qcor-driver PRIVATE qcor-ast-plugin qcor)
+install(PROGRAMS ${CMAKE_BINARY_DIR}/compiler/qcor-driver DESTINATION bin)

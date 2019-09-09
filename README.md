@@ -48,43 +48,56 @@ the following file
 ```cpp
 #include "qcor.hpp"
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
 
-  // Initialize the QCOR Runtime
+  // Initialize QCOR
   qcor::Initialize(argc, argv);
-  
-  auto optimizer = qcor::getOptimizer(
-      "nlopt", {{"nlopt-optimizer", "cobyla"},
-                {"nlopt-maxeval", 20}});
 
-  auto op = qcor::getObservable("pauli", "5.907 - 2.1433 X0X1 "
-                                         "- 2.1433 Y0Y1"
-                                         "+ .21829 Z0 - 6.125 Z1");
+  // Define your quantum kernel, here as a
+  // standard C++ lambda containing quantum code
+  auto ansatz = [&](qbit q, std::vector<double> t) {
+    X(q[0]);
+    Ry(q[1], t[0]);
+    CNOT(q[1], q[0]);
+  };
 
-  // Schedule an asynchronous VQE execution
-  // with the given quantum kernel ansatz
-  auto future = qcor::submit([&](qcor::qpu_handler &qh) {
-    qh.vqe(
-        [&](double t0) {
-          X(0);
-          Ry(t0, 1);
-          CX(1, 0);
-        },
-        op, optimizer);
-  });
+  // Get a valid Optimizer
+  auto optimizer =
+      qcor::getOptimizer("nlopt", {std::make_pair("nlopt-optimizer", "cobyla"),
+                                   std::make_pair("nlopt-maxeval", 20)});
 
-  // Get and print the results
-  auto results = future.get();
-  results->print();
+  // Define the Observable
+  auto observable =
+      qcor::getObservable("pauli", std::string("5.907 - 2.1433 X0X1 "
+                                               "- 2.1433 Y0Y1"
+                                               "+ .21829 Z0 - 6.125 Z1"));
+
+  // Call qcor::taskInitiate to kick off asynchronous execution of
+  // VQE with given ansatz, optimizer, and observable, and initial params 0.0
+  auto handle = qcor::taskInitiate(ansatz, "vqe", optimizer, observable,
+                                   std::vector<double>{0.0});
+
+  // Go do other work, task is running asynchronously
+
+  // Now request the results, this will wait
+  // until the task finishes.
+  auto results = qcor::sync(handle);
+
+  // Get the results...
+  std::cout << results->getInformation("opt-val").as<double>() << "\n";
+
+  // Finalize the framework.
+  qcor::Finalize();
 }
+
 ```
 To compile this with QCOR, run the following
 
 ```bash
-$ qcor deuteron.cpp -o deuteron
+$ qcor -o deuteron deuteron.cpp
 ```
 This will create the ```deuteron``` quantum-classical binary executable.
 Now just run
 ```bash
-$ ./deuteron
+$ ./deuteron --accelerator tnqvm
 ```

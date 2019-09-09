@@ -4,7 +4,7 @@ if(${CMAKE_VERSION} VERSION_LESS 3.12)
 endif()
 
 set(CMAKE_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_DISABLE_IN_SOURCE_BUILDS ON)
 set(CMAKE_DISABLE_SOURCE_CHANGES ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE TRUE)
@@ -21,7 +21,7 @@ find_package(XACC REQUIRED)
 
 configure_file(${CMAKE_SOURCE_DIR}/scripts/qcor.in
                ${CMAKE_BINARY_DIR}/qcor)
-
+include_directories(/home/cades/dev/llvm-project/clang/include)
 add_subdirectory(runtime)
 add_subdirectory(compiler)
 add_subdirectory(ir)

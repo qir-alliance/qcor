@@ -4,10 +4,8 @@
 #include "clang/AST/ASTConsumer.h"
 #include "clang/Rewrite/Core/Rewriter.h"
 
-#include "FuzzyParsingExternalSemaSource.hpp"
-
 namespace clang {
-  class CompilerInstance;
+class CompilerInstance;
 }
 using namespace clang;
 
@@ -15,13 +13,13 @@ namespace qcor {
 namespace compiler {
 class QCORASTConsumer : public ASTConsumer {
 public:
-  QCORASTConsumer(CompilerInstance &c, Rewriter& rw);
+  QCORASTConsumer(CompilerInstance &c, Rewriter &rw);
 
   bool HandleTopLevelDecl(DeclGroupRef DR) override;
 
 private:
   CompilerInstance &ci;
-  Rewriter& rewriter;
+  Rewriter &rewriter;
 };
 } // namespace compiler
 } // namespace qcor

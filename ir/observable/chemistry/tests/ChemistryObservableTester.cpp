@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 
 #include "ChemistryObservable.hpp"
-#include "XACC.hpp"
+#include "xacc.hpp"
 #include "qcor.hpp"
 #include "xacc_service.hpp"
 

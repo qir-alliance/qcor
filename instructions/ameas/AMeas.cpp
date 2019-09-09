@@ -1,5 +1,5 @@
 #include "AMeas.hpp"
-#include "XACC.hpp"
+#include "xacc.hpp"
 
 namespace xacc {
 namespace quantum {
