@@ -19,7 +19,7 @@ int main(int argc, char **argv) {
                                                "- 2.1433 Y0Y1"
                                                "+ .21829 Z0 - 6.125 Z1"));
 
-  auto handle = qcor::taskInitiate(ansatz, "vqe", optimizer, observable, std::vector<double>{0.59});
+  auto handle = qcor::taskInitiate(ansatz, optimizer, observable, std::vector<double>{0.0});
   auto results = qcor::sync(handle);
 
   std::cout << results->getInformation("opt-val").as<double>() << "\n";

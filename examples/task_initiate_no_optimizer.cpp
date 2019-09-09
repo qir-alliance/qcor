@@ -28,9 +28,9 @@ int main(int argc, char **argv) {
   std::vector<double> all_params =
       linspace(-xacc::constants::pi, xacc::constants::pi, 10);
   for (auto p : all_params) {
-    std::vector<double> pv{p};
+    ;
     auto handle = qcor::taskInitiate(ansatz, "vqe", observable,
-                                     pv);
+                                     std::vector<double>{p});
     auto results = qcor::sync(handle);
 
     // std::cout << results->getInformation("opt-val").as<double>() << "\n";
