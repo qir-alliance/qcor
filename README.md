@@ -5,26 +5,28 @@ for variational quantum computation on near-term, noisy devices.
 
 
 ## Dependencies
-Compiler (C++11): GNU 5+, Clang 8+
-CMake 3.9+
+```
+Compiler (C++14): GNU 6.1+, Clang 3.4+
+CMake 3.9+ (for build)
 XACC: see https://xacc.readthedocs.io/en/latest/install.html#building-xacc
-
-## Build instructions
-For CMake 3.9+, do not use the apt-get installer, instead use `pip`, and
-ensure that `/usr/local/bin` is in your PATH:
+clang-dev version 8+
+```
+## Linux Build Instructions
+Easiest way to install CMake - do not use the package manager, 
+instead use `pip`, and ensure that `/usr/local/bin` is in your PATH:
 ```bash
 $ python -m pip install --upgrade cmake
 $ export PATH=$PATH:/usr/local/bin
 ```
 
-On Ubuntu 16.04 (for others, replace xenial with Ubuntu release name), install latest clang and llvm libraries and headers (you may need sudo)
+On Ubuntu 16.04 (for others, replace xenial with Ubuntu release name), 
+install latest clang and llvm libraries and headers (you may need sudo)
 ```bash
 $ wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add -
 $ echo "deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-9 main" > /etc/apt/sources.list.d/llvm.list
-$ apt-get update
-$ apt-get install -y libclang-9-dev llvm-9-dev clangd-9
+$ apt-get update && apt-get install -y libclang-9-dev llvm-9-dev clangd-9
 $ ln -s /usr/bin/llvm-config-9 /usr/bin/llvm-config
-$ (for theia) ls -s /usr/bin/clangd-9 /usr/bin/clangd
+$ (for theia ide) ls -s /usr/bin/clangd-9 /usr/bin/clangd
 ```
 
 Note that, for now, developers must clone QCOR manually:
@@ -32,12 +34,13 @@ Note that, for now, developers must clone QCOR manually:
 $ git clone https://github.com/ornl-qci/qcor
 $ cd qcor
 $ mkdir build && cd build
-$ cmake .. -DXACC_DIR=~/.xacc (or wherever you installed XACC)
+$ cmake .. -DXACC_DIR=~/.xacc (or wherever you installed XACC) 
+$ [with tests] cmake .. -DXACC_DIR=~/.xacc -DQCOR_BUILD_TESTS=TRUE 
 $ make install
 ```
 Update your PATH to ensure that the ```qcor``` compiler is available.
 ```bash
-$ export PATH=$PATH:$HOME/.xacc/bin
+$ export PATH=$PATH:$HOME/.xacc/bin (or wherever you installed XACC)
 ```
 
 ## Example Usage
@@ -91,13 +94,13 @@ int main(int argc, char **argv) {
 }
 
 ```
-To compile this with QCOR, run the following
+To compile this with QCOR targeting the TNQVM simulator, run the following
 
 ```bash
-$ qcor -o deuteron deuteron.cpp
+$ qcor -o deuteron -a tnqvm deuteron.cpp
 ```
 This will create the ```deuteron``` quantum-classical binary executable.
 Now just run
 ```bash
-$ ./deuteron --accelerator tnqvm
+$ ./deuteron 
 ```
