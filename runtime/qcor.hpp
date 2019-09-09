@@ -193,7 +193,8 @@ add(QuantumKernelA &qka, QuantumKernelB &qkb, Args... args) {
       qcor::__internal::constructInitialParameters(tmp, args...);
       std::vector<double> params =
           tmp.get<std::vector<double>>("initial-parameters");
-      auto accelerator = xacc::getAccelerator(function1->accelerator_signature());
+      auto accelerator =
+          xacc::getAccelerator(function1->accelerator_signature());
       auto evaled = function1->operator()(params);
       accelerator->execute(q, evaled);
     }
@@ -292,7 +293,20 @@ public:
 
     options.insert("ansatz", function);
     options.insert("accelerator", accelerator);
-    auto algo = xacc::getAlgorithm(algorithm);
+    options.insert("initial-parameters", std::vector<double>{});
+    options.insert("__internal_n_vars", function->nVariables());
+    __internal::constructInitialParameters(options, args...);
+    options.insert("parameters",
+                   options.get<std::vector<double>>("initial-parameters"));
+
+    std::shared_ptr<Algorithm> algo;
+    if (algorithm == "vqe" &&
+        !options.keyExists<std::shared_ptr<Optimizer>>("optimizer")) {
+      algo = xacc::getAlgorithm("vqe-energy");
+    } else {
+      algo = xacc::getAlgorithm(algorithm);
+    }
+
     bool success = algo->initialize(options);
     if (!success) {
       xacc::error("Error initializing " + algorithm + " algorithm.");
@@ -349,7 +363,6 @@ Handle taskInitiate(QuantumKernel &&kernel,
       allZsObsStr += "Z" + std::to_string(i) + " ";
     }
     auto observable = getObservable("pauli", allZsObsStr);
-    std::cout << "Obs:\n" << observable->toString() << "\n";
     HeterogeneousMap m{std::make_pair("observable", observable),
                        std::make_pair("optimizer", optimizer),
                        std::make_pair("accelerator", accelerator),
@@ -358,18 +371,38 @@ Handle taskInitiate(QuantumKernel &&kernel,
   });
 }
 
-// using ObjectiveFunction = xacc::OptFunction;
+// No optimizer, evaluate at given initial args
+template <typename QuantumKernel, typename... InitialArgs>
+Handle
+taskInitiate(QuantumKernel &&kernel, const std::string objectiveFunctionName,
+             std::shared_ptr<Observable> observable, InitialArgs... args) {
+  auto function = qcor::__internal::getCompositeInstruction(kernel, args...);
 
+  HeterogeneousMap tmp;
+  tmp.insert("initial-parameters", std::vector<double>{});
+  tmp.insert("__internal_n_vars", function->nVariables());
+  __internal::constructInitialParameters(tmp, args...);
+  std::vector<double> parameters = tmp.get<std::vector<double>>("initial-parameters");
+
+  return qcor::submit([&, parameters](qcor::qpu_handler &q) {
+    HeterogeneousMap m{
+        std::make_pair("observable", observable),
+    };
+    q.execute(objectiveFunctionName, kernel, m, parameters);
+  });
+}
+
+// using ObjectiveFunction = xacc::OptFunction;
 
 // // Custom objective function
 // template <typename QuantumKernel, typename... InitialArgs>
 // Handle taskInitiate(QuantumKernel &&kernel, ObjectiveFunction &objFunction,
-//                     std::shared_ptr<Optimizer> optimizer, InitialArgs... args) {
+//                     std::shared_ptr<Optimizer> optimizer, InitialArgs...
+//                     args) {
 //   return qcor::submit([&](qcor::qpu_handler &q) {
-//     auto function = qcor::__internal::getCompositeInstruction(kernel, args...);
-//     auto nLogicalBits = function->nLogicalBits();
-//     auto accelerator = xacc::getAccelerator();
-//     auto buffer = xacc::qalloc(nLogicalBits);
+//     auto function = qcor::__internal::getCompositeInstruction(kernel,
+//     args...); auto nLogicalBits = function->nLogicalBits(); auto accelerator
+//     = xacc::getAccelerator(); auto buffer = xacc::qalloc(nLogicalBits);
 //     HeterogeneousMap optParams;
 
 //     optParams.insert("initial-parameters", std::vector<double>{});
@@ -435,7 +468,6 @@ Handle taskInitiate(QuantumKernel &&kernel,
 //       function->nVariables());
 //   return taskInitiate(kernel, obj, optimizer, args...);
 // }
-
 
 } // namespace qcor
 
