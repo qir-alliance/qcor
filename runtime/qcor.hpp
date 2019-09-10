@@ -94,28 +94,24 @@ using ResultBuffer = xacc::qbit;
 // this handle to query the results using the qcor::sync call
 using Handle = std::future<ResultBuffer>;
 
-class ObjectiveFunction : public OptFunction {
+class ObjectiveFunction
+    : public std::function<double(const std::vector<double> &)> {
 protected:
   std::shared_ptr<Observable> observable;
   std::shared_ptr<CompositeInstruction> kernel;
   std::vector<std::shared_ptr<CompositeInstruction>> kernels;
   std::shared_ptr<Accelerator> backend;
-  ResultBuffer buffer;
+  std::shared_ptr<AcceleratorBuffer> buffer;
 
 public:
-  ObjectiveFunction() = default;
-  const int dimensions() const override { return kernel->nVariables(); }
-  double operator()(const std::vector<double> &params) override {
-    xacc::error("[qpu_handler] You must implement operator()() on custom "
-                "ObjectiveFunction.");
-    return 0.0;
-  }
+  virtual double operator()(const std::vector<double> &params) = 0;
   void initialize(std::shared_ptr<Observable> obs,
-                  std::shared_ptr<CompositeInstruction> k, ResultBuffer b) {
+                  std::shared_ptr<CompositeInstruction> k, std::shared_ptr<AcceleratorBuffer> b) {
     observable = obs;
+    kernel = k;
     kernels = obs->observe(k);
-    buffer = b;
     backend = xacc::getAccelerator(kernel->accelerator_signature());
+    buffer = b;
   }
 };
 
@@ -338,6 +334,27 @@ public:
 
     algo->execute(buffer);
   }
+
+  template <typename QuantumKernel, typename... InitialArgs>
+  void execute(QuantumKernel &kernel, std::shared_ptr<ObjectiveFunction> objFunction,
+               std::shared_ptr<Optimizer> optimizer,
+               std::shared_ptr<Observable> observable, InitialArgs... args) {
+    auto function = qcor::__internal::getCompositeInstruction(kernel, args...);
+    auto nLogicalBits = function->nLogicalBits();
+    if (!buffer) {
+      buffer = xacc::qalloc(nLogicalBits);
+    }
+
+    objFunction->initialize(observable, function, buffer);
+
+    OptFunction optF(
+        [&, objFunction](const std::vector<double> &x) { return objFunction->operator()(x); },
+        function->nVariables());
+    auto result = optimizer->optimize(optF);
+
+    buffer->addExtraInfo("opt-val", ExtraInfo(result.first));
+    buffer->addExtraInfo("opt-params", ExtraInfo(result.second));
+  }
 };
 
 // Full TaskInitiate, built in objective function (given by its name)
@@ -349,7 +366,6 @@ taskInitiate(QuantumKernel &&kernel, const std::string objectiveFunctionName,
   auto function = qcor::__internal::getCompositeInstruction(kernel, args...);
   auto parameters = __internal::parametersFromVariadic(function, args...);
   return qcor::submit([&, parameters, function](qcor::qpu_handler &q) {
-
     auto nLogicalBits = function->nLogicalBits();
     auto accelerator = xacc::getAccelerator(function->accelerator_signature());
     auto buffer = xacc::qalloc(nLogicalBits);
@@ -403,40 +419,31 @@ taskInitiate(QuantumKernel &&kernel, const std::string objectiveFunctionName,
   });
 }
 
-// FIXME Need to think about this more...
-//
-// Custom objective function
+// Custom Objective Function, no Observable
 // template <typename QuantumKernel, typename... InitialArgs>
 // Handle taskInitiate(QuantumKernel &&kernel, ObjectiveFunction &&objFunction,
-//                     std::shared_ptr<Optimizer> optimizer,
-//                     std::shared_ptr<Observable> observable,
-//                     InitialArgs... args) {
-//   return taskInitiate(kernel, objFunction, optimizer, observable, args...);
+//                     std::shared_ptr<Optimizer> optimizer, InitialArgs... args) {
+//   return taskInitiate(kernel, objFunction, optimizer, args...);
 // }
-// template <typename QuantumKernel, typename... InitialArgs>
-// Handle taskInitiate(QuantumKernel &&kernel, ObjectiveFunction &objFunction,
-//                     std::shared_ptr<Optimizer> optimizer,
-//                     std::shared_ptr<Observable> observable,
-//                     InitialArgs... args) {
-//   auto function = qcor::__internal::getCompositeInstruction(kernel, args...);
-//   auto parameters = __internal::parametersFromVariadic(function, args...);
+template <typename QuantumKernel, typename... InitialArgs>
+Handle taskInitiate(QuantumKernel &&kernel, std::shared_ptr<ObjectiveFunction> objFunction,
+                    std::shared_ptr<Optimizer> optimizer, InitialArgs... args) {
+  auto function = qcor::__internal::getCompositeInstruction(kernel, args...);
+  auto parameters = __internal::parametersFromVariadic(function, args...);
 
-//   return qcor::submit([&, parameters, function](qcor::qpu_handler &q) {
-//     // auto function = qcor::__internal::getCompositeInstruction(kernel,
-//     // args...);
-//     auto nLogicalBits = function->nLogicalBits();
-//     auto accelerator = xacc::getAccelerator(function->accelerator_signature());
-//     auto buffer = xacc::qalloc(nLogicalBits);
-//     optimizer->appendOption("initial-parameters", parameters);
+  return qcor::submit(
+      [&, parameters, function, optimizer](qcor::qpu_handler &qh) {
 
-//     objFunction.initialize(observable, function, buffer);
+        optimizer->appendOption("initial-parameters", parameters);
 
-//     auto result = optimizer->optimize(objFunction);
-//     buffer->addExtraInfo("opt-val", ExtraInfo(result.first));
-//     buffer->addExtraInfo("opt-params", ExtraInfo(result.second));
-//   });
-// }
-
+        std::string allZsObsStr = "";
+        for (int i = 0; i < function->nLogicalBits(); i++) {
+          allZsObsStr += "Z" + std::to_string(i) + " ";
+        }
+        auto observable = getObservable("pauli", allZsObsStr);
+        qh.execute(kernel, objFunction, optimizer, observable, args...);
+      });
+}
 } // namespace qcor
 
 #endif

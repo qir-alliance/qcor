@@ -9,6 +9,7 @@
 #include "clang/Parse/ParseAST.h"
 #include "clang/Rewrite/Core/Rewriter.h"
 #include "clang/Tooling/Tooling.h"
+#include <type_traits>
 
 #include "xacc.hpp"
 
@@ -28,13 +29,16 @@ protected:
 public:
   make_pair_visitor(std::stringstream &ss, std::vector<std::string> &c)
       : s(ss), captures(c) {}
-  template <typename T> void operator()(const std::string &key, const T &t) {
-    if (std::find(captures.begin(), captures.end(), key) !=
-        std::end(captures)) {
+
+  void operator()(const std::string &key, const std::string &t) {
+    if (std::find(captures.begin(), captures.end(), t) != std::end(captures)) {
       s << "std::make_pair(\"" << key << "\"," << t << "),";
     } else {
       s << "std::make_pair(\"" << key << "\",\"" << t << "\"),";
     }
+  }
+  template <typename T> void operator()(const std::string &key, const T &t) {
+    s << "std::make_pair(\"" << key << "\"," << t << "),";
   }
 };
 
