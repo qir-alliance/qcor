@@ -2,7 +2,7 @@ set(CMAKE_CXX_COMPILER ${CMAKE_BINARY_DIR}/qcor)
 set(ORIGINAL_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 link_directories(${XACC_ROOT}/lib)
 
-set(CMAKE_CXX_FLAGS "--qcor-verbose --qcor-driver-path ${CMAKE_BINARY_DIR}/compiler ${ORIGINAL_CXX_FLAGS} -a local-ibm -I${CMAKE_SOURCE_DIR}/runtime -L${CMAKE_BINARY_DIR}/runtime ")
+set(CMAKE_CXX_FLAGS "--qcor-driver-path ${CMAKE_BINARY_DIR}/compiler ${ORIGINAL_CXX_FLAGS} -a local-ibm -I${CMAKE_SOURCE_DIR}/runtime -L${CMAKE_BINARY_DIR}/runtime ")
 
 add_executable(test_simple_kernel test_simple_kernel.cpp)
 target_include_directories(test_simple_kernel PRIVATE ${XACC_INCLUDE_ROOT}/gtest)
