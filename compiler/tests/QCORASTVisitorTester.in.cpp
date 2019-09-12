@@ -34,8 +34,7 @@ TEST(QCORASTVisitorTester, checkSimple) {
   Rewriter rewriter1;
   xacc::setAccelerator("dummy");
   auto action1 = new QCORFrontendAction(rewriter1, "temp.cpp");
-  std::vector<std::string> args{"-std=c++14",
-                                "-I/usr/lib/gcc/x86_64-linux-gnu/8/include"};
+  std::vector<std::string> args{"-std=c++14"};
 
   const std::string bell = R"bell(#include <vector>
 using qbit = std::vector<int>;
@@ -136,8 +135,7 @@ TEST(QCORASTVisitorTester, checkParamAnsatzDouble) {
   Rewriter rewriter1;
   xacc::setAccelerator("dummy");
   auto action1 = new QCORFrontendAction(rewriter1, "temp.cpp");
-  std::vector<std::string> args{"-std=c++14",
-                                "-I/usr/lib/gcc/x86_64-linux-gnu/8/include"};
+  std::vector<std::string> args{"-std=c++14"};
 
   const std::string bell = R"bell(#include <vector>
 using qbit = std::vector<int>;
@@ -259,8 +257,7 @@ TEST(QCORASTVisitorTester, checkParamAnsatzVectorDouble) {
   Rewriter rewriter1;
   xacc::setAccelerator("dummy");
   auto action1 = new QCORFrontendAction(rewriter1, "temp.cpp");
-  std::vector<std::string> args{"-std=c++14",
-                                "-I/usr/lib/gcc/x86_64-linux-gnu/8/include"};
+  std::vector<std::string> args{"-std=c++14"};
 
   const std::string bell = R"bell(#include <vector>
 using qbit = std::vector<int>;

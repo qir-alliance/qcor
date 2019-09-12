@@ -1,7 +1,11 @@
 set(LIBRARY_NAME qcor-ast-plugin)
+
+configure_file(fuzzy_parsing.in.cpp
+               ${CMAKE_BINARY_DIR}/compiler/fuzzy_parsing.cpp)
+
 add_library(${LIBRARY_NAME}
             SHARED
-            fuzzy_parsing.cpp
+            ${CMAKE_BINARY_DIR}/compiler/fuzzy_parsing.cpp
             qcor_ast_visitor.cpp
             qcor_ast_consumer.cpp
             qcor_frontend_action.cpp)

@@ -52,7 +52,7 @@ void FuzzyParsingExternalSemaSource::initialize() {
   hast = tooling::buildASTFromCodeWithArgs(
       "#include \"heterogeneous.hpp\"\nvoid f(xacc::HeterogeneousMap&& "
       "m, std::vector<double>& x){return;}",
-      {"-std=c++14", "-I/home/cades/.xacc/include/xacc"});
+      {"-std=c++14", "-I@CMAKE_INSTALL_PREFIX@/include/xacc"});
   hMapRValue = FirstDeclMatcher<ParmVarDecl>().match(
       hast->getASTContext().getTranslationUnitDecl(), namedDecl(hasName("m")));
   stdVector = FirstDeclMatcher<ParmVarDecl>().match(
