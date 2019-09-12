@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 #include "qcor.hpp"
 
-TEST(bell_state_tester, check_bell_state) {
+TEST(test_task_initiate, checkVariations) {
 
   auto bell = [&](qbit q) {
       H(q[0]);
@@ -10,19 +10,26 @@ TEST(bell_state_tester, check_bell_state) {
       Measure(q[1]);
   };
 
+  // Test just executing the kernel
   auto q = qcor::qalloc(2);
   bell(q);
-
   q->print();
   EXPECT_TRUE(q->getMeasurementCounts().count("00"));
   EXPECT_TRUE(q->getMeasurementCounts().count("11"));
-  
+
+  // Now test with submit()
   auto handle = qcor::submit([&](qcor::qpu_handler& qh) {
       qh.execute(bell);
   });
-
   auto results = qcor::sync(handle);
   results->print();
+  EXPECT_TRUE(results->getMeasurementCounts().count("00"));
+  EXPECT_TRUE(results->getMeasurementCounts().count("11"));
+
+  // Now test with task initiate
+  auto handle1 = qcor::taskInitiate(bell);
+  auto results2 = qcor::sync(handle1);
+  results2->print();
   EXPECT_TRUE(results->getMeasurementCounts().count("00"));
   EXPECT_TRUE(results->getMeasurementCounts().count("11"));
 

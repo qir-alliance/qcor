@@ -7,6 +7,8 @@
 
 #include "FermionOperator.hpp"
 #include "PauliOperator.hpp"
+#include "CountGatesOfTypeVisitor.hpp"
+#include "CommonGates.hpp"
 
 #include <regex>
 
@@ -17,6 +19,11 @@ namespace qcor {
 namespace __internal {
 bool executeKernel = true;
 void switchDefaultKernelExecution(bool execute) { executeKernel = execute; }
+bool hasMeasurements(std::shared_ptr<CompositeInstruction> inst) {
+  quantum::CountGatesOfTypeVisitor<quantum::Measure> count(inst);
+  return count.countGates() > 0;
+}
+
 void updateMap(xacc::HeterogeneousMap &m, std::vector<double> &values) {
   if (values.empty()) {
     m.get_mutable<std::vector<double>>("initial-parameters") =
