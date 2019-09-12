@@ -23,6 +23,14 @@ def main(argv=None):
         verbose=True
         sys.argv.remove('--qcor-verbose')
 
+    qcordriver = 'qcor-driver'
+    if '--qcor-driver-path' in sys.argv[1:]:
+        pidx = sys.argv.index('--qcor-driver-path')
+        p = sys.argv[pidx+1]
+        qcordriver = p + '/' + qcordriver
+        sys.argv.remove('--qcor-driver-path')
+        sys.argv.remove(p)
+
     hasAcc = False
     accName = ''
     if '--accelerator' in sys.argv[1:]:
@@ -50,7 +58,7 @@ def main(argv=None):
         tmpFileName = os.path.basename(filename)
         idx = tmpFileName.find('.')
         expectedFile = '.'+tmpFileName[:idx]+'_out'+tmpFileName[idx:]
-        sys.argv[0] = 'qcor-driver'
+        sys.argv[0] = qcordriver
         if hasAcc:
             commands = [sys.argv[0]] + baseIncludes + ['--accelerator',accName] + sys.argv[1:]
         else:
