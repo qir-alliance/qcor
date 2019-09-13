@@ -56,6 +56,10 @@ def main(argv=None):
     if fileType == 'text/x-c++src':
         fileIdx = sys.argv[1:].index(filename)
         tmpFileName = os.path.basename(filename)
+        # Move tmpFileName to end of list
+        sys.argv.remove(tmpFileName)
+        sys.argv.append(tmpFileName)
+
         idx = tmpFileName.find('.')
         expectedFile = '.'+tmpFileName[:idx]+'_out'+tmpFileName[idx:]
         sys.argv[0] = qcordriver
@@ -76,7 +80,7 @@ def main(argv=None):
         if os.path.exists(expectedFile):
             # need to compile now with standard compiler
             sys.argv[0] = compiler
-            sys.argv[fileIdx+1] = expectedFile
+            sys.argv[-1] = expectedFile
             commands = [sys.argv[0]]
             baseLibs = []
             if not compileOnly:
