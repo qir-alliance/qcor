@@ -4,9 +4,9 @@
 #include "IRProvider.hpp"
 #include "xacc.hpp"
 #include "xacc_service.hpp"
+#include "xacc_observable.hpp"
 
-#include "FermionOperator.hpp"
-#include "PauliOperator.hpp"
+// #include "PauliOperator.hpp"
 #include "CountGatesOfTypeVisitor.hpp"
 #include "CommonGates.hpp"
 
@@ -68,7 +68,6 @@ void Finalize() { xacc::Finalize(); }
 
 ResultBuffer qalloc(const std::size_t nBits) { return xacc::qalloc(nBits); }
 ResultBuffer qalloc() { return xacc::qalloc(); }
-
 ResultBuffer sync(Handle &handle) { return handle.get(); }
 
 Handle submit(HandlerLambda &&totalJob) {
@@ -91,44 +90,28 @@ Handle submit(HandlerLambda &&totalJob,
 }
 
 std::shared_ptr<Optimizer> getOptimizer(const std::string &name) {
-  return xacc::getService<xacc::Optimizer>(name);
+  return xacc::getOptimizer(name);
 }
 std::shared_ptr<Optimizer> getOptimizer(const std::string &name,
                                         const HeterogeneousMap &&options) {
-  auto opt = getOptimizer(name);
-  opt->setOptions(options);
-  return opt;
+  return xacc::getOptimizer(name, options);
 }
 
 std::shared_ptr<Observable> getObservable(const std::string &type,
                                           const std::string &representation) {
-  using namespace xacc::quantum;
-  if (type == "pauli") {
-    return representation.empty()
-               ? std::make_shared<PauliOperator>()
-               : std::make_shared<PauliOperator>(representation);
-  } else if (type == "fermion") {
-    return representation.empty()
-               ? std::make_shared<FermionOperator>()
-               : std::make_shared<FermionOperator>(representation);
-  } else {
-    xacc::error("Invalid observable type");
-    return std::make_shared<PauliOperator>();
-  }
+  return xacc::quantum::getObservable(type, representation);
 }
 
 std::shared_ptr<Observable> getObservable() {
-  return getObservable("pauli", std::string(""));
+  return xacc::quantum::getObservable();
 }
 std::shared_ptr<Observable> getObservable(const std::string &representation) {
-  return getObservable("pauli", representation);
+  return xacc::quantum::getObservable("pauli", representation);
 }
 
 std::shared_ptr<Observable> getObservable(const std::string &type,
                                           const HeterogeneousMap &&options) {
-  auto observable = xacc::getService<Observable>(type);
-  observable->fromOptions(options);
-  return observable;
+  return xacc::quantum::getObservable(type, options);
 }
 
 } // namespace qcor
