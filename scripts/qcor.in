@@ -57,8 +57,8 @@ def main(argv=None):
         fileIdx = sys.argv[1:].index(filename)
         tmpFileName = os.path.basename(filename)
         # Move tmpFileName to end of list
-        sys.argv.remove(tmpFileName)
-        sys.argv.append(tmpFileName)
+        sys.argv.remove(filename)
+        sys.argv.append(filename)
 
         idx = tmpFileName.find('.')
         expectedFile = '.'+tmpFileName[:idx]+'_out'+tmpFileName[idx:]
