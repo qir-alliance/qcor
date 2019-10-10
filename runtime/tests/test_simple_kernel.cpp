@@ -1,6 +1,8 @@
 #include <gtest/gtest.h>
 #include "qcor.hpp"
 
+
+
 TEST(test_task_initiate, checkVariations) {
 
   auto bell = [&](qbit q) {

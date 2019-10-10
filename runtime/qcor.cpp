@@ -6,7 +6,6 @@
 #include "xacc_service.hpp"
 #include "xacc_observable.hpp"
 
-// #include "PauliOperator.hpp"
 #include "CountGatesOfTypeVisitor.hpp"
 #include "CommonGates.hpp"
 

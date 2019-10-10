@@ -99,7 +99,11 @@ protected:
   std::shared_ptr<Accelerator> backend;
   std::shared_ptr<AcceleratorBuffer> buffer;
 
+  std::vector<double> _gradient;
 public:
+
+  // Evaluate this ObjectiveFunction at the given params. Optionally
+  // compute the gradient as well and set _gradient
   virtual double operator()(const std::vector<double> &params) = 0;
   void initialize(std::shared_ptr<Observable> obs,
                   std::shared_ptr<CompositeInstruction> k,
@@ -360,6 +364,9 @@ public:
 
     OptFunction optF(
         [&, objFunction](const std::vector<double> &x) {
+          // FIXME For gradient evaluation, just set
+          // _gradient vector here. Something like
+          // _gradient = objFunction->gradient();
           return objFunction->operator()(x);
         },
         function->nVariables());
