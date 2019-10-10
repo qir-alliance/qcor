@@ -397,6 +397,28 @@ public:
   }
 };
 
+template <typename QuantumKernel, typename... InitialArgs>
+Handle
+taskInitiate(QuantumKernel &kernel, const std::string objectiveFunctionName,
+             std::shared_ptr<Optimizer> optimizer,
+             HeterogeneousMap& algoOptions, InitialArgs... args) {
+  auto function = qcor::__internal::getCompositeInstruction(kernel, args...);
+  auto parameters = __internal::parametersFromVariadic(function, args...);
+  return qcor::submit([&, parameters, function](qcor::qpu_handler &q) {
+    auto nLogicalBits = function->nLogicalBits();
+    auto accelerator = xacc::getAccelerator(function->accelerator_signature());
+    auto buffer = xacc::qalloc(nLogicalBits);
+
+    optimizer->appendOption("initial-parameters", parameters);
+
+    algoOptions.insert("optimizer", optimizer);
+    algoOptions.insert("accelerator", accelerator);
+    algoOptions.insert("ansatz", function);
+
+    q.execute(objectiveFunctionName, kernel, algoOptions, parameters);
+  });
+}
+
 // Full TaskInitiate, built in objective function (given by its name)
 template <typename QuantumKernel, typename... InitialArgs>
 Handle
@@ -418,36 +440,6 @@ taskInitiate(QuantumKernel &&kernel, const std::string objectiveFunctionName,
                        std::make_pair("ansatz", function)};
     q.execute(objectiveFunctionName, kernel, m, parameters);
   });
-}
-
-// TaskInitiate just execute kernel with measurements (parameterized, rvalue
-// kernel)
-template <typename QuantumKernel, typename FirstArg, typename... InitialArgs>
-Handle taskInitiate(QuantumKernel &&kernel, FirstArg arg, InitialArgs... args) {
-  return taskInitiate(kernel, arg, args...);
-}
-
-// TaskInitiate just execute kernel with measurements (parameterized, lvalue
-// kernel)
-template <typename QuantumKernel, typename FirstArg, typename... InitialArgs>
-Handle taskInitiate(QuantumKernel &kernel, FirstArg arg, InitialArgs... args) {
-  auto function =
-      qcor::__internal::getCompositeInstruction(kernel, arg, args...);
-  auto parameters = __internal::parametersFromVariadic(function, arg, args...);
-  return qcor::submit([&, parameters](qcor::qpu_handler &qh) {
-    qh.execute(kernel, parameters);
-  });
-}
-
-// TaskInitiate just execute kernel with measurements (no params, rvalue kernel)
-template <typename QuantumKernel> Handle taskInitiate(QuantumKernel &&kernel) {
-  return taskInitiate(kernel);
-}
-
-// TaskInitiate just execute kernel with measurements (no params, rvalue kernel)
-template <typename QuantumKernel> Handle taskInitiate(QuantumKernel &kernel) {
-  auto function = qcor::__internal::getCompositeInstruction(kernel);
-  return qcor::submit([&](qcor::qpu_handler &qh) { qh.execute(kernel); });
 }
 
 // No observable, assume Z on all qubits, objective function given by name
@@ -561,6 +553,38 @@ Handle taskInitiate(QuantumKernel &&kernel,
   auto observable = getObservable("pauli", allZsObsStr);
   return taskInitiate(kernel, objFunction, observable, args...);
 }
+
+
+// TaskInitiate just execute kernel with measurements (parameterized, rvalue
+// kernel)
+// template <typename QuantumKernel, typename FirstArg, typename... InitialArgs>
+// Handle taskInitiate(QuantumKernel &&kernel, FirstArg arg, InitialArgs... args) {
+//   return taskInitiate(kernel, arg, args...);
+// }
+
+// // TaskInitiate just execute kernel with measurements (parameterized, lvalue
+// // kernel)
+// template <typename QuantumKernel, typename FirstArg, typename... InitialArgs>
+// Handle taskInitiate(QuantumKernel &kernel, FirstArg arg, InitialArgs... args) {
+//   auto function =
+//       qcor::__internal::getCompositeInstruction(kernel, arg, args...);
+//   auto parameters = __internal::parametersFromVariadic(function, arg, args...);
+//   return qcor::submit([&, parameters](qcor::qpu_handler &qh) {
+//     qh.execute(kernel, parameters);
+//   });
+// }
+
+// // TaskInitiate just execute kernel with measurements (no params, rvalue kernel)
+// template <typename QuantumKernel> Handle taskInitiate(QuantumKernel &&kernel) {
+//   return taskInitiate(kernel);
+// }
+
+// // TaskInitiate just execute kernel with measurements (no params, rvalue kernel)
+// template <typename QuantumKernel> Handle taskInitiate(QuantumKernel &kernel) {
+//   auto function = qcor::__internal::getCompositeInstruction(kernel);
+//   return qcor::submit([&](qcor::qpu_handler &qh) { qh.execute(kernel); });
+// }
+
 } // namespace qcor
 
 #endif
