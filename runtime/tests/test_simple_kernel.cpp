@@ -29,11 +29,11 @@ TEST(test_task_initiate, checkVariations) {
   EXPECT_TRUE(results->getMeasurementCounts().count("11"));
 
   // Now test with task initiate
-  auto handle1 = qcor::taskInitiate(bell);
-  auto results2 = qcor::sync(handle1);
-  results2->print();
-  EXPECT_TRUE(results->getMeasurementCounts().count("00"));
-  EXPECT_TRUE(results->getMeasurementCounts().count("11"));
+//   auto handle1 = qcor::taskInitiate(bell);
+//   auto results2 = qcor::sync(handle1);
+//   results2->print();
+//   EXPECT_TRUE(results->getMeasurementCounts().count("00"));
+//   EXPECT_TRUE(results->getMeasurementCounts().count("11"));
 
 }
 
