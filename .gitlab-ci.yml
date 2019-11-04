@@ -1,20 +1,17 @@
-image: docker:stable
-
 stages:
   - build
-  - push
 
-docker build:
+docker build_devel:
   stage: build
+  only:
+  - devel
   script:
-  - cd docker/dev && docker build -t xacc/qcor-dev-ide . --no-cache
+  - cd docker/ci/ubuntu1804/devel && docker build -t qcor/devel-ci . --no-cache
 
-docker push:
-  stage: push
+docker build_master:
+  stage: build
   only:
   - master
   script:
-  - echo "$REGISTRY_PASSWORD" | docker login -u xacc --password-stdin
-  - docker push xacc/qcor-dev-ide
-  - docker system prune
-  - docker rmi -f xacc/qcor-dev-ide
+  - cd docker/ci/ubuntu1804/master && docker build -t qcor/master-ci . --no-cache
+
