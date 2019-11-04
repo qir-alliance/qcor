@@ -1,3 +1,8 @@
+| Branch | Status |
+|:-------|:-------|
+|master | [![pipeline status](https://code.ornl.gov/qci/qcor/badges/master/pipeline.svg)](https://code.ornl.gov/qci/qcor/commits/master) |
+
+
 # QCOR
 
 QCOR is a C++ language extension and associated compiler implementation
