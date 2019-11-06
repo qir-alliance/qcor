@@ -1,7 +1,7 @@
 | Branch | Status |
 |:-------|:-------|
 |master | [![pipeline status](https://code.ornl.gov/qci/qcor/badges/master/pipeline.svg)](https://code.ornl.gov/qci/qcor/commits/master) |
-|devel | [![pipeline status](https://code.ornl.gov/qci/qcor/badges/master/pipeline.svg)](https://code.ornl.gov/qci/qcor/commits/master) | 
+|devel | [![pipeline status](https://code.ornl.gov/qci/qcor/badges/devel/pipeline.svg)](https://code.ornl.gov/qci/qcor/commits/devel) |
 
 # QCOR
 
@@ -17,14 +17,14 @@ XACC: see https://xacc.readthedocs.io/en/latest/install.html#building-xacc
 clang-dev version 8+
 ```
 ## Linux Build Instructions
-Easiest way to install CMake - do not use the package manager, 
+Easiest way to install CMake - do not use the package manager,
 instead use `pip`, and ensure that `/usr/local/bin` is in your PATH:
 ```bash
 $ python -m pip install --upgrade cmake
 $ export PATH=$PATH:/usr/local/bin
 ```
 
-On Ubuntu 16.04 (for others, replace xenial with Ubuntu release name), 
+On Ubuntu 16.04 (for others, replace xenial with Ubuntu release name),
 install latest clang and llvm libraries and headers (you may need sudo)
 ```bash
 $ wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add -
@@ -39,8 +39,8 @@ Note that, for now, developers must clone QCOR manually:
 $ git clone https://github.com/ornl-qci/qcor
 $ cd qcor
 $ mkdir build && cd build
-$ cmake .. -DXACC_DIR=~/.xacc (or wherever you installed XACC) 
-$ [with tests] cmake .. -DXACC_DIR=~/.xacc -DQCOR_BUILD_TESTS=TRUE 
+$ cmake .. -DXACC_DIR=~/.xacc (or wherever you installed XACC)
+$ [with tests] cmake .. -DXACC_DIR=~/.xacc -DQCOR_BUILD_TESTS=TRUE
 $ make install
 ```
 Update your PATH to ensure that the ```qcor``` compiler is available.
@@ -107,5 +107,5 @@ $ qcor -o deuteron -a tnqvm deuteron.cpp
 This will create the ```deuteron``` quantum-classical binary executable.
 Now just run
 ```bash
-$ ./deuteron 
+$ ./deuteron
 ```
