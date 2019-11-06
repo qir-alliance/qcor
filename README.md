@@ -99,10 +99,10 @@ int main(int argc, char **argv) {
 }
 
 ```
-To compile this with QCOR targeting the TNQVM simulator, run the following
+To compile this with QCOR targeting a Rigetti QCS QPU, run the following
 
 ```bash
-$ qcor -o deuteron -a tnqvm deuteron.cpp
+$ qcor -o deuteron -a qcs:Aspen-4-4Q-A deuteron.cpp
 ```
 This will create the ```deuteron``` quantum-classical binary executable.
 Now just run
