@@ -896,10 +896,6 @@ public:
   const std::string name() const override { return "dummy"; }
   const std::string description() const override { return ""; }
   void initialize(const HeterogeneousMap &params = {}) override { return; }
-  std::vector<std::shared_ptr<IRTransformation>>
-  getIRTransformations() override {
-    return {};
-  }
   void execute(std::shared_ptr<xacc::AcceleratorBuffer> buf,
                std::shared_ptr<xacc::CompositeInstruction> f) override {}
   void execute(std::shared_ptr<AcceleratorBuffer> buffer,
