@@ -14,7 +14,8 @@ H          0.00000        0.00000        0.00000
 H          0.00000        0.00000        0.7474)geom";
 
   auto op = qcor::getObservable("chemistry",
-                                {std::make_pair("basis", "sto-3g"), std::make_pair("geometry", geom)});
+                                {std::make_pair("basis", "sto-3g"), 
+                                 std::make_pair("geometry", geom)});
 
   auto handle = qcor::submit([&](qcor::qpu_handler &qh) {
     qh.vqe(
