@@ -17,7 +17,7 @@ using namespace clang::ast_matchers;
 namespace qcor {
 namespace compiler {
 
-void FuzzyParsingExternalSemaSource::initialize() {
+void FuzzyParsingExternalSemaSource::initialize(std::vector<std::string> args) {
   auto provider = xacc::getService<xacc::IRProvider>("quantum");
   validInstructions = provider->getInstructions();
   validInstructions.push_back("CX");
@@ -51,8 +51,8 @@ void FuzzyParsingExternalSemaSource::initialize() {
 
   hast = tooling::buildASTFromCodeWithArgs(
       "#include \"heterogeneous.hpp\"\nvoid f(xacc::HeterogeneousMap&& "
-      "m, std::vector<double>& x){return;}",
-      {"-std=c++14", "-I@CMAKE_INSTALL_PREFIX@/include/xacc"});
+      "m, std::vector<double>& x){return;}", args);
+      //{"-std=c++14", "-I@CMAKE_INSTALL_PREFIX@/include/xacc","-I/usr/lib/gcc/x86_64-linux-gnu/8/include", "-v"});
   hMapRValue = FirstDeclMatcher<ParmVarDecl>().match(
       hast->getASTContext().getTranslationUnitDecl(), namedDecl(hasName("m")));
   stdVector = FirstDeclMatcher<ParmVarDecl>().match(

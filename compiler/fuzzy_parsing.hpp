@@ -32,7 +32,7 @@ private:
 
 public:
   FuzzyParsingExternalSemaSource(CompilerInstance &c) : ci(c) {}
-  void initialize();
+  void initialize(std::vector<std::string> args = {});
   //   void setASTContext(ASTContext *context) { m_Context = context; }
   //   void setFileManager(FileManager *m) { manager = m; }
 

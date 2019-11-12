@@ -18,8 +18,7 @@ int main(int argc, char **argv) {
   // Initialize rewriter
   Rewriter Rewrite;
 
-  auto action = new qcor::compiler::QCORFrontendAction(Rewrite, fileName);
-  std::vector<std::string> args{"-Wno-dangling", "-std=c++14",
+  std::vector<std::string> args{"-Wno-dangling", "-std=c++14", 
                                 "-I@CMAKE_INSTALL_PREFIX@/include/qcor",
                                 "-I@CMAKE_INSTALL_PREFIX@/include/xacc"};
 
@@ -42,6 +41,8 @@ int main(int argc, char **argv) {
       accName = arguments[i + 1];
     }
   }
+
+  auto action = new qcor::compiler::QCORFrontendAction(Rewrite, fileName, args);
 
   if (!accName.empty()) {
     xacc::setAccelerator(accName);

@@ -35,12 +35,13 @@ namespace qcor {
 namespace compiler {
 class QCORFrontendAction : public clang::ASTFrontendAction {
 public:
-  QCORFrontendAction(Rewriter &rw, const std::string file)
-      : rewriter(rw), fileName(file) {}
+  QCORFrontendAction(Rewriter &rw, const std::string file, std::vector<std::string> args)
+      : rewriter(rw), fileName(file), extraArgs(args) {}
 
 protected:
   Rewriter &rewriter;
   std::string fileName;
+  std::vector<std::string> extraArgs;
   std::unique_ptr<clang::ASTConsumer>
   CreateASTConsumer(clang::CompilerInstance &Compiler,
                     llvm::StringRef /* dummy */) override {

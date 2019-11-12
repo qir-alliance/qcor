@@ -10,7 +10,7 @@ void QCORFrontendAction::ExecuteAction() {
 
   auto fuzzyParser =
       std::make_shared<qcor::compiler::FuzzyParsingExternalSemaSource>(CI);
-  fuzzyParser->initialize();
+  fuzzyParser->initialize(extraArgs);
   // fuzzyParser->setASTContext(&CI.getASTContext());
   // fuzzyParser->setFileManager(&CI.getFileManager());
   CI.getSema().addExternalSource(fuzzyParser.get());
