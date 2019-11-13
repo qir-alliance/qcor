@@ -33,7 +33,7 @@ int main() {
 TEST(QCORASTVisitorTester, checkSimple) {
   Rewriter rewriter1;
   xacc::setAccelerator("dummy");
-  std::vector<std::string> args{"-std=c++14"};
+  std::vector<std::string> args{"-std=c++14","-I@CMAKE_INSTALL_PREFIX@/include/xacc"};
   auto action1 = new QCORFrontendAction(rewriter1, "temp.cpp", args);
   const std::string bell = R"bell(#include <vector>
 using qbit = std::vector<int>;
@@ -133,7 +133,7 @@ return ss.str();
 TEST(QCORASTVisitorTester, checkParamAnsatzDouble) {
   Rewriter rewriter1;
   xacc::setAccelerator("dummy");
-  std::vector<std::string> args{"-std=c++14"};
+  std::vector<std::string> args{"-std=c++14", "-I@CMAKE_INSTALL_PREFIX@/include/xacc"};
   auto action1 = new QCORFrontendAction(rewriter1, "temp.cpp", args);
 
   const std::string bell = R"bell(#include <vector>
@@ -255,7 +255,7 @@ return ss.str();
 TEST(QCORASTVisitorTester, checkParamAnsatzVectorDouble) {
   Rewriter rewriter1;
   xacc::setAccelerator("dummy");
-  std::vector<std::string> args{"-std=c++14"};
+  std::vector<std::string> args{"-std=c++14","-I@CMAKE_INSTALL_PREFIX@/include/xacc"};
   auto action1 = new QCORFrontendAction(rewriter1, "temp.cpp", args);
 
   const std::string bell = R"bell(#include <vector>
