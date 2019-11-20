@@ -31,7 +31,7 @@ $ wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add -
 $ echo "deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-9 main" > /etc/apt/sources.list.d/llvm.list
 $ apt-get update && apt-get install -y libclang-9-dev llvm-9-dev clangd-9
 $ ln -s /usr/bin/llvm-config-9 /usr/bin/llvm-config
-$ (for theia ide) ls -s /usr/bin/clangd-9 /usr/bin/clangd
+$ (for theia ide) ln -s /usr/bin/clangd-9 /usr/bin/clangd
 ```
 
 Note that, for now, developers must clone QCOR manually:
