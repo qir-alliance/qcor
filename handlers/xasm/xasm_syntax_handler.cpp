@@ -139,7 +139,7 @@ public:
 
     OS << "}\n";
 
-    std::cout << "HELLO:\n" << OS.str() << "\n";
+    // std::cout << "HELLO:\n" << OS.str() << "\n";
   }
 
   void AddToPredefines(llvm::raw_string_ostream &OS) override {
