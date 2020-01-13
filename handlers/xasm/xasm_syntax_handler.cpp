@@ -57,7 +57,7 @@ public:
     // Get the Function Type Info from the Declarator,
     // If the function has no arguments, then we throw an error
     const DeclaratorChunk::FunctionTypeInfo &FTI = D.getFunctionTypeInfo();
-        std::string kernel_name = D.getName().Identifier->getName().str();
+    std::string kernel_name = D.getName().Identifier->getName().str();
     if (!FTI.Params) {
       diagnostics.Report(D.getBeginLoc(), invalid_no_args);
     }
@@ -111,6 +111,7 @@ public:
     OS << "}\n";
     // OS << "optimize(program);\n";
 
+    OS << "if (__execute) {\n";
     if (!program_parameters.empty()) {
         OS << "double * p = new double[" << program_parameters.size() << "];\n";
       for (unsigned int i = 0; i < program_parameters.size(); i++) {
@@ -136,7 +137,9 @@ public:
       OS << "delete[] p;\n";
     }
 
-    // std::cout << "HELLO:\n" << OS.str() << "\n";
+    OS << "}\n";
+
+    std::cout << "HELLO:\n" << OS.str() << "\n";
   }
 
   void AddToPredefines(llvm::raw_string_ostream &OS) override {
