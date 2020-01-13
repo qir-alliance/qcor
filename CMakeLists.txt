@@ -21,9 +21,10 @@ find_package(XACC REQUIRED)
 
 configure_file(${CMAKE_SOURCE_DIR}/scripts/qcor.in
                ${CMAKE_BINARY_DIR}/qcor)
-include_directories(/home/cades/dev/llvm-project/clang/include)
+include_directories(/home/cades/dev/llvm-project-csp/build/xacc_llvm_install/include)
+add_subdirectory(handlers)
 add_subdirectory(runtime)
-add_subdirectory(compiler)
-add_subdirectory(ir)
+#add_subdirectory(compiler)
+#add_subdirectory(ir)
 
 install(PROGRAMS ${CMAKE_BINARY_DIR}/qcor DESTINATION bin)
