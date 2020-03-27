@@ -1,4 +1,5 @@
 #include "qcor_version2.hpp"
+#include <vector> 
 
 [[clang::syntax(xasm)]] void ansatz(qreg q, double t) {
   X(q[0]);
@@ -14,7 +15,7 @@ int main(int argc, char **argv) {
 
   // Schedule an asynchronous VQE execution
   // with the given quantum kernel ansatz
-  auto handle = qcor::taskInitiateWithSyntax(ansatz, "vqe", opt, obs, 0.45);
+  auto handle = qcor::taskInitiate(ansatz, "vqe", opt, obs, 0.45);
 
   auto results_buffer = handle.get();
   auto energy = qcor::extract_results<double>(results_buffer, "opt-val");

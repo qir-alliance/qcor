@@ -22,7 +22,7 @@ using namespace clang;
 
 namespace {
 
-std::string qpu_name = "local-ibm";
+std::string qpu_name = "qpp";
 
 class XasmHandler : public SyntaxHandler {
 public:

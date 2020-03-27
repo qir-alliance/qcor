@@ -1,2 +1,0 @@
-libint_wrapper_add_test(LibIntWrapperTester LibIntWrapperTester.cpp)
-
