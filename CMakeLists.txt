@@ -22,6 +22,9 @@ option(QCOR_BUILD_TESTS "Build qcor tests" OFF)
 find_package(Clang 10.0.0 REQUIRED)
 find_package(XACC REQUIRED)
 
+# Store the location of the clang executable
+set (CLANG_EXECUTABLE "${LLVM_INSTALL_PREFIX}/bin/clang++")
+
 configure_file(${CMAKE_SOURCE_DIR}/scripts/qcor.in
                ${CMAKE_BINARY_DIR}/qcor)
 

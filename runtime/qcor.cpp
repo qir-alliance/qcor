@@ -1,116 +1,63 @@
 #include "qcor.hpp"
-
-#include "AcceleratorBuffer.hpp"
-#include "IRProvider.hpp"
 #include "xacc.hpp"
-#include "xacc_service.hpp"
-#include "xacc_observable.hpp"
-
-#include "CountGatesOfTypeVisitor.hpp"
-#include "CommonGates.hpp"
-
-#include <regex>
-
-using namespace xacc;
+#include "PauliOperator.hpp"
+#include "Optimizer.hpp"
+#include <future>
 
 namespace qcor {
-
-namespace __internal {
-bool executeKernel = true;
-void switchDefaultKernelExecution(bool execute) { executeKernel = execute; }
-bool hasMeasurements(std::shared_ptr<CompositeInstruction> inst) {
-  quantum::CountGatesOfTypeVisitor<quantum::Measure> count(inst);
-  return count.countGates() > 0;
+void initialize() { xacc::Initialize(); }
+void finalize() {
+    xacc::Finalize();
 }
+xacc::AcceleratorBuffer* sync(Handle& h) {return h.get();}
 
-void updateMap(xacc::HeterogeneousMap &m, std::vector<double> &values) {
-  if (values.empty()) {
-    m.get_mutable<std::vector<double>>("initial-parameters") =
-        std::vector<double>(m.get<std::size_t>("__internal_n_vars"));
-  } else {
-    m.get_mutable<std::vector<double>>("initial-parameters") = values;
-  }
-}
+namespace __internal__ {
 
-void updateMap(xacc::HeterogeneousMap &m, std::vector<double> &&values) {
-  if (values.empty()) {
-    m.get_mutable<std::vector<double>>("initial-parameters") =
-        std::vector<double>(m.get<std::size_t>("__internal_n_vars"));
-  } else {
-    m.get_mutable<std::vector<double>>("initial-parameters") = values;
-  }
-}
-
-void updateMap(xacc::HeterogeneousMap &m, double value) {
-  m.get_mutable<std::vector<double>>("initial-parameters").push_back(value);
-}
-
-void constructInitialParameters(xacc::HeterogeneousMap &m) { return; }
-} // namespace __internal
-
-void Initialize() { Initialize(std::vector<std::string>{}); }
-
-void Initialize(int argc, char **argv) {
-  std::vector<const char *> tmp(argv, argv + argc);
-  std::vector<std::string> newargv;
-  for (auto &t : tmp)
-    newargv.push_back(std::string(t));
-  Initialize(newargv);
-}
-
-void Initialize(std::vector<std::string> argv) {
-  argv.push_back("--logger-name");
-  argv.push_back("qcor");
-  xacc::Initialize(argv);
-}
-void Finalize() { xacc::Finalize(); }
-
-ResultBuffer qalloc(const std::size_t nBits) { return xacc::qalloc(nBits); }
-ResultBuffer qalloc() { return xacc::qalloc(); }
-ResultBuffer sync(Handle &handle) { return handle.get(); }
-
-Handle submit(HandlerLambda &&totalJob) {
-  // Create the QPU Handler to pass to the given
-  // Handler HandlerLambda
-  return std::async(std::launch::async, [=]() { // bug must be by value...
-    qpu_handler handler;
-    totalJob(handler);
-    return handler.getResults();
+Handle execute_algorithm(const char *objective, xacc::CompositeInstruction *program,
+                  xacc::Optimizer *opt, xacc::Observable *obs, double * parameters) {
+  return std::async(std::launch::async, [parameters, objective, opt, obs, program]() {
+    auto qpu = xacc::internal_compiler::get_qpu();
+    std::vector<double> pvec(parameters, parameters + program->nVariables());
+    opt->appendOption("initial-parameters", pvec);
+    auto algo = xacc::getAlgorithm(objective, {std::make_pair("optimizer", opt),
+                                   std::make_pair("observable", obs),
+                                   std::make_pair("ansatz", program),
+                                   std::make_pair("accelerator", qpu)});
+    auto q = qalloc(program->nLogicalBits());
+    auto buffer = q.results();
+    auto buffer_as_shared = xacc::as_shared_ptr(buffer);
+    xacc::set_verbose(true);
+    algo->execute(buffer_as_shared);
+    return buffer;
   });
+  delete[] parameters;
 }
 
-Handle submit(HandlerLambda &&totalJob,
-              std::shared_ptr<AcceleratorBuffer> buffer) {
-  return std::async(std::launch::async, [&]() {
-    qpu_handler handler(buffer);
-    totalJob(handler);
-    return handler.getResults();
-  });
+}
+xacc::Optimizer *getOptimizer() {
+  if (!xacc::isInitialized())
+    xacc::Initialize();
+  return xacc::getOptimizer("nlopt").get();
 }
 
-std::shared_ptr<Optimizer> getOptimizer(const std::string &name) {
-  return xacc::getOptimizer(name);
-}
-std::shared_ptr<Optimizer> getOptimizer(const std::string &name,
-                                        const HeterogeneousMap &&options) {
-  return xacc::getOptimizer(name, options);
-}
-
-std::shared_ptr<Observable> getObservable(const std::string &type,
-                                          const std::string &representation) {
-  return xacc::quantum::getObservable(type, representation);
+// FIXME CLEAN UP OBS
+xacc::Observable *getObservable(const char *repr) {
+  if (!xacc::isInitialized())
+    xacc::Initialize();
+//   auto sptr = xacc::quantum::getObservable("pauli", std::string(repr));
+  auto obs = new xacc::quantum::PauliOperator(repr);
+  return obs;
 }
 
-std::shared_ptr<Observable> getObservable() {
-  return xacc::quantum::getObservable();
+template <> double extract_results<double>(xacc::AcceleratorBuffer* q, const char * key) {
+    return q->operator[](key).as<double>();
 }
-std::shared_ptr<Observable> getObservable(const std::string &representation) {
-  return xacc::quantum::getObservable("pauli", representation);
+template <> double* extract_results<double*>(xacc::AcceleratorBuffer* q, const char * key) {
+    // we expect that if they ask for double * it is really stored as a vector
+    return q->operator[](key).as<std::vector<double>>().data();
 }
-
-std::shared_ptr<Observable> getObservable(const std::string &type,
-                                          const HeterogeneousMap &&options) {
-  return xacc::quantum::getObservable(type, options);
+template <> std::vector<double> extract_results<std::vector<double>>(xacc::AcceleratorBuffer* q, const char * key) {
+    // we expect that if they ask for double * it is really stored as a vector
+    return q->operator[](key).as<std::vector<double>>();
 }
-
-} // namespace qcor
+}

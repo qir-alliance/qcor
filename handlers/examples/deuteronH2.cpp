@@ -1,7 +1,7 @@
-#include "qcor_version2.hpp"
+#include "qcor.hpp"
 #include <vector> 
 
-[[clang::syntax(xasm)]] void ansatz(qreg q, double t) {
+__qpu__ void ansatz(qreg q, double t) {
   X(q[0]);
   Ry(q[1], t);
   CX(q[1], q[0]);

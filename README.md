@@ -62,7 +62,7 @@ the following file
 ```cpp
 #include "qcor.hpp"
 
-[[clang::syntax(xasm)]] void ansatz(qreg q, double t) {
+__qpu__ void ansatz(qreg q, double t) {
   X(q[0]);
   Ry(q[1], t);
   CX(q[1], q[0]);
@@ -93,7 +93,7 @@ int main(int argc, char **argv) {
 To compile this with QCOR targeting a Rigetti QCS QPU, run the following
 
 ```bash
-$ qcor -o deuteron -a qcs:Aspen-4-4Q-A deuteron.cpp
+$ qcor -o deuteron -qpu qcs:Aspen-4-4Q-A deuteron.cpp
 ```
 This will create the ```deuteron``` quantum-classical binary executable.
 Now just run

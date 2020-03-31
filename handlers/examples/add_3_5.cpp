@@ -1,6 +1,6 @@
 #include <qalloc>
 
-[[clang::syntax(staq)]] void add_3_5(qreg a, qreg b, qreg c) {
+__qpu__ void add_3_5(qreg a, qreg b, qreg c) {
   oracle adder a0,a1,a2,a3,b0,b1,b2,b3,c0,c1,c2,c3 { "add_3_5.v" }
 
   creg result[4];

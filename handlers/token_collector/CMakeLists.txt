@@ -1,8 +1,8 @@
-set(LIBRARY_NAME qcor-xasm-handler)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti")
+
+set(LIBRARY_NAME token_collector_util)
 add_library(${LIBRARY_NAME}
             SHARED
-            xasm_syntax_handler.cpp)
+            token_collector_util.cpp)
 
 target_include_directories(${LIBRARY_NAME}
                            PUBLIC .
@@ -10,8 +10,7 @@ target_include_directories(${LIBRARY_NAME}
                                   ${LLVM_INCLUDE_DIRS})
 
 target_link_libraries(${LIBRARY_NAME}
-                      PRIVATE ${CLANG_LIBS} ${LLVM_LIBS})
-
+                      PRIVATE ${CLANG_LIBS} ${LLVM_LIBS} xacc::xacc)
 
 if(APPLE)
   set_target_properties(${LIBRARY_NAME}
@@ -24,4 +23,7 @@ else()
   set_target_properties(${LIBRARY_NAME} PROPERTIES LINK_FLAGS "-shared")
 endif()
 
-install(TARGETS ${LIBRARY_NAME} DESTINATION clang-plugins)
+install(TARGETS ${LIBRARY_NAME} DESTINATION lib)
+
+add_subdirectory(xasm)
+add_subdirectory(staq)
