@@ -35,7 +35,7 @@ To build this fork of LLVM/Clang (be aware this step takes up a good amount of R
 $ apt-get install ninja-build [if you dont have ninja]
 $ git clone https://github.com/hfinkel/llvm-project-csp llvm
 $ cd llvm && mkdir build && cd build
-$ cmake -G Ninja ../llvm -DCMAKE_INSTALL_PREFIX=$HOME/.llvm -DBUILD_SHARED_LIBS=TRUE -DLLVM_TARGETS_TO_BUILD="X86" -DLLVM_ENABLE_PROJECTS=clang
+$ cmake -G Ninja ../llvm -DCMAKE_INSTALL_PREFIX=$HOME/.llvm -DBUILD_SHARED_LIBS=TRUE -DCMAKE_BUILD_TYPE=Release -DLLVM_TARGETS_TO_BUILD="X86" -DLLVM_ENABLE_PROJECTS=clang
 $ cmake --build . --target install
 $ sudo ln -s $HOME/.llvm/bin/llvm-config /usr/bin
 ```

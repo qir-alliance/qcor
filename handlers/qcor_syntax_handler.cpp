@@ -54,7 +54,7 @@ public:
 
     // Loop over the function arguments and get the
     // buffer name and any program parameter doubles.
-    std::vector<std::string> program_parameters;
+    std::vector<std::string> program_parameters, program_arg_types;
     std::vector<std::string> bufferNames;
     for (unsigned int ii = 0; ii < FTI.NumParams; ii++) {
       auto &paramInfo = FTI.Params[ii];
@@ -63,13 +63,16 @@ public:
       auto parm_var_decl = cast<ParmVarDecl>(decl);
       if (parm_var_decl) {
         auto type = parm_var_decl->getType().getCanonicalType().getAsString();
+        program_arg_types.push_back(type);
+        program_parameters.push_back(ident->getName().str());
         if (type == "class xacc::internal_compiler::qreg") {
           bufferNames.push_back(ident->getName().str());
-        } else if (type == "double") {
-          program_parameters.push_back(ident->getName().str());
-        } else {
-          diagnostics.Report(paramInfo.IdentLoc, invalid_arg_type);
-        }
+        } 
+        // else if (type == "double") {
+        //   program_parameters.push_back(ident->getName().str());
+        // } else {
+        //   diagnostics.Report(paramInfo.IdentLoc, invalid_arg_type);
+        // }
       }
     }
 
@@ -100,12 +103,13 @@ public:
     // OS << "optimize(program);\n";
 
     OS << "if (__execute) {\n";
-    if (!program_parameters.empty()) {
-      OS << "double * p = new double[" << program_parameters.size() << "];\n";
-      for (unsigned int i = 0; i < program_parameters.size(); i++) {
-        OS << "p[" << i << "] = " << program_parameters[i] << ";\n";
-      }
+    OS << "program->updateRuntimeArguments(" << program_parameters[0]; //args...);
+    // setRuntimeArguments(" << program_parameters[0];
+    for (int i = 1; i < program_parameters.size(); i++) {
+        OS << ", " << program_parameters[i];
     }
+    OS << ");\n";
+    // OS << "internal_set_parameters(program);\n";
     if (bufferNames.size() > 1) {
       OS << "xacc::AcceleratorBuffer * buffers[" << bufferNames.size()
          << "] = {";
@@ -118,16 +122,10 @@ public:
     } else {
       OS << "execute(" << bufferNames[0] << ".results(), program";
     }
+    OS << ");\n";
 
-    if (program_parameters.empty()) {
-      OS << ");\n";
-    } else {
-      OS << ", p);\n";
-      OS << "delete[] p;\n";
-    }
     OS << "}\n";
-
-    // std::cout << "HELLO:\n" << OS.str() << "\n";
+    std::cout << "HELLO:\n" << OS.str() << "\n";
   }
 
   void AddToPredefines(llvm::raw_string_ostream &OS) override {
@@ -141,6 +139,31 @@ public:
   bool HandleTopLevelDecl(DeclGroupRef DG) override { return true; }
 };
 
+class DoNothingConsumer2 : public ASTConsumer {
+public:
+  bool HandleTopLevelDecl(DeclGroupRef DG) override { std::cout << "CONSUMING THIS BITCH\n";return true; }
+};
+
+
+
+class QCORTEST : public PluginASTAction {
+public:
+  std::unique_ptr<ASTConsumer> CreateASTConsumer(CompilerInstance &CI,
+                                                 llvm::StringRef) override {
+    std::cout << "HERE WE ARE, OPPORTUNITY TO OUTPUT SOURCE MAYBE? \n";
+    return std::make_unique<DoNothingConsumer2>();
+  }
+
+
+  bool ParseArgs(const CompilerInstance &CI,
+                 const std::vector<std::string> &args) override {
+    return true;
+  }
+
+  PluginASTAction::ActionType getActionType() override {
+    return AddAfterMainAction;
+  }
+};
 class QCORArgs : public PluginASTAction {
 public:
   std::unique_ptr<ASTConsumer> CreateASTConsumer(CompilerInstance &CI,
@@ -176,6 +199,7 @@ public:
 };
 
 } // namespace
+// static FrontendPluginRegistry::Add<QCORTEST> XXX("qcor-test", "");
 
 static SyntaxHandlerRegistry::Add<QCORSyntaxHandler>
     X("qcor", "qcor quantum kernel syntax handler");

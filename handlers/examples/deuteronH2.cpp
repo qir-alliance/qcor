@@ -1,5 +1,4 @@
 #include "qcor.hpp"
-#include <vector> 
 
 __qpu__ void ansatz(qreg q, double t) {
   X(q[0]);
@@ -18,13 +17,14 @@ int main(int argc, char **argv) {
   auto handle = qcor::taskInitiate(ansatz, "vqe", opt, obs, 0.45);
 
   auto results_buffer = handle.get();
+  
   auto energy = qcor::extract_results<double>(results_buffer, "opt-val");
-  auto angles =
-      qcor::extract_results<std::vector<double>>(results_buffer, "opt-params");
+//   auto angles =
+//       qcor::extract_results<std::vector<double>>(results_buffer, "opt-params");
 
   printf("energy = %f\n", energy);
-  printf("angles = [");
-  for (int i = 0; i < 1; i++)
-    printf("%f ", angles[i]);
-  printf("]\n");
+//   printf("angles = [");
+//   for (int i = 0; i < 1; i++)
+//     printf("%f ", angles[i]);
+//   printf("]\n");
 }

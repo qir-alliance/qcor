@@ -28,8 +28,6 @@ set (CLANG_EXECUTABLE "${LLVM_INSTALL_PREFIX}/bin/clang++")
 configure_file(${CMAKE_SOURCE_DIR}/scripts/qcor.in
                ${CMAKE_BINARY_DIR}/qcor)
 
-#include_directories(/home/cades/dev/llvm-project-csp/build/xacc_llvm_install/include)
-
 add_subdirectory(handlers)
 add_subdirectory(runtime)
 
