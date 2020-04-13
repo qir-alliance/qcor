@@ -1,40 +1,45 @@
 #ifndef RUNTIME_QCOR_HPP_
 #define RUNTIME_QCOR_HPP_
 
-#include <qalloc>
-#include <future>
 #include <memory>
+#include <qalloc>
 
 #include "Observable.hpp"
 #include "Optimizer.hpp"
 
 #include "xacc_internal_compiler.hpp"
 
-// Forward declare xacc types to speed up compile times
-namespace xacc {
-class Algorithm;
-} // namespace xacc
-
 namespace qcor {
-using Handle = std::future<xacc::AcceleratorBuffer *>;
 
-void initialize();
-void finalize();
+
+class ObjectiveFunction : public xacc::Identifiable {
+protected:
+  std::shared_ptr<xacc::Observable> observable;
+  xacc::CompositeInstruction * kernel;
+  xacc::internal_compiler::qreg qreg;
+
+  virtual double operator()() = 0;
+
+public:
+  ObjectiveFunction() = default;
+  virtual void initialize(std::shared_ptr<xacc::Observable> obs,
+                          xacc::CompositeInstruction * qk) {
+    observable = obs;
+    kernel = qk;
+  }
+
+  void set_qreg(xacc::internal_compiler::qreg q) {
+      qreg = q;
+  }
+  template <typename... ArgumentTypes>
+  double operator()(ArgumentTypes... args) {
+    kernel->updateRuntimeArguments(args...);
+    return operator()();
+  }
+};
+
 
 namespace __internal__ {
-
-// std::size_t param_counter = 0;
-
-// // Helper function for creating a vector of doubles
-// // from a variadic pack of doubles
-// void constructInitialParameters(double *p) { param_counter = 0; }
-// template <typename First, typename... Rest>
-// void constructInitialParameters(First *p, First firstArg, Rest... rest) {
-//   p[param_counter] = firstArg;
-//   param_counter++;
-//   constructInitialParameters(p, rest...);
-// }
-
 
 // Given a quantum kernel functor, create the xacc
 // CompositeInstruction representation of it
@@ -53,16 +58,26 @@ xacc::CompositeInstruction *kernel_as_composite_instruction(QuantumKernel &k,
   return xacc::internal_compiler::getLastCompiled();
 }
 
+double observe(xacc::CompositeInstruction * program,
+             std::shared_ptr<xacc::Observable> obs,
+             xacc::internal_compiler::qreg &q);
+   
+
 std::vector<std::shared_ptr<xacc::CompositeInstruction>>
-observe(std::shared_ptr<xacc::Observable> obs, xacc::CompositeInstruction* program);
+observe(std::shared_ptr<xacc::Observable> obs,
+        xacc::CompositeInstruction *program);
+
+std::shared_ptr<ObjectiveFunction> get_objective(const char * type);
+
 
 } // namespace __internal__
 
 template <typename QuantumKernel, typename... Args>
-auto observe(QuantumKernel &kernel, std::shared_ptr<xacc::Observable> obs, Args... args) {
+auto observe(QuantumKernel &kernel, std::shared_ptr<xacc::Observable> obs,
+             Args... args) {
   auto program = __internal__::kernel_as_composite_instruction(kernel, args...);
   return [program, obs](Args... args) {
-
+      
     // Get the first argument, which should be a qreg
     auto q = std::get<0>(std::forward_as_tuple(args...));
     // std::cout << "\n" << program->toString() << "\n";
@@ -73,7 +88,7 @@ auto observe(QuantumKernel &kernel, std::shared_ptr<xacc::Observable> obs, Args.
 
     // Observe the program
     auto programs = __internal__::observe(obs, program);
-    
+
     std::vector<xacc::CompositeInstruction *> ptrs;
     for (auto p : programs)
       ptrs.push_back(p.get());
@@ -92,70 +107,20 @@ xacc::Optimizer *getOptimizer();
 // Get a pauli observable from a string representation
 std::shared_ptr<xacc::Observable> getObservable(const char *repr);
 
+template <typename QuantumKernel, typename... KernelArguments>
+std::shared_ptr<ObjectiveFunction>
+createObjectiveFunction(const char *obj_name, QuantumKernel &kernel,
+                        std::shared_ptr<xacc::Observable> observable,
+                        KernelArguments... args) {
+  auto obj_func = qcor::__internal__::get_objective(obj_name);
+  auto q = std::get<0>(std::forward_as_tuple(args...));
+  obj_func->set_qreg(q);
+  auto program = __internal__::kernel_as_composite_instruction(kernel, args...);
+  obj_func->initialize(observable, program);
+  return obj_func;
+}
 
 } // namespace qcor
 
+
 #endif
-
-
-// Helper function for extracting Variant keys from the
-// underlying resultant AcceleratorBuffer. We specialize
-// this for certain types (double, std::vector<double>)
-// template <typename T>
-// T extract_results(xacc::AcceleratorBuffer *q, const char *key);
-
-
-// // Execute the hybrid variational Algorithm with given name, providing
-// // the required Optimizer and Observable.
-// Handle execute_algorithm(const char *algorithm,
-//                          xacc::CompositeInstruction *program,
-//                          xacc::Optimizer *opt, xacc::Observable *obs,
-//                          double *parameters);
-// Given some objective function (like VQE) that takes
-// a parameterized circuit and quantum observable dictating
-// measurements on that circuit, asynchronously compute
-// circuit parameters that are optimal with respect to the
-// return value of the objective function, using the provided
-// classical optimizer. Clients can provide the initial
-// circuit parameters (the Args... variadic parameter pack)
-// template <typename QuantumKernel, typename... Args>
-// Handle taskInitiate(QuantumKernel &kernel, const char *objective,
-//                     xacc::Optimizer *opt, xacc::Observable *obs, Args... args) {
-//   auto program = __internal__::kernel_as_composite_instruction(kernel, args...);
-//   double *parameters = new double[sizeof...(args)];
-//   __internal__::constructInitialParameters(parameters, args...);
-//   auto handle =
-//       __internal__::execute_algorithm(objective, program, opt, obs, parameters);
-//   return handle;
-// }
-
-// Helper function for extracting Variant keys from the
-// underlying resultant AcceleratorBuffer. We specialize
-// this for certain types (double, std::vector<double>)
-// template <typename T>
-// T extract_results(xacc::AcceleratorBuffer *q, const char *key);
-
-
-// // Execute the hybrid variational Algorithm with given name, providing
-// // the required Optimizer and Observable.
-// Handle execute_algorithm(const char *algorithm,
-//                          xacc::CompositeInstruction *program,
-//                          xacc::Optimizer *opt, xacc::Observable *obs,
-//                          double *parameters);
-// Given some objective function (like VQE) that takes
-// a parameterized circuit and quantum observable dictating
-// measurements on that circuit, asynchronously compute
-// circuit parameters that are optimal with respect to the
-// return value of the objective function, using the provided
-// classical optimizer. Clients can provide the initial
-// circuit parameters (the Args... variadic parameter pack)
-// template <typename QuantumKernel, typename... Args>
-// Handle taskInitiate(QuantumKernel &kernel, const char *objective,
-//                     xacc::Optimizer *opt, xacc::Observable *obs, Args... args) {
-//   auto program = __internal__::kernel_as_composite_instruction(kernel, args...);
-//   double *parameters = new double[sizeof...(args)];
-//   __internal__::constructInitialParameters(parameters, args...);
-//   auto handle =
-//       __internal__::execute_algorithm(objective, program, opt, obs, parameters);
-//   return handle;
-// }
