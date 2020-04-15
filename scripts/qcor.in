@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
 import argparse, sys, os, subprocess, mimetypes, re
+# echo 'compiling' && time $HOME/.llvm/bin/clang++ -std=c++14 -fplugin=$HOME/.xacc/clang-plugins/libqcor-xasm-handler.so 
+# -I $HOME/.xacc/include/xacc -I $HOME/.xacc/include/qcor -c ../handlers/examples/deuteronH2.cpp -o test.o && echo 
+# 'linking' && $HOME/.llvm/bin/clang++ -rdynamic -Wl,-rpath,$HOME/.xacc/lib -L $HOME/.xacc/lib -lxacc -lCppMicroServices 
+# -lstdc++ -lqcor -lxacc-pauli test.o -o test.exe
 
 def main(argv=None):
-    compiler = '@CMAKE_CXX_COMPILER@'
+    compiler = '@CLANG_EXECUTABLE@'
     verbose=False
     baseLibs = ['-rdynamic', '-Wl,-rpath,@CMAKE_INSTALL_PREFIX@/lib',
                             '-L', '@CMAKE_INSTALL_PREFIX@/lib', '-lxacc',
@@ -10,119 +14,79 @@ def main(argv=None):
                             '-lxacc-quantum-gate',
                             '-lxacc-pauli']
     baseIncludes = ['-I', '@CMAKE_INSTALL_PREFIX@/include/xacc', '-I', '@CMAKE_INSTALL_PREFIX@/include/qcor']
+    defaultFlags = ['-std=c++14', '-fplugin=@CMAKE_INSTALL_PREFIX@/clang-plugins/libqcor-syntax-handler.so']
 
     # Need to know if this is compile-only
     compileOnly = '-c' in sys.argv[1:]
 
-    keepSrcFiles = False
-    if '--keep-temp-source' in sys.argv[1:]:
-        keepSrcFiles = True
-        sys.argv.remove('--keep-temp-source')
-
-    if '--qcor-verbose' in sys.argv[1:]:
+    if '--verbose' in sys.argv[1:]:
         verbose=True
-        sys.argv.remove('--qcor-verbose')
+        sys.argv.remove('--verbose')
+    if '-v' in sys.argv[1:]:
+        verbose=True
+        sys.argv.remove('-v')
 
-    qcordriver = 'qcor-driver'
-    if '--qcor-driver-path' in sys.argv[1:]:
-        pidx = sys.argv.index('--qcor-driver-path')
-        p = sys.argv[pidx+1]
-        qcordriver = p + '/' + qcordriver
-        sys.argv.remove('--qcor-driver-path')
-        sys.argv.remove(p)
-
-    hasAcc = False
+    sHandlerArgs = []
+    # Get the QPU Backend
     accName = ''
-    if '--accelerator' in sys.argv[1:]:
-        hasAcc = True
-        accidx = sys.argv.index('--accelerator')
+    if '-qpu' in sys.argv[1:]:
+        accidx = sys.argv.index('-qpu')
         accName = sys.argv[accidx+1]
         sys.argv.remove(accName)
-        sys.argv.remove('--accelerator')
-    if '-a' in sys.argv[1:]:
-        hasAcc = True
-        accidx = sys.argv.index('-a')
-        accName = sys.argv[accidx+1]
-        sys.argv.remove(accName)
-        sys.argv.remove('-a')
+        sys.argv.remove('-qpu')
+        sHandlerArgs = ['-Xclang', '-plugin-arg-qcor-args', '-Xclang', '-qpu', '-Xclang', '-plugin-arg-qcor-args', '-Xclang', accName]
 
+    # Get the shots if necessary
+    shots = 0
+    if '-shots' in sys.argv[1:]:
+        sidx = sys.argv.index('-shots')
+        shots = sys.argv[sidx+1]
+        sys.argv.remove(shots)
+        sys.argv.remove('-shots')
+        sHandlerArgs = ['-Xclang', '-plugin-arg-qcor-args', '-Xclang', '-shots', '-Xclang', '-plugin-arg-qcor-args', '-Xclang', shots]
+
+    # Get the filename we are compiling or the object file
     filename = ''
     fileType = ''
     for arg in sys.argv[1:]:
         if os.path.isfile(arg) and '.o' != os.path.splitext(arg)[1]:
             filename = arg
             fileType = mimetypes.guess_type(filename)[0]
+            break
 
+    # If it is a C++ file
     if fileType == 'text/x-c++src':
         fileIdx = sys.argv[1:].index(filename)
         tmpFileName = os.path.basename(filename)
+
         # Move tmpFileName to end of list
         sys.argv.remove(filename)
         sys.argv.append(filename)
 
-        idx = tmpFileName.find('.')
-        expectedFile = '.'+tmpFileName[:idx]+'_out'+tmpFileName[idx:]
-        sys.argv[0] = qcordriver
-        if hasAcc:
-            commands = [sys.argv[0]] + baseIncludes + ['--accelerator',accName] + sys.argv[1:]
+        sys.argv[0] = compiler
+        commands = [compiler] + defaultFlags + sHandlerArgs + baseIncludes
+        if compileOnly:
+            commands += sys.argv[1:]
         else:
-            commands = [sys.argv[0]] + baseIncludes + sys.argv[1:]
+            commands += baseLibs + sys.argv[1:]
+
 
         if verbose:
-            print('QCOR Driver: ', ' '.join([c for c in commands]))
+            print('[qcor-exec]: ', ' '.join([c for c in commands]))
+
         try:
             result = subprocess.run(commands, check=True)
         except subprocess.CalledProcessError as e:
             print(e.output)
             print(e.returncode)
             return e.returncode
-
-        if os.path.exists(expectedFile):
-            # need to compile now with standard compiler
-            sys.argv[0] = compiler
-            sys.argv[-1] = expectedFile
-            commands = [sys.argv[0]]
-            baseLibs = []
-            if not compileOnly:
-                baseLibs = ['-rdynamic', '-Wl,-rpath,@CMAKE_INSTALL_PREFIX@/lib',
-                            '-L', '@CMAKE_INSTALL_PREFIX@/lib', '-lxacc',
-                            '-lqcor', '-lCppMicroServices',
-                            '-lxacc-quantum-gate',
-                            '-lxacc-pauli']
-
-
-            if verbose:
-                print('Generated New file: ', ' '.join([c for c in sys.argv+baseIncludes+baseLibs]))
-            try:
-                result = subprocess.run(sys.argv+baseIncludes+baseLibs, check=True)
-            except subprocess.CalledProcessError as e:
-                print(e.output)
-                print(e.returncode)
-                return e.returncode
-
-            if not keepSrcFiles:
-                os.remove(expectedFile)
-
-        else:
-            # This means that there were no quantum kernels
-            sys.argv[0] = compiler
-            print('Was not a hybrid quantum-classical code. Will compile with ', compiler)
-            print('Running: ', ' '.join([c for c in sys.argv]))
-            try:
-                result = subprocess.run(sys.argv, check=True)
-            except subprocess.CalledProcessError as e:
-                print(e.output)
-                print(e.returncode)
-                return e.returncode
-
     else:
-        # delegate anything else to classical compiler
+        # This is a .o file, so execute the link phase
+        commands = [compiler] + baseLibs + sys.argv[1:]
         if verbose:
-            print('Running: ', ' '.join([c for c in sys.argv]))
-        sys.argv[0] = compiler
-
+            print('[qcor-exec]: ', ' '.join([c for c in commands]))
         try:
-            result = subprocess.run(sys.argv+baseLibs, check=True)
+            result = subprocess.run(commands, check=True)
         except subprocess.CalledProcessError as e:
             print(e.output)
             print(e.returncode)

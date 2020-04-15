@@ -1,0 +1,6 @@
+{
+  "bundle.symbolic_name" : "qcor_staq_token",
+  "bundle.activator" : true,
+  "bundle.name" : "Staq OpenQasm Token Collector",
+  "bundle.description" : ""
+}

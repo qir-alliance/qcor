@@ -1,116 +1,56 @@
 #include "qcor.hpp"
 
-#include "AcceleratorBuffer.hpp"
-#include "IRProvider.hpp"
+#include "Optimizer.hpp"
+
 #include "xacc.hpp"
 #include "xacc_service.hpp"
-#include "xacc_observable.hpp"
+#include "xacc_quantum_gate_api.hpp"
 
-#include "CountGatesOfTypeVisitor.hpp"
-#include "CommonGates.hpp"
-
-#include <regex>
-
-using namespace xacc;
+#include "qalloc.hpp"
 
 namespace qcor {
 
-namespace __internal {
-bool executeKernel = true;
-void switchDefaultKernelExecution(bool execute) { executeKernel = execute; }
-bool hasMeasurements(std::shared_ptr<CompositeInstruction> inst) {
-  quantum::CountGatesOfTypeVisitor<quantum::Measure> count(inst);
-  return count.countGates() > 0;
+namespace __internal__ {
+std::shared_ptr<ObjectiveFunction> get_objective(const char * type) {
+    return xacc::getService<ObjectiveFunction>(type);
+}
+std::vector<std::shared_ptr<xacc::CompositeInstruction>>
+observe(std::shared_ptr<xacc::Observable> obs,
+        xacc::CompositeInstruction *program) {
+  return obs->observe(xacc::as_shared_ptr(program));
 }
 
-void updateMap(xacc::HeterogeneousMap &m, std::vector<double> &values) {
-  if (values.empty()) {
-    m.get_mutable<std::vector<double>>("initial-parameters") =
-        std::vector<double>(m.get<std::size_t>("__internal_n_vars"));
-  } else {
-    m.get_mutable<std::vector<double>>("initial-parameters") = values;
-  }
+double observe(xacc::CompositeInstruction* program,
+             std::shared_ptr<xacc::Observable> obs,
+             xacc::internal_compiler::qreg &q) {
+  return [program, obs, &q]() {
+    // Observe the program
+    auto programs = __internal__::observe(obs, program);
+
+    std::vector<xacc::CompositeInstruction *> ptrs;
+    for (auto p : programs)
+      ptrs.push_back(p.get());
+
+    xacc::internal_compiler::execute(q.results(), ptrs);
+
+    // We want to contract q children buffer
+    // exp-val-zs with obs term coeffs
+    return q.weighted_sum(obs.get());
+  }();
+}
+} // namespace __internal__
+
+xacc::Optimizer *getOptimizer() {
+  if (!xacc::isInitialized())
+    xacc::internal_compiler::compiler_InitializeXACC();
+  return xacc::getOptimizer("nlopt").get();
 }
 
-void updateMap(xacc::HeterogeneousMap &m, std::vector<double> &&values) {
-  if (values.empty()) {
-    m.get_mutable<std::vector<double>>("initial-parameters") =
-        std::vector<double>(m.get<std::size_t>("__internal_n_vars"));
-  } else {
-    m.get_mutable<std::vector<double>>("initial-parameters") = values;
-  }
+std::shared_ptr<xacc::Observable> getObservable(const char *repr) {
+  if (!xacc::isInitialized())
+    xacc::internal_compiler::compiler_InitializeXACC();
+  return xacc::quantum::getObservable("pauli", std::string(repr));
 }
 
-void updateMap(xacc::HeterogeneousMap &m, double value) {
-  m.get_mutable<std::vector<double>>("initial-parameters").push_back(value);
-}
-
-void constructInitialParameters(xacc::HeterogeneousMap &m) { return; }
-} // namespace __internal
-
-void Initialize() { Initialize(std::vector<std::string>{}); }
-
-void Initialize(int argc, char **argv) {
-  std::vector<const char *> tmp(argv, argv + argc);
-  std::vector<std::string> newargv;
-  for (auto &t : tmp)
-    newargv.push_back(std::string(t));
-  Initialize(newargv);
-}
-
-void Initialize(std::vector<std::string> argv) {
-  argv.push_back("--logger-name");
-  argv.push_back("qcor");
-  xacc::Initialize(argv);
-}
-void Finalize() { xacc::Finalize(); }
-
-ResultBuffer qalloc(const std::size_t nBits) { return xacc::qalloc(nBits); }
-ResultBuffer qalloc() { return xacc::qalloc(); }
-ResultBuffer sync(Handle &handle) { return handle.get(); }
-
-Handle submit(HandlerLambda &&totalJob) {
-  // Create the QPU Handler to pass to the given
-  // Handler HandlerLambda
-  return std::async(std::launch::async, [=]() { // bug must be by value...
-    qpu_handler handler;
-    totalJob(handler);
-    return handler.getResults();
-  });
-}
-
-Handle submit(HandlerLambda &&totalJob,
-              std::shared_ptr<AcceleratorBuffer> buffer) {
-  return std::async(std::launch::async, [&]() {
-    qpu_handler handler(buffer);
-    totalJob(handler);
-    return handler.getResults();
-  });
-}
-
-std::shared_ptr<Optimizer> getOptimizer(const std::string &name) {
-  return xacc::getOptimizer(name);
-}
-std::shared_ptr<Optimizer> getOptimizer(const std::string &name,
-                                        const HeterogeneousMap &&options) {
-  return xacc::getOptimizer(name, options);
-}
-
-std::shared_ptr<Observable> getObservable(const std::string &type,
-                                          const std::string &representation) {
-  return xacc::quantum::getObservable(type, representation);
-}
-
-std::shared_ptr<Observable> getObservable() {
-  return xacc::quantum::getObservable();
-}
-std::shared_ptr<Observable> getObservable(const std::string &representation) {
-  return xacc::quantum::getObservable("pauli", representation);
-}
-
-std::shared_ptr<Observable> getObservable(const std::string &type,
-                                          const HeterogeneousMap &&options) {
-  return xacc::quantum::getObservable(type, options);
-}
 
 } // namespace qcor

@@ -1,0 +1,6 @@
+{
+  "bundle.symbolic_name" : "qcor_xasm_token",
+  "bundle.activator" : true,
+  "bundle.name" : "Xasm Token Collector",
+  "bundle.description" : ""
+}

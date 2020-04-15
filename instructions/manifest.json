@@ -1,6 +1,0 @@
-{
-    "bundle.symbolic_name" : "qcor_instructions",
-    "bundle.activator" : true,
-    "bundle.name" : "QCor Analog Instructions",
-    "bundle.description" : "This is an automatically generated bundle."
-}
