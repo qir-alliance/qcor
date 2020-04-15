@@ -62,6 +62,16 @@ the following file
 ```cpp
 #include "qcor.hpp"
 
+// QCOR kernel requirements:
+// C-like function, unique function name
+// takes qreg as first argument, can take any 
+// arguments after that which are necessary for function 
+// evaluation (like gate rotation parameters). 
+// Function body is written in a 'supported language' (i.e. 
+// we have a xacc::Compiler parser for it, here XASM (which is default))
+// Must be annotated with the __qpu__ attribute, which expands 
+// to [[clang::syntax(qcor)]], thereby invoking our custom Clang SyntaxHandler.
+
 __qpu__ void ansatz(qreg q, double t) {
   X(q[0]);
   Ry(q[1], t);
@@ -70,33 +80,36 @@ __qpu__ void ansatz(qreg q, double t) {
 
 int main(int argc, char **argv) {
 
-  auto opt = qcor::getOptimizer();
-  auto obs = qcor::getObservable(
+ // Allocate 2 qubits
+  auto q = qalloc(2);
+
+  // Create the Deuteron Hamiltonian (Observable)
+  auto H = qcor::getObservable(
       "5.907 - 2.1433 X0X1 - 2.1433 Y0Y1 + .21829 Z0 - 6.125 Z1");
 
-  // Schedule an asynchronous VQE execution
-  // with the given quantum kernel ansatz
-  auto handle = qcor::taskInitiate(ansatz, "vqe", opt, obs, 0.45);
+  // Create the ObjectiveFunction, here we want to run VQE
+  // need to provide ansatz and the Observable
+  // Must also provide initial params for ansatz (under the hood, uses 
+  // variadic template)
+  auto objective = qcor::createObjectiveFunction("vqe", ansatz, H, q, 0.0);
 
-  auto results_buffer = handle.get();
-  auto energy = qcor::extract_results<double>(results_buffer, "opt-val");
-  auto angles =
-      qcor::extract_results<std::vector<double>>(results_buffer, "opt-params");
+  // Evaluate the ObjectiveFunction at a specified set of parameters
+  auto energy = (*objective)(q, .59);
 
-  printf("energy = %f\n", energy);
-  printf("angles = [");
-  for (int i = 0; i < 1; i++)
-    printf("%f ", angles[i]);
-  printf("]\n");
+  // Print the result
+  printf("vqe energy = %f\n", energy);
+  q.print();
+
 }
 ```
 To compile this with QCOR targeting a Rigetti QCS QPU, run the following
 
 ```bash
-$ qcor -o deuteron -qpu qcs:Aspen-4-4Q-A deuteron.cpp
+$ [run on QPU] qcor -o deuteron_qcs -qpu qcs:Aspen-4-4Q-A deuteron.cpp
+$ [run on Simulator] qcor -o deuteron_tnqvm -qpu tnqvm deuteron.cpp
 ```
-This will create the ```deuteron``` quantum-classical binary executable.
-Now just run
+This will create the ```deuteron_tnqvm``` and ```deuteron_qcs``` quantum-classical binary executables, 
+each compiled for the specified backend. Now just run one of them
 ```bash
-$ ./deuteron
+$ ./deuteron_tnqvm
 ```
