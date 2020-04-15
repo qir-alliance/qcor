@@ -1,12 +1,6 @@
 stages:
   - build
-
-docker build_devel:
-  stage: build
-  only:
-  - devel
-  script:
-  - cd docker/ci/ubuntu1804/devel && docker build -t qcor/devel-ci . --no-cache
+  - deploy
 
 docker build_master:
   stage: build
@@ -14,4 +8,16 @@ docker build_master:
   - master
   script:
   - cd docker/ci/ubuntu1804/master && docker build -t qcor/master-ci . --no-cache
+  - git config remote.aideqcqcor.url >&- || git remote add -t master aideqcqcor https://amccaskey:$AIDEQC_ACCESS_TOKEN@github.com/aide-qc/qcor
+  - git push -f aideqcqcor HEAD:master
+  - git remote remove aideqcqcor
 
+docker run_docker_deploy:
+  stage: deploy
+  only:
+   - schedules
+  script:
+  - cd docker/deploy/dev && docker build -t qcor/qcor . --no-cache
+  - echo "$REGISTRY_PASSWORD" | docker login -u qcor --password-stdin
+  - docker push qcor/qcor
+  - docker system prune -f 
