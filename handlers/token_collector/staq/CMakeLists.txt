@@ -12,10 +12,12 @@
 # *******************************************************************************/
 set(LIBRARY_NAME qcor-staq-token)
 
+file(GLOB SRC *.cpp)
+
 usfunctiongetresourcesource(TARGET ${LIBRARY_NAME} OUT SRC)
 usfunctiongeneratebundleinit(TARGET ${LIBRARY_NAME} OUT SRC)
 
-add_library(${LIBRARY_NAME} SHARED staq_token_collector.cpp)
+add_library(${LIBRARY_NAME} SHARED ${SRC})
 
 target_include_directories(
   ${LIBRARY_NAME}
