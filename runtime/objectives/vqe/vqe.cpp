@@ -15,7 +15,9 @@ namespace qcor {
 class VQE : public ObjectiveFunction {
 protected:
   double operator()() override {
-    return qcor::__internal__::observe(kernel, observable, qreg);
+    auto tmp_child = qalloc(qreg.size());
+    auto val= qcor::__internal__::observe(kernel, observable, tmp_child);
+    qreg.addChild(tmp_child);
   }
 public:
   const std::string name() const override { return "vqe"; }

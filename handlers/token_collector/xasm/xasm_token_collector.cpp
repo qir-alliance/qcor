@@ -3,9 +3,11 @@
 #include "cppmicroservices/BundleActivator.h"
 #include "cppmicroservices/BundleContext.h"
 #include "cppmicroservices/ServiceProperties.h"
+#include "clang/Basic/TokenKinds.h"
 
 #include <memory>
 #include <set>
+#include <iostream> 
 
 using namespace cppmicroservices;
 
@@ -40,8 +42,21 @@ namespace qcor {
 void XasmTokenCollector::collect(clang::Preprocessor &PP,
                                  clang::CachedTokens &Toks,
                                  std::stringstream &ss) {
+  bool inForLoop = false;
   for (auto &Tok : Toks) {
-    ss << PP.getSpelling(Tok);
+    if (PP.getSpelling(Tok) == "for") {
+        inForLoop = true;
+    }
+
+    if (inForLoop && Tok.is(clang::tok::TokenKind::l_brace)) {
+        inForLoop = false;
+    }
+
+    if (inForLoop) {
+        ss << PP.getSpelling(Tok) << " ";
+    } else {
+        ss << PP.getSpelling(Tok);
+    }
   }
 }
 

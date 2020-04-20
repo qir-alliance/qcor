@@ -9,6 +9,7 @@
 #include "qalloc.hpp"
 
 namespace qcor {
+void set_verbose(bool verbose) {xacc::set_verbose(verbose);}
 
 namespace __internal__ {
 std::shared_ptr<ObjectiveFunction> get_objective(const char * type) {
@@ -28,8 +29,9 @@ double observe(xacc::CompositeInstruction* program,
     auto programs = __internal__::observe(obs, program);
 
     std::vector<xacc::CompositeInstruction *> ptrs;
-    for (auto p : programs)
+    for (auto p : programs) {
       ptrs.push_back(p.get());
+    }
 
     xacc::internal_compiler::execute(q.results(), ptrs);
 

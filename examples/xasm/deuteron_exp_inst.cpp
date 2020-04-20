@@ -18,7 +18,7 @@ int main(int argc, char **argv) {
 
   // Create an objective function to optimize
   // Each call evaluates E(theta) = <ansatz(theta) | H | ansatz(theta)>
-  xacc::OptFunction opt_func(
+  qcor::OptFunction opt_func(
       [&](const std::vector<double> &x, std::vector<double> &grad) -> double {
         
         // Affect Observable observation and evaluate at given ansatz parameters
