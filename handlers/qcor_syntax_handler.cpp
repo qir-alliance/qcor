@@ -167,6 +167,11 @@ public:
         ++i;
         qpu_name = args[i];
       } else if (args[i] == "-shots") {
+        if (i + 1 >= e) {
+          D.Report(D.getCustomDiagID(DiagnosticsEngine::Error,
+                                     "missing -shots argument"));
+          return false;
+        }
         ++i;
         shots = std::stoi(args[i]);
       } else if (args[i] == "-qcor-verbose") {

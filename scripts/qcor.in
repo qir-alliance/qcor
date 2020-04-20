@@ -61,7 +61,7 @@ def main(argv=None):
         shots = sys.argv[sidx+1]
         sys.argv.remove(shots)
         sys.argv.remove('-shots')
-        sHandlerArgs = ['-Xclang', '-plugin-arg-qcor-args', '-Xclang', '-shots', '-Xclang', '-plugin-arg-qcor-args', '-Xclang', shots]
+        sHandlerArgs += ['-Xclang', '-plugin-arg-qcor-args', '-Xclang', '-shots', '-Xclang', '-plugin-arg-qcor-args', '-Xclang', shots]
 
     if verbose:
         sHandlerArgs += ['-Xclang', '-plugin-arg-qcor-args', '-Xclang', '-qcor-verbose']
