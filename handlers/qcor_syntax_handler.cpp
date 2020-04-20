@@ -12,7 +12,7 @@ using namespace clang;
 namespace {
 
 std::string qpu_name = "tnqvm";
-int shots = 1024;
+int shots = 0;
 
 class QCORSyntaxHandler : public SyntaxHandler {
 public:
@@ -67,7 +67,7 @@ public:
         program_parameters.push_back(ident->getName().str());
         if (type == "class xacc::internal_compiler::qreg") {
           bufferNames.push_back(ident->getName().str());
-        } 
+        }
         // else if (type == "double") {
         //   program_parameters.push_back(ident->getName().str());
         // } else {
@@ -84,29 +84,34 @@ public:
 
     // Get Tokens as a string, rewrite code
     // with XACC api calls
-    auto kernel_src_and_compiler = qcor::run_token_collector(PP, Toks, function_prototype);
+    auto kernel_src_and_compiler =
+        qcor::run_token_collector(PP, Toks, function_prototype);
     auto kernel_src = kernel_src_and_compiler.first;
     auto compiler_name = kernel_src_and_compiler.second;
 
     // std::cout << "HELLO:\n" << kernel_src << "\n";
     // Write new source code in place of the
     // provided quantum code tokens
-    OS << "compiler_InitializeXACC(\"" + qpu_name + "\", "+std::to_string(shots)+");\n";
+    if (shots > 0) {
+      OS << "compiler_InitializeXACC(\"" + qpu_name + "\", " +
+                std::to_string(shots) + ");\n";
+    } else {
+      OS << "compiler_InitializeXACC(\"" + qpu_name + "\");\n";
+    }
     for (auto &buf : bufferNames) {
       OS << buf << ".setNameAndStore(\"" + buf + "\");\n";
     }
     OS << "auto program = getCompiled(\"" << kernel_name << "\");\n";
     OS << "if (!program) {\n";
     OS << "std::string kernel_src = R\"##(" + kernel_src + ")##\";\n";
-    OS << "program = compile(\""+compiler_name+"\", kernel_src.c_str());\n";
+    OS << "program = compile(\"" + compiler_name + "\", kernel_src.c_str());\n";
     OS << "}\n";
     // OS << "optimize(program);\n";
 
     OS << "if (__execute) {\n";
-    OS << "program->updateRuntimeArguments(" << program_parameters[0]; //args...);
-    // setRuntimeArguments(" << program_parameters[0];
+    OS << "program->updateRuntimeArguments(" << program_parameters[0];
     for (int i = 1; i < program_parameters.size(); i++) {
-        OS << ", " << program_parameters[i];
+      OS << ", " << program_parameters[i];
     }
     OS << ");\n";
     // OS << "internal_set_parameters(program);\n";
@@ -125,7 +130,9 @@ public:
     OS << ");\n";
 
     OS << "}\n";
-    std::cout << "HELLO:\n" << OS.str() << "\n";
+    auto s = OS.str();
+    qcor::info("[qcor syntax-handler] Rewriting " + kernel_name + " to\n\n" +
+               function_prototype + "{\n" + s.substr(2, s.length()) + "\n}");
   }
 
   void AddToPredefines(llvm::raw_string_ostream &OS) override {
@@ -139,38 +146,12 @@ public:
   bool HandleTopLevelDecl(DeclGroupRef DG) override { return true; }
 };
 
-class DoNothingConsumer2 : public ASTConsumer {
-public:
-  bool HandleTopLevelDecl(DeclGroupRef DG) override { std::cout << "CONSUMING THIS BITCH\n";return true; }
-};
-
-
-
-class QCORTEST : public PluginASTAction {
-public:
-  std::unique_ptr<ASTConsumer> CreateASTConsumer(CompilerInstance &CI,
-                                                 llvm::StringRef) override {
-    std::cout << "HERE WE ARE, OPPORTUNITY TO OUTPUT SOURCE MAYBE? \n";
-    return std::make_unique<DoNothingConsumer2>();
-  }
-
-
-  bool ParseArgs(const CompilerInstance &CI,
-                 const std::vector<std::string> &args) override {
-    return true;
-  }
-
-  PluginASTAction::ActionType getActionType() override {
-    return AddAfterMainAction;
-  }
-};
 class QCORArgs : public PluginASTAction {
 public:
   std::unique_ptr<ASTConsumer> CreateASTConsumer(CompilerInstance &CI,
                                                  llvm::StringRef) override {
     return std::make_unique<DoNothingConsumer>();
   }
-
 
   bool ParseArgs(const CompilerInstance &CI,
                  const std::vector<std::string> &args) override {
@@ -186,8 +167,10 @@ public:
         ++i;
         qpu_name = args[i];
       } else if (args[i] == "-shots") {
-          ++i;
-          shots = std::stoi(args[i]);
+        ++i;
+        shots = std::stoi(args[i]);
+      } else if (args[i] == "-qcor-verbose") {
+        qcor::set_verbose(true);
       }
     }
     return true;

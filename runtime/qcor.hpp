@@ -13,9 +13,6 @@ namespace qcor {
 
 using OptFunction = xacc::OptFunction;
 
-Observable* PauliX(const std::size_t qbit_idx);
-
-
 void set_verbose(bool verbose);
 
 class ObjectiveFunction : public xacc::Identifiable {

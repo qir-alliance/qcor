@@ -13,6 +13,9 @@ std::pair<std::string, std::string>
 run_token_collector(clang::Preprocessor &PP, clang::CachedTokens &Toks,
                     const std::string &function_prototype);
 
+void set_verbose(bool verbose);
+void info(const std::string& s);
+
 } // namespace qcor
 
 #endif

@@ -5,6 +5,9 @@
 
 namespace qcor {
 
+void set_verbose(bool verbose) {xacc::set_verbose(verbose);}
+void info(const std::string& s) {xacc::info(s);}
+
 std::pair<std::string, std::string>
 run_token_collector(clang::Preprocessor &PP, clang::CachedTokens &Toks,
                     const std::string &function_prototype) {

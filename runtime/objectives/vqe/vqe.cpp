@@ -16,8 +16,9 @@ class VQE : public ObjectiveFunction {
 protected:
   double operator()() override {
     auto tmp_child = qalloc(qreg.size());
-    auto val= qcor::__internal__::observe(kernel, observable, tmp_child);
+    auto val = qcor::__internal__::observe(kernel, observable, tmp_child);
     qreg.addChild(tmp_child);
+    return val;
   }
 public:
   const std::string name() const override { return "vqe"; }
