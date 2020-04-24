@@ -10,11 +10,11 @@ int main(int argc, char **argv) {
   auto q = qalloc(2);
 
   // Create the Deuteron Hamiltonian
-  auto H = qcor::getObservable(
+  auto H = qcor::createObservable(
       "5.907 - 2.1433 X0X1 - 2.1433 Y0Y1 + .21829 Z0 - 6.125 Z1");
 
   // Create the Ansatz exponent Operator
-  auto ansatz_exponent = qcor::getObservable("X0 Y1 - Y0 X1");
+  auto ansatz_exponent = qcor::createObservable("X0 Y1 - Y0 X1");
 
   // Create an objective function to optimize
   // Each call evaluates E(theta) = <ansatz(theta) | H | ansatz(theta)>
@@ -31,7 +31,7 @@ int main(int argc, char **argv) {
       1);
 
   // Create a qcor Optimizer
-  auto optimizer = qcor::getOptimizer();
+  auto optimizer = qcor::createOptimizer("nlopt");
 
   // Optimize the above function
   auto result = optimizer->optimize(opt_func);

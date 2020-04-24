@@ -51,4 +51,8 @@ else()
   set_target_properties(${LIBRARY_NAME} PROPERTIES LINK_FLAGS "-shared")
 endif()
 
+if (QCOR_BUILD_TESTS) 
+  add_subdirectory(tests)
+endif()
+
 install(TARGETS ${LIBRARY_NAME} DESTINATION ${CMAKE_INSTALL_PREFIX}/plugins)
