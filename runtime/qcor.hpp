@@ -1,6 +1,7 @@
 #ifndef RUNTIME_QCOR_HPP_
 #define RUNTIME_QCOR_HPP_
 
+#include <CompositeInstruction.hpp>
 #include <memory>
 #include <qalloc>
 
@@ -43,8 +44,7 @@ double observe(xacc::CompositeInstruction *program,
 
 // Observe the kernel and return the measured kernels
 std::vector<std::shared_ptr<xacc::CompositeInstruction>>
-observe(std::shared_ptr<Observable> obs,
-        xacc::CompositeInstruction *program);
+observe(std::shared_ptr<Observable> obs, xacc::CompositeInstruction *program);
 
 // Get the objective function from the service registry
 std::shared_ptr<ObjectiveFunction> get_objective(const char *type);
@@ -113,7 +113,7 @@ public:
     pointer_to_functor = qk;
   }
 
-  void set_options(HeterogeneousMap& opts) {options = opts;}
+  void set_options(HeterogeneousMap &opts) { options = opts; }
 
   // Set the results buffer
   void set_results_buffer(ResultsBuffer q) { qreg = q; }
@@ -127,12 +127,24 @@ public:
       auto functor =
           reinterpret_cast<void (*)(ArgumentTypes...)>(pointer_to_functor);
       kernel = __internal__::kernel_as_composite_instruction(functor, args...);
+    }
+
+    if (!qreg.results()) {
+      // this hasn't been set, so set it
       qreg = std::get<0>(std::forward_as_tuple(args...));
     }
+
     kernel->updateRuntimeArguments(args...);
     return operator()();
   }
 };
+
+void set_backend(const std::string &backend) {
+  xacc::internal_compiler::compiler_InitializeXACC();
+  xacc::internal_compiler::setAccelerator(backend.c_str());
+}
+
+std::shared_ptr<xacc::CompositeInstruction> compile(const std::string &src);
 
 // Public observe function, returns expected value of Observable
 template <typename QuantumKernel, typename... Args>
@@ -170,9 +182,21 @@ createOptimizer(const char *type, HeterogeneousMap &&options = {});
 // Create an observable from a string representation
 std::shared_ptr<Observable> createObservable(const char *repr);
 
-// Create an Objective Function that makes calls to the 
-// provided Quantum Kernel, with measurements dictated by 
-// the provided Observable. Optionally can provide problem-specific 
+// template <typename T> struct is_shared_ptr : std::false_type {};
+// template <typename T>
+// struct is_shared_ptr<std::shared_ptr<T>> : std::true_type {};
+std::shared_ptr<ObjectiveFunction> createObjectiveFunction(
+    const char *obj_name, std::shared_ptr<xacc::CompositeInstruction> kernel,
+    std::shared_ptr<Observable> observable, HeterogeneousMap &&options = {}) {
+  auto obj_func = qcor::__internal__::get_objective(obj_name);
+  obj_func->initialize(observable, kernel.get());
+  obj_func->set_options(options);
+  return obj_func;
+}
+
+// Create an Objective Function that makes calls to the
+// provided Quantum Kernel, with measurements dictated by
+// the provided Observable. Optionally can provide problem-specific
 // options map.
 template <typename QuantumKernel>
 std::shared_ptr<ObjectiveFunction>
