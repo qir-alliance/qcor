@@ -25,8 +25,7 @@ int main(int argc, char **argv) {
   // need to provide ansatz and the Observable
   // Must also provide initial params for ansatz (under the hood, uses
   // variadic template)
-  auto objective = qcor::createObjectiveFunction("vqe", ansatz, H, q,
-                                                 std::vector<double>(10));
+  auto objective = qcor::createObjectiveFunction("vqe", ansatz, H);
 
 
   qcor::OptFunction f(

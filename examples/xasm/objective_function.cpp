@@ -37,7 +37,7 @@ int main(int argc, char **argv) {
   // need to provide ansatz and the Observable
   // Must also provide initial params for ansatz (under the hood, uses 
   // variadic template)
-  auto objective = qcor::createObjectiveFunction("vqe", ansatz, H, q, 0.0);
+  auto objective = qcor::createObjectiveFunction("vqe", ansatz, H);
 
   // Evaluate the ObjectiveFunction at a specified set of parameters
   auto energy = (*objective)(q, .59);
@@ -51,7 +51,7 @@ int main(int argc, char **argv) {
   q.reset();
 
   // Create the Objective again
-  auto objective2 = qcor::createObjectiveFunction("vqe", ansatz2, H, q, std::vector<double>{0.0});
+  auto objective2 = qcor::createObjectiveFunction("vqe", ansatz2, H);
 
   // Evaluate, but with a vector
   energy = (*objective2)(q, std::vector<double>{.59});

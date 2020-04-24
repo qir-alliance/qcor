@@ -12,35 +12,11 @@
 namespace qcor {
 
 using OptFunction = xacc::OptFunction;
+using HeterogeneousMap = xacc::HeterogeneousMap;
 
 void set_verbose(bool verbose);
 
-class ObjectiveFunction : public xacc::Identifiable {
-protected:
-  std::shared_ptr<xacc::Observable> observable;
-  xacc::CompositeInstruction * kernel;
-  xacc::internal_compiler::qreg qreg;
-
-  virtual double operator()() = 0;
-
-public:
-  ObjectiveFunction() = default;
-  virtual void initialize(std::shared_ptr<xacc::Observable> obs,
-                          xacc::CompositeInstruction * qk) {
-    observable = obs;
-    kernel = qk;
-  }
-
-  void set_qreg(xacc::internal_compiler::qreg q) {
-      qreg = q;
-  }
-  template <typename... ArgumentTypes>
-  double operator()(ArgumentTypes... args) {
-    kernel->updateRuntimeArguments(args...);
-    return operator()();
-  }
-};
-
+class ObjectiveFunction;
 
 namespace __internal__ {
 
@@ -74,6 +50,49 @@ std::shared_ptr<ObjectiveFunction> get_objective(const char * type);
 
 
 } // namespace __internal__
+
+
+class ObjectiveFunction : public xacc::Identifiable {
+protected:
+  std::shared_ptr<xacc::Observable> observable;
+  xacc::CompositeInstruction * kernel;
+  xacc::internal_compiler::qreg qreg;
+  void * pointer_to_functor = nullptr;
+
+  virtual double operator()() = 0;
+
+public:
+  // Publicly visible to clients for use in OptFunctions
+  std::vector<double> current_gradient;
+
+  ObjectiveFunction() = default;
+  virtual void initialize(std::shared_ptr<xacc::Observable> obs,
+                          xacc::CompositeInstruction * qk) {
+    observable = obs;
+    kernel = qk;
+  }
+
+  virtual void initialize(std::shared_ptr<xacc::Observable> obs,
+                          void * qk) {
+    observable = obs;
+    pointer_to_functor = qk;
+  }
+
+  void set_qreg(xacc::internal_compiler::qreg q) {
+      qreg = q;
+  }
+
+  template <typename... ArgumentTypes>
+  double operator()(ArgumentTypes... args) {
+    if (!kernel) {
+       auto functor = reinterpret_cast<void (*)(ArgumentTypes...)>(pointer_to_functor);
+       kernel = __internal__::kernel_as_composite_instruction(functor, args...);
+       qreg = std::get<0>(std::forward_as_tuple(args...));
+    }
+    kernel->updateRuntimeArguments(args...);
+    return operator()();
+  }
+};
 
 template <typename QuantumKernel, typename... Args>
 auto observe(QuantumKernel &kernel, std::shared_ptr<xacc::Observable> obs,
@@ -110,16 +129,15 @@ xacc::Optimizer *getOptimizer();
 // Get a pauli observable from a string representation
 std::shared_ptr<xacc::Observable> getObservable(const char *repr);
 
-template <typename QuantumKernel, typename... KernelArguments>
+template <typename QuantumKernel>
 std::shared_ptr<ObjectiveFunction>
 createObjectiveFunction(const char *obj_name, QuantumKernel &kernel,
-                        std::shared_ptr<xacc::Observable> observable,
-                        KernelArguments... args) {
+                        std::shared_ptr<xacc::Observable> observable) {
   auto obj_func = qcor::__internal__::get_objective(obj_name);
-  auto q = std::get<0>(std::forward_as_tuple(args...));
-  obj_func->set_qreg(q);
-  auto program = __internal__::kernel_as_composite_instruction(kernel, args...);
-  obj_func->initialize(observable, program);
+  // We can store this function pointer to a void* on ObjectiveFunction
+  // to be converted to CompositeInstruction later
+  void* kk = reinterpret_cast<void*>(kernel);
+  obj_func->initialize(observable, kk);
   return obj_func;
 }
 
