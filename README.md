@@ -8,6 +8,13 @@
 QCOR is a C++ language extension and associated compiler implementation
 for hybrid quantum-classical programming.
 
+Quick Start
+-----------
+QCOR nightly docker images are available that serve up an Eclipse Theia IDE (the same IDE Gitpod uses) on port 3000. To get started, run 
+```bash
+$ docker run --security-opt seccomp=unconfined --init -it -p 3000:3000 qcor/qcor
+```
+Navigate to ``https://localhost:3000`` in your browser to open the IDE and get started with QCOR. 
 
 ## Dependencies
 ```
@@ -89,9 +96,7 @@ int main(int argc, char **argv) {
 
   // Create the ObjectiveFunction, here we want to run VQE
   // need to provide ansatz and the Observable
-  // Must also provide initial params for ansatz (under the hood, uses 
-  // variadic template)
-  auto objective = qcor::createObjectiveFunction("vqe", ansatz, H, q, 0.0);
+  auto objective = qcor::createObjectiveFunction("vqe", ansatz, H);
 
   // Evaluate the ObjectiveFunction at a specified set of parameters
   auto energy = (*objective)(q, .59);
