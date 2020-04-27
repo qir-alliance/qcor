@@ -49,7 +49,7 @@ TEST(VQETester, checkSimple) {
 
   auto vqe = xacc::getService<qcor::ObjectiveFunction>("vqe");
   vqe->initialize(observable, ruccsd.get());
-  vqe->set_results_buffer(buffer);
+  vqe->set_qreg(buffer);
 
   qcor::OptFunction f(
       [&](const std::vector<double> x, std::vector<double> &grad) {

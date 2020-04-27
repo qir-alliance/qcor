@@ -35,8 +35,6 @@ int main(int argc, char **argv) {
 
   // Create the ObjectiveFunction, here we want to run VQE
   // need to provide ansatz and the Observable
-  // Must also provide initial params for ansatz (under the hood, uses 
-  // variadic template)
   auto objective = qcor::createObjectiveFunction("vqe", ansatz, H);
 
   // Evaluate the ObjectiveFunction at a specified set of parameters

@@ -1,21 +1,34 @@
 #ifndef RUNTIME_QCOR_HPP_
 #define RUNTIME_QCOR_HPP_
 
-#include <CompositeInstruction.hpp>
+#include <future>
 #include <memory>
-#include <qalloc>
 
+#include "CompositeInstruction.hpp"
 #include "Observable.hpp"
 #include "Optimizer.hpp"
 
+#include "qalloc"
 #include "xacc_internal_compiler.hpp"
 
 namespace qcor {
 
 using OptFunction = xacc::OptFunction;
 using HeterogeneousMap = xacc::HeterogeneousMap;
-using ResultsBuffer = xacc::internal_compiler::qreg;
 using Observable = xacc::Observable;
+using Optimizer = xacc::Optimizer;
+
+class ResultsBuffer {
+public:
+  xacc::internal_compiler::qreg q_buffer;
+  double opt_val;
+  std::vector<double> opt_params;
+};
+
+using Handle = std::future<ResultsBuffer>;
+ResultsBuffer sync(Handle& handle) {
+    return handle.get();
+}
 
 void set_verbose(bool verbose);
 
@@ -79,7 +92,7 @@ protected:
   xacc::CompositeInstruction *kernel;
 
   // The buffer containing all execution results
-  ResultsBuffer qreg;
+  xacc::internal_compiler::qreg qreg;
 
   HeterogeneousMap options;
 
@@ -116,7 +129,8 @@ public:
   void set_options(HeterogeneousMap &opts) { options = opts; }
 
   // Set the results buffer
-  void set_results_buffer(ResultsBuffer q) { qreg = q; }
+  void set_qreg(xacc::internal_compiler::qreg q) { qreg = q; }
+  xacc::internal_compiler::qreg get_qreg() { return qreg; }
 
   // Evaluate this Objective function at the give parameters.
   // These variadic parameters must mirror the provided
@@ -182,9 +196,6 @@ createOptimizer(const char *type, HeterogeneousMap &&options = {});
 // Create an observable from a string representation
 std::shared_ptr<Observable> createObservable(const char *repr);
 
-// template <typename T> struct is_shared_ptr : std::false_type {};
-// template <typename T>
-// struct is_shared_ptr<std::shared_ptr<T>> : std::true_type {};
 std::shared_ptr<ObjectiveFunction> createObjectiveFunction(
     const char *obj_name, std::shared_ptr<xacc::CompositeInstruction> kernel,
     std::shared_ptr<Observable> observable, HeterogeneousMap &&options = {}) {
@@ -210,6 +221,23 @@ createObjectiveFunction(const char *obj_name, QuantumKernel &kernel,
   obj_func->initialize(observable, kk);
   obj_func->set_options(options);
   return obj_func;
+}
+
+Handle taskInitiate(
+    std::shared_ptr<ObjectiveFunction> objective,
+    std::shared_ptr<Optimizer> optimizer,
+    std::function<double(const std::vector<double>, std::vector<double> &)>
+        &&opt_function,
+    const int nParameters) {
+  return std::async(std::launch::async, [=]() -> ResultsBuffer {
+    qcor::OptFunction f(opt_function, nParameters);
+    auto results = optimizer->optimize(f);
+    ResultsBuffer rb;
+    rb.q_buffer = objective->get_qreg();
+    rb.opt_params = results.second;
+    rb.opt_val = results.first;
+    return rb;
+  });
 }
 
 } // namespace qcor
