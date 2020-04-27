@@ -1,8 +1,10 @@
 #ifndef RUNTIME_QCOR_HPP_
 #define RUNTIME_QCOR_HPP_
 
+#include <functional>
 #include <future>
 #include <memory>
+#include <tuple>
 
 #include "CompositeInstruction.hpp"
 #include "Observable.hpp"
@@ -26,15 +28,36 @@ public:
 };
 
 using Handle = std::future<ResultsBuffer>;
-ResultsBuffer sync(Handle& handle) {
-    return handle.get();
-}
+ResultsBuffer sync(Handle &handle) { return handle.get(); }
 
 void set_verbose(bool verbose);
 
 class ObjectiveFunction;
 
+template <typename... Args> class ArgTranslator {
+public:
+  std::function<std::tuple<Args...>(std::vector<double>)> t;
+  ArgTranslator(std::function<std::tuple<Args...>(std::vector<double> x)> &&ts)
+      : t(ts) {}
+
+  std::tuple<Args...> operator()(std::vector<double> x) { return t(x); }
+};
+
+template <typename... Args>
+using TranslationFunctor =
+    std::function<std::tuple<Args...>(const std::vector<double>)>;
+
 namespace __internal__ {
+
+template <typename Function, typename Tuple, size_t... I>
+auto call(Function f, Tuple t, std::index_sequence<I...>) {
+  return f->operator()(std::get<I>(t)...);
+}
+
+template <typename Function, typename Tuple> auto call(Function f, Tuple t) {
+  static constexpr auto size = std::tuple_size<Tuple>::value;
+  return call(f, t, std::make_index_sequence<size>{});
+}
 
 // Given a quantum kernel functor / function pointer, create the xacc
 // CompositeInstruction representation of it
@@ -223,23 +246,32 @@ createObjectiveFunction(const char *obj_name, QuantumKernel &kernel,
   return obj_func;
 }
 
-Handle taskInitiate(
-    std::shared_ptr<ObjectiveFunction> objective,
-    std::shared_ptr<Optimizer> optimizer,
-    std::function<double(const std::vector<double>, std::vector<double> &)>
-        &&opt_function,
-    const int nParameters) {
-  return std::async(std::launch::async, [=]() -> ResultsBuffer {
-    qcor::OptFunction f(opt_function, nParameters);
-    auto results = optimizer->optimize(f);
-    ResultsBuffer rb;
-    rb.q_buffer = objective->get_qreg();
-    rb.opt_params = results.second;
-    rb.opt_val = results.first;
-    return rb;
-  });
-}
+Handle taskInitiate(std::shared_ptr<ObjectiveFunction> objective,
+                    std::shared_ptr<Optimizer> optimizer,
+                    std::function<double(const std::vector<double>,
+                                         std::vector<double> &)> &&opt_function,
+                    const int nParameters);
 
+Handle taskInitiate(std::shared_ptr<ObjectiveFunction> objective,
+                    std::shared_ptr<Optimizer> optimizer,
+                    qcor::OptFunction &&opt_function);
+
+Handle taskInitiate(std::shared_ptr<ObjectiveFunction> objective,
+                    std::shared_ptr<Optimizer> optimizer,
+                    qcor::OptFunction &opt_function);
+template <typename... Args>
+Handle taskInitiate(std::shared_ptr<ObjectiveFunction> objective,
+                    std::shared_ptr<Optimizer> optimizer,
+                    TranslationFunctor<Args...> translation,
+                    const int nParameters) {
+  return taskInitiate(
+      objective, optimizer,
+      [=](const std::vector<double> x, std::vector<double> &dx) {
+        auto translated_tuple = translation(x);
+        return qcor::__internal__::call(objective, translated_tuple);
+      },
+      nParameters);
+}
 } // namespace qcor
 
 #endif
