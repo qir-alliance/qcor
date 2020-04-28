@@ -1,0 +1,6 @@
+{
+  "bundle.symbolic_name" : "qcor_quil_token",
+  "bundle.activator" : true,
+  "bundle.name" : "QUIL Token Collector",
+  "bundle.description" : ""
+}
