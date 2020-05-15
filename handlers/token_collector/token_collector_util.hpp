@@ -13,8 +13,14 @@ std::pair<std::string, std::string>
 run_token_collector(clang::Preprocessor &PP, clang::CachedTokens &Toks,
                     const std::string &function_prototype);
 
+void map_xacc_kernel_to_qrt_calls(const std::string &kernel_str, const std::string& qpu_name,
+                                  const std::string &compiler_name,
+                                  const std::string &kernel_name,
+                                  std::vector<std::string> bufferNames,
+                                  llvm::raw_string_ostream &OS, int shots = 0);
+
 void set_verbose(bool verbose);
-void info(const std::string& s);
+void info(const std::string &s);
 
 } // namespace qcor
 

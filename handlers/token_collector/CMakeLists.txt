@@ -10,7 +10,7 @@ target_include_directories(${LIBRARY_NAME}
                                   ${LLVM_INCLUDE_DIRS})
 
 target_link_libraries(${LIBRARY_NAME}
-                      PRIVATE ${CLANG_LIBS} ${LLVM_LIBS} xacc::xacc)
+                      PRIVATE ${CLANG_LIBS} ${LLVM_LIBS} xacc::xacc xacc::quantum_gate)
 
 if(APPLE)
   set_target_properties(${LIBRARY_NAME}

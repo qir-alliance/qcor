@@ -30,5 +30,6 @@ configure_file(${CMAKE_SOURCE_DIR}/scripts/qcor.in
 
 add_subdirectory(handlers)
 add_subdirectory(runtime)
+add_subdirectory(passes)
 
 install(PROGRAMS ${CMAKE_BINARY_DIR}/qcor DESTINATION bin)

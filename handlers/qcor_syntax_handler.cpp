@@ -11,6 +11,7 @@ using namespace clang;
 
 namespace {
 
+bool qrt = false;
 std::string qpu_name = "tnqvm";
 int shots = 0;
 
@@ -52,14 +53,17 @@ public:
       diagnostics.Report(D.getBeginLoc(), invalid_no_args);
     }
 
+    function_prototype = "(";
     // Loop over the function arguments and get the
     // buffer name and any program parameter doubles.
     std::vector<std::string> program_parameters, program_arg_types;
     std::vector<std::string> bufferNames;
     for (unsigned int ii = 0; ii < FTI.NumParams; ii++) {
       auto &paramInfo = FTI.Params[ii];
+
       auto ident = paramInfo.Ident;
-      auto &decl = FTI.Params[ii].Param;
+      auto &decl = paramInfo.Param;
+
       auto parm_var_decl = cast<ParmVarDecl>(decl);
       if (parm_var_decl) {
         auto type = parm_var_decl->getType().getCanonicalType().getAsString();
@@ -67,15 +71,17 @@ public:
         program_parameters.push_back(ident->getName().str());
         if (type == "class xacc::internal_compiler::qreg") {
           bufferNames.push_back(ident->getName().str());
+          function_prototype += "qreg " + ident->getName().str() + ", ";
+        } else {
+          function_prototype += type + " " + ident->getName().str() + ", ";
         }
-        // else if (type == "double") {
-        //   program_parameters.push_back(ident->getName().str());
-        // } else {
-        //   diagnostics.Report(paramInfo.IdentLoc, invalid_arg_type);
-        // }
       }
     }
+    function_prototype =
+        "void " + kernel_name +
+        function_prototype.substr(0, function_prototype.length() - 2) + ")";
 
+    // std::cout << "FPROTO: " << function_prototype << "\n";
     // If we failed to get the name, then we fail
     if (bufferNames.empty()) {
       diagnostics.Report(D.getBeginLoc(), invalid_qreg_name);
@@ -89,53 +95,67 @@ public:
     auto kernel_src = kernel_src_and_compiler.first;
     auto compiler_name = kernel_src_and_compiler.second;
 
-    // std::cout << "HELLO:\n" << kernel_src << "\n";
-    // Write new source code in place of the
-    // provided quantum code tokens
-    if (shots > 0) {
-      OS << "compiler_InitializeXACC(\"" + qpu_name + "\", " +
-                std::to_string(shots) + ");\n";
-    } else {
-      OS << "compiler_InitializeXACC(\"" + qpu_name + "\");\n";
-    }
-    for (auto &buf : bufferNames) {
-      OS << buf << ".setNameAndStore(\"" + buf + "\");\n";
-    }
-    OS << "auto program = getCompiled(\"" << kernel_name << "\");\n";
-    OS << "if (!program) {\n";
-    OS << "std::string kernel_src = R\"##(" + kernel_src + ")##\";\n";
-    OS << "program = compile(\"" + compiler_name + "\", kernel_src.c_str());\n";
-    OS << "}\n";
-    // OS << "optimize(program);\n";
+    if (qrt) {
 
-    OS << "if (__execute) {\n";
-    OS << "program->updateRuntimeArguments(" << program_parameters[0];
-    for (int i = 1; i < program_parameters.size(); i++) {
-      OS << ", " << program_parameters[i];
-    }
-    OS << ");\n";
-    // OS << "internal_set_parameters(program);\n";
-    if (bufferNames.size() > 1) {
-      OS << "xacc::AcceleratorBuffer * buffers[" << bufferNames.size()
-         << "] = {";
-      OS << bufferNames[0] << ".results()";
-      for (unsigned int k = 1; k < bufferNames.size(); k++) {
-        OS << ", " << bufferNames[k] << ".results()";
+      // call to the util function to use xacc to
+      // generate new code to the OS
+      qcor::map_xacc_kernel_to_qrt_calls(kernel_src, qpu_name, compiler_name,
+                                         kernel_name, bufferNames, OS,
+                                         (shots > 0 ? shots : 0));
+
+    } else {
+      // std::cout << "HELLO:\n" << kernel_src << "\n";
+      // Write new source code in place of the
+      // provided quantum code tokens
+      if (shots > 0) {
+        OS << "compiler_InitializeXACC(\"" + qpu_name + "\", " +
+                  std::to_string(shots) + ");\n";
+      } else {
+        OS << "compiler_InitializeXACC(\"" + qpu_name + "\");\n";
       }
-      OS << "};\n";
-      OS << "execute(buffers," << bufferNames.size() << ",program";
-    } else {
-      OS << "execute(" << bufferNames[0] << ".results(), program";
-    }
-    OS << ");\n";
+      for (auto &buf : bufferNames) {
+        OS << buf << ".setNameAndStore(\"" + buf + "\");\n";
+      }
+      OS << "auto program = getCompiled(\"" << kernel_name << "\");\n";
+      OS << "if (!program) {\n";
+      OS << "std::string kernel_src = R\"##(" + kernel_src + ")##\";\n";
+      OS << "program = compile(\"" + compiler_name +
+                "\", kernel_src.c_str());\n";
+      OS << "}\n";
+      // OS << "optimize(program);\n";
 
-    OS << "}\n";
+      OS << "if (__execute) {\n";
+      OS << "program->updateRuntimeArguments(" << program_parameters[0];
+      for (int i = 1; i < program_parameters.size(); i++) {
+        OS << ", " << program_parameters[i];
+      }
+      OS << ");\n";
+      // OS << "internal_set_parameters(program);\n";
+      if (bufferNames.size() > 1) {
+        OS << "xacc::AcceleratorBuffer * buffers[" << bufferNames.size()
+           << "] = {";
+        OS << bufferNames[0] << ".results()";
+        for (unsigned int k = 1; k < bufferNames.size(); k++) {
+          OS << ", " << bufferNames[k] << ".results()";
+        }
+        OS << "};\n";
+        OS << "execute(buffers," << bufferNames.size() << ",program";
+      } else {
+        OS << "execute(" << bufferNames[0] << ".results(), program";
+      }
+      OS << ");\n";
+      OS << "}\n";
+    }
+
     auto s = OS.str();
     qcor::info("[qcor syntax-handler] Rewriting " + kernel_name + " to\n\n" +
                function_prototype + "{\n" + s.substr(2, s.length()) + "\n}");
   }
 
   void AddToPredefines(llvm::raw_string_ostream &OS) override {
+    if (qrt) {
+      OS << "#include \"qrt.hpp\"\n";
+    }
     OS << "#include \"xacc_internal_compiler.hpp\"\nusing namespace "
           "xacc::internal_compiler;\n";
   }
@@ -176,6 +196,8 @@ public:
         shots = std::stoi(args[i]);
       } else if (args[i] == "-qcor-verbose") {
         qcor::set_verbose(true);
+      } else if (args[i] == "-qrt") {
+        qrt = true;
       }
     }
     return true;
@@ -187,7 +209,6 @@ public:
 };
 
 } // namespace
-// static FrontendPluginRegistry::Add<QCORTEST> XXX("qcor-test", "");
 
 static SyntaxHandlerRegistry::Add<QCORSyntaxHandler>
     X("qcor", "qcor quantum kernel syntax handler");
