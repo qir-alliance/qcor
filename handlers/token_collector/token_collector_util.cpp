@@ -140,16 +140,15 @@ void run_token_collector_llvm_rt(clang::Preprocessor &PP,
 
     while (current_token_str != terminating_char) {
       ss << current_token_str << add_spacing(compiler->name());
-      std::cout << "HELLO INST STMT " << current_token_str << "\n";
       i++;
       current_token = Toks[i];
       current_token_str = PP.getSpelling(current_token);
     }
     ss << terminating_char;
 
-    std::cout << "COMPILING\n"
-              << function_prototype + "{" + ss.str() + "}"
-              << "\n";
+    // std::cout << "COMPILING\n"
+    //           << function_prototype + "{" + ss.str() + "}"
+    //           << "\n";
 
     // FIXME, check canParse, and if not, then just write ss.str() to qrt_code
     // somehow
@@ -194,7 +193,8 @@ void run_token_collector_llvm_rt(clang::Preprocessor &PP,
       continue;
     }
 
-    // if (current_token_str == "qreg") {
+    // FIXME may want this later
+    //if (current_token_str == "qreg") {
 
     //   // allocate called within kernel, likely with openqasm
     //   // get the size and allocated it, but dont add to kernel string
@@ -263,22 +263,8 @@ void run_token_collector_llvm_rt(clang::Preprocessor &PP,
         i++;
         current_token = Toks[i];
       }
-      //   while (current_token.isNot(clang::tok::r_paren) || seen_l_paren > 0)
-      //   {
-      //     if (current_token.is(clang::tok::l_paren)) seen_l_paren++;
-      //     if (current_token.is(clang::tok::r_paren)) seen_l_paren--;
 
-      //     for_ss << PP.getSpelling(current_token) << " ";
-      //     i++;
-      //     current_token = Toks[i];
-      //   }
-      //   for_ss << ") ";
       qrt_code << for_ss.str();
-
-      std::cout << "FOR: " << for_ss.str() << "\n";
-      // slurp up the )
-      //   i++;
-      //   current_token = Toks[i];
 
       // we could have for stmt with l_brace or without for a single inst
       if (current_token.is(clang::tok::l_brace)) {
@@ -303,7 +289,6 @@ void run_token_collector_llvm_rt(clang::Preprocessor &PP,
           // missing ';', eat it up too
           i++;
           current_token = Toks[i];
-          std::cout << "IN HERE\n" << PP.getSpelling(current_token) << "\n";
 
           if (current_token.is(clang::tok::l_brace)) {
             l_brace_count++;
@@ -312,9 +297,7 @@ void run_token_collector_llvm_rt(clang::Preprocessor &PP,
           if (current_token.is(clang::tok::r_brace)) {
             l_brace_count--;
           }
-          std::cout << "LBRACE: " << l_brace_count << "\n";
         }
-        std::cout << "HERE:\n" << qrt_code.str() << "\n";
 
         // now eat the r_brace
         i++;
@@ -380,11 +363,6 @@ void run_token_collector_llvm_rt(clang::Preprocessor &PP,
   } else {
     OS << "quantum::submit(" << bufferNames[0] << ".results()";
   }
-
-//   OS << "quantum::submit(" << bufferNames[0] << ".results()";
-//   for (unsigned int k = 1; k < bufferNames.size(); k++) {
-//     OS << ", " << bufferNames[k] << ".results()";
-//   }
 
   OS << ");\n";
   OS << "}";

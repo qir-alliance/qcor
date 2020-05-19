@@ -81,13 +81,6 @@ public:
         "void " + kernel_name +
         function_prototype.substr(0, function_prototype.length() - 2) + ")";
 
-    // std::cout << "FPROTO: " << function_prototype << "\n";
-    // If we failed to get the name, then we fail
-    // if (bufferNames.empty()) {
-    //   diagnostics.Report(D.getBeginLoc(), invalid_qreg_name);
-    //   exit(1);
-    // }
-
     // Get Tokens as a string, rewrite code
     // with XACC api calls
 
