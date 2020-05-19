@@ -13,6 +13,8 @@
 #include "qalloc"
 #include "xacc_internal_compiler.hpp"
 
+#include "qrt.hpp"
+
 namespace qcor {
 
 using OptFunction = xacc::OptFunction;
@@ -70,7 +72,11 @@ xacc::CompositeInstruction *kernel_as_composite_instruction(QuantumKernel &k,
   k(args...);
   // turn execution on
   xacc::internal_compiler::__execute = true;
+#ifdef QCOR_USE_QRT
+  return quantum::getProgram().get();
+#else
   return xacc::internal_compiler::getLastCompiled();
+#endif
 }
 
 // Observe the given kernel, and return the expected value
@@ -171,7 +177,9 @@ public:
       qreg = std::get<0>(std::forward_as_tuple(args...));
     }
 
+#ifndef QCOR_USE_QRT
     kernel->updateRuntimeArguments(args...);
+#endif
     return operator()();
   }
 };

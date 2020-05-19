@@ -50,7 +50,7 @@ public:
     const DeclaratorChunk::FunctionTypeInfo &FTI = D.getFunctionTypeInfo();
     std::string kernel_name = D.getName().Identifier->getName().str();
     if (!FTI.Params) {
-      diagnostics.Report(D.getBeginLoc(), invalid_no_args);
+    //   diagnostics.Report(D.getBeginLoc(), invalid_no_args);
     }
 
     function_prototype = "(";
@@ -83,27 +83,24 @@ public:
 
     // std::cout << "FPROTO: " << function_prototype << "\n";
     // If we failed to get the name, then we fail
-    if (bufferNames.empty()) {
-      diagnostics.Report(D.getBeginLoc(), invalid_qreg_name);
-      exit(1);
-    }
+    // if (bufferNames.empty()) {
+    //   diagnostics.Report(D.getBeginLoc(), invalid_qreg_name);
+    //   exit(1);
+    // }
 
     // Get Tokens as a string, rewrite code
     // with XACC api calls
-    auto kernel_src_and_compiler =
-        qcor::run_token_collector(PP, Toks, function_prototype);
-    auto kernel_src = kernel_src_and_compiler.first;
-    auto compiler_name = kernel_src_and_compiler.second;
 
     if (qrt) {
 
-      // call to the util function to use xacc to
-      // generate new code to the OS
-      qcor::map_xacc_kernel_to_qrt_calls(kernel_src, qpu_name, compiler_name,
-                                         kernel_name, bufferNames, OS,
-                                         (shots > 0 ? shots : 0));
+      qcor::run_token_collector_llvm_rt(PP, Toks, function_prototype,
+                                        bufferNames, kernel_name, OS, qpu_name);
 
     } else {
+      auto kernel_src_and_compiler =
+          qcor::run_token_collector(PP, Toks, function_prototype);
+      auto kernel_src = kernel_src_and_compiler.first;
+      auto compiler_name = kernel_src_and_compiler.second;
       // std::cout << "HELLO:\n" << kernel_src << "\n";
       // Write new source code in place of the
       // provided quantum code tokens

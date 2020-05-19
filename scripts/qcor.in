@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
 import argparse, sys, os, subprocess, mimetypes, re
-# echo 'compiling' && time $HOME/.llvm/bin/clang++ -std=c++14 -fplugin=$HOME/.xacc/clang-plugins/libqcor-xasm-handler.so 
-# -I $HOME/.xacc/include/xacc -I $HOME/.xacc/include/qcor -c ../handlers/examples/deuteronH2.cpp -o test.o && echo 
-# 'linking' && $HOME/.llvm/bin/clang++ -rdynamic -Wl,-rpath,$HOME/.xacc/lib -L $HOME/.xacc/lib -lxacc -lCppMicroServices 
-# -lstdc++ -lqcor -lxacc-pauli test.o -o test.exe
 
 def main(argv=None):
     compiler = '@CLANG_EXECUTABLE@'
@@ -69,7 +65,7 @@ def main(argv=None):
 
     if '-qrt' in sys.argv[1:]:
         sys.argv.remove('-qrt')
-        sHandlerArgs += ['-Xclang', '-plugin-arg-qcor-args', '-Xclang', '-qrt']
+        sHandlerArgs += ['-Xclang', '-plugin-arg-qcor-args', '-Xclang', '-qrt', '-DQCOR_USE_QRT']
 
     if '-print-qir' in sys.argv[1:]:
         sys.argv.remove('-print-qir')

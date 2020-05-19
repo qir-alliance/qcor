@@ -59,7 +59,4 @@ void XasmTokenCollector::collect(clang::Preprocessor &PP,
     }
   }
 }
-
-
-
 } // namespace qcor

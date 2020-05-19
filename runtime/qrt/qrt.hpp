@@ -1,13 +1,17 @@
 #ifndef RUNTIME_QCOR_QRT_HPP_
 #define RUNTIME_QCOR_QRT_HPP_
 
+#include "qalloc.hpp"
+#include <CompositeInstruction.hpp>
 #include <memory>
+
+using namespace xacc::internal_compiler;
 
 namespace xacc {
 class AcceleratorBuffer;
 class CompositeInstruction;
 class IRProvider;
-}
+} // namespace xacc
 
 namespace quantum {
 
@@ -15,14 +19,25 @@ extern std::shared_ptr<xacc::CompositeInstruction> program;
 extern std::shared_ptr<xacc::IRProvider> provider;
 
 void initialize(const std::string qpu_name, const std::string kernel_name);
-void set_shots( int shots );
+void set_shots(int shots);
+void one_qubit_inst(const std::string &name, const qubit &qidx,
+                    std::vector<double> parameters = {});
 
-void h(const std::size_t qidx);
-void cnot(const std::size_t src_idx, const std::size_t tgt_idx);
-void mz(const std::size_t qidx);
+void h(const qubit &qidx);
+void x(const qubit &qidx);
 
-void submit(xacc::AcceleratorBuffer * buffer);
+void rx(const qubit &qidx, const double theta);
+void ry(const qubit &qidx, const double theta);
+void rz(const qubit &qidx, const double theta);
 
-}
+void cnot(const qubit &src_idx, const qubit &tgt_idx);
+void mz(const qubit &qidx);
+
+void submit(xacc::AcceleratorBuffer *buffer);
+void submit(xacc::AcceleratorBuffer **buffers, const int nBuffers);
+
+std::shared_ptr<xacc::CompositeInstruction> getProgram();
+
+} // namespace quantum
 
 #endif

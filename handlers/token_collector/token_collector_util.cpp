@@ -2,9 +2,11 @@
 #include "token_collector.hpp"
 #include "xacc.hpp"
 #include "xacc_service.hpp"
+#include <qalloc>
 
 #include "AllGateVisitor.hpp"
-
+#include "clang/Basic/TokenKinds.h"
+#include "clang/Lex/Token.h"
 namespace qcor {
 
 void set_verbose(bool verbose) { xacc::set_verbose(verbose); }
@@ -55,75 +57,337 @@ class qrt_mapper : public AllGateVisitor {
 protected:
   std::stringstream ss;
 
+  void addOneQubitGate(const std::string name, xacc::Instruction &inst) {
+    auto expr = inst.getBitExpression(0);
+    if (expr.empty()) {
+      ss << "quantum::" + name + "(" << inst.getBufferNames()[0] << "["
+         << inst.bits()[0] << "]";
+
+    } else {
+      ss << "quantum::" + name + "(" << inst.getBufferNames()[0] << "["
+         << inst.getBitExpression(0) << "]";
+    }
+    if (inst.isParameterized() && inst.name() != "Measure") {
+      ss << ", " << inst.getParameter(0).toString();
+      for (int i = 1; i < inst.nParameters(); i++) {
+        ss << ", " << inst.getParameter(i).toString() << "\n";
+      }
+    }
+    ss << ");\n";
+  }
+
 public:
   auto get_new_src() { return ss.str(); }
 
-  void visit(Hadamard &h) override {
-    ss << "quantum::h(" << h.getBufferNames()[0] << "[" << h.bits()[0]
-       << "]);\n";
-  }
+  void visit(Hadamard &h) override { addOneQubitGate("h", h); }
   void visit(CNOT &cnot) override {
     ss << "quantum::cnot(" << cnot.getBufferNames()[0] << "[" << cnot.bits()[0]
        << "], " << cnot.getBufferNames()[1] << "[" << cnot.bits()[1] << "]);\n";
   }
 
-  void visit(Rz &rz) override {}
-  void visit(Ry &ry) override {}
-  void visit(Rx &rx) override {}
-  void visit(X &x) override {}
-  void visit(Y &y) override {}
-  void visit(Z &z) override {}
+  void visit(Rz &rz) override { addOneQubitGate("rz", rz); }
+  void visit(Ry &ry) override { addOneQubitGate("ry", ry); }
+  void visit(Rx &rx) override { addOneQubitGate("rx", rx); }
+  void visit(X &x) override { addOneQubitGate("x", x); }
+  void visit(Y &y) override { addOneQubitGate("y", y); }
+  void visit(Z &z) override { addOneQubitGate("z", z); }
   void visit(CY &cy) override {}
   void visit(CZ &cz) override {}
   void visit(Swap &s) override {}
   void visit(CRZ &crz) override {}
   void visit(CH &ch) override {}
-  void visit(S &s) override {}
-  void visit(Sdg &sdg) override {}
-  void visit(T &t) override {}
-  void visit(Tdg &tdg) override {}
+  void visit(S &s) override { addOneQubitGate("s", s); }
+  void visit(Sdg &sdg) override { addOneQubitGate("sdg", sdg); }
+  void visit(T &t) override { addOneQubitGate("t", t); }
+  void visit(Tdg &tdg) override { addOneQubitGate("tdg", tdg); }
   void visit(CPhase &cphase) override {}
-  void visit(Measure &measure) override {
-    ss << "quantum::mz(" << measure.getBufferNames()[0] << "[" << measure.bits()[0]
-       << "]);\n";
-  }
-  void visit(Identity &i) override {}
-  void visit(U &u) override {}
+  void visit(Measure &measure) override { addOneQubitGate("mz", measure); }
+  void visit(Identity &i) override { addOneQubitGate("i", i); }
+  void visit(U &u) override { addOneQubitGate("u", u); }
   void visit(IfStmt &ifStmt) override {}
 };
 
-void map_xacc_kernel_to_qrt_calls(const std::string &kernel_str, const std::string& qpu_name,
-                                  const std::string &compiler_name,
-                                  const std::string &kernel_name,
-                                  std::vector<std::string> bufferNames,
-                                  llvm::raw_string_ostream &OS, int shots) {
-  auto compiler = xacc::getCompiler(compiler_name);
-  auto kernel = compiler->compile(kernel_str)->getComposites()[0];
+void run_token_collector_llvm_rt(clang::Preprocessor &PP,
+                                 clang::CachedTokens &Toks,
+                                 const std::string &function_prototype,
+                                 std::vector<std::string> bufferNames,
+                                 const std::string &kernel_name,
+                                 llvm::raw_string_ostream &OS,
+                                 const std::string &qpu_name, int shots) {
 
-  auto visitor = std::make_shared<qrt_mapper>();
+  if (!xacc::isInitialized()) {
+    xacc::Initialize();
+  }
 
-  xacc::InstructionIterator iter(kernel);
-  while (iter.hasNext()) {
-    auto next = iter.next();
-    if (!next->isComposite()) {
-      next->accept(visitor);
+  auto add_spacing = [](const std::string language) {
+    if (language == "xasm") {
+      return "";
+    } else {
+      return " ";
+    }
+  };
+
+  // Programmers can specify the language by saying
+  // using qcor::openqasm or something like that, default is xasm
+  auto process_inst_stmt = [&](int &i, std::shared_ptr<xacc::Compiler> compiler,
+                               clang::Token &current_token,
+                               std::string &terminating_char,
+                               std::string extra_preamble = "") {
+    std::stringstream ss;
+    auto current_token_str = PP.getSpelling(current_token);
+
+    ss << extra_preamble;
+
+    while (current_token_str != terminating_char) {
+      ss << current_token_str << add_spacing(compiler->name());
+      std::cout << "HELLO INST STMT " << current_token_str << "\n";
+      i++;
+      current_token = Toks[i];
+      current_token_str = PP.getSpelling(current_token);
+    }
+    ss << terminating_char;
+
+    std::cout << "COMPILING\n"
+              << function_prototype + "{" + ss.str() + "}"
+              << "\n";
+
+    // FIXME, check canParse, and if not, then just write ss.str() to qrt_code
+    // somehow
+
+    return compiler
+        ->compile("__qpu__ " + function_prototype + "{" + ss.str() + "}")
+        ->getComposites()[0]
+        ->getInstruction(0);
+  };
+
+  auto compiler = xacc::getCompiler("xasm");
+  auto terminating_char = compiler->get_statement_terminator();
+
+  std::stringstream qrt_code;
+  std::string extra_preamble = "";
+
+  for (int i = 0; i < Toks.size(); i++) {
+    auto current_token = Toks[i];
+    auto current_token_str = PP.getSpelling(current_token);
+
+    if (current_token.is(clang::tok::kw_using)) {
+      // Found using
+      // i+3 bc we skip using, qcor and ::;
+      auto language = PP.getSpelling(Toks[i + 3]);
+      if (language == "openqasm") {
+        // use staq
+        language = xacc::hasCompiler("staq") ? "staq" : "openqasm";
+
+        std::stringstream sss;
+        for (auto &b : bufferNames) {
+          // sss << "qreg " << b << "[100];\n";
+          auto q = qalloc(100);
+          q.setNameAndStore(b.c_str());
+        }
+        extra_preamble += sss.str();
+      }
+
+      compiler = xacc::getCompiler(language);
+      terminating_char = compiler->get_statement_terminator();
+      // +4 to skip ';' too
+      i = i + 4;
+      continue;
+    }
+
+    // if (current_token_str == "qreg") {
+
+    //   // allocate called within kernel, likely with openqasm
+    //   // get the size and allocated it, but dont add to kernel string
+
+    //   // skip qreg
+    //   i++;
+    //   current_token = Toks[i];
+
+    //   // get qreg var name
+    //   auto variable_name = PP.getSpelling(current_token);
+
+    //   // skip [
+    //   i += 2;
+    //   current_token = Toks[i];
+
+    //   std::cout << variable_name
+    //             << ", CURRENT: " << PP.getSpelling(current_token) << "\n";
+    //   auto size = std::stoi(PP.getSpelling(current_token));
+
+    //   // skip ] and ;
+    //   i += 2;
+    //   std::cout << "NOW WE ARE " << PP.getSpelling(Toks[i]) << "\n";
+
+    //   auto q = qalloc(size);
+    //   q.setNameAndStore(variable_name.c_str());
+
+    //   // Update function_prototype FIXME
+    //   continue;
+    // }
+
+    if (current_token_str == "creg") {
+
+      std::stringstream sss;
+      while (current_token.isNot(clang::tok::semi)) {
+        sss << current_token_str << " ";
+        i++;
+        current_token = Toks[i];
+        current_token_str = PP.getSpelling(current_token);
+      }
+
+      //   std::cout << "saving creg; " << sss.str() << "\n";
+
+      extra_preamble += sss.str() + ";\n";
+
+      continue;
+    }
+
+    if (current_token.is(clang::tok::kw_for)) {
+      //   std::cout << "Found for statment\n";
+
+      // slurp up the for
+      std::stringstream for_ss;
+
+      // eat up the l_paren
+      for_ss << "for (";
+      int seen_l_paren = 1;
+      i += 2;
+      current_token = Toks[i];
+
+      while (seen_l_paren > 0) {
+        if (current_token.is(clang::tok::l_paren))
+          seen_l_paren++;
+        if (current_token.is(clang::tok::r_paren))
+          seen_l_paren--;
+        for_ss << PP.getSpelling(current_token) << " ";
+        i++;
+        current_token = Toks[i];
+      }
+      //   while (current_token.isNot(clang::tok::r_paren) || seen_l_paren > 0)
+      //   {
+      //     if (current_token.is(clang::tok::l_paren)) seen_l_paren++;
+      //     if (current_token.is(clang::tok::r_paren)) seen_l_paren--;
+
+      //     for_ss << PP.getSpelling(current_token) << " ";
+      //     i++;
+      //     current_token = Toks[i];
+      //   }
+      //   for_ss << ") ";
+      qrt_code << for_ss.str();
+
+      std::cout << "FOR: " << for_ss.str() << "\n";
+      // slurp up the )
+      //   i++;
+      //   current_token = Toks[i];
+
+      // we could have for stmt with l_brace or without for a single inst
+      if (current_token.is(clang::tok::l_brace)) {
+        qrt_code << " {\n";
+
+        // eat up the {
+        i++;
+        current_token = Toks[i];
+
+        // Now loop through the for loop body
+        int l_brace_count = 1;
+        while (l_brace_count != 0) {
+          // In here we have statements separated by compiler terminator
+          // (default ';')
+          auto inst = process_inst_stmt(i, compiler, current_token,
+                                        terminating_char, extra_preamble);
+          {
+            auto visitor = std::make_shared<qrt_mapper>();
+            inst->accept(visitor);
+            qrt_code << visitor->get_new_src();
+          }
+          // missing ';', eat it up too
+          i++;
+          current_token = Toks[i];
+          std::cout << "IN HERE\n" << PP.getSpelling(current_token) << "\n";
+
+          if (current_token.is(clang::tok::l_brace)) {
+            l_brace_count++;
+          }
+
+          if (current_token.is(clang::tok::r_brace)) {
+            l_brace_count--;
+          }
+          std::cout << "LBRACE: " << l_brace_count << "\n";
+        }
+        std::cout << "HERE:\n" << qrt_code.str() << "\n";
+
+        // now eat the r_brace
+        i++;
+        // current_token = Toks[i];
+        qrt_code << "}\n";
+
+        continue;
+      } else {
+        // Here we don't have a l_brace, so we just have the one
+        // quantum instruction
+
+        qrt_code << "\n   ";
+
+        auto inst = process_inst_stmt(i, compiler, current_token,
+                                      terminating_char, extra_preamble);
+        {
+          auto visitor = std::make_shared<qrt_mapper>();
+          inst->accept(visitor);
+          qrt_code << visitor->get_new_src();
+        }
+
+        // missing ';', eat it up too
+        i++;
+        current_token = Toks[i];
+      }
+    }
+
+    if (current_token.is(clang::tok::kw_if)) {
+    }
+
+    // this is a quantum statement + terminating char
+    // slurp up to the terminating char
+    auto inst = process_inst_stmt(i, compiler, current_token, terminating_char,
+                                  extra_preamble);
+    {
+      auto visitor = std::make_shared<qrt_mapper>();
+      inst->accept(visitor);
+      qrt_code << visitor->get_new_src();
     }
   }
 
-  auto code = visitor->get_new_src();
+  //   std::cout << "QRT CODE:\n" << qrt_code.str() << "\n";
 
-  std::cout << "HELLO: " << code << "\n";
-
-  OS << "quantum::initialize(\""<< qpu_name << "\", \"" << kernel_name << "\");\n";
+  OS << "quantum::initialize(\"" << qpu_name << "\", \"" << kernel_name
+     << "\");\n";
+  for (auto &buf : bufferNames) {
+    OS << buf << ".setNameAndStore(\"" + buf + "\");\n";
+  }
   if (shots > 0) {
-      OS << "quantum::set_shots(" << shots << ");\n";
+    OS << "quantum::set_shots(" << shots << ");\n";
   }
-  OS << code;
-  OS << "quantum::submit(" << bufferNames[0] << ".results()";
-  for (unsigned int k = 1; k < bufferNames.size(); k++) {
-    OS << ", " << bufferNames[k] << ".results()";
+  OS << qrt_code.str();
+  OS << "if (__execute) {\n";
+
+  if (bufferNames.size() > 1) {
+    OS << "xacc::AcceleratorBuffer * buffers[" << bufferNames.size() << "] = {";
+    OS << bufferNames[0] << ".results()";
+    for (unsigned int k = 1; k < bufferNames.size(); k++) {
+      OS << ", " << bufferNames[k] << ".results()";
+    }
+    OS << "};\n";
+    OS << "quantum::submit(buffers," << bufferNames.size();
+  } else {
+    OS << "quantum::submit(" << bufferNames[0] << ".results()";
   }
+
+//   OS << "quantum::submit(" << bufferNames[0] << ".results()";
+//   for (unsigned int k = 1; k < bufferNames.size(); k++) {
+//     OS << ", " << bufferNames[k] << ".results()";
+//   }
+
   OS << ");\n";
+  OS << "}";
 }
 
 } // namespace qcor

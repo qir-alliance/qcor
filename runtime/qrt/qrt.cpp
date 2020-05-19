@@ -11,28 +11,49 @@ void initialize(const std::string qpu_name, const std::string kernel_name) {
   provider = xacc::getIRProvider("quantum");
   program = provider->createComposite(kernel_name);
 }
-void set_shots( int shots ) {
 
+void set_shots(int shots) {}
+
+void one_qubit_inst(const std::string &name, const qubit &qidx,
+                    std::vector<double> parameters) {
+  auto inst =
+      provider->createInstruction(name, std::vector<std::size_t>{qidx.second});
+  inst->setBufferNames({qidx.first});
+  for (int i = 0; i < parameters.size(); i++) {
+    inst->setParameter(i, parameters[i]);
+  }
+  program->addInstruction(inst);
 }
-void h(const std::size_t qidx) {
-  auto hadamard =
-      provider->createInstruction("H", std::vector<std::size_t>{qidx});
-  program->addInstruction(hadamard);
+
+void h(const qubit &qidx) { one_qubit_inst("H", qidx); }
+void x(const qubit &qidx) { one_qubit_inst("X", qidx); }
+
+void rx(const qubit &qidx, const double theta) {
+  one_qubit_inst("Rx", qidx, {theta});
 }
-void cnot(const std::size_t src_idx, const std::size_t tgt_idx) {
+
+void ry(const qubit &qidx, const double theta) {
+  one_qubit_inst("Ry", qidx, {theta});
+}
+void rz(const qubit &qidx, const double theta) {
+  one_qubit_inst("Rz", qidx, {theta});
+}
+
+void mz(const qubit &qidx) { one_qubit_inst("Measure", qidx); }
+
+void cnot(const qubit &src_idx, const qubit &tgt_idx) {
   auto cx = provider->createInstruction(
-      "CNOT", std::vector<std::size_t>{src_idx, tgt_idx});
+      "CNOT", std::vector<std::size_t>{src_idx.second, tgt_idx.second});
+  cx->setBufferNames({src_idx.first, tgt_idx.first});
   program->addInstruction(cx);
-}
-
-void mz(const std::size_t qidx) {
-  auto meas =
-      provider->createInstruction("Measure", std::vector<std::size_t>{qidx});
-  program->addInstruction(meas);
 }
 
 void submit(xacc::AcceleratorBuffer *buffer) {
   xacc::internal_compiler::execute(buffer, program.get());
 }
 
+void submit(xacc::AcceleratorBuffer **buffers, const int nBuffers) {
+  xacc::internal_compiler::execute(buffers, nBuffers, program.get());
+}
+std::shared_ptr<xacc::CompositeInstruction> getProgram() { return program; }
 } // namespace quantum
