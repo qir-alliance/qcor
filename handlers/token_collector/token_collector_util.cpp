@@ -5,8 +5,10 @@
 #include <qalloc>
 
 #include "AllGateVisitor.hpp"
+
 #include "clang/Basic/TokenKinds.h"
 #include "clang/Lex/Token.h"
+
 namespace qcor {
 
 void set_verbose(bool verbose) { xacc::set_verbose(verbose); }
@@ -53,7 +55,7 @@ run_token_collector(clang::Preprocessor &PP, clang::CachedTokens &Toks,
 
 using namespace xacc::quantum;
 
-class qrt_mapper : public AllGateVisitor {
+class qrt_mapper : public AllGateVisitor, public xacc::InstructionVisitor<Circuit> {
 protected:
   std::stringstream ss;
 
@@ -104,6 +106,11 @@ public:
   void visit(Measure &measure) override { addOneQubitGate("mz", measure); }
   void visit(Identity &i) override { addOneQubitGate("i", i); }
   void visit(U &u) override { addOneQubitGate("u", u); }
+  void visit(Circuit& circ) override {
+    if (circ.name() == "exp_i_theta") {
+        ss << "quantum::exp(q"  << ", " << circ.getArguments()[0]->name << ", " << circ.getArguments()[1]->name << ");\n";
+    }
+  }
   void visit(IfStmt &ifStmt) override {}
 };
 
@@ -146,9 +153,9 @@ void run_token_collector_llvm_rt(clang::Preprocessor &PP,
     }
     ss << terminating_char;
 
-    // std::cout << "COMPILING\n"
-    //           << function_prototype + "{" + ss.str() + "}"
-    //           << "\n";
+    std::cout << "COMPILING\n"
+              << function_prototype + "{" + ss.str() + "}"
+              << "\n";
 
     // FIXME, check canParse, and if not, then just write ss.str() to qrt_code
     // somehow
@@ -334,6 +341,7 @@ void run_token_collector_llvm_rt(clang::Preprocessor &PP,
                                   extra_preamble);
     {
       auto visitor = std::make_shared<qrt_mapper>();
+      std::cout << "HELLO WORLD ACCEPTING: " << inst->name() << "\n";
       inst->accept(visitor);
       qrt_code << visitor->get_new_src();
     }

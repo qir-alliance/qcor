@@ -11,6 +11,7 @@ namespace xacc {
 class AcceleratorBuffer;
 class CompositeInstruction;
 class IRProvider;
+class Observable;
 } // namespace xacc
 
 namespace quantum {
@@ -30,8 +31,12 @@ void rx(const qubit &qidx, const double theta);
 void ry(const qubit &qidx, const double theta);
 void rz(const qubit &qidx, const double theta);
 
-void cnot(const qubit &src_idx, const qubit &tgt_idx);
 void mz(const qubit &qidx);
+
+void cnot(const qubit &src_idx, const qubit &tgt_idx);
+
+void exp(qreg q, const double theta, xacc::Observable * H);
+void exp(qreg q, const double theta, std::shared_ptr<xacc::Observable> H);
 
 void submit(xacc::AcceleratorBuffer *buffer);
 void submit(xacc::AcceleratorBuffer **buffers, const int nBuffers);

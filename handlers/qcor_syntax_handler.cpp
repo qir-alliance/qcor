@@ -1,8 +1,10 @@
 #include "token_collector_util.hpp"
 #include <iostream>
+#include <regex>
 #include <sstream>
 
 #include "clang/AST/ASTConsumer.h"
+#include "clang/AST/Type.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Frontend/FrontendPluginRegistry.h"
 #include "clang/Parse/Parser.h"
@@ -50,7 +52,7 @@ public:
     const DeclaratorChunk::FunctionTypeInfo &FTI = D.getFunctionTypeInfo();
     std::string kernel_name = D.getName().Identifier->getName().str();
     if (!FTI.Params) {
-    //   diagnostics.Report(D.getBeginLoc(), invalid_no_args);
+      //   diagnostics.Report(D.getBeginLoc(), invalid_no_args);
     }
 
     function_prototype = "(";
@@ -66,14 +68,17 @@ public:
 
       auto parm_var_decl = cast<ParmVarDecl>(decl);
       if (parm_var_decl) {
-        auto type = parm_var_decl->getType().getCanonicalType().getAsString();
+        auto type = QualType::getAsString(parm_var_decl->getType().split(),
+                                           PrintingPolicy{{}});
+                    // parm_var_decl->getType().getCanonicalType().getAsString();
         program_arg_types.push_back(type);
         program_parameters.push_back(ident->getName().str());
         if (type == "class xacc::internal_compiler::qreg") {
           bufferNames.push_back(ident->getName().str());
           function_prototype += "qreg " + ident->getName().str() + ", ";
         } else {
-          function_prototype += type + " " + ident->getName().str() + ", ";
+          function_prototype +=
+              type + " " + ident->getName().str() + ", ";
         }
       }
     }

@@ -197,12 +197,15 @@ auto observe(QuantumKernel &kernel, std::shared_ptr<Observable> obs,
              Args... args) {
   auto program = __internal__::kernel_as_composite_instruction(kernel, args...);
   return [program, obs](Args... args) {
+      
     // Get the first argument, which should be a qreg
     auto q = std::get<0>(std::forward_as_tuple(args...));
     // std::cout << "\n" << program->toString() << "\n";
 
     // Set the arguments on the IR
+#ifndef QCOR_USE_QRT
     program->updateRuntimeArguments(args...);
+#endif
     // std::cout << "\n" << program->toString() << "\n";
 
     // Observe the program
