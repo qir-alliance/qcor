@@ -155,26 +155,30 @@ void run_token_collector_llvm_rt(clang::Preprocessor &PP,
       current_token = Toks[i];
       current_token_str = PP.getSpelling(current_token);
     }
-    ss << terminating_char;
+    if (ss.str().find("oracle") == std::string::npos) {
+      ss << terminating_char;
+    }
 
     // std::cout << "COMPILING\n"
-    //           << function_prototype + "{" + ss.str() + "}"
+    //           << function_prototype + "{\n" + ss.str() + "\n}"
     //           << "\n";
 
     // FIXME, check canParse, and if not, then just write ss.str() to qrt_code
     // somehow
 
+    // FIXME, may return multiple instructions
     return compiler
-        ->compile("__qpu__ " + function_prototype + "{" + ss.str() + "}")
-        ->getComposites()[0]
-        ->getInstruction(0);
+        ->compile("__qpu__ " + function_prototype + "{\n" + ss.str() + "\n}")
+        ->getComposites()[0];
   };
 
   auto compiler = xacc::getCompiler("xasm");
   auto terminating_char = compiler->get_statement_terminator();
 
   std::stringstream qrt_code;
-  std::string extra_preamble = "";
+  std::string extra_preamble = "", language = "xasm";
+  std::map<std::string, std::string> oracle_name_to_extra_preamble;
+  std::map<std::string, int> creg_name_to_size;
 
   for (int i = 0; i < Toks.size(); i++) {
     auto current_token = Toks[i];
@@ -183,7 +187,7 @@ void run_token_collector_llvm_rt(clang::Preprocessor &PP,
     if (current_token.is(clang::tok::kw_using)) {
       // Found using
       // i+3 bc we skip using, qcor and ::;
-      auto language = PP.getSpelling(Toks[i + 3]);
+      language = PP.getSpelling(Toks[i + 3]);
       if (language == "openqasm") {
         // use staq
         language = xacc::hasCompiler("staq") ? "staq" : "openqasm";
@@ -191,8 +195,8 @@ void run_token_collector_llvm_rt(clang::Preprocessor &PP,
         std::stringstream sss;
         for (auto &b : bufferNames) {
           // sss << "qreg " << b << "[100];\n";
-          // Note - we don't know the size of the buffer 
-          // at this point, so just create one with max size 
+          // Note - we don't know the size of the buffer
+          // at this point, so just create one with max size
           // and we can provide an IR Pass later that updates it
           auto q = qalloc(std::numeric_limits<int>::max());
           q.setNameAndStore(b.c_str());
@@ -205,6 +209,103 @@ void run_token_collector_llvm_rt(clang::Preprocessor &PP,
       // +4 to skip ';' too
       i = i + 4;
       continue;
+    }
+
+    if (current_token_str == "oracle") {
+      if (language != "staq") {
+        xacc::error("Error - must specify 'using qcor::openqasm;' before using "
+                    "staq openqasm code.");
+      }
+      std::stringstream slurp_oracle;
+      i++;
+      current_token = Toks[i];
+      std::string oracle_name = PP.getSpelling(current_token);
+      slurp_oracle << "oracle " << oracle_name << " ";
+
+      while (true) {
+
+        i++;
+        current_token = Toks[i];
+        slurp_oracle << PP.getSpelling(current_token);
+
+        if (current_token.is(clang::tok::r_brace)) {
+          break;
+        }
+      }
+
+      auto preamble = slurp_oracle.str() + "\n";
+
+      oracle_name_to_extra_preamble.insert({oracle_name, preamble});
+      continue;
+    }
+
+    if (oracle_name_to_extra_preamble.count(current_token_str)) {
+      // add the appropriate preamble here
+      extra_preamble += oracle_name_to_extra_preamble[current_token_str];
+      auto comp_inst = process_inst_stmt(i, compiler, current_token,
+                                         terminating_char, extra_preamble);
+      {
+        auto visitor = std::make_shared<qrt_mapper>();
+        xacc::InstructionIterator iter(comp_inst);
+        while (iter.hasNext()) {
+          auto next = iter.next();
+          if (!next->isComposite()) {
+            next->accept(visitor);
+          }
+        }
+        qrt_code << visitor->get_new_src();
+      }
+      continue;
+    }
+
+    if (current_token_str == "measure") {
+      // we have an ibm style measure,
+      // so make sure that we map to individual measures
+      // since we don't know the size of the qreg
+
+      // next token is qreg name
+      i++;
+      current_token = Toks[i];
+      current_token_str = PP.getSpelling(current_token);
+      auto qreg_name = current_token_str;
+
+      // next token could be [ or could be ->
+      i++;
+      current_token = Toks[i];
+      if (current_token.is(clang::tok::l_square)) {
+        i--;
+        i--;
+        current_token = Toks[i];
+        // This we can parse, so just eat it up and get the Measure IR node out
+        auto comp_inst = process_inst_stmt(i, compiler, current_token,
+                                           terminating_char, extra_preamble);
+        {
+          auto visitor = std::make_shared<qrt_mapper>();
+          xacc::InstructionIterator iter(comp_inst);
+          while (iter.hasNext()) {
+            auto next = iter.next();
+            if (!next->isComposite()) {
+              next->accept(visitor);
+            }
+          }
+          // inst->accept(visitor);
+          qrt_code << visitor->get_new_src();
+        }
+        continue;
+      } else {
+        // the token is ->
+
+        // the next one is the creg name
+        i++;
+        current_token = Toks[i];
+        current_token_str = PP.getSpelling(current_token);
+        auto creg_name = current_token_str;
+        auto size = creg_name_to_size[creg_name];
+        for (int k = 0; k < size; k++) {
+          qrt_code << "quantum::mz(" << qreg_name << "["<<k<<"]); // hello\n";
+        }
+        continue;
+      }
     }
 
     // FIXME may want this later
@@ -240,6 +341,12 @@ void run_token_collector_llvm_rt(clang::Preprocessor &PP,
     // }
 
     if (current_token_str == "creg") {
+
+      auto creg_name = PP.getSpelling(Toks[i + 1]);
+      auto creg_size = PP.getSpelling(Toks[i + 3]);
+
+      std::cout << "CREG: " << creg_name << ", " << creg_size << "\n";
+      creg_name_to_size.insert({creg_name, std::stoi(creg_size)});
 
       std::stringstream sss;
       while (current_token.isNot(clang::tok::semi)) {
@@ -293,11 +400,18 @@ void run_token_collector_llvm_rt(clang::Preprocessor &PP,
         while (l_brace_count != 0) {
           // In here we have statements separated by compiler terminator
           // (default ';')
-          auto inst = process_inst_stmt(i, compiler, current_token,
-                                        terminating_char, extra_preamble);
+          auto comp_inst = process_inst_stmt(i, compiler, current_token,
+                                             terminating_char, extra_preamble);
           {
             auto visitor = std::make_shared<qrt_mapper>();
-            inst->accept(visitor);
+            xacc::InstructionIterator iter(comp_inst);
+            while (iter.hasNext()) {
+              auto next = iter.next();
+              if (!next->isComposite()) {
+                next->accept(visitor);
+              }
+            }
+            // inst->accept(visitor);
             qrt_code << visitor->get_new_src();
           }
           // missing ';', eat it up too
@@ -325,11 +439,17 @@ void run_token_collector_llvm_rt(clang::Preprocessor &PP,
 
         qrt_code << "\n   ";
 
-        auto inst = process_inst_stmt(i, compiler, current_token,
-                                      terminating_char, extra_preamble);
+        auto comp_inst = process_inst_stmt(i, compiler, current_token,
+                                           terminating_char, extra_preamble);
         {
           auto visitor = std::make_shared<qrt_mapper>();
-          inst->accept(visitor);
+          xacc::InstructionIterator iter(comp_inst);
+          while (iter.hasNext()) {
+            auto next = iter.next();
+            if (!next->isComposite()) {
+              next->accept(visitor);
+            }
+          }
           qrt_code << visitor->get_new_src();
         }
 
@@ -344,11 +464,17 @@ void run_token_collector_llvm_rt(clang::Preprocessor &PP,
 
     // this is a quantum statement + terminating char
     // slurp up to the terminating char
-    auto inst = process_inst_stmt(i, compiler, current_token, terminating_char,
-                                  extra_preamble);
+    auto comp_inst = process_inst_stmt(i, compiler, current_token,
+                                       terminating_char, extra_preamble);
     {
       auto visitor = std::make_shared<qrt_mapper>();
-      inst->accept(visitor);
+      xacc::InstructionIterator iter(comp_inst);
+      while (iter.hasNext()) {
+        auto next = iter.next();
+        if (!next->isComposite()) {
+          next->accept(visitor);
+        }
+      }
       qrt_code << visitor->get_new_src();
     }
   }
@@ -359,6 +485,12 @@ void run_token_collector_llvm_rt(clang::Preprocessor &PP,
      << "\");\n";
   for (auto &buf : bufferNames) {
     OS << buf << ".setNameAndStore(\"" + buf + "\");\n";
+  }
+
+  if (!oracle_name_to_extra_preamble.empty()) {
+    // we had an oracle synthesis, just add an
+    // anc registry preemptively
+    OS << "auto anc = qalloc(" << std::numeric_limits<int>::max() << ");\n";
   }
   if (shots > 0) {
     OS << "quantum::set_shots(" << shots << ");\n";

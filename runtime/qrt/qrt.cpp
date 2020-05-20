@@ -31,6 +31,8 @@ void one_qubit_inst(const std::string &name, const qubit &qidx,
 
 void h(const qubit &qidx) { one_qubit_inst("H", qidx); }
 void x(const qubit &qidx) { one_qubit_inst("X", qidx); }
+void t(const qubit &qidx) { one_qubit_inst("T", qidx); }
+void tdg(const qubit &qidx) { one_qubit_inst("Tdg", qidx); }
 
 void rx(const qubit &qidx, const double theta) {
   one_qubit_inst("Rx", qidx, {theta});

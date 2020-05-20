@@ -26,6 +26,8 @@ void one_qubit_inst(const std::string &name, const qubit &qidx,
 
 void h(const qubit &qidx);
 void x(const qubit &qidx);
+void t(const qubit & qidx);
+void tdg(const qubit& qidx);
 
 void rx(const qubit &qidx, const double theta);
 void ry(const qubit &qidx, const double theta);
