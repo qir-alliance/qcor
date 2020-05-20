@@ -13,6 +13,7 @@ set_target_properties(print_llvm_qir PROPERTIES
     COMPILE_FLAGS "-fno-rtti"
 )
 
+target_include_directories(print_llvm_qir PRIVATE ..)
 target_link_libraries(print_llvm_qir
                       PRIVATE ${LLVM_LIBS})
 

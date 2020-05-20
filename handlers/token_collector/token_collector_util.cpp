@@ -2,6 +2,7 @@
 #include "token_collector.hpp"
 #include "xacc.hpp"
 #include "xacc_service.hpp"
+#include <limits>
 #include <qalloc>
 
 #include "AllGateVisitor.hpp"
@@ -55,7 +56,8 @@ run_token_collector(clang::Preprocessor &PP, clang::CachedTokens &Toks,
 
 using namespace xacc::quantum;
 
-class qrt_mapper : public AllGateVisitor, public xacc::InstructionVisitor<Circuit> {
+class qrt_mapper : public AllGateVisitor,
+                   public xacc::InstructionVisitor<Circuit> {
 protected:
   std::stringstream ss;
 
@@ -106,9 +108,11 @@ public:
   void visit(Measure &measure) override { addOneQubitGate("mz", measure); }
   void visit(Identity &i) override { addOneQubitGate("i", i); }
   void visit(U &u) override { addOneQubitGate("u", u); }
-  void visit(Circuit& circ) override {
+  void visit(Circuit &circ) override {
     if (circ.name() == "exp_i_theta") {
-        ss << "quantum::exp(q"  << ", " << circ.getArguments()[0]->name << ", " << circ.getArguments()[1]->name << ");\n";
+      ss << "quantum::exp(" << circ.getBufferNames()[0] << ", "
+         << circ.getArguments()[0]->name << ", " << circ.getArguments()[1]->name
+         << ");\n";
     }
   }
   void visit(IfStmt &ifStmt) override {}
@@ -153,9 +157,9 @@ void run_token_collector_llvm_rt(clang::Preprocessor &PP,
     }
     ss << terminating_char;
 
-    std::cout << "COMPILING\n"
-              << function_prototype + "{" + ss.str() + "}"
-              << "\n";
+    // std::cout << "COMPILING\n"
+    //           << function_prototype + "{" + ss.str() + "}"
+    //           << "\n";
 
     // FIXME, check canParse, and if not, then just write ss.str() to qrt_code
     // somehow
@@ -187,7 +191,10 @@ void run_token_collector_llvm_rt(clang::Preprocessor &PP,
         std::stringstream sss;
         for (auto &b : bufferNames) {
           // sss << "qreg " << b << "[100];\n";
-          auto q = qalloc(100);
+          // Note - we don't know the size of the buffer 
+          // at this point, so just create one with max size 
+          // and we can provide an IR Pass later that updates it
+          auto q = qalloc(std::numeric_limits<int>::max());
           q.setNameAndStore(b.c_str());
         }
         extra_preamble += sss.str();
@@ -201,7 +208,7 @@ void run_token_collector_llvm_rt(clang::Preprocessor &PP,
     }
 
     // FIXME may want this later
-    //if (current_token_str == "qreg") {
+    // if (current_token_str == "qreg") {
 
     //   // allocate called within kernel, likely with openqasm
     //   // get the size and allocated it, but dont add to kernel string
@@ -341,7 +348,6 @@ void run_token_collector_llvm_rt(clang::Preprocessor &PP,
                                   extra_preamble);
     {
       auto visitor = std::make_shared<qrt_mapper>();
-      std::cout << "HELLO WORLD ACCEPTING: " << inst->name() << "\n";
       inst->accept(visitor);
       qrt_code << visitor->get_new_src();
     }

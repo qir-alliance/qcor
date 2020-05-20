@@ -166,11 +166,17 @@ public:
   // quantum kernel
   template <typename... ArgumentTypes>
   double operator()(ArgumentTypes... args) {
+#ifdef QCOR_USE_QRT
+    auto functor =
+        reinterpret_cast<void (*)(ArgumentTypes...)>(pointer_to_functor);
+    kernel = __internal__::kernel_as_composite_instruction(functor, args...);
+#else
     if (!kernel) {
       auto functor =
           reinterpret_cast<void (*)(ArgumentTypes...)>(pointer_to_functor);
       kernel = __internal__::kernel_as_composite_instruction(functor, args...);
     }
+#endif
 
     if (!qreg.results()) {
       // this hasn't been set, so set it
@@ -197,16 +203,13 @@ auto observe(QuantumKernel &kernel, std::shared_ptr<Observable> obs,
              Args... args) {
   auto program = __internal__::kernel_as_composite_instruction(kernel, args...);
   return [program, obs](Args... args) {
-      
     // Get the first argument, which should be a qreg
     auto q = std::get<0>(std::forward_as_tuple(args...));
-    // std::cout << "\n" << program->toString() << "\n";
 
     // Set the arguments on the IR
 #ifndef QCOR_USE_QRT
     program->updateRuntimeArguments(args...);
 #endif
-    // std::cout << "\n" << program->toString() << "\n";
 
     // Observe the program
     auto programs = __internal__::observe(obs, program);

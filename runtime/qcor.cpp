@@ -76,7 +76,8 @@ Handle taskInitiate(std::shared_ptr<ObjectiveFunction> objective,
 }
 
 Handle taskInitiate(std::shared_ptr<ObjectiveFunction> objective,
-                    std::shared_ptr<Optimizer> optimizer, qcor::OptFunction &&opt_function) {
+                    std::shared_ptr<Optimizer> optimizer,
+                    qcor::OptFunction &&opt_function) {
   return std::async(std::launch::async, [=, &opt_function]() -> ResultsBuffer {
     auto results = optimizer->optimize(opt_function);
     ResultsBuffer rb;
@@ -88,7 +89,8 @@ Handle taskInitiate(std::shared_ptr<ObjectiveFunction> objective,
 }
 
 Handle taskInitiate(std::shared_ptr<ObjectiveFunction> objective,
-                    std::shared_ptr<Optimizer> optimizer, qcor::OptFunction &opt_function) {
+                    std::shared_ptr<Optimizer> optimizer,
+                    qcor::OptFunction &opt_function) {
   return std::async(std::launch::async, [=, &opt_function]() -> ResultsBuffer {
     auto results = optimizer->optimize(opt_function);
     ResultsBuffer rb;

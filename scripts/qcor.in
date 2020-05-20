@@ -63,11 +63,16 @@ def main(argv=None):
     if verbose:
         sHandlerArgs += ['-Xclang', '-plugin-arg-qcor-args', '-Xclang', '-qcor-verbose']
 
+    qrt = False
     if '-qrt' in sys.argv[1:]:
+        qrt = True
         sys.argv.remove('-qrt')
         sHandlerArgs += ['-Xclang', '-plugin-arg-qcor-args', '-Xclang', '-qrt', '-DQCOR_USE_QRT']
 
     if '-print-qir' in sys.argv[1:]:
+        if not qrt:
+            print('[qcor] Cannot request -print-qir with -qrt flag. Please also pass -qrt.')
+            exit(1)
         sys.argv.remove('-print-qir')
         sHandlerArgs += ['-Xclang', '-load', '-Xclang', '@CMAKE_INSTALL_PREFIX@/lib/libprint_llvm_qir.so']
 
