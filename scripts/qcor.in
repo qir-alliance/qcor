@@ -80,7 +80,7 @@ def main(argv=None):
     filename = ''
     fileType = ''
     for arg in sys.argv[1:]:
-        if os.path.isfile(arg) and '.o' != os.path.splitext(arg)[1]:
+        if os.path.isfile(arg) and mimetypes.guess_type(arg)[0] is not None:
             filename = arg
             fileType = mimetypes.guess_type(filename)[0]
             break
