@@ -21,6 +21,7 @@ using OptFunction = xacc::OptFunction;
 using HeterogeneousMap = xacc::HeterogeneousMap;
 using Observable = xacc::Observable;
 using Optimizer = xacc::Optimizer;
+using CompositeInstruction = xacc::CompositeInstruction;
 
 class ResultsBuffer {
 public:
@@ -64,8 +65,8 @@ template <typename Function, typename Tuple> auto call(Function f, Tuple t) {
 // Given a quantum kernel functor / function pointer, create the xacc
 // CompositeInstruction representation of it
 template <typename QuantumKernel, typename... Args>
-xacc::CompositeInstruction *kernel_as_composite_instruction(QuantumKernel &k,
-                                                            Args... args) {
+std::shared_ptr<CompositeInstruction>
+kernel_as_composite_instruction(QuantumKernel &k, Args... args) {
   // turn off execution
   xacc::internal_compiler::__execute = false;
   // Execute to compile, this will store and we can get it
@@ -73,20 +74,21 @@ xacc::CompositeInstruction *kernel_as_composite_instruction(QuantumKernel &k,
   // turn execution on
   xacc::internal_compiler::__execute = true;
 #ifdef QCOR_USE_QRT
-  return quantum::getProgram().get();
+  return quantum::getProgram();
 #else
   return xacc::internal_compiler::getLastCompiled();
 #endif
 }
 
 // Observe the given kernel, and return the expected value
-double observe(xacc::CompositeInstruction *program,
+double observe(std::shared_ptr<CompositeInstruction> program,
                std::shared_ptr<Observable> obs,
                xacc::internal_compiler::qreg &q);
 
 // Observe the kernel and return the measured kernels
-std::vector<std::shared_ptr<xacc::CompositeInstruction>>
-observe(std::shared_ptr<Observable> obs, xacc::CompositeInstruction *program);
+std::vector<std::shared_ptr<CompositeInstruction>>
+observe(std::shared_ptr<Observable> obs,
+        std::shared_ptr<CompositeInstruction> program);
 
 // Get the objective function from the service registry
 std::shared_ptr<ObjectiveFunction> get_objective(const char *type);
@@ -118,7 +120,7 @@ protected:
   std::shared_ptr<Observable> observable;
 
   // Pointer to the quantum kernel
-  xacc::CompositeInstruction *kernel;
+  std::shared_ptr<CompositeInstruction> kernel;
 
   // The buffer containing all execution results
   xacc::internal_compiler::qreg qreg;
@@ -143,7 +145,7 @@ public:
   // Initialize this ObjectiveFunction with the problem
   // specific observable and CompositeInstruction
   virtual void initialize(std::shared_ptr<Observable> obs,
-                          xacc::CompositeInstruction *qk) {
+                          std::shared_ptr<CompositeInstruction> qk) {
     observable = obs;
     kernel = qk;
   }
@@ -195,7 +197,7 @@ void set_backend(const std::string &backend) {
   xacc::internal_compiler::setAccelerator(backend.c_str());
 }
 
-std::shared_ptr<xacc::CompositeInstruction> compile(const std::string &src);
+std::shared_ptr<CompositeInstruction> compile(const std::string &src);
 
 // Public observe function, returns expected value of Observable
 template <typename QuantumKernel, typename... Args>
@@ -212,13 +214,9 @@ auto observe(QuantumKernel &kernel, std::shared_ptr<Observable> obs,
 #endif
 
     // Observe the program
-    auto programs = __internal__::observe(obs, program);
+    auto programs = obs->observe(program);
 
-    std::vector<xacc::CompositeInstruction *> ptrs;
-    for (auto p : programs)
-      ptrs.push_back(p.get());
-
-    xacc::internal_compiler::execute(q.results(), ptrs);
+    xacc::internal_compiler::execute(q.results(), programs);
 
     // We want to contract q children buffer
     // exp-val-zs with obs term coeffs
@@ -234,10 +232,10 @@ createOptimizer(const char *type, HeterogeneousMap &&options = {});
 std::shared_ptr<Observable> createObservable(const char *repr);
 
 std::shared_ptr<ObjectiveFunction> createObjectiveFunction(
-    const char *obj_name, std::shared_ptr<xacc::CompositeInstruction> kernel,
+    const char *obj_name, std::shared_ptr<CompositeInstruction> kernel,
     std::shared_ptr<Observable> observable, HeterogeneousMap &&options = {}) {
   auto obj_func = qcor::__internal__::get_objective(obj_name);
-  obj_func->initialize(observable, kernel.get());
+  obj_func->initialize(observable, kernel);
   obj_func->set_options(options);
   return obj_func;
 }

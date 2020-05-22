@@ -158,11 +158,11 @@ void exp(qreg q, const double theta, std::shared_ptr<xacc::Observable> H) {
 }
 
 void submit(xacc::AcceleratorBuffer *buffer) {
-  xacc::internal_compiler::execute(buffer, program.get());
+  xacc::internal_compiler::execute(buffer, program);
 }
 
 void submit(xacc::AcceleratorBuffer **buffers, const int nBuffers) {
-  xacc::internal_compiler::execute(buffers, nBuffers, program.get());
+  xacc::internal_compiler::execute(buffers, nBuffers, program);
 }
 std::shared_ptr<xacc::CompositeInstruction> getProgram() { return program; }
 } // namespace quantum

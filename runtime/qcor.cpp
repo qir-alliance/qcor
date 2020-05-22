@@ -17,23 +17,18 @@ std::shared_ptr<ObjectiveFunction> get_objective(const char *type) {
 }
 std::vector<std::shared_ptr<xacc::CompositeInstruction>>
 observe(std::shared_ptr<xacc::Observable> obs,
-        xacc::CompositeInstruction *program) {
-  return obs->observe(xacc::as_shared_ptr(program));
+        std::shared_ptr<CompositeInstruction> program) {
+  return obs->observe(program);
 }
 
-double observe(xacc::CompositeInstruction *program,
+double observe(std::shared_ptr<CompositeInstruction> program,
                std::shared_ptr<xacc::Observable> obs,
                xacc::internal_compiler::qreg &q) {
   return [program, obs, &q]() {
     // Observe the program
     auto programs = __internal__::observe(obs, program);
 
-    std::vector<xacc::CompositeInstruction *> ptrs;
-    for (auto p : programs) {
-      ptrs.push_back(p.get());
-    }
-
-    xacc::internal_compiler::execute(q.results(), ptrs);
+    xacc::internal_compiler::execute(q.results(), programs);
 
     // We want to contract q children buffer
     // exp-val-zs with obs term coeffs
