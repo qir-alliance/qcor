@@ -69,16 +69,15 @@ public:
       auto parm_var_decl = cast<ParmVarDecl>(decl);
       if (parm_var_decl) {
         auto type = QualType::getAsString(parm_var_decl->getType().split(),
-                                           PrintingPolicy{{}});
-                    // parm_var_decl->getType().getCanonicalType().getAsString();
+                                          PrintingPolicy{{}});
+        // parm_var_decl->getType().getCanonicalType().getAsString();
         program_arg_types.push_back(type);
         program_parameters.push_back(ident->getName().str());
         if (type == "class xacc::internal_compiler::qreg") {
           bufferNames.push_back(ident->getName().str());
           function_prototype += "qreg " + ident->getName().str() + ", ";
         } else {
-          function_prototype +=
-              type + " " + ident->getName().str() + ", ";
+          function_prototype += type + " " + ident->getName().str() + ", ";
         }
       }
     }
@@ -92,7 +91,8 @@ public:
     if (qrt) {
 
       qcor::run_token_collector_llvm_rt(PP, Toks, function_prototype,
-                                        bufferNames, kernel_name, OS, qpu_name);
+                                        bufferNames, kernel_name, OS, qpu_name,
+                                        shots);
 
     } else {
       auto kernel_src_and_compiler =
