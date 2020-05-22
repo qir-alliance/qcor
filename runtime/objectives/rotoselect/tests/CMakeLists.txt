@@ -1,0 +1,5 @@
+link_directories(${XACC_ROOT}/lib)
+add_executable(RotoselectObjTester RotoselectTester.cpp)
+add_test(NAME qcor_RotoselectObjTester COMMAND RotoselectObjTester)
+target_include_directories(RotoselectObjTester PRIVATE ${XACC_ROOT}/include/gtest)
+target_link_libraries(RotoselectObjTester ${XACC_TEST_LIBRARIES} qcor)

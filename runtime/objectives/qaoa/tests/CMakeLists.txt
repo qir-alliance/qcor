@@ -1,0 +1,5 @@
+link_directories(${XACC_ROOT}/lib)
+add_executable(QAOAObjTester QAOATester.cpp)
+add_test(NAME qcor_QAOAObjTester COMMAND QAOAObjTester)
+target_include_directories(QAOAObjTester PRIVATE ${XACC_ROOT}/include/gtest)
+target_link_libraries(QAOAObjTester ${XACC_TEST_LIBRARIES} qcor)

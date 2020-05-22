@@ -1,0 +1,6 @@
+{
+  "bundle.symbolic_name" : "qcor_qaoa_objective",
+  "bundle.activator" : true,
+  "bundle.name" : "QAOA Objective Function",
+  "bundle.description" : ""
+}

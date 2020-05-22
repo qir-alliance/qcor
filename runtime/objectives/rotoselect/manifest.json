@@ -1,0 +1,6 @@
+{
+  "bundle.symbolic_name" : "qcor_rotoselect_objective",
+  "bundle.activator" : true,
+  "bundle.name" : "Rotoselect Objective Function",
+  "bundle.description" : ""
+}
