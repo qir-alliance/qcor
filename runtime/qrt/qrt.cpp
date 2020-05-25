@@ -16,7 +16,10 @@ void initialize(const std::string qpu_name, const std::string kernel_name) {
   program = provider->createComposite(kernel_name);
 }
 
-void set_shots(int shots) {}
+void set_shots(int shots) {
+  xacc::internal_compiler::get_qpu()->updateConfiguration(
+      {std::make_pair("shots", shots)});
+}
 
 void one_qubit_inst(const std::string &name, const qubit &qidx,
                     std::vector<double> parameters) {
