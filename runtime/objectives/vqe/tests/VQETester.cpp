@@ -61,6 +61,56 @@ TEST(VQETester, checkSimple) {
   EXPECT_NEAR(-1.13717, results.first, 1e-4);
 }
 
+TEST(VQETester, checkQaoa) {
+  xacc::internal_compiler::compiler_InitializeXACC("qpp");
+  auto buffer = qalloc(2);
+  auto qaoaCirc = std::dynamic_pointer_cast<xacc::CompositeInstruction>(xacc::getService<xacc::Instruction>("qaoa"));
+  auto optimizer = qcor::createOptimizer("nlopt");
+  std::shared_ptr<Observable> observable = xacc::quantum::getObservable(
+      "pauli",
+      std::string(
+          "5.907 - 2.1433 X0X1 "
+          "- 2.1433 Y0Y1"
+          "+ .21829 Z0 - 6.125 Z1"));
+
+  std::shared_ptr<Observable> refHamiltonian = xacc::quantum::getObservable(
+      "pauli",
+      std::string("1.0 X0 + 1.0 X1")
+  );
+
+  auto vqe = xacc::getService<qcor::ObjectiveFunction>("vqe");
+  vqe->initialize(observable, qaoaCirc);
+  vqe->set_qreg(buffer);
+
+  const int nbSteps = 2;
+  const int nbParamsPerStep = 2 /*beta (mixer)*/ + 4 /*gamma (cost)*/;
+  const int totalParams = nbSteps * nbParamsPerStep;
+  int iterCount = 0;
+
+  qcor::OptFunction f(
+      [&](const std::vector<double> x, std::vector<double> &grad) {
+        std::vector<double> betas;
+        std::vector<double> gammas;
+        // Unpack nlopt params
+        // Beta: nbSteps * number qubits
+        for (int i = 0; i < nbSteps * buffer.size(); ++i) {
+          betas.emplace_back(x[i]);
+        }
+
+        for (int i = betas.size(); i < x.size(); ++i) {
+          gammas.emplace_back(x[i]);
+        }
+
+        const double costVal = (*vqe)(buffer.size(), betas, gammas, observable.get(), refHamiltonian.get());
+        std::cout << "Iter " << iterCount << ": Cost = " << costVal << "\n";
+        iterCount++;
+        return costVal;
+      },
+      totalParams);
+  auto results = optimizer->optimize(f);
+  std::cout << "Final cost: " << results.first << "\n";
+}
+
 int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);
   auto ret = RUN_ALL_TESTS();
