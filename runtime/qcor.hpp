@@ -9,6 +9,7 @@
 #include "CompositeInstruction.hpp"
 #include "Observable.hpp"
 #include "Optimizer.hpp"
+#include "PauliOperator.hpp"
 
 #include "qalloc"
 #include "xacc_internal_compiler.hpp"
@@ -22,6 +23,47 @@ using HeterogeneousMap = xacc::HeterogeneousMap;
 using Observable = xacc::Observable;
 using Optimizer = xacc::Optimizer;
 using CompositeInstruction = xacc::CompositeInstruction;
+
+using PauliOperator = xacc::quantum::PauliOperator;
+
+PauliOperator X(int idx){
+  return PauliOperator({{idx, "X"}});
+}
+
+PauliOperator Y(int idx){
+  return PauliOperator({{idx, "Y"}});
+}
+
+PauliOperator Z(int idx){
+  return PauliOperator({{idx, "Z"}});
+}
+
+template<typename T>
+PauliOperator operator+(T coeff, PauliOperator &op){
+  return PauliOperator(coeff) + op;
+}
+template<typename T>
+PauliOperator operator+(PauliOperator &op, T coeff){
+  return coeff + op;
+}
+template<typename T>
+PauliOperator operator-(T coeff, PauliOperator &op){
+  return PauliOperator(-1.0*coeff) + op;
+}
+template<typename T>
+PauliOperator operator-(PauliOperator &op, T coeff){
+  return (-1.0)*coeff + op;
+}
+PauliOperator sig_plus(int idx){
+  std::complex<double> imag(0.0, 1.0);
+  return X(idx) + imag*Y(idx);
+}
+
+PauliOperator sig_minus(int idx){
+  std::complex<double> imag(0.0, -1.0);
+  return X(idx) + imag*Y(idx);
+}
+
 
 class ResultsBuffer {
 public:
@@ -82,8 +124,13 @@ kernel_as_composite_instruction(QuantumKernel &k, Args... args) {
 
 // Observe the given kernel, and return the expected value
 double observe(std::shared_ptr<CompositeInstruction> program,
-               std::shared_ptr<Observable> obs,
-               xacc::internal_compiler::qreg &q);
+              std::shared_ptr<Observable> obs,
+              xacc::internal_compiler::qreg &q);
+
+double observe(std::shared_ptr<CompositeInstruction> program,
+              Observable &obs,
+              xacc::internal_compiler::qreg &q);
+
 
 // Observe the kernel and return the measured kernels
 std::vector<std::shared_ptr<CompositeInstruction>>
@@ -221,6 +268,34 @@ auto observe(QuantumKernel &kernel, std::shared_ptr<Observable> obs,
     // We want to contract q children buffer
     // exp-val-zs with obs term coeffs
     return q.weighted_sum(obs.get());
+  }(args...);
+}
+
+template <typename QuantumKernel, typename... Args>
+auto observe(QuantumKernel &kernel, Observable &obs,
+             Args... args) {
+  auto program = __internal__::kernel_as_composite_instruction(kernel, args...);
+  return [program, &obs](Args... args) {
+      
+    // Get the first argument, which should be a qreg
+    auto q = std::get<0>(std::forward_as_tuple(args...));
+    // std::cout << "\n" << program->toString() << "\n";
+
+    // Set the arguments on the IR
+#ifndef QCOR_USE_QRT
+    program->updateRuntimeArguments(args...);
+#endif
+    // std::cout << "\n" << program->toString() << "\n";
+
+    // Observe the program
+    auto programs = obs.observe(program);
+
+
+    xacc::internal_compiler::execute(q.results(), programs);
+
+    // We want to contract q children buffer
+    // exp-val-zs with obs term coeffs
+    return q.weighted_sum(&obs);
   }(args...);
 }
 
