@@ -17,22 +17,40 @@ std::shared_ptr<ObjectiveFunction> get_objective(const char *type) {
 }
 std::vector<std::shared_ptr<xacc::CompositeInstruction>>
 observe(std::shared_ptr<xacc::Observable> obs,
-        std::shared_ptr<CompositeInstruction> program) {
-  return obs->observe(program);
+        xacc::CompositeInstruction *program) {
+  return obs->observe(xacc::as_shared_ptr(program));
 }
 
-double observe(std::shared_ptr<CompositeInstruction> program,
+double observe(xacc::CompositeInstruction *program,
                std::shared_ptr<xacc::Observable> obs,
                xacc::internal_compiler::qreg &q) {
   return [program, obs, &q]() {
     // Observe the program
     auto programs = __internal__::observe(obs, program);
 
+
+    /*FAILING LINE: */  
+    xacc::internal_compiler::execute(q.results(), programs);
+    // We want to contract q children buffer
+    // exp-val-zs with obs term coeffs
+    return q.weighted_sum(obs.get());
+  }();
+}
+
+double observe(xacc::CompositeInstruction *program,
+               Observable &obs,
+               xacc::internal_compiler::qreg &q) {
+  return [program, &obs, &q]() {
+    // Observe the program
+
+    auto programs = obs.observe(xacc::as_shared_ptr(program));
+
+
     xacc::internal_compiler::execute(q.results(), programs);
 
     // We want to contract q children buffer
     // exp-val-zs with obs term coeffs
-    return q.weighted_sum(obs.get());
+    return q.weighted_sum(&obs);
   }();
 }
 } // namespace __internal__
