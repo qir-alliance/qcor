@@ -56,14 +56,14 @@ PauliOperator operator-(PauliOperator &op, T coeff){
   return -1.0*coeff + op;
 }
 
-PauliOperator sig_plus(int idx){
+PauliOperator SP(int idx){
   std::complex<double> imag (0.0, 1.0);
   return X(idx) + imag * Y(idx);
 }
 
-PauliOperator sig_minus(int idx){
-  std::complex<double> imag (0.0, -1.0);
-  return X(idx) + imag * Y(idx);
+PauliOperator SM(int idx){
+  std::complex<double> imag (0.0, 1.0);
+  return X(idx) - imag * Y(idx);
 }
 
 class ResultsBuffer {
