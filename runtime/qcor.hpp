@@ -12,6 +12,7 @@
 
 #include "qalloc"
 #include "xacc_internal_compiler.hpp"
+#include "PauliOperator.hpp"
 
 #include "qrt.hpp"
 
@@ -22,6 +23,48 @@ using HeterogeneousMap = xacc::HeterogeneousMap;
 using Observable = xacc::Observable;
 using Optimizer = xacc::Optimizer;
 using CompositeInstruction = xacc::CompositeInstruction;
+using PauliOperator = xacc::quantum::PauliOperator;
+
+
+PauliOperator X(int idx){
+  return PauliOperator({{idx, "X"}});
+}
+
+PauliOperator Y(int idx){
+  return PauliOperator({{idx, "Y"}});
+}
+
+PauliOperator Z(int idx){
+  return PauliOperator({{idx, "Z"}});
+}
+template<typename T>
+PauliOperator operator+(T coeff, PauliOperator &op){
+  return PauliOperator(coeff) + op;
+}
+template<typename T>
+PauliOperator operator+(PauliOperator &op, T coeff){
+  return PauliOperator(coeff) + op;
+}
+
+template<typename T>
+PauliOperator operator-(T coeff, PauliOperator &op){
+  return -1.0*coeff + op;
+}
+
+template<typename T>
+PauliOperator operator-(PauliOperator &op, T coeff){
+  return -1.0*coeff + op;
+}
+
+PauliOperator SP(int idx){
+  std::complex<double> imag (0.0, 1.0);
+  return X(idx) + imag * Y(idx);
+}
+
+PauliOperator SM(int idx){
+  std::complex<double> imag (0.0, 1.0);
+  return X(idx) - imag * Y(idx);
+}
 
 class ResultsBuffer {
 public:
@@ -221,6 +264,34 @@ auto observe(QuantumKernel &kernel, std::shared_ptr<Observable> obs,
     // We want to contract q children buffer
     // exp-val-zs with obs term coeffs
     return q.weighted_sum(obs.get());
+  }(args...);
+}
+
+template <typename QuantumKernel, typename... Args>
+auto observe(QuantumKernel &kernel, Observable &obs,
+             Args... args) {
+  auto program = __internal__::kernel_as_composite_instruction(kernel, args...);
+  return [program, &obs](Args... args) {
+
+
+
+    // Get the first argument, which should be a qreg
+    auto q = std::get<0>(std::forward_as_tuple(args...));
+    // std::cout << "\n" << program->toString() << "\n";
+
+    // Set the arguments on the IR
+#ifndef QCOR_USE_QRT
+    program->updateRuntimeArguments(args...);
+#endif
+
+    // Observe the program
+    auto programs = obs.observe(program);
+
+    xacc::internal_compiler::execute(q.results(), programs);
+
+    // We want to contract q children buffer
+    // exp-val-zs with obs term coeffs
+    return q.weighted_sum(&obs);
   }(args...);
 }
 

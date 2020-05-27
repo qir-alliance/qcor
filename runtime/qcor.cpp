@@ -35,6 +35,21 @@ double observe(std::shared_ptr<CompositeInstruction> program,
     return q.weighted_sum(obs.get());
   }();
 }
+
+double observe(std::shared_ptr<CompositeInstruction> program,
+               Observable& obs,
+               xacc::internal_compiler::qreg &q) {
+  return [program, &obs, &q]() {
+    // Observe the program
+    auto programs = obs.observe(program);
+
+    xacc::internal_compiler::execute(q.results(), programs);
+
+    // We want to contract q children buffer
+    // exp-val-zs with obs term coeffs
+    return q.weighted_sum(&obs);
+  }();
+}
 } // namespace __internal__
 
 std::shared_ptr<xacc::Optimizer> createOptimizer(const std::string &type,
