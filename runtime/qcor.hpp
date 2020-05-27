@@ -25,7 +25,6 @@ using Optimizer = xacc::Optimizer;
 using CompositeInstruction = xacc::CompositeInstruction;
 using PauliOperator = xacc::quantum::PauliOperator;
 
-
 PauliOperator X(int idx){
   return PauliOperator({{idx, "X"}});
 }
@@ -272,8 +271,6 @@ auto observe(QuantumKernel &kernel, Observable &obs,
              Args... args) {
   auto program = __internal__::kernel_as_composite_instruction(kernel, args...);
   return [program, &obs](Args... args) {
-
-
 
     // Get the first argument, which should be a qreg
     auto q = std::get<0>(std::forward_as_tuple(args...));

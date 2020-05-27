@@ -40,9 +40,7 @@ TEST(QCORTester, checkTaskInitiate) {
   // Create the ObjectiveFunction, here we want to run VQE
   // need to provide ansatz and the Observable
   auto objective = xacc::getService<qcor::ObjectiveFunction>("vqe");
-  std::cout << "INITING\n";
   objective->initialize(observable, ruccsd);
-  std::cout << "INITTED\n";
   objective->set_qreg(buffer);
 
   auto args_translation =

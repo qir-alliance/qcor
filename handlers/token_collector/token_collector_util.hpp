@@ -2,6 +2,7 @@
 #define QCOR_HANDLERS_TOKENCOLLECTORUTIL_HPP_
 
 #include "clang/Parse/Parser.h"
+#include "clang/Sema/DeclSpec.h"
 #include <sstream>
 
 namespace qcor {
