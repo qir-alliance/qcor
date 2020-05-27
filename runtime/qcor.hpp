@@ -226,10 +226,10 @@ auto observe(QuantumKernel &kernel, std::shared_ptr<Observable> obs,
 
 // Create the desired Optimizer
 std::shared_ptr<xacc::Optimizer>
-createOptimizer(const char *type, HeterogeneousMap &&options = {});
+createOptimizer(const std::string& type, HeterogeneousMap &&options = {});
 
 // Create an observable from a string representation
-std::shared_ptr<Observable> createObservable(const char *repr);
+std::shared_ptr<Observable> createObservable(const std::string& repr);
 
 std::shared_ptr<ObjectiveFunction> createObjectiveFunction(
     const char *obj_name, std::shared_ptr<CompositeInstruction> kernel,

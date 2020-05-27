@@ -37,14 +37,14 @@ double observe(std::shared_ptr<CompositeInstruction> program,
 }
 } // namespace __internal__
 
-std::shared_ptr<xacc::Optimizer> createOptimizer(const char *type,
+std::shared_ptr<xacc::Optimizer> createOptimizer(const std::string &type,
                                                  HeterogeneousMap &&options) {
   if (!xacc::isInitialized())
     xacc::internal_compiler::compiler_InitializeXACC();
   return xacc::getOptimizer(type, options);
 }
 
-std::shared_ptr<xacc::Observable> createObservable(const char *repr) {
+std::shared_ptr<xacc::Observable> createObservable(const std::string & repr) {
   if (!xacc::isInitialized())
     xacc::internal_compiler::compiler_InitializeXACC();
   return xacc::quantum::getObservable("pauli", std::string(repr));
