@@ -101,7 +101,7 @@ TEST(VQETester, checkQaoa) {
           gammas.emplace_back(x[i]);
         }
 
-        const double costVal = (*vqe)(buffer.size(), betas, gammas, observable.get(), refHamiltonian.get());
+        const double costVal = (*vqe)(buffer, buffer.size(), betas, gammas, observable.get(), refHamiltonian.get());
         std::cout << "Iter " << iterCount << ": Cost = " << costVal << "\n";
         iterCount++;
         return costVal;
