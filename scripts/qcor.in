@@ -9,7 +9,7 @@ def main(argv=None):
                             '-lqcor', '-lqrt', '-lCppMicroServices',
                             '-lxacc-quantum-gate',
                             '-lxacc-pauli', '-lpthread']
-    baseIncludes = ['-I', '@CMAKE_INSTALL_PREFIX@/include/xacc', '-I', '@CMAKE_INSTALL_PREFIX@/include/qcor']
+    baseIncludes = ['-I', '@CMAKE_INSTALL_PREFIX@/include/xacc', '-I', '@CMAKE_INSTALL_PREFIX@/include/qcor', '-I', '@CMAKE_INSTALL_PREFIX@/include/quantum/gate']
     defaultFlags = ['-std=c++17', '-fplugin=@CMAKE_INSTALL_PREFIX@/clang-plugins/libqcor-syntax-handler.so']
 
     # Need to know if this is compile-only
@@ -30,7 +30,6 @@ def main(argv=None):
         parser.add_argument('-I',action='append',nargs=1, metavar=('header_file.hpp'),help='specify additional headers to add to the include search path.')
         parser.add_argument('-L',action='append',nargs=1,metavar=('/path/to/libs'),help='specifiy additional linker search paths.')
         parser.add_argument('-l',action='append',nargs=1,metavar=('lib_name'),help='specifiy additional libraries to link.')
-        parser.add_argument('-print-qir', metavar='', help='dump the LLVM IR for quantum kernel expressions.')
         args = parser.parse_args(sys.argv)
 
 
@@ -69,13 +68,6 @@ def main(argv=None):
         sys.argv.remove('-qrt')
         sHandlerArgs += ['-Xclang', '-plugin-arg-qcor-args', '-Xclang', '-qrt', '-DQCOR_USE_QRT']
 
-    if '-print-qir' in sys.argv[1:]:
-        if not qrt:
-            print('[qcor] Cannot request -print-qir with -qrt flag. Please also pass -qrt.')
-            exit(1)
-        sys.argv.remove('-print-qir')
-        sHandlerArgs += ['-Xclang', '-load', '-Xclang', '@CMAKE_INSTALL_PREFIX@/lib/libprint_llvm_qir.so']
-
     # Get the filename we are compiling or the object file
     filename = ''
     fileType = ''
@@ -111,6 +103,28 @@ def main(argv=None):
             print(e.output)
             print(e.returncode)
             return e.returncode
+    elif fileType == '' and filename == '':
+        if '-x' in sys.argv[1:] and 'c++' in sys.argv[1:]:
+            sys.argv[0] = compiler
+            commands = [compiler] + defaultFlags + sHandlerArgs + baseIncludes 
+            if compileOnly:
+                commands += sys.argv[1:]
+            else:
+                commands += baseLibs + sys.argv[1:]
+
+
+            if verbose:
+                print('[qcor-exec]: ', ' '.join([c for c in commands]))
+
+            try:
+                result = subprocess.run(commands, check=True)
+            except subprocess.CalledProcessError as e:
+                print(e.output)
+                print(e.returncode)
+                return e.returncode
+        else:
+            print('invalid command line arguments for qcor')
+            exit(1)
     else:
         # This is a .o file, so execute the link phase
         commands = [compiler] + baseLibs + sys.argv[1:]

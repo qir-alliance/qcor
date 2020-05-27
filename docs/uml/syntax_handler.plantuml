@@ -1,0 +1,23 @@
+@startuml
+
+class clang::SyntaxHandler {
+    
+    + GetReplacement()
+    
+
+}
+
+class qcor::QCORSyntaxHandler 
+
+class qcor::TokenCollector 
+
+class qcor::XasmTokenCollector
+class qcor::OpenQasmTokenCollector
+
+clang::SyntaxHandler <|-- qcor::QCORSyntaxHandler
+qcor::TokenCollector <-- qcor::QCORSyntaxHandler 
+
+qcor::TokenCollector <|-- qcor::XasmTokenCollector
+qcor::TokenCollector <|-- qcor::OpenQasmTokenCollector
+
+@enduml

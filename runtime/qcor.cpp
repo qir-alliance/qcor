@@ -35,16 +35,31 @@ double observe(std::shared_ptr<CompositeInstruction> program,
     return q.weighted_sum(obs.get());
   }();
 }
+
+double observe(std::shared_ptr<CompositeInstruction> program,
+               Observable& obs,
+               xacc::internal_compiler::qreg &q) {
+  return [program, &obs, &q]() {
+    // Observe the program
+    auto programs = obs.observe(program);
+
+    xacc::internal_compiler::execute(q.results(), programs);
+
+    // We want to contract q children buffer
+    // exp-val-zs with obs term coeffs
+    return q.weighted_sum(&obs);
+  }();
+}
 } // namespace __internal__
 
-std::shared_ptr<xacc::Optimizer> createOptimizer(const char *type,
+std::shared_ptr<xacc::Optimizer> createOptimizer(const std::string &type,
                                                  HeterogeneousMap &&options) {
   if (!xacc::isInitialized())
     xacc::internal_compiler::compiler_InitializeXACC();
   return xacc::getOptimizer(type, options);
 }
 
-std::shared_ptr<xacc::Observable> createObservable(const char *repr) {
+std::shared_ptr<xacc::Observable> createObservable(const std::string & repr) {
   if (!xacc::isInitialized())
     xacc::internal_compiler::compiler_InitializeXACC();
   return xacc::quantum::getObservable("pauli", std::string(repr));
