@@ -25,6 +25,12 @@ const std::string rucc = R"rucc(__qpu__ void f(qbit q, double t0) {
     H(q[3]);
 })rucc";
 
+const std::string qaoa_ansatz_src = R"##(
+  __qpu__ void qaoa_ansatz(qreg q, int n, std::vector<double> betas, std::vector<double> gammas, std::shared_ptr<xacc::Observable> costHamiltonian, std::shared_ptr<xacc::Observable> refHamiltonian) {
+    // Call the qaoa circuit
+    qaoa(q,n,betas,gammas,costHamiltonian,refHamiltonian); 
+  })##";
+
 TEST(VQETester, checkSimple) {
 
   xacc::internal_compiler::compiler_InitializeXACC("qpp");
@@ -64,7 +70,10 @@ TEST(VQETester, checkSimple) {
 TEST(VQETester, checkQaoa) {
   xacc::internal_compiler::compiler_InitializeXACC("qpp");
   auto buffer = qalloc(2);
-  auto qaoaCirc = std::dynamic_pointer_cast<xacc::CompositeInstruction>(xacc::getService<xacc::Instruction>("qaoa"));
+  auto qaoaCirc = xacc::getService<xacc::Compiler>("xasm")
+                  ->compile(qaoa_ansatz_src, nullptr)
+                  ->getComposite("qaoa_ansatz");
+                  
   auto optimizer = qcor::createOptimizer("nlopt");
   std::shared_ptr<Observable> observable = xacc::quantum::getObservable(
       "pauli",
