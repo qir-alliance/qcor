@@ -5,7 +5,7 @@
 #include <qalloc>
 #include "qcor.hpp"
 
-__qpu__ void qaoa_ansatz(qreg q, int n, std::vector<double> betas, std::vector<double> gammas, std::shared_ptr<xacc::Observable> costHamiltonian, std::shared_ptr<xacc::Observable> refHamiltonian) {
+__qpu__ void qaoa_ansatz(qreg q, int n, std::vector<double> betas, std::vector<double> gammas, qcor::PauliOperator& costHamiltonian, qcor::PauliOperator& refHamiltonian) {
   // Just use the built-in qaoa circuit
   qaoa(q, n, betas, gammas, costHamiltonian, refHamiltonian);
 }
@@ -16,12 +16,10 @@ int main(int argc, char **argv) {
   auto buffer = qalloc(2);
   auto optimizer = qcor::createOptimizer("nlopt");
   // Cost Hamiltonian
-  auto costHam = 5.907-2.1433*qcor::X(0)*qcor::X(1)-2.1433*qcor::Y(0)*qcor::Y(1)+0.21829*qcor::Z(0)-6.125*qcor::Z(1);
-  std::shared_ptr<qcor::Observable> observable = std::make_shared<qcor::PauliOperator>(costHam);
+  auto observable = 5.907-2.1433*qcor::X(0)*qcor::X(1)-2.1433*qcor::Y(0)*qcor::Y(1)+0.21829*qcor::Z(0)-6.125*qcor::Z(1);
   // Mixer Hamiltonian
-  auto refH = qcor::X(0) + qcor::X(1);
-  std::shared_ptr<qcor::Observable> refHamiltonian = std::make_shared<qcor::PauliOperator>(refH);
-  
+  auto refHamiltonian = qcor::X(0) + qcor::X(1);
+
   // VQE objective function
   auto vqe = qcor::createObjectiveFunction("vqe", qaoa_ansatz, observable);
   vqe->set_qreg(buffer);

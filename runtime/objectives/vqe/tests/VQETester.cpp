@@ -25,12 +25,6 @@ const std::string rucc = R"rucc(__qpu__ void f(qbit q, double t0) {
     H(q[3]);
 })rucc";
 
-const std::string qaoa_ansatz_src = R"##(
-  __qpu__ void qaoa_ansatz(qreg q, int n, std::vector<double> betas, std::vector<double> gammas, std::shared_ptr<xacc::Observable> costHamiltonian, std::shared_ptr<xacc::Observable> refHamiltonian) {
-    // Call the qaoa circuit
-    qaoa(q,n,betas,gammas,costHamiltonian,refHamiltonian); 
-  })##";
-
 TEST(VQETester, checkSimple) {
 
   xacc::internal_compiler::compiler_InitializeXACC("qpp");
@@ -65,59 +59,6 @@ TEST(VQETester, checkSimple) {
   auto results = optimizer->optimize(f);
 
   EXPECT_NEAR(-1.13717, results.first, 1e-4);
-}
-
-TEST(VQETester, checkQaoa) {
-  xacc::internal_compiler::compiler_InitializeXACC("qpp");
-  auto buffer = qalloc(2);
-  auto qaoaCirc = xacc::getService<xacc::Compiler>("xasm")
-                  ->compile(qaoa_ansatz_src, nullptr)
-                  ->getComposite("qaoa_ansatz");
-                  
-  auto optimizer = qcor::createOptimizer("nlopt");
-  std::shared_ptr<Observable> observable = xacc::quantum::getObservable(
-      "pauli",
-      std::string(
-          "5.907 - 2.1433 X0X1 "
-          "- 2.1433 Y0Y1"
-          "+ .21829 Z0 - 6.125 Z1"));
-
-  std::shared_ptr<Observable> refHamiltonian = xacc::quantum::getObservable(
-      "pauli",
-      std::string("1.0 X0 + 1.0 X1")
-  );
-
-  auto vqe = xacc::getService<qcor::ObjectiveFunction>("vqe");
-  vqe->initialize(observable, qaoaCirc);
-  vqe->set_qreg(buffer);
-
-  const int nbSteps = 2;
-  const int nbParamsPerStep = 2 /*beta (mixer)*/ + 4 /*gamma (cost)*/;
-  const int totalParams = nbSteps * nbParamsPerStep;
-  int iterCount = 0;
-
-  qcor::OptFunction f(
-      [&](const std::vector<double> x, std::vector<double> &grad) {
-        std::vector<double> betas;
-        std::vector<double> gammas;
-        // Unpack nlopt params
-        // Beta: nbSteps * number qubits
-        for (int i = 0; i < nbSteps * buffer.size(); ++i) {
-          betas.emplace_back(x[i]);
-        }
-
-        for (int i = betas.size(); i < x.size(); ++i) {
-          gammas.emplace_back(x[i]);
-        }
-
-        const double costVal = (*vqe)(buffer, buffer.size(), betas, gammas, observable.get(), refHamiltonian.get());
-        std::cout << "Iter " << iterCount << ": Cost = " << costVal << "\n";
-        iterCount++;
-        return costVal;
-      },
-      totalParams);
-  auto results = optimizer->optimize(f);
-  std::cout << "Final cost: " << results.first << "\n";
 }
 
 int main(int argc, char **argv) {
