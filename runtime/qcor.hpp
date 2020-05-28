@@ -36,6 +36,15 @@ PauliOperator Y(int idx){
 PauliOperator Z(int idx){
   return PauliOperator({{idx, "Z"}});
 }
+
+PauliOperator allZs(const int nQubits) {
+    auto ret = Z(0);
+    for (int i = 1; i < nQubits; i++) {
+        ret *= Z(i);
+    }
+    return ret;
+}
+
 template<typename T>
 PauliOperator operator+(T coeff, PauliOperator &op){
   return PauliOperator(coeff) + op;

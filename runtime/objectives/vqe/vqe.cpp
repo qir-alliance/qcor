@@ -29,11 +29,6 @@ protected:
     auto tmp_child = qalloc(qreg.size());
     auto val = vqe->execute(xacc::as_shared_ptr(tmp_child.results()), {})[0];
     qreg.addChild(tmp_child);
-    std::cout << "tmp_child: ";
-    for (auto &[k, v] : tmp_child.results()->getMeasurementCounts()) {
-      std::cout << k << ":" << v << ", ";
-    }
-    std::cout << "\n";
     return val;
   }
 
