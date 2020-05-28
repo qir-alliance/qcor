@@ -76,6 +76,7 @@ using Handle = std::future<ResultsBuffer>;
 ResultsBuffer sync(Handle &handle) { return handle.get(); }
 
 void set_verbose(bool verbose);
+void set_shots(const int shots);
 
 class ObjectiveFunction;
 
@@ -133,7 +134,7 @@ observe(std::shared_ptr<Observable> obs,
         std::shared_ptr<CompositeInstruction> program);
 
 // Get the objective function from the service registry
-std::shared_ptr<ObjectiveFunction> get_objective(const char *type);
+std::shared_ptr<ObjectiveFunction> get_objective(const std::string & type);
 
 } // namespace __internal__
 
@@ -159,7 +160,7 @@ private:
 
 protected:
   // Pointer to the problem-specific Observable
-  std::shared_ptr<Observable> observable;
+  Observable* observable;
 
   // Pointer to the quantum kernel
   std::shared_ptr<CompositeInstruction> kernel;
@@ -186,7 +187,7 @@ public:
 
   // Initialize this ObjectiveFunction with the problem
   // specific observable and CompositeInstruction
-  virtual void initialize(std::shared_ptr<Observable> obs,
+  virtual void initialize(Observable* obs,
                           std::shared_ptr<CompositeInstruction> qk) {
     observable = obs;
     kernel = qk;
@@ -194,7 +195,7 @@ public:
 
   // Initialize this ObjectiveFunction with the problem
   // specific observable and pointer to quantum functor
-  virtual void initialize(std::shared_ptr<Observable> obs, void *qk) {
+  virtual void initialize(Observable* obs, void *qk) {
     observable = obs;
     pointer_to_functor = qk;
   }
@@ -300,10 +301,19 @@ createOptimizer(const std::string& type, HeterogeneousMap &&options = {});
 std::shared_ptr<Observable> createObservable(const std::string& repr);
 
 std::shared_ptr<ObjectiveFunction> createObjectiveFunction(
-    const char *obj_name, std::shared_ptr<CompositeInstruction> kernel,
+    const std::string & obj_name, std::shared_ptr<CompositeInstruction> kernel,
     std::shared_ptr<Observable> observable, HeterogeneousMap &&options = {}) {
   auto obj_func = qcor::__internal__::get_objective(obj_name);
-  obj_func->initialize(observable, kernel);
+  obj_func->initialize(observable.get(), kernel);
+  obj_func->set_options(options);
+  return obj_func;
+}
+
+std::shared_ptr<ObjectiveFunction> createObjectiveFunction(
+    const std::string & obj_name, std::shared_ptr<CompositeInstruction> kernel,
+    Observable& observable, HeterogeneousMap &&options = {}) {
+  auto obj_func = qcor::__internal__::get_objective(obj_name);
+  obj_func->initialize(&observable, kernel);
   obj_func->set_options(options);
   return obj_func;
 }
@@ -314,18 +324,31 @@ std::shared_ptr<ObjectiveFunction> createObjectiveFunction(
 // options map.
 template <typename QuantumKernel>
 std::shared_ptr<ObjectiveFunction>
-createObjectiveFunction(const char *obj_name, QuantumKernel &kernel,
+createObjectiveFunction(const std::string & obj_name, QuantumKernel &kernel,
                         std::shared_ptr<Observable> observable,
                         HeterogeneousMap &&options = {}) {
   auto obj_func = qcor::__internal__::get_objective(obj_name);
   // We can store this function pointer to a void* on ObjectiveFunction
   // to be converted to CompositeInstruction later
   void *kk = reinterpret_cast<void *>(kernel);
-  obj_func->initialize(observable, kk);
+  obj_func->initialize(observable.get(), kk);
   obj_func->set_options(options);
   return obj_func;
 }
 
+template <typename QuantumKernel>
+std::shared_ptr<ObjectiveFunction>
+createObjectiveFunction(const std::string & obj_name, QuantumKernel &kernel,
+                        Observable& observable,
+                        HeterogeneousMap &&options = {}) {
+  auto obj_func = qcor::__internal__::get_objective(obj_name);
+  // We can store this function pointer to a void* on ObjectiveFunction
+  // to be converted to CompositeInstruction later
+  void *kk = reinterpret_cast<void *>(kernel);
+  obj_func->initialize(&observable, kk);
+  obj_func->set_options(options);
+  return obj_func;
+}
 Handle taskInitiate(std::shared_ptr<ObjectiveFunction> objective,
                     std::shared_ptr<Optimizer> optimizer,
                     std::function<double(const std::vector<double>,

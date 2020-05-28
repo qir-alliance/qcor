@@ -48,7 +48,7 @@ TEST(VQETester, checkSimple) {
           "Y2 X3 + (0.168336,0) Z0 Z1 + (0.0454063,0) Y0 X1 X2 Y3"));
 
   auto vqe = xacc::getService<qcor::ObjectiveFunction>("vqe");
-  vqe->initialize(observable, ruccsd);
+  vqe->initialize(observable.get(), ruccsd);
   vqe->set_qreg(buffer);
 
   qcor::OptFunction f(
