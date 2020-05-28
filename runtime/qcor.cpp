@@ -7,12 +7,16 @@
 #include "xacc_service.hpp"
 
 #include "qalloc.hpp"
+#include "qrt.hpp"
 
 namespace qcor {
 void set_verbose(bool verbose) { xacc::set_verbose(verbose); }
+void set_shots(const int shots){ quantum::set_shots(shots);}
 
 namespace __internal__ {
-std::shared_ptr<ObjectiveFunction> get_objective(const char *type) {
+std::shared_ptr<ObjectiveFunction> get_objective(const std::string& type) {
+  if (!xacc::isInitialized())
+    xacc::internal_compiler::compiler_InitializeXACC();
   return xacc::getService<ObjectiveFunction>(type);
 }
 std::vector<std::shared_ptr<xacc::CompositeInstruction>>
@@ -36,8 +40,7 @@ double observe(std::shared_ptr<CompositeInstruction> program,
   }();
 }
 
-double observe(std::shared_ptr<CompositeInstruction> program,
-               Observable& obs,
+double observe(std::shared_ptr<CompositeInstruction> program, Observable &obs,
                xacc::internal_compiler::qreg &q) {
   return [program, &obs, &q]() {
     // Observe the program
@@ -59,7 +62,7 @@ std::shared_ptr<xacc::Optimizer> createOptimizer(const std::string &type,
   return xacc::getOptimizer(type, options);
 }
 
-std::shared_ptr<xacc::Observable> createObservable(const std::string & repr) {
+std::shared_ptr<xacc::Observable> createObservable(const std::string &repr) {
   if (!xacc::isInitialized())
     xacc::internal_compiler::compiler_InitializeXACC();
   return xacc::quantum::getObservable("pauli", std::string(repr));
