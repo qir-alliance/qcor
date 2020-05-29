@@ -75,36 +75,47 @@ protected:
     ss << ");\n";
   }
 
-public:
-  auto get_new_src() { return ss.str(); }
-
-  void visit(Hadamard &h) override { addOneQubitGate("h", h); }
-  void visit(CNOT &cnot) override {
-    auto expr_src = cnot.getBitExpression(0);
-    auto expr_tgt = cnot.getBitExpression(1);
-    ss << "quantum::cnot(" << cnot.getBufferNames()[0] << "["
-       << (expr_src.empty() ? std::to_string(cnot.bits()[0]) : expr_src)
-       << "], " << cnot.getBufferNames()[1] << "["
-       << (expr_tgt.empty() ? std::to_string(cnot.bits()[1]) : expr_tgt)
-       << "]);\n";
+  void addTwoQubitGate(const std::string name, xacc::Instruction &inst) {
+    auto expr_src = inst.getBitExpression(0);
+    auto expr_tgt = inst.getBitExpression(1);
+    ss << "quantum::" + name + "(" << inst.getBufferNames()[0] << "["
+       << (expr_src.empty() ? std::to_string(inst.bits()[0]) : expr_src)
+       << "], " << inst.getBufferNames()[1] << "["
+       << (expr_tgt.empty() ? std::to_string(inst.bits()[1]) : expr_tgt) << "]";
+    // Handle parameterized gate:
+    if (inst.isParameterized()) {
+      ss << ", " << inst.getParameter(0).toString();
+      for (int i = 1; i < inst.nParameters(); i++) {
+        ss << ", " << inst.getParameter(i).toString();
+      }
+    }
+    ss << ");\n";   
   }
 
+public:
+  auto get_new_src() { return ss.str(); }
+  // One-qubit gates
+  void visit(Hadamard &h) override { addOneQubitGate("h", h); }
   void visit(Rz &rz) override { addOneQubitGate("rz", rz); }
   void visit(Ry &ry) override { addOneQubitGate("ry", ry); }
   void visit(Rx &rx) override { addOneQubitGate("rx", rx); }
   void visit(X &x) override { addOneQubitGate("x", x); }
   void visit(Y &y) override { addOneQubitGate("y", y); }
   void visit(Z &z) override { addOneQubitGate("z", z); }
-  void visit(CY &cy) override {}
-  void visit(CZ &cz) override {}
-  void visit(Swap &s) override {}
-  void visit(CRZ &crz) override {}
-  void visit(CH &ch) override {}
   void visit(S &s) override { addOneQubitGate("s", s); }
   void visit(Sdg &sdg) override { addOneQubitGate("sdg", sdg); }
   void visit(T &t) override { addOneQubitGate("t", t); }
   void visit(Tdg &tdg) override { addOneQubitGate("tdg", tdg); }
-  void visit(CPhase &cphase) override {}
+  
+  // Two-qubit gates
+  void visit(CNOT &cnot) override { addTwoQubitGate("cnot", cnot); }
+  void visit(CY &cy) override { addTwoQubitGate("cy", cy); }
+  void visit(CZ &cz) override { addTwoQubitGate("cz", cz); }
+  void visit(Swap &s) override { addTwoQubitGate("swap", s); }
+  void visit(CRZ &crz) override { addTwoQubitGate("crz", crz); }
+  void visit(CH &ch) override { addTwoQubitGate("ch", ch); }
+  void visit(CPhase &cphase) override { addTwoQubitGate("cphase", cphase); }
+    
   void visit(Measure &measure) override { addOneQubitGate("mz", measure); }
   void visit(Identity &i) override { addOneQubitGate("i", i); }
   void visit(U &u) override { addOneQubitGate("u", u); }

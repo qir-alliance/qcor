@@ -32,6 +32,17 @@ void one_qubit_inst(const std::string &name, const qubit &qidx,
   program->addInstruction(inst);
 }
 
+void two_qubit_inst(const std::string &name, const qubit &qidx1, const qubit &qidx2,
+                    std::vector<double> parameters) {
+  auto inst =
+      provider->createInstruction(name, std::vector<std::size_t>{ qidx1.second, qidx2.second });
+  inst->setBufferNames({ qidx1.first, qidx2.first });
+  for (int i = 0; i < parameters.size(); i++) {
+    inst->setParameter(i, parameters[i]);
+  }
+  program->addInstruction(inst);                    
+}
+
 void h(const qubit &qidx) { one_qubit_inst("H", qidx); }
 void x(const qubit &qidx) { one_qubit_inst("X", qidx); }
 void t(const qubit &qidx) { one_qubit_inst("T", qidx); }
@@ -51,10 +62,31 @@ void rz(const qubit &qidx, const double theta) {
 void mz(const qubit &qidx) { one_qubit_inst("Measure", qidx); }
 
 void cnot(const qubit &src_idx, const qubit &tgt_idx) {
-  auto cx = provider->createInstruction(
-      "CNOT", std::vector<std::size_t>{src_idx.second, tgt_idx.second});
-  cx->setBufferNames({src_idx.first, tgt_idx.first});
-  program->addInstruction(cx);
+  two_qubit_inst("CNOT", src_idx, tgt_idx);
+}
+
+void cy(const qubit &src_idx, const qubit &tgt_idx) {
+  two_qubit_inst("CY", src_idx, tgt_idx);
+}
+
+void cz(const qubit &src_idx, const qubit &tgt_idx) {
+  two_qubit_inst("CZ", src_idx, tgt_idx);
+}
+
+void ch(const qubit &src_idx, const qubit &tgt_idx) {
+  two_qubit_inst("CH", src_idx, tgt_idx);
+}
+
+void swap(const qubit &src_idx, const qubit &tgt_idx) {
+  two_qubit_inst("Swap", src_idx, tgt_idx);
+}
+
+void cphase(const qubit &src_idx, const qubit &tgt_idx, const double theta) {
+  two_qubit_inst("CPhase", src_idx, tgt_idx, { theta });
+}
+
+void crz(const qubit &src_idx, const qubit &tgt_idx, const double theta) {
+  two_qubit_inst("CRZ", src_idx, tgt_idx, { theta });
 }
 
 void exp(qreg q, const double theta, xacc::Observable *H) {
