@@ -64,14 +64,8 @@ protected:
 
   void addOneQubitGate(const std::string name, xacc::Instruction &inst) {
     auto expr = inst.getBitExpression(0);
-    if (expr.empty()) {
-      ss << "quantum::" + name + "(" << inst.getBufferNames()[0] << "["
-         << inst.bits()[0] << "]";
-
-    } else {
-      ss << "quantum::" + name + "(" << inst.getBufferNames()[0] << "["
-         << inst.getBitExpression(0) << "]";
-    }
+    ss << "quantum::" + name + "(" << inst.getBufferNames()[0] << "["
+         << (expr.empty() ? std::to_string(inst.bits()[0]) : expr) << "]";
     if (inst.isParameterized() && inst.name() != "Measure") {
       ss << ", " << inst.getParameter(0).toString();
       for (int i = 1; i < inst.nParameters(); i++) {
@@ -86,8 +80,13 @@ public:
 
   void visit(Hadamard &h) override { addOneQubitGate("h", h); }
   void visit(CNOT &cnot) override {
-    ss << "quantum::cnot(" << cnot.getBufferNames()[0] << "[" << cnot.bits()[0]
-       << "], " << cnot.getBufferNames()[1] << "[" << cnot.bits()[1] << "]);\n";
+    auto expr_src = cnot.getBitExpression(0);
+    auto expr_tgt = cnot.getBitExpression(1);
+    ss << "quantum::cnot(" << cnot.getBufferNames()[0] << "["
+       << (expr_src.empty() ? std::to_string(cnot.bits()[0]) : expr_src)
+       << "], " << cnot.getBufferNames()[1] << "["
+       << (expr_tgt.empty() ? std::to_string(cnot.bits()[1]) : expr_tgt)
+       << "]);\n";
   }
 
   void visit(Rz &rz) override { addOneQubitGate("rz", rz); }
@@ -111,7 +110,6 @@ public:
   void visit(U &u) override { addOneQubitGate("u", u); }
   void visit(Circuit &circ) override {
     if (circ.name() == "exp_i_theta") {
-      std::cout << "VISITING THE EXP I THETA\n";
       ss << "quantum::exp(" << circ.getBufferNames()[0] << ", "
          << circ.getArguments()[0]->name << ", " << circ.getArguments()[1]->name
          << ");\n";
@@ -313,14 +311,14 @@ void run_token_collector_llvm_rt(clang::Preprocessor &PP,
   std::map<std::string, std::string> oracle_name_to_extra_preamble;
   std::map<std::string, int> creg_name_to_size;
 
-//   for (int i = 0; i < Toks.size(); i++) {
-//     std::cout << "Toks: " << PP.getSpelling(Toks[i]) << "\n";
-//   }
+  //   for (int i = 0; i < Toks.size(); i++) {
+  //     std::cout << "Toks: " << PP.getSpelling(Toks[i]) << "\n";
+  //   }
 
   for (int i = 0; i < Toks.size(); i++) {
     auto current_token = Toks[i];
     auto current_token_str = PP.getSpelling(current_token);
-    
+
     if (current_token.is(clang::tok::kw_using)) {
       // Found using
       // i+3 bc we skip using, qcor and ::;
@@ -438,8 +436,7 @@ void run_token_collector_llvm_rt(clang::Preprocessor &PP,
         auto creg_name = current_token_str;
         auto size = creg_name_to_size[creg_name];
         for (int k = 0; k < size; k++) {
-          qrt_code << "quantum::mz(" << qreg_name << "[" << k
-                   << "]);\n";
+          qrt_code << "quantum::mz(" << qreg_name << "[" << k << "]);\n";
         }
         continue;
       }
@@ -450,7 +447,7 @@ void run_token_collector_llvm_rt(clang::Preprocessor &PP,
       auto creg_name = PP.getSpelling(Toks[i + 1]);
       auto creg_size = PP.getSpelling(Toks[i + 3]);
 
-    //   std::cout << "CREG: " << creg_name << ", " << creg_size << "\n";
+      //   std::cout << "CREG: " << creg_name << ", " << creg_size << "\n";
       creg_name_to_size.insert({creg_name, std::stoi(creg_size)});
 
       std::stringstream sss;
