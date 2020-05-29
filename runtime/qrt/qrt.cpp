@@ -9,11 +9,21 @@
 namespace quantum {
 std::shared_ptr<xacc::CompositeInstruction> program = nullptr;
 std::shared_ptr<xacc::IRProvider> provider = nullptr;
+// We only allow *single* quantum entry point,
+// i.e. a master quantum kernel which is invoked from classical code.
+// Multiple kernels can be defined to be used inside the *entry-point* kernel.
+// Once the *entry-point* kernel has been invoked, initialize() calls
+// by sub-kernels will be ignored. 
+bool __entry_point_initialized = false; 
 
 void initialize(const std::string qpu_name, const std::string kernel_name) {
-  xacc::internal_compiler::compiler_InitializeXACC(qpu_name.c_str());
-  provider = xacc::getIRProvider("quantum");
-  program = provider->createComposite(kernel_name);
+  if (!__entry_point_initialized) {
+    xacc::internal_compiler::compiler_InitializeXACC(qpu_name.c_str());
+    provider = xacc::getIRProvider("quantum");
+    program = provider->createComposite(kernel_name);
+  }
+
+  __entry_point_initialized = true;
 }
 
 void set_shots(int shots) {

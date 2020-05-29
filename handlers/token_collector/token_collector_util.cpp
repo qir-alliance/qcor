@@ -61,7 +61,9 @@ class qrt_mapper : public AllGateVisitor,
                    public xacc::InstructionVisitor<Circuit> {
 protected:
   std::stringstream ss;
-
+  // The kernel name of the CompositeInstruction 
+  // that this mapper is visiting.
+  std::string kernelName;
   void addOneQubitGate(const std::string name, xacc::Instruction &inst) {
     auto expr = inst.getBitExpression(0);
     ss << "quantum::" + name + "(" << inst.getBufferNames()[0] << "["
@@ -93,6 +95,11 @@ protected:
   }
 
 public:
+  // Ctor: cache the kernel name of the CompositeInstruction
+  qrt_mapper(const std::string& top_level_kernel_name):
+    kernelName(top_level_kernel_name)
+  {}
+
   auto get_new_src() { return ss.str(); }
   // One-qubit gates
   void visit(Hadamard &h) override { addOneQubitGate("h", h); }
@@ -120,10 +127,34 @@ public:
   void visit(Identity &i) override { addOneQubitGate("i", i); }
   void visit(U &u) override { addOneQubitGate("u", u); }
   void visit(Circuit &circ) override {
+    if (circ.name() == kernelName) {
+      return;
+    }
     if (circ.name() == "exp_i_theta") {
       ss << "quantum::exp(" << circ.getBufferNames()[0] << ", "
          << circ.getArguments()[0]->name << ", " << circ.getArguments()[1]->name
          << ");\n";
+    }
+    else {
+      // Call a previously-defined QCOR kernel:
+      // In this context, we disable __execute flag around this hence
+      // this sub-kernel will not be submitted.
+      // i.e. only the outer-most kernel will be submitted.
+      // Open a new scope since we use a local var '__cached_execute_flag'
+      ss << "{\n";
+      // Cache the state of the __execute flag
+      ss << "const auto __cached_execute_flag = __execute;\n";
+      // Reset the flag:
+      ss << "__execute = false;\n";
+      // Add the circuit invocation.
+      ss << circ.name() << "(" << circ.getBufferNames()[0];
+      for (const auto& arg : circ.getArguments()){
+        ss << ", " << arg->name;
+      }
+      ss << ")" << ";\n";
+      // Reinstate the __execute flag
+      ss << "__execute = __cached_execute_flag;\n";
+      ss << "}\n";
     }
   }
   void visit(IfStmt &ifStmt) override {}
@@ -266,7 +297,7 @@ void run_token_collector_llvm_rt(clang::Preprocessor &PP,
                       process_inst_stmt(i, compiler, current_token,
                                         terminating_char, extra_preamble);
                   if (comp_inst) {
-                    auto visitor = std::make_shared<qrt_mapper>();
+                    auto visitor = std::make_shared<qrt_mapper>(comp_inst->name());
                     xacc::InstructionIterator iter(comp_inst);
                     while (iter.hasNext()) {
                       auto next = iter.next();
@@ -301,7 +332,7 @@ void run_token_collector_llvm_rt(clang::Preprocessor &PP,
               auto [comp_inst, src_str] = process_inst_stmt(
                   i, compiler, current_token, terminating_char, extra_preamble);
               if (comp_inst) {
-                auto visitor = std::make_shared<qrt_mapper>();
+                auto visitor = std::make_shared<qrt_mapper>(comp_inst->name());
                 xacc::InstructionIterator iter(comp_inst);
                 while (iter.hasNext()) {
                   auto next = iter.next();
@@ -391,7 +422,7 @@ void run_token_collector_llvm_rt(clang::Preprocessor &PP,
       auto [comp_inst, src_str] = process_inst_stmt(
           i, compiler, current_token, terminating_char, extra_preamble);
       if (comp_inst) {
-        auto visitor = std::make_shared<qrt_mapper>();
+        auto visitor = std::make_shared<qrt_mapper>(comp_inst->name());
         xacc::InstructionIterator iter(comp_inst);
         while (iter.hasNext()) {
           auto next = iter.next();
@@ -426,7 +457,7 @@ void run_token_collector_llvm_rt(clang::Preprocessor &PP,
         auto [comp_inst, src_str] = process_inst_stmt(
             i, compiler, current_token, terminating_char, extra_preamble);
         if (comp_inst) {
-          auto visitor = std::make_shared<qrt_mapper>();
+          auto visitor = std::make_shared<qrt_mapper>(comp_inst->name());
           xacc::InstructionIterator iter(comp_inst);
           while (iter.hasNext()) {
             auto next = iter.next();
@@ -494,7 +525,7 @@ void run_token_collector_llvm_rt(clang::Preprocessor &PP,
     auto [comp_inst, src_str] = process_inst_stmt(
         i, compiler, current_token, terminating_char, extra_preamble);
     if (comp_inst) {
-      auto visitor = std::make_shared<qrt_mapper>();
+      auto visitor = std::make_shared<qrt_mapper>(comp_inst->name());
       xacc::InstructionIterator iter(comp_inst);
       while (iter.hasNext()) {
         auto next = iter.next();

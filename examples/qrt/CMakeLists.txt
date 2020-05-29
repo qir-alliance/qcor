@@ -10,3 +10,4 @@ add_test(NAME qrt_deuteron_task_initiate COMMAND ${CMAKE_BINARY_DIR}/qcor -qrt -
 add_test(NAME qrt_qaoa_example COMMAND ${CMAKE_BINARY_DIR}/qcor -qrt -c ${CMAKE_CURRENT_SOURCE_DIR}/qaoa_example.cpp)
 add_test(NAME qrt_simple-objective-function COMMAND ${CMAKE_BINARY_DIR}/qcor -qrt -c ${CMAKE_CURRENT_SOURCE_DIR}/simple-objective-function.cpp)
 add_test(NAME qrt_qpe_example COMMAND ${CMAKE_BINARY_DIR}/qcor -qrt -c ${CMAKE_CURRENT_SOURCE_DIR}/qpe_example_qrt.cpp)
+add_test(NAME qrt_kernel_include COMMAND ${CMAKE_BINARY_DIR}/qcor -qrt -c ${CMAKE_CURRENT_SOURCE_DIR}/multiple_kernels.cpp)
