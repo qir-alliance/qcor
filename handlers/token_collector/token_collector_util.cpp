@@ -570,6 +570,12 @@ void run_token_collector_llvm_rt(clang::Preprocessor &PP,
 
   OS << ");\n";
   OS << "}";
+
+  // In runtime mode, we contribute each annotated *kernel* as a circuit.
+  // Hence, kernels can be used within other kernels similar to the way
+  // XACC circuits are instantiated in XASM.
+  auto circuit = std::shared_ptr<xacc::Instruction>(new xacc::quantum::Circuit(kernel_name));
+  xacc::contributeService(kernel_name, circuit);
 }
 
 } // namespace qcor
