@@ -1,4 +1,6 @@
 #include "qcor.hpp"
+// Use the pre-defined IQFT kernel
+#include "qft.hpp"
 
 // Example of Quantum Phase Estimation circuit using QCOR runtime.
 // Compile with:
@@ -33,18 +35,7 @@ __qpu__ void QuantumPhaseEstimation(qreg q) {
   }
 
   // Inverse QFT on the counting qubits:
-  const int startIdx = bitPrecision / 2 - 1;
-  for (int qIdx = startIdx; qIdx >= 0; --qIdx) {
-    Swap(q[qIdx], q[bitPrecision - qIdx - 1]);
-  }
-
-  for (int qIdx = 0; qIdx < bitPrecision; ++qIdx) {
-    for (int j = 0; j < qIdx; ++j) {
-      const double theta = -M_PI/std::pow(2.0, qIdx - j);
-      CPhase(q[j], q[qIdx], theta);
-    }
-    H(q[qIdx]);
-  }
+  inverseQuantumFourierTransform(q, bitPrecision);
 
   // Measure counting qubits
   for (int qIdx = 0; qIdx < bitPrecision; ++qIdx) {
