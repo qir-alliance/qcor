@@ -1,0 +1,71 @@
+#!/usr/bin/env python3
+import argparse, sys, os, subprocess, mimetypes, re
+from os import listdir
+from os.path import isfile, join
+
+def main(argv=None):
+    qopt = '@OPT_EXECUTABLE@'
+    verbose=False
+
+    if '-h' in sys.argv[1:] or '--help' in sys.argv[1:]:
+        import argparse
+        parser = argparse.ArgumentParser(description="qcor: the quantum-classical C++ compiler",
+                                     formatter_class=argparse.RawTextHelpFormatter,
+                                     fromfile_prefix_chars='@')
+        parser.add_argument('-v', metavar='',
+                        help='turn on qcor verbose mode - prints actual clang calls plus extra info while compiling.')
+        parser.add_argument('-print-qir', metavar='', help='dump the LLVM IR for quantum kernel expressions.')
+        args = parser.parse_args(sys.argv)
+
+
+    if '--verbose' in sys.argv[1:]:
+        verbose=True
+        sys.argv.remove('--verbose')
+    if '-v' in sys.argv[1:]:
+        verbose=True
+        sys.argv.remove('-v')
+
+    # Add all qopt plugins to the load line
+    m_args = []
+    qopt_plugins = [f for f in listdir('@CMAKE_INSTALL_PREFIX@/qopt-plugins') if isfile(join('@CMAKE_INSTALL_PREFIX@/qopt-plugins', f))]
+    for qopt_plugin in qopt_plugins:
+        m_args += ['-load', '@CMAKE_INSTALL_PREFIX@/qopt-plugins/'+qopt_plugin]
+
+
+    # Get the filename we are compiling or the object file
+    filename = ''
+    fileType = ''
+    for arg in sys.argv[1:]:
+        if os.path.isfile(arg):
+            filename = arg
+            fileType = mimetypes.guess_type(filename)[0]
+            break
+    
+    # If it is a binary file
+    if fileType == None:
+        fileIdx = sys.argv[1:].index(filename)
+        tmpFileName = os.path.basename(filename)
+
+        # Move tmpFileName to end of list
+        sys.argv.remove(filename)
+        sys.argv.append(filename)
+
+        commands = [qopt] + m_args + sys.argv[1:] # +['>','/dev/null']
+
+        if verbose:
+            print('[qopt-exec]: ', ' '.join([c for c in commands]))
+
+        try:
+            result = subprocess.run(commands, check=True,stdout=subprocess.DEVNULL)
+        except subprocess.CalledProcessError as e:
+            print(e.output)
+            print(e.returncode)
+            return e.returncode
+    else:
+        print('Can only operate on LLVM IR bitcode files. Compile with qcor using the -emit-llvm argument.')
+        return 1
+
+    return 0
+
+if __name__ == "__main__":
+    sys.exit(main())
