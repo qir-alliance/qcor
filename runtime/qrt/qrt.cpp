@@ -2,9 +2,12 @@
 #include "Instruction.hpp"
 #include "PauliOperator.hpp"
 #include "xacc.hpp"
+#include "xacc_service.hpp"
 #include "xacc_internal_compiler.hpp"
 #include <Eigen/Dense>
 #include <Utils.hpp>
+
+std::vector<int> xacc::internal_compiler::__controlledIdx = {};
 
 namespace quantum {
 std::shared_ptr<xacc::CompositeInstruction> program = nullptr;
@@ -31,6 +34,21 @@ void set_shots(int shots) {
       {std::make_pair("shots", shots)});
 }
 
+// Add a controlled instruction:
+void add_controlled_inst(xacc::InstPtr &inst, int ctrlIdx) {
+  auto tempKernel = provider->createComposite("temp_control");
+  tempKernel->addInstruction(inst);
+  auto ctrlKernel = std::dynamic_pointer_cast<xacc::CompositeInstruction>(xacc::getService<xacc::Instruction>("C-U"));
+  ctrlKernel->expand({ 
+    std::make_pair("U",  tempKernel),
+    std::make_pair("control-idx",  ctrlIdx),
+  });            
+  
+  for (int instId = 0; instId < ctrlKernel->nInstructions(); ++instId) {
+    program->addInstruction(ctrlKernel->getInstruction(instId)->clone());
+  }
+}
+
 void one_qubit_inst(const std::string &name, const qubit &qidx,
                     std::vector<double> parameters) {
   auto inst =
@@ -39,7 +57,15 @@ void one_qubit_inst(const std::string &name, const qubit &qidx,
   for (int i = 0; i < parameters.size(); i++) {
     inst->setParameter(i, parameters[i]);
   }
-  program->addInstruction(inst);
+  // Not in a controlled-block
+  if (xacc::internal_compiler::__controlledIdx.empty()){
+    // Add the instruction
+    program->addInstruction(inst);
+  }
+  else {
+    // In a controlled block:
+    add_controlled_inst(inst, __controlledIdx[0]);
+  }
 }
 
 void two_qubit_inst(const std::string &name, const qubit &qidx1, const qubit &qidx2,
@@ -50,7 +76,14 @@ void two_qubit_inst(const std::string &name, const qubit &qidx1, const qubit &qi
   for (int i = 0; i < parameters.size(); i++) {
     inst->setParameter(i, parameters[i]);
   }
-  program->addInstruction(inst);                    
+  // Not in a controlled-block
+  if (xacc::internal_compiler::__controlledIdx.empty()) {
+    program->addInstruction(inst);     
+  }
+  else {
+    // In a controlled block:
+    add_controlled_inst(inst, __controlledIdx[0]);
+  }                 
 }
 
 void h(const qubit &qidx) { one_qubit_inst("H", qidx); }

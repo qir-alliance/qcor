@@ -12,6 +12,12 @@ class AcceleratorBuffer;
 class CompositeInstruction;
 class IRProvider;
 class Observable;
+
+namespace internal_compiler {
+// Current runtime controlled bit indices 
+// (if the current kernel is wrapped in a Controlled block)
+extern std::vector<int> __controlledIdx;
+}
 } // namespace xacc
 
 namespace quantum {

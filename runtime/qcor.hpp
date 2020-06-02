@@ -384,6 +384,27 @@ Handle taskInitiate(std::shared_ptr<ObjectiveFunction> objective,
       },
       nParameters);
 }
+
+#ifdef QCOR_USE_QRT
+// Controlled-Op transform:
+// Usage: Controlled::Apply(controlBit, QuantumKernel, Args...)
+// where Args... are arguments that will be passed to the kernel.
+// Note: we use a class with a static member function to enforce
+// that the invocation is Controlled::Apply(...) (with the '::' separator), 
+// hence the XASM compiler cannot mistakenly parse this as a XASM call.
+class Controlled {
+public:
+  template <typename FunctorType, typename... ArgumentTypes>
+  static void Apply(int ctrlIdx, FunctorType functor, ArgumentTypes... args) {
+  __controlledIdx = { ctrlIdx };
+  const auto __cached_execute_flag = __execute;
+  __execute = false;
+  functor(args...);
+  __controlledIdx.clear();
+  __execute = __cached_execute_flag;
+}
+};
+#endif
 } // namespace qcor
 
 #endif

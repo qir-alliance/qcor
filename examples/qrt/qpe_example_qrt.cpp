@@ -2,6 +2,15 @@
 // Use the pre-defined IQFT kernel
 #include "qft.hpp"
 
+using namespace qcor;
+
+// The Oracle: T gate
+__qpu__ void compositeOp(qreg q) {
+  // T gate on the last qubit
+  int bitIdx = q.size() - 1;
+  T(q[bitIdx]);
+}
+
 // Example of Quantum Phase Estimation circuit using QCOR runtime.
 // Compile with:
 // qcor -o qpe -qpu qpp -shots 1024 -qrt qpe_example_qrt.cpp
@@ -28,9 +37,10 @@ __qpu__ void QuantumPhaseEstimation(qreg q) {
   const auto bitPrecision = nQubits - 1;
   for (int32_t i = 0; i < bitPrecision; ++i) {
     const int nbCalls = 1 << i;
-    // Ctrl(T) = CPhase(pi/4)
     for (int j = 0; j < nbCalls; ++j) {
-      CPhase(q[i], q[nQubits - 1], M_PI_4);
+      int ctlBit = i;
+      // Controlled-Oracle
+      Controlled::Apply(ctlBit, compositeOp, q);
     }
   }
 
