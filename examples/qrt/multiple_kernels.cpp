@@ -1,4 +1,3 @@
-#include "qcor.hpp"
 // The header file which contains QFT kernel def
 #include "qft.hpp"
 
@@ -9,10 +8,10 @@ __qpu__ void f(qreg q) {
   X(q[1]);
 
   // Call qft kernel (defined in a separate header file)
-  quantumFourierTransform(q, nQubits);  
+  qft(q, nQubits);  
   
   // Inverse QFT:
-  inverseQuantumFourierTransform(q, nQubits);
+  iqft(q, nQubits);
   
   // Measure all qubits
   for (int qIdx = 0; qIdx < nQubits; ++qIdx) {

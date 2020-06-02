@@ -3,12 +3,12 @@
 // which is compiled by QCOR.
 #pragma once
 
-#include "qcor.hpp"
+#include "qalloc.hpp"
 
 // QFT kernel:
 // Input: Qubit register and the max qubit index for the QFT,
 // i.e. allow us to do QFT on a subset of the register [0, maxBitIdx)
-__qpu__ void quantumFourierTransform(qreg q, int maxBitIdx) {
+__qpu__ void qft(qreg q, int maxBitIdx) {
   // Local Declarations
   const auto nQubits = maxBitIdx;
 
@@ -28,7 +28,7 @@ __qpu__ void quantumFourierTransform(qreg q, int maxBitIdx) {
 }
 
 // Inverse QFT
-__qpu__ void inverseQuantumFourierTransform(qreg q, int maxBitIdx) {
+__qpu__ void iqft(qreg q, int maxBitIdx) {
   // Local Declarations
   const auto nQubits = maxBitIdx;
   // Swap qubits

@@ -1,4 +1,4 @@
-#include "qcor.hpp"
+#include "qalloc.hpp"
 
 // Demonstrating Bell Test using multiple kernels
 
@@ -34,7 +34,7 @@ __qpu__ void bellTest(qreg qBits) {
 }
 
 // Compile:
-// qcor -o multiple_kernels -qpu qpp -shots 1024 -qrt multiple_kernels.cpp
+// qcor -o multiple_kernels -qpu qpp -shots 1024 -qrt multiple_kernels_Bell_test.cpp
 int main(int argc, char **argv) {
   // Allocate 7 qubits: 
   // i.e. Hadamard on q[3] and entangle q[3] with other qubits.
