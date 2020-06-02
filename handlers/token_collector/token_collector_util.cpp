@@ -61,7 +61,9 @@ class qrt_mapper : public AllGateVisitor,
                    public xacc::InstructionVisitor<Circuit> {
 protected:
   std::stringstream ss;
-
+  // The kernel name of the CompositeInstruction 
+  // that this mapper is visiting.
+  std::string kernelName;
   void addOneQubitGate(const std::string name, xacc::Instruction &inst) {
     auto expr = inst.getBitExpression(0);
     ss << "quantum::" + name + "(" << inst.getBufferNames()[0] << "["
@@ -75,44 +77,84 @@ protected:
     ss << ");\n";
   }
 
-public:
-  auto get_new_src() { return ss.str(); }
-
-  void visit(Hadamard &h) override { addOneQubitGate("h", h); }
-  void visit(CNOT &cnot) override {
-    auto expr_src = cnot.getBitExpression(0);
-    auto expr_tgt = cnot.getBitExpression(1);
-    ss << "quantum::cnot(" << cnot.getBufferNames()[0] << "["
-       << (expr_src.empty() ? std::to_string(cnot.bits()[0]) : expr_src)
-       << "], " << cnot.getBufferNames()[1] << "["
-       << (expr_tgt.empty() ? std::to_string(cnot.bits()[1]) : expr_tgt)
-       << "]);\n";
+  void addTwoQubitGate(const std::string name, xacc::Instruction &inst) {
+    auto expr_src = inst.getBitExpression(0);
+    auto expr_tgt = inst.getBitExpression(1);
+    ss << "quantum::" + name + "(" << inst.getBufferNames()[0] << "["
+       << (expr_src.empty() ? std::to_string(inst.bits()[0]) : expr_src)
+       << "], " << inst.getBufferNames()[1] << "["
+       << (expr_tgt.empty() ? std::to_string(inst.bits()[1]) : expr_tgt) << "]";
+    // Handle parameterized gate:
+    if (inst.isParameterized()) {
+      ss << ", " << inst.getParameter(0).toString();
+      for (int i = 1; i < inst.nParameters(); i++) {
+        ss << ", " << inst.getParameter(i).toString();
+      }
+    }
+    ss << ");\n";   
   }
 
+public:
+  // Ctor: cache the kernel name of the CompositeInstruction
+  qrt_mapper(const std::string& top_level_kernel_name):
+    kernelName(top_level_kernel_name)
+  {}
+
+  auto get_new_src() { return ss.str(); }
+  // One-qubit gates
+  void visit(Hadamard &h) override { addOneQubitGate("h", h); }
   void visit(Rz &rz) override { addOneQubitGate("rz", rz); }
   void visit(Ry &ry) override { addOneQubitGate("ry", ry); }
   void visit(Rx &rx) override { addOneQubitGate("rx", rx); }
   void visit(X &x) override { addOneQubitGate("x", x); }
   void visit(Y &y) override { addOneQubitGate("y", y); }
   void visit(Z &z) override { addOneQubitGate("z", z); }
-  void visit(CY &cy) override {}
-  void visit(CZ &cz) override {}
-  void visit(Swap &s) override {}
-  void visit(CRZ &crz) override {}
-  void visit(CH &ch) override {}
   void visit(S &s) override { addOneQubitGate("s", s); }
   void visit(Sdg &sdg) override { addOneQubitGate("sdg", sdg); }
   void visit(T &t) override { addOneQubitGate("t", t); }
   void visit(Tdg &tdg) override { addOneQubitGate("tdg", tdg); }
-  void visit(CPhase &cphase) override {}
+  
+  // Two-qubit gates
+  void visit(CNOT &cnot) override { addTwoQubitGate("cnot", cnot); }
+  void visit(CY &cy) override { addTwoQubitGate("cy", cy); }
+  void visit(CZ &cz) override { addTwoQubitGate("cz", cz); }
+  void visit(Swap &s) override { addTwoQubitGate("swap", s); }
+  void visit(CRZ &crz) override { addTwoQubitGate("crz", crz); }
+  void visit(CH &ch) override { addTwoQubitGate("ch", ch); }
+  void visit(CPhase &cphase) override { addTwoQubitGate("cphase", cphase); }
+    
   void visit(Measure &measure) override { addOneQubitGate("mz", measure); }
   void visit(Identity &i) override { addOneQubitGate("i", i); }
   void visit(U &u) override { addOneQubitGate("u", u); }
   void visit(Circuit &circ) override {
+    if (circ.name() == kernelName) {
+      return;
+    }
     if (circ.name() == "exp_i_theta") {
       ss << "quantum::exp(" << circ.getBufferNames()[0] << ", "
          << circ.getArguments()[0]->name << ", " << circ.getArguments()[1]->name
          << ");\n";
+    }
+    else {
+      // Call a previously-defined QCOR kernel:
+      // In this context, we disable __execute flag around this hence
+      // this sub-kernel will not be submitted.
+      // i.e. only the outer-most kernel will be submitted.
+      // Open a new scope since we use a local var '__cached_execute_flag'
+      ss << "{\n";
+      // Cache the state of the __execute flag
+      ss << "const auto __cached_execute_flag = __execute;\n";
+      // Reset the flag:
+      ss << "__execute = false;\n";
+      // Add the circuit invocation.
+      ss << circ.name() << "(" << circ.getBufferNames()[0];
+      for (const auto& arg : circ.getArguments()){
+        ss << ", " << arg->name;
+      }
+      ss << ")" << ";\n";
+      // Reinstate the __execute flag
+      ss << "__execute = __cached_execute_flag;\n";
+      ss << "}\n";
     }
   }
   void visit(IfStmt &ifStmt) override {}
@@ -255,7 +297,7 @@ void run_token_collector_llvm_rt(clang::Preprocessor &PP,
                       process_inst_stmt(i, compiler, current_token,
                                         terminating_char, extra_preamble);
                   if (comp_inst) {
-                    auto visitor = std::make_shared<qrt_mapper>();
+                    auto visitor = std::make_shared<qrt_mapper>(comp_inst->name());
                     xacc::InstructionIterator iter(comp_inst);
                     while (iter.hasNext()) {
                       auto next = iter.next();
@@ -290,7 +332,7 @@ void run_token_collector_llvm_rt(clang::Preprocessor &PP,
               auto [comp_inst, src_str] = process_inst_stmt(
                   i, compiler, current_token, terminating_char, extra_preamble);
               if (comp_inst) {
-                auto visitor = std::make_shared<qrt_mapper>();
+                auto visitor = std::make_shared<qrt_mapper>(comp_inst->name());
                 xacc::InstructionIterator iter(comp_inst);
                 while (iter.hasNext()) {
                   auto next = iter.next();
@@ -380,7 +422,7 @@ void run_token_collector_llvm_rt(clang::Preprocessor &PP,
       auto [comp_inst, src_str] = process_inst_stmt(
           i, compiler, current_token, terminating_char, extra_preamble);
       if (comp_inst) {
-        auto visitor = std::make_shared<qrt_mapper>();
+        auto visitor = std::make_shared<qrt_mapper>(comp_inst->name());
         xacc::InstructionIterator iter(comp_inst);
         while (iter.hasNext()) {
           auto next = iter.next();
@@ -415,7 +457,7 @@ void run_token_collector_llvm_rt(clang::Preprocessor &PP,
         auto [comp_inst, src_str] = process_inst_stmt(
             i, compiler, current_token, terminating_char, extra_preamble);
         if (comp_inst) {
-          auto visitor = std::make_shared<qrt_mapper>();
+          auto visitor = std::make_shared<qrt_mapper>(comp_inst->name());
           xacc::InstructionIterator iter(comp_inst);
           while (iter.hasNext()) {
             auto next = iter.next();
@@ -483,7 +525,7 @@ void run_token_collector_llvm_rt(clang::Preprocessor &PP,
     auto [comp_inst, src_str] = process_inst_stmt(
         i, compiler, current_token, terminating_char, extra_preamble);
     if (comp_inst) {
-      auto visitor = std::make_shared<qrt_mapper>();
+      auto visitor = std::make_shared<qrt_mapper>(comp_inst->name());
       xacc::InstructionIterator iter(comp_inst);
       while (iter.hasNext()) {
         auto next = iter.next();
@@ -528,6 +570,12 @@ void run_token_collector_llvm_rt(clang::Preprocessor &PP,
 
   OS << ");\n";
   OS << "}";
+
+  // In runtime mode, we contribute each annotated *kernel* as a circuit.
+  // Hence, kernels can be used within other kernels similar to the way
+  // XACC circuits are instantiated in XASM.
+  auto circuit = std::shared_ptr<xacc::Instruction>(new xacc::quantum::Circuit(kernel_name));
+  xacc::contributeService(kernel_name, circuit);
 }
 
 } // namespace qcor

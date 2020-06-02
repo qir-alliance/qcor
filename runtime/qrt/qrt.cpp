@@ -2,23 +2,51 @@
 #include "Instruction.hpp"
 #include "PauliOperator.hpp"
 #include "xacc.hpp"
+#include "xacc_service.hpp"
 #include "xacc_internal_compiler.hpp"
 #include <Eigen/Dense>
 #include <Utils.hpp>
 
+std::vector<int> xacc::internal_compiler::__controlledIdx = {};
+
 namespace quantum {
 std::shared_ptr<xacc::CompositeInstruction> program = nullptr;
 std::shared_ptr<xacc::IRProvider> provider = nullptr;
+// We only allow *single* quantum entry point,
+// i.e. a master quantum kernel which is invoked from classical code.
+// Multiple kernels can be defined to be used inside the *entry-point* kernel.
+// Once the *entry-point* kernel has been invoked, initialize() calls
+// by sub-kernels will be ignored. 
+bool __entry_point_initialized = false; 
 
 void initialize(const std::string qpu_name, const std::string kernel_name) {
-  xacc::internal_compiler::compiler_InitializeXACC(qpu_name.c_str());
-  provider = xacc::getIRProvider("quantum");
-  program = provider->createComposite(kernel_name);
+  if (!__entry_point_initialized) {
+    xacc::internal_compiler::compiler_InitializeXACC(qpu_name.c_str());
+    provider = xacc::getIRProvider("quantum");
+    program = provider->createComposite(kernel_name);
+  }
+
+  __entry_point_initialized = true;
 }
 
 void set_shots(int shots) {
   xacc::internal_compiler::get_qpu()->updateConfiguration(
       {std::make_pair("shots", shots)});
+}
+
+// Add a controlled instruction:
+void add_controlled_inst(xacc::InstPtr &inst, int ctrlIdx) {
+  auto tempKernel = provider->createComposite("temp_control");
+  tempKernel->addInstruction(inst);
+  auto ctrlKernel = std::dynamic_pointer_cast<xacc::CompositeInstruction>(xacc::getService<xacc::Instruction>("C-U"));
+  ctrlKernel->expand({ 
+    std::make_pair("U",  tempKernel),
+    std::make_pair("control-idx",  ctrlIdx),
+  });            
+  
+  for (int instId = 0; instId < ctrlKernel->nInstructions(); ++instId) {
+    program->addInstruction(ctrlKernel->getInstruction(instId)->clone());
+  }
 }
 
 void one_qubit_inst(const std::string &name, const qubit &qidx,
@@ -29,7 +57,33 @@ void one_qubit_inst(const std::string &name, const qubit &qidx,
   for (int i = 0; i < parameters.size(); i++) {
     inst->setParameter(i, parameters[i]);
   }
-  program->addInstruction(inst);
+  // Not in a controlled-block
+  if (xacc::internal_compiler::__controlledIdx.empty()){
+    // Add the instruction
+    program->addInstruction(inst);
+  }
+  else {
+    // In a controlled block:
+    add_controlled_inst(inst, __controlledIdx[0]);
+  }
+}
+
+void two_qubit_inst(const std::string &name, const qubit &qidx1, const qubit &qidx2,
+                    std::vector<double> parameters) {
+  auto inst =
+      provider->createInstruction(name, std::vector<std::size_t>{ qidx1.second, qidx2.second });
+  inst->setBufferNames({ qidx1.first, qidx2.first });
+  for (int i = 0; i < parameters.size(); i++) {
+    inst->setParameter(i, parameters[i]);
+  }
+  // Not in a controlled-block
+  if (xacc::internal_compiler::__controlledIdx.empty()) {
+    program->addInstruction(inst);     
+  }
+  else {
+    // In a controlled block:
+    add_controlled_inst(inst, __controlledIdx[0]);
+  }                 
 }
 
 void h(const qubit &qidx) { one_qubit_inst("H", qidx); }
@@ -51,10 +105,31 @@ void rz(const qubit &qidx, const double theta) {
 void mz(const qubit &qidx) { one_qubit_inst("Measure", qidx); }
 
 void cnot(const qubit &src_idx, const qubit &tgt_idx) {
-  auto cx = provider->createInstruction(
-      "CNOT", std::vector<std::size_t>{src_idx.second, tgt_idx.second});
-  cx->setBufferNames({src_idx.first, tgt_idx.first});
-  program->addInstruction(cx);
+  two_qubit_inst("CNOT", src_idx, tgt_idx);
+}
+
+void cy(const qubit &src_idx, const qubit &tgt_idx) {
+  two_qubit_inst("CY", src_idx, tgt_idx);
+}
+
+void cz(const qubit &src_idx, const qubit &tgt_idx) {
+  two_qubit_inst("CZ", src_idx, tgt_idx);
+}
+
+void ch(const qubit &src_idx, const qubit &tgt_idx) {
+  two_qubit_inst("CH", src_idx, tgt_idx);
+}
+
+void swap(const qubit &src_idx, const qubit &tgt_idx) {
+  two_qubit_inst("Swap", src_idx, tgt_idx);
+}
+
+void cphase(const qubit &src_idx, const qubit &tgt_idx, const double theta) {
+  two_qubit_inst("CPhase", src_idx, tgt_idx, { theta });
+}
+
+void crz(const qubit &src_idx, const qubit &tgt_idx, const double theta) {
+  two_qubit_inst("CRZ", src_idx, tgt_idx, { theta });
 }
 
 void exp(qreg q, const double theta, xacc::Observable *H) {
