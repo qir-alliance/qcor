@@ -45,7 +45,7 @@ __qpu__ void QuantumPhaseEstimation(qreg q) {
   }
 
   // Inverse QFT on the counting qubits:
-  inverseQuantumFourierTransform(q, bitPrecision);
+  iqft(q, bitPrecision);
 
   // Measure counting qubits
   for (int qIdx = 0; qIdx < bitPrecision; ++qIdx) {
