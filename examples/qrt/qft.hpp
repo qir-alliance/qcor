@@ -5,6 +5,17 @@
 
 #include "qalloc.hpp"
 
+// Generic QFT and IQFT algorithms
+// Input:
+// (1) Qubit register (type qreg)
+// (2) The start qubit index and the number of qubits (type integer)
+// Note: these two parameters allow us to operate the QFT/IQFT on 
+// a contiguous subset of qubits of the register.
+// If we want to use the entire register, 
+// just pass 0 and number of qubits in the register, respectively.
+// (3) shouldSwap flag (as integer):
+// If 0, no Swap gates will be added.
+// Otherwise, Swap gates are added at the end (QFT) and beginning (IQFT).
 __qpu__ void qft(qreg q, int startIdx, int nbQubits, int shouldSwap) {
   for (int qIdx = nbQubits - 1; qIdx >= 0; --qIdx) {
     auto shiftedBitIdx = qIdx + startIdx;
@@ -45,45 +56,3 @@ __qpu__ void iqft(qreg q, int startIdx, int nbQubits, int shouldSwap) {
 
   H(q[startIdx + nbQubits - 1]);
 }
-
-// QFT kernel:
-// Input: Qubit register and the max qubit index for the QFT,
-// i.e. allow us to do QFT on a subset of the register [0, maxBitIdx)
-// __qpu__ void qft(qreg q, int maxBitIdx) {
-//   // Local Declarations
-//   const auto nQubits = maxBitIdx;
-
-//   for (int qIdx = 0; qIdx < nQubits; ++qIdx) {
-//     auto bitIdx = nQubits - qIdx - 1;
-//     H(q[bitIdx]);
-//     for (int j = 0; j < bitIdx; ++j) {
-//       const double theta = M_PI/std::pow(2.0, bitIdx - j);
-//       CPhase(q[j], q[bitIdx], theta);
-//     }
-//   }
-
-//   // Swap qubits
-//   for (int qIdx = 0; qIdx < nQubits / 2; ++qIdx) {
-//     Swap(q[qIdx], q[nQubits - qIdx - 1]);
-//   }
-// }
-
-// // Inverse QFT
-// __qpu__ void iqft(qreg q, int maxBitIdx) {
-//   // Local Declarations
-//   const auto nQubits = maxBitIdx;
-//   // Swap qubits
-//   for (int qIdx = 0; qIdx < nQubits / 2; ++qIdx) {
-//     Swap(q[qIdx], q[nQubits - qIdx - 1]);
-//   }
-
-//   for (int qIdx = 0; qIdx < nQubits - 1; ++qIdx) {
-//     H(q[qIdx]);
-//     for (int j = 0; j < qIdx + 1; ++j) {
-//       const double theta = -M_PI/std::pow(2.0, qIdx + 1 - j);
-//       CPhase(q[j], q[qIdx + 1], theta);
-//     }
-//   }
-
-//   H(q[nQubits - 1]);
-// }
