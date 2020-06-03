@@ -102,6 +102,10 @@ void rz(const qubit &qidx, const double theta) {
   one_qubit_inst("Rz", qidx, {theta});
 }
 
+void u1(const qubit &qidx, const double theta) {
+  one_qubit_inst("U1", qidx, {theta});
+}
+
 void mz(const qubit &qidx) { one_qubit_inst("Measure", qidx); }
 
 void cnot(const qubit &src_idx, const qubit &tgt_idx) {

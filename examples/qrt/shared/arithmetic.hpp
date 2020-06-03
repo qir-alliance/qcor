@@ -104,8 +104,7 @@ __qpu__ void phiAdd(qreg q, int a, int startBitIdx, int nbQubits, int inverse) {
     int opCount = (abs(theta) < eps) ? 0 : 1;
     for (int ii = 0; ii < opCount; ++ii) {
       int idx = startBitIdx + i;
-      // We don't have U1 op, hence use Rz instead
-      Rz(q[idx], theta);
+      U1(q[idx], theta);
     }
   }
 }

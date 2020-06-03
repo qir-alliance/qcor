@@ -106,6 +106,7 @@ public:
   void visit(Rz &rz) override { addOneQubitGate("rz", rz); }
   void visit(Ry &ry) override { addOneQubitGate("ry", ry); }
   void visit(Rx &rx) override { addOneQubitGate("rx", rx); }
+  void visit(U1 &u1) override { addOneQubitGate("u1", u1); }
   void visit(X &x) override { addOneQubitGate("x", x); }
   void visit(Y &y) override { addOneQubitGate("y", y); }
   void visit(Z &z) override { addOneQubitGate("z", z); }

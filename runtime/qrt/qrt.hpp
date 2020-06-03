@@ -40,6 +40,8 @@ void tdg(const qubit& qidx);
 void rx(const qubit &qidx, const double theta);
 void ry(const qubit &qidx, const double theta);
 void rz(const qubit &qidx, const double theta);
+// U1(theta) gate
+void u1(const qubit &qidx, const double theta);
 
 void mz(const qubit &qidx);
 
