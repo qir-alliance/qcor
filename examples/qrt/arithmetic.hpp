@@ -23,7 +23,8 @@ void genAngles(std::vector<double>& io_angles, int a, int nbQubits) {
     auto& angle = io_angles[bitIdx];
     for (int j = i; j < nbQubits; ++j) {
       // Check bit
-      if ((1 << j & a) != 0) {
+      int bitShift = nbQubits - j - 1;
+      if (((1 << bitShift) & a) != 0) {
         angle += std::pow(2.0, -(j-i));
       }
     }
@@ -76,7 +77,7 @@ inline void calcNumBits(int& result, int N) {
 }
 // a^(2^i)
 inline void calcExpExp(int& result, int a, int i) {
-  result = std::pow(result, std::pow(2, i));
+  result = std::pow(a, std::pow(2, i));
 }
 }}
 
