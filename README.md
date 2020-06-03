@@ -1,7 +1,8 @@
-| Branch | Status |
-|:-------|:-------|
-|master | [![pipeline status](https://code.ornl.gov/qci/qcor/badges/master/pipeline.svg)](https://code.ornl.gov/qci/qcor/commits/master) |
-|devel | [![pipeline status](https://code.ornl.gov/qci/qcor/badges/devel/pipeline.svg)](https://code.ornl.gov/qci/qcor/commits/devel) |
+![qcor](docs/assets/qcor_full_logo.svg)
+
+| master | 
+|:-------|
+| [![pipeline status](https://code.ornl.gov/qci/qcor/badges/master/pipeline.svg)](https://code.ornl.gov/qci/qcor/commits/master) |
 
 # QCOR
 
