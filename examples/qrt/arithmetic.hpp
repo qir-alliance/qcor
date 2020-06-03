@@ -9,7 +9,7 @@
 // e.g. reset the __execute flag so that only the top-level
 // kernel is submitted.
 
-// Classical function: wrapped it in a namespace to bypass XASM.
+// Classical helper functions: wrapped it in a namespace to bypass XASM.
 // These functions are used to construct circuit parameters.
 namespace qcor { namespace util {
 // Generates a list of angles to perform addition by a in the Fourier space.
@@ -37,6 +37,7 @@ inline void calcPowMultMod(int& result, int i, int a, int N) {
   result = (1 << i) * a % N;
 }
 
+// Compute extended greatest common divisor of two integers
 inline std::tuple<int, int, int> egcd(int a, int b) {
   int m, n, c, q, r;
   int m1 = 0, m2 = 1, n1 = 1, n2 = 0;
@@ -60,6 +61,7 @@ inline std::tuple<int, int, int> egcd(int a, int b) {
   return std::make_tuple(m, n, c);
 }
 
+// Modular inverse of a mod p
 inline void modinv(int& result, int a, int p) {
   int x, y;
   int gcd_ap;
@@ -67,6 +69,8 @@ inline void modinv(int& result, int a, int p) {
   result = (y > 0) ? y : y + p;
 }
 
+// Compute the minimum number of bits required
+// to represent an integer number N.
 inline void calcNumBits(int& result, int N) {
   int count = 0;
   while (N) {
@@ -75,7 +79,8 @@ inline void calcNumBits(int& result, int N) {
   }
   result = count;
 }
-// a^(2^i)
+
+// Compute a^(2^i)
 inline void calcExpExp(int& result, int a, int i) {
   result = std::pow(a, std::pow(2, i));
 }
@@ -182,11 +187,12 @@ __qpu__ void ccPhiAddModN_inv(qreg q, int ctl1, int ctl2, int aux,
   ccPhiAdd(q, ctl1, ctl2, a, startBitIdx, nbQubits, inv1);
 }
 
-
+// Swap kernel: to be used to generate Controlled-Swap kernel
 __qpu__ void SwapOp(qreg q, int idx1, int idx2) {
   Swap(q[idx1], q[idx2]);
 }
 
+// Controlled-Swap
 __qpu__ void cSwap(qreg q, int ctrlIdx, int idx1, int idx2) {
   qcor::Controlled::Apply(ctrlIdx, SwapOp, q, idx1, idx2);
 }
@@ -211,13 +217,17 @@ __qpu__ void cMultModN(qreg q, int ctrlIdx,
     // Doubly-controlled modular add on the Aux register.
     ccPhiAddModN(q, xIdx, ctrlIdx, auxBit, tempA, N, auxStartBitIdx, qftSize);
   }
+
   iqft(q, auxStartBitIdx, qftSize, withSwap);
+  
   for (int i = 0; i < nbQubits; ++i) {
     int idx1 = startBitIdx + i;
     int idx2 = auxStartBitIdx + i;
     cSwap(q, ctrlIdx, idx1, idx2);
   }
+
   qft(q, auxStartBitIdx, qftSize, withSwap);
+  
   int aInv = 0;
   qcor::util::modinv(aInv, a, N);
   for (int i = nbQubits - 1; i >= 0; --i) {
@@ -227,12 +237,13 @@ __qpu__ void cMultModN(qreg q, int ctrlIdx,
     int auxBit = auxStartBitIdx + auxNbQubits - 1;
     ccPhiAddModN_inv(q, xIdx, ctrlIdx, auxBit, tempA, N, auxStartBitIdx, qftSize);
   }
+
   iqft(q, auxStartBitIdx, qftSize, withSwap);
 }
 
 // Period finding:
 // Input a, N 
-// 1 < a < N, and must be coprime with N.
+// (1 < a < N)
 // e.g. N = 15, a = 4 
 // Size of qreg must be at least (4n + 2)
 // where n is the number of bits which can represent N,
@@ -276,5 +287,6 @@ __qpu__ void periodFinding(qreg q, int a, int N) {
     int bitIdx = upStart + i;
     Measure(q[bitIdx]);
   }
-  // Done: 
+  // Done: examine the shot count statistics
+  // to compute the period.
 }
