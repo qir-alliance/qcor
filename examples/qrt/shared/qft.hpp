@@ -30,7 +30,7 @@ __qpu__ void qft(qreg q, int startIdx, int nbQubits, int shouldSwap) {
   // A *hacky* way to do conditional (convert to a for loop)
   int swapCount = (shouldSwap == 0) ? 0 : 1;
   for (int count = 0; count < swapCount; ++count) {
-    for (int qIdx = 0; qIdx < (nbQubits - 1)/2; ++qIdx) {
+    for (int qIdx = 0; qIdx < nbQubits/2; ++qIdx) {
       Swap(q[startIdx + qIdx], q[startIdx + nbQubits - qIdx - 1]);
     }
   }
@@ -40,7 +40,7 @@ __qpu__ void iqft(qreg q, int startIdx, int nbQubits, int shouldSwap) {
   int swapCount = (shouldSwap == 0) ? 0 : 1;
   for (int count = 0; count < swapCount; ++count) {
     // Swap qubits
-    for (int qIdx = 0; qIdx < (nbQubits - 1)/2; ++qIdx) {
+    for (int qIdx = 0; qIdx < nbQubits/2; ++qIdx) {
       Swap(q[startIdx + qIdx], q[startIdx + nbQubits - qIdx - 1]);
     }
   }
