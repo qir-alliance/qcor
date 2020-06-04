@@ -12,6 +12,18 @@
 // Classical helper functions: wrapped it in a namespace to bypass XASM.
 // These functions are used to construct circuit parameters.
 namespace qcor { namespace util {
+template <typename T>
+T modpow(T base, T exp, T modulus) {
+  base %= modulus;
+  T result = 1;
+  while (exp > 0) {
+    if (exp & 1) result = (result * base) % modulus;
+    base = (base * base) % modulus;
+    exp >>= 1;
+  }
+  return result;
+}
+
 // Generates a list of angles to perform addition by a in the Fourier space.
 void genAngles(std::vector<double>& io_angles, int a, int nbQubits) {
   // Makes sure the vector appropriately sized
@@ -80,9 +92,9 @@ inline void calcNumBits(int& result, int N) {
   result = count;
 }
 
-// Compute a^(2^i)
-inline void calcExpExp(int& result, int a, int i) {
-  result = std::pow(a, std::pow(2, i));
+// Compute a^(2^i) mod N
+inline void calcExpExp(int& result, int a, int i, int N) {
+  result = modpow(a, 1 << i, N);
 }
 }}
 
@@ -98,14 +110,8 @@ __qpu__ void phiAdd(qreg q, int a, int startBitIdx, int nbQubits, int inverse) {
   qcor::util::genAngles(angles, a, nbQubits);   
   for (int i = 0; i < nbQubits; ++i) {
     double theta = (inverse == 0) ? angles[i] : -angles[i];
-    // If theta is zero, just ignored.
-    double eps = 1e-12;
-    // FIXME: XASM handles if conditional
-    int opCount = (abs(theta) < eps) ? 0 : 1;
-    for (int ii = 0; ii < opCount; ++ii) {
-      int idx = startBitIdx + i;
-      U1(q[idx], theta);
-    }
+    int idx = startBitIdx + i;
+    U1(q[idx], theta);
   }
 }
 
@@ -116,23 +122,32 @@ __qpu__ void cPhiAdd(qreg q, int ctrlBit, int a, int startBitIdx, int nbQubits, 
   
   for (int i = 0; i < nbQubits; ++i) {
     double theta = (inverse == 0) ? angles[i] : -angles[i] ;
-    // If theta is zero, just ignored.
-    double eps = 1e-12;
-    // FIXME: XASM handles if conditional
-    int opCount = (abs(theta) < eps) ? 0 : 1;
-    for (int ii = 0; ii < opCount; ++ii) {
-      int idx = startBitIdx + i;
-      // Note: ctrlBit must be different from idx,
-      // i.e. ctrlBit must not be in the bitIdx vector
-      // We use CPhase which is equivalent with IBM cu1
-      CPhase(q[ctrlBit], q[idx], theta);
-    }
+    int idx = startBitIdx + i;
+    // Note: ctrlBit must be different from idx,
+    // i.e. ctrlBit must not be in the bitIdx vector
+    // We use CPhase which is equivalent with IBM cu1
+    CPhase(q[ctrlBit], q[idx], theta);
   }
+}
+
+__qpu__ void ccPhase(qreg q, int ctl1, int ctl2, int tgt, double angle) {
+  CPhase(q[ctl1], q[tgt], angle/2);
+  CX(q[ctl2], q[ctl1]);
+  CPhase(q[ctl1], q[tgt], -angle/2);
+  CX(q[ctl2], q[ctl1]);
+  CPhase(q[ctl2], q[tgt], angle/2);
 }
 
 // Doubly-controlled Add operation in Fourier space
 __qpu__ void ccPhiAdd(qreg q, int ctrlBit1, int ctrlBit2, int a, int startBitIdx, int nbQubits, int inverse) {
-  qcor::Controlled::Apply(ctrlBit2, cPhiAdd, q, ctrlBit1, a, startBitIdx, nbQubits, inverse);
+  std::vector<double> angles;
+  qcor::util::genAngles(angles, a, nbQubits);  
+  
+  for (int i = 0; i < nbQubits; ++i) {
+    double theta = (inverse == 0) ? angles[i] : -angles[i] ;
+    int idx = startBitIdx + i;
+    ccPhase(q, ctrlBit1, ctrlBit2, idx, theta);
+  }
 }
 
 // Doubly-controlled *modular* addition by 
@@ -271,7 +286,7 @@ __qpu__ void periodFinding(qreg q, int a, int N) {
   // Apply the multiplication gates
   for (int i = 0; i < 2*n; ++i) {
     int aTo2Toi = 0;
-    qcor::util::calcExpExp(aTo2Toi, a, i);
+    qcor::util::calcExpExp(aTo2Toi, a, i, N);
     // Control bit is the upper register
     int ctrlIdx = upStart + i;
     cMultModN(q, ctrlIdx, aTo2Toi, N, downStart, downSize, auxStart, auxSize);
