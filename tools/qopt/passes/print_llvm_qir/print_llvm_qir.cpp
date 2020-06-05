@@ -20,6 +20,17 @@ struct PrintKernelQIR : public qcor::QCORBaseFunctionPass {
     // This pass just dumps all quantum kernel IR
     F.dump();
 
+    for (auto &arg : F.args()) {
+      std::string type_str;
+      llvm::raw_string_ostream rso(type_str);
+      arg.getType()->print(rso);
+      llvm::errs() << "ARG TYPE: " << rso.str() << ", " << arg.getName().str() << "\n";
+      arg.dump();
+      for (auto use : arg.users()) {
+          use->dump();
+      }
+    }
+
     // Leaving here for now, print callinsts example...
 
     for (BasicBlock &b : F) {
@@ -28,12 +39,12 @@ struct PrintKernelQIR : public qcor::QCORBaseFunctionPass {
       if (b.getName().str().find("for.cond") != std::string::npos) {
         llvm::errs() << "BasicBlock Name: " << b.getName().str() << "\n";
 
+        
         // Loop over instructions
         for (Instruction &i : b) {
-
           llvm::errs() << "GET OPCODENAME: " << i.getOpcodeName() << "\n";
-          if (isa<llvm::ICmpInst>(i)) {
-            llvm::errs() << "we have a compare inst\n";
+          if (isa<llvm::InvokeInst>(i)) {
+            llvm::errs() << "we have a invoke inst\n";
             auto *cmp = dyn_cast<ICmpInst>(&i);
             cmp->dump();
             llvm::errs() << "HELLO: " << cmp->getPredicate() << ", "
@@ -46,14 +57,17 @@ struct PrintKernelQIR : public qcor::QCORBaseFunctionPass {
               llvm::errs() << "This is an int type " << val << "\n";
             }
           } else if (isa<LoadInst>(&i)) {
-            llvm::errs() << "we have a load inst " << i.getNumOperands() << "\n";
+            llvm::errs() << "we have a load inst " << i.getNumOperands()
+                         << "\n";
             auto op = i.getOperand(0);
-            llvm::errs() << "loop var name name = " << op->getName().str() << "\n";
+            llvm::errs() << "loop var name name = " << op->getName().str()
+                         << "\n";
             op->dump();
             if (isa<AllocaInst>(op)) {
-            //   auto c = dyn_cast<ConstantInt>(RHS);
-            //   auto val = c->getValue();
-              auto const_int = dyn_cast<ConstantInt>(dyn_cast<AllocaInst>(op)->getOperand(0));
+              //   auto c = dyn_cast<ConstantInt>(RHS);
+              //   auto val = c->getValue();
+              auto const_int = dyn_cast<ConstantInt>(
+                  dyn_cast<AllocaInst>(op)->getOperand(0));
               llvm::errs() << "This is an alloc type for load inst \n";
               llvm::errs() << const_int->getValue() << "\n";
             }

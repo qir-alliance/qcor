@@ -1,0 +1,6 @@
+{
+  "bundle.symbolic_name" : "xacc_llvm_compiler",
+  "bundle.activator" : true,
+  "bundle.name" : "XACC LLVM Compiler",
+  "bundle.description" : ""
+}
