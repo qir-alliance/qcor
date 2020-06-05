@@ -1,0 +1,5 @@
+link_directories(${XACC_ROOT}/lib)
+add_executable(LLVMCompilerTester LLVMCompilerTester.cpp)
+add_test(NAME qcor_LLVMCompilerTester COMMAND LLVMCompilerTester)
+target_include_directories(LLVMCompilerTester PRIVATE ${XACC_ROOT}/include/gtest)
+target_link_libraries(LLVMCompilerTester ${XACC_TEST_LIBRARIES} qcor)
