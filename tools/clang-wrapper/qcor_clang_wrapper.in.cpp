@@ -48,8 +48,8 @@ std::unique_ptr<clang::CodeGenAction> emit_llvm_ir(const std::string src_code) {
   file.close();
 
   std::vector<const char *> argv_vec{
-      "/home/cades/.llvm/bin/clang++",      "-std=c++17",
-      "-I/home/cades/.xacc/include/xacc",   "-I/home/cades/.xacc/include/qcor",
+      "@CLANG_EXECUTABLE@",      "-std=c++17",
+      "-I@CMAKE_INSTALL_PREFIX@/include/xacc",   "-I@CMAKE_INSTALL_PREFIX@/include/qcor",
       "-I/usr/lib/gcc/x86_64-linux-gnu/8/", "-c", "local_output.cpp"};
   const char **argv = &argv_vec[0];
   int argc = argv_vec.size();

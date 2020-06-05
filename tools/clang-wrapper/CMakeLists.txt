@@ -1,8 +1,13 @@
 set(LIBRARY_NAME qcor-clang-wrapper)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti")
+
+message(STATUS "HOWDY: ${CMAKE_C_IMPLICIT_INCLUDE_DIRECTORIES}")
+configure_file(qcor_clang_wrapper.in.cpp
+               ${CMAKE_BINARY_DIR}/tools/clang-wrapper/qcor_clang_wrapper.cpp)
+
 add_library(${LIBRARY_NAME}
             SHARED
-            qcor_clang_wrapper.cpp)
+            ${CMAKE_BINARY_DIR}/tools/clang-wrapper/qcor_clang_wrapper.cpp)
 
 target_include_directories(${LIBRARY_NAME}
                            PUBLIC .
