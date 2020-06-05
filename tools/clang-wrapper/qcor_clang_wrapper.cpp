@@ -137,6 +137,7 @@ std::unique_ptr<clang::CodeGenAction> emit_llvm_ir(const std::string src_code) {
   llvm::InitializeNativeTarget();
   llvm::InitializeNativeTargetAsmPrinter();
 
+  std::remove("local_output.cpp");
 //   int Res = 255;
 //   std::unique_ptr<llvm::LLVMContext> Ctx(Act->takeLLVMContext());
 //   std::unique_ptr<llvm::Module> Module = Act->takeModule();

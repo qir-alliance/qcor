@@ -17,7 +17,6 @@ TEST(LLVMCompilerTester, checkSimple) {
       std::make_pair("function-prototype", "void f(qreg q)")};
   auto translated = llvm_compiler->translate(f, extra_data);
 
-  EXPECT_TRUE(extra_data.key_exists_any_type("llvm-function"));
   std::cout << "translated:\n" << translated << "\n";
 
 }
