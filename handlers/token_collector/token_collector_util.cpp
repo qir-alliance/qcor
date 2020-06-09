@@ -106,13 +106,33 @@ void run_token_collector_llvm_rt(clang::Preprocessor &PP,
     // to add them to the xacc kernel function prototype to
     // ensure canParse passes in certain cases
     if (ss.str().find("=") != std::string::npos) {
-      // we have a classical var_type var_name = ...;
+      // we have a classical var_type_tokens var_name = ...;
       int tmp_i = i;
       for (int j = tmp_i;; j--) {
         auto tok = Toks[j];
         if (tok.is(clang::tok::equal)) {
           auto var_name = PP.getSpelling(Toks[j - 1]);
-          auto var_type = PP.getSpelling(Toks[j - 2]);
+          // get the var_type, which should be all
+          // tokens back to last semi, l_brace, or r_brace, or if j == 0
+          std::vector<std::string> tokens;
+          for (int k = j - 2; k >= 0; k--) {
+            if (Toks[k].is(clang::tok::semi) ||
+                Toks[k].is(clang::tok::r_brace) ||
+                Toks[k].is(clang::tok::l_brace)) {
+              break;
+            }
+            if (PP.getSpelling(Toks[k]) != "const") {
+              tokens.push_back(PP.getSpelling(Toks[k]));
+            }
+          }
+          // reverse the tokens now and write them to
+          // a string stream
+          std::reverse(tokens.begin(), tokens.end());
+          std::stringstream type_ss;
+          for (auto &t : tokens) {
+            type_ss << t;
+          }
+          auto var_type = type_ss.str();
           classical_variables.push_back({var_type, var_name});
           break;
         }
@@ -145,85 +165,50 @@ void run_token_collector_llvm_rt(clang::Preprocessor &PP,
   std::function<void(int &, std::shared_ptr<xacc::Compiler>, clang::Token &,
                      clang::CachedTokens &, std::string &, std::stringstream &,
                      std::string)>
-      process_for_block =
-          [&](int &i, std::shared_ptr<xacc::Compiler> compiler,
-              clang::Token &current_token, clang::CachedTokens &Toks,
-              std::string &terminating_char, std::stringstream &qrt_code,
-              std::string extra_preamble) {
-            // slurp up the for
-            std::stringstream for_ss;
+      process_for_block = [&](int &i, std::shared_ptr<xacc::Compiler> compiler,
+                              clang::Token &current_token,
+                              clang::CachedTokens &Toks,
+                              std::string &terminating_char,
+                              std::stringstream &qrt_code,
+                              std::string extra_preamble) {
+        // slurp up the for
+        std::stringstream for_ss;
 
-            // eat up the l_paren
-            for_ss << "for (";
-            int seen_l_paren = 1;
-            i += 2;
-            current_token = Toks[i];
+        // eat up the l_paren
+        for_ss << "for (";
+        int seen_l_paren = 1;
+        i += 2;
+        current_token = Toks[i];
 
-            while (seen_l_paren > 0) {
-              if (current_token.is(clang::tok::l_paren))
-                seen_l_paren++;
-              if (current_token.is(clang::tok::r_paren))
-                seen_l_paren--;
-              for_ss << PP.getSpelling(current_token) << " ";
-              i++;
-              current_token = Toks[i];
-            }
+        while (seen_l_paren > 0) {
+          if (current_token.is(clang::tok::l_paren))
+            seen_l_paren++;
+          if (current_token.is(clang::tok::r_paren))
+            seen_l_paren--;
+          for_ss << PP.getSpelling(current_token) << " ";
+          i++;
+          current_token = Toks[i];
+        }
 
-            qrt_code << for_ss.str();
-            // we could have for stmt with l_brace or without for a single inst
-            if (current_token.is(clang::tok::l_brace)) {
-              qrt_code << " {\n";
+        qrt_code << for_ss.str();
+        // we could have for stmt with l_brace or without for a single inst
+        if (current_token.is(clang::tok::l_brace)) {
+          qrt_code << " {\n";
 
-              // eat up the {
-              i++;
-              current_token = Toks[i];
+          // eat up the {
+          i++;
+          current_token = Toks[i];
 
-              // Now loop through the for loop body
-              int l_brace_count = 1;
-              while (l_brace_count != 0) {
-                // In here we have statements separated by compiler terminator
-                // (default ';')
-                // Note could have nested for stmts...
-                if (current_token.is(clang::tok::kw_for)) {
-                  process_for_block(i, compiler, current_token, Toks,
-                                    terminating_char, qrt_code, extra_preamble);
-                } else {
-                  auto [comp_inst, src_str] =
-                      process_inst_stmt(i, compiler, current_token,
-                                        terminating_char, extra_preamble);
-                  if (comp_inst) {
-                    auto visitor = std::make_shared<qrt_mapper>(comp_inst->name());
-                    xacc::InstructionIterator iter(comp_inst);
-                    while (iter.hasNext()) {
-                      auto next = iter.next();
-                      next->accept(visitor);
-                    }
-                    qrt_code << visitor->get_new_src();
-                  } else {
-                    qrt_code << src_str;
-                  }
-                }
-                // missing ';', eat it up too
-                i++;
-                current_token = Toks[i];
-
-                if (current_token.is(clang::tok::l_brace)) {
-                  l_brace_count++;
-                }
-
-                if (current_token.is(clang::tok::r_brace)) {
-                  l_brace_count--;
-                }
-              }
-
-              qrt_code << "}\n";
-
+          // Now loop through the for loop body
+          int l_brace_count = 1;
+          while (l_brace_count != 0) {
+            // In here we have statements separated by compiler terminator
+            // (default ';')
+            // Note could have nested for stmts...
+            if (current_token.is(clang::tok::kw_for)) {
+              process_for_block(i, compiler, current_token, Toks,
+                                terminating_char, qrt_code, extra_preamble);
             } else {
-              // Here we don't have a l_brace, so we just have the one
-              // quantum instruction
-
-              qrt_code << "\n   ";
-
               auto [comp_inst, src_str] = process_inst_stmt(
                   i, compiler, current_token, terminating_char, extra_preamble);
               if (comp_inst) {
@@ -238,7 +223,42 @@ void run_token_collector_llvm_rt(clang::Preprocessor &PP,
                 qrt_code << src_str;
               }
             }
-          };
+            // missing ';', eat it up too
+            i++;
+            current_token = Toks[i];
+
+            if (current_token.is(clang::tok::l_brace)) {
+              l_brace_count++;
+            }
+
+            if (current_token.is(clang::tok::r_brace)) {
+              l_brace_count--;
+            }
+          }
+
+          qrt_code << "}\n";
+
+        } else {
+          // Here we don't have a l_brace, so we just have the one
+          // quantum instruction
+
+          qrt_code << "\n   ";
+
+          auto [comp_inst, src_str] = process_inst_stmt(
+              i, compiler, current_token, terminating_char, extra_preamble);
+          if (comp_inst) {
+            auto visitor = std::make_shared<qrt_mapper>(comp_inst->name());
+            xacc::InstructionIterator iter(comp_inst);
+            while (iter.hasNext()) {
+              auto next = iter.next();
+              next->accept(visitor);
+            }
+            qrt_code << visitor->get_new_src();
+          } else {
+            qrt_code << src_str;
+          }
+        }
+      };
 
   auto compiler = xacc::getCompiler("xasm");
   auto terminating_char = compiler->get_statement_terminator();
@@ -469,7 +489,8 @@ void run_token_collector_llvm_rt(clang::Preprocessor &PP,
   // In runtime mode, we contribute each annotated *kernel* as a circuit.
   // Hence, kernels can be used within other kernels similar to the way
   // XACC circuits are instantiated in XASM.
-  auto circuit = std::shared_ptr<xacc::Instruction>(new xacc::quantum::Circuit(kernel_name));
+  auto circuit = std::shared_ptr<xacc::Instruction>(
+      new xacc::quantum::Circuit(kernel_name));
   xacc::contributeService(kernel_name, circuit);
 }
 
