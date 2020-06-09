@@ -1,5 +1,5 @@
-link_directories(${XACC_ROOT}/lib)
-add_executable(LLVMCompilerTester LLVMCompilerTester.cpp)
-add_test(NAME qcor_LLVMCompilerTester COMMAND LLVMCompilerTester)
-target_include_directories(LLVMCompilerTester PRIVATE ${XACC_ROOT}/include/gtest)
-target_link_libraries(LLVMCompilerTester ${XACC_TEST_LIBRARIES} qcor)
+
+configure_file(test.in.sh
+               ${CMAKE_BINARY_DIR}/tools/qopt/passes/xacc-ir-transformation/tests/test.sh)
+
+add_test(NAME test_qrt_qopt_xacc_opt COMMAND sh test.sh)

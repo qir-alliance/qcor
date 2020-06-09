@@ -2,13 +2,39 @@
 #include "Instruction.hpp"
 #include "PauliOperator.hpp"
 #include "xacc.hpp"
-#include "xacc_service.hpp"
 #include "xacc_internal_compiler.hpp"
+#include "xacc_service.hpp"
 #include <Eigen/Dense>
 #include <Utils.hpp>
 
 std::vector<int> xacc::internal_compiler::__controlledIdx = {};
 
+namespace xacc {
+namespace internal_compiler {
+void simplified_qrt_call_one_qbit(const char *gate_name,
+                                  const char *buffer_name,
+                                  const std::size_t idx) {
+  ::quantum::one_qubit_inst(gate_name, {buffer_name, idx});
+}
+
+void simplified_qrt_call_one_qbit_one_param(const char * gate_name,
+                                            const char * buffer_name,
+                                            const std::size_t idx,
+                                            const double parameter) {
+  ::quantum::one_qubit_inst(gate_name, {buffer_name, idx}, {parameter});
+}
+
+void simplified_qrt_call_two_qbits(const char * gate_name,
+                                   const char * buffer_name_1,
+                                   const char * buffer_name_2,
+                                   const std::size_t src_idx,
+                                   const std::size_t tgt_idx) {
+  ::quantum::two_qubit_inst(gate_name, {buffer_name_1, src_idx},
+                            {buffer_name_1, tgt_idx});
+}
+
+} // namespace internal_compiler
+} // namespace xacc
 namespace quantum {
 std::shared_ptr<xacc::CompositeInstruction> program = nullptr;
 std::shared_ptr<xacc::IRProvider> provider = nullptr;
@@ -16,8 +42,8 @@ std::shared_ptr<xacc::IRProvider> provider = nullptr;
 // i.e. a master quantum kernel which is invoked from classical code.
 // Multiple kernels can be defined to be used inside the *entry-point* kernel.
 // Once the *entry-point* kernel has been invoked, initialize() calls
-// by sub-kernels will be ignored. 
-bool __entry_point_initialized = false; 
+// by sub-kernels will be ignored.
+bool __entry_point_initialized = false;
 
 void initialize(const std::string qpu_name, const std::string kernel_name) {
   if (!__entry_point_initialized) {
@@ -25,6 +51,8 @@ void initialize(const std::string qpu_name, const std::string kernel_name) {
     provider = xacc::getIRProvider("quantum");
     program = provider->createComposite(kernel_name);
   }
+
+  program->clear();
 
   __entry_point_initialized = true;
 }
@@ -38,12 +66,13 @@ void set_shots(int shots) {
 void add_controlled_inst(xacc::InstPtr &inst, int ctrlIdx) {
   auto tempKernel = provider->createComposite("temp_control");
   tempKernel->addInstruction(inst);
-  auto ctrlKernel = std::dynamic_pointer_cast<xacc::CompositeInstruction>(xacc::getService<xacc::Instruction>("C-U"));
-  ctrlKernel->expand({ 
-    std::make_pair("U",  tempKernel),
-    std::make_pair("control-idx",  ctrlIdx),
-  });            
-  
+  auto ctrlKernel = std::dynamic_pointer_cast<xacc::CompositeInstruction>(
+      xacc::getService<xacc::Instruction>("C-U"));
+  ctrlKernel->expand({
+      std::make_pair("U", tempKernel),
+      std::make_pair("control-idx", ctrlIdx),
+  });
+
   for (int instId = 0; instId < ctrlKernel->nInstructions(); ++instId) {
     program->addInstruction(ctrlKernel->getInstruction(instId)->clone());
   }
@@ -58,32 +87,30 @@ void one_qubit_inst(const std::string &name, const qubit &qidx,
     inst->setParameter(i, parameters[i]);
   }
   // Not in a controlled-block
-  if (xacc::internal_compiler::__controlledIdx.empty()){
+  if (xacc::internal_compiler::__controlledIdx.empty()) {
     // Add the instruction
     program->addInstruction(inst);
-  }
-  else {
+  } else {
     // In a controlled block:
     add_controlled_inst(inst, __controlledIdx[0]);
   }
 }
 
-void two_qubit_inst(const std::string &name, const qubit &qidx1, const qubit &qidx2,
-                    std::vector<double> parameters) {
-  auto inst =
-      provider->createInstruction(name, std::vector<std::size_t>{ qidx1.second, qidx2.second });
-  inst->setBufferNames({ qidx1.first, qidx2.first });
+void two_qubit_inst(const std::string &name, const qubit &qidx1,
+                    const qubit &qidx2, std::vector<double> parameters) {
+  auto inst = provider->createInstruction(
+      name, std::vector<std::size_t>{qidx1.second, qidx2.second});
+  inst->setBufferNames({qidx1.first, qidx2.first});
   for (int i = 0; i < parameters.size(); i++) {
     inst->setParameter(i, parameters[i]);
   }
   // Not in a controlled-block
   if (xacc::internal_compiler::__controlledIdx.empty()) {
-    program->addInstruction(inst);     
-  }
-  else {
+    program->addInstruction(inst);
+  } else {
     // In a controlled block:
     add_controlled_inst(inst, __controlledIdx[0]);
-  }                 
+  }
 }
 
 void h(const qubit &qidx) { one_qubit_inst("H", qidx); }
@@ -129,11 +156,11 @@ void swap(const qubit &src_idx, const qubit &tgt_idx) {
 }
 
 void cphase(const qubit &src_idx, const qubit &tgt_idx, const double theta) {
-  two_qubit_inst("CPhase", src_idx, tgt_idx, { theta });
+  two_qubit_inst("CPhase", src_idx, tgt_idx, {theta});
 }
 
 void crz(const qubit &src_idx, const qubit &tgt_idx, const double theta) {
-  two_qubit_inst("CRZ", src_idx, tgt_idx, { theta });
+  two_qubit_inst("CRZ", src_idx, tgt_idx, {theta});
 }
 
 void exp(qreg q, const double theta, xacc::Observable *H) {
@@ -246,6 +273,11 @@ void submit(xacc::AcceleratorBuffer *buffer) {
 void submit(xacc::AcceleratorBuffer **buffers, const int nBuffers) {
   xacc::internal_compiler::execute(buffers, nBuffers, program);
 }
-std::shared_ptr<xacc::CompositeInstruction> getProgram() { return program; }
-void clearProgram() {program->clear();}
+std::shared_ptr<xacc::CompositeInstruction> getProgram() {
+  return program;
+}
+void clearProgram() {
+  if (program && provider )
+    program = provider->createComposite(program->name());
+}
 } // namespace quantum
