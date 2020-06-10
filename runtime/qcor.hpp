@@ -144,6 +144,9 @@ template <typename QuantumKernel, typename... Args>
 void print_kernel(std::ostream &os, QuantumKernel &kernel, Args... args) {
   os << __internal__::kernel_as_composite_instruction(kernel, args...)
             ->toString();
+#ifdef QCOR_USE_QRT
+  quantum::clearProgram();
+#endif
 }
 
 // The ObjectiveFunction represents a functor-like data structure that

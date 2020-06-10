@@ -4,6 +4,7 @@
 
 #include "AllGateVisitor.hpp"
 #include "Circuit.hpp"
+#include <Instruction.hpp>
 
 namespace qcor {
 using namespace xacc::quantum;
@@ -96,10 +97,31 @@ public:
       ss << "const auto __cached_execute_flag = __execute;\n";
       // Reset the flag:
       ss << "__execute = false;\n";
+      for (const auto &arg : circ.getArguments()) {
+        if (arg->name == "__xacc__literal_") {
+          // double nameMEMORYLOC = ...
+          ss << arg->type << " " << arg->name << arg << " = ";
+          // can be int or double
+          if (arg->runtimeValue.keyExists<int>(
+                  xacc::INTERNAL_ARGUMENT_VALUE_KEY)) {
+            ss << arg->runtimeValue.get<int>(xacc::INTERNAL_ARGUMENT_VALUE_KEY)
+               << ";\n";
+          } else {
+            ss << arg->runtimeValue.get<double>(
+                      xacc::INTERNAL_ARGUMENT_VALUE_KEY)
+               << ";\n";
+          }
+        }
+      }
       // Add the circuit invocation.
       ss << circ.name() << "(" << circ.getBufferNames()[0];
       for (const auto &arg : circ.getArguments()) {
-        ss << ", " << arg->name;
+        if (arg->name.find("__xacc__literal_") != std::string::npos) {
+          ss << ", " << arg->name << arg;
+          }
+        else {
+          ss << ", " << arg->name;
+        }
       }
       ss << ")"
          << ";\n";

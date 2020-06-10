@@ -52,8 +52,6 @@ void initialize(const std::string qpu_name, const std::string kernel_name) {
     program = provider->createComposite(kernel_name);
   }
 
-  program->clear();
-
   __entry_point_initialized = true;
 }
 
@@ -268,6 +266,7 @@ void exp(qreg q, const double theta, std::shared_ptr<xacc::Observable> H) {
 
 void submit(xacc::AcceleratorBuffer *buffer) {
   xacc::internal_compiler::execute(buffer, program);
+  clearProgram();
 }
 
 void submit(xacc::AcceleratorBuffer **buffers, const int nBuffers) {

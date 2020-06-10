@@ -427,8 +427,8 @@ void run_token_collector_llvm_rt(clang::Preprocessor &PP,
 
       process_for_block(i, compiler, current_token, Toks, terminating_char,
                         qrt_code, extra_preamble);
-      std::cout << "out of for loop now, current is "
-                << PP.getSpelling(current_token) << "\n";
+    //   std::cout << "out of for loop now, current is "
+    //             << PP.getSpelling(current_token) << "\n";
       continue;
     }
 
