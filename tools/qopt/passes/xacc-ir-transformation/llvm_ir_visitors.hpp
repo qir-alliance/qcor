@@ -24,6 +24,7 @@ std::map<std::string, std::string> qrt_to_xacc{
     {"cphase", "CPhase"}, {"i", "I"},       {"u", "U"},     {"u1", "U1"},
     {"cnot", "CNOT"},     {"mz", "Measure"}};
 
+
 class FindFunctionVariableStoreInsts
     : public InstVisitor<FindFunctionVariableStoreInsts> {
 protected:
@@ -336,7 +337,7 @@ public:
             } else {
               // 2 qubit gates
               if (n_params > 0) {
-                  // TODO FIXME add 2 qubit gates with param
+                // TODO FIXME add 2 qubit gates with param
               } else {
                 // _ZN4xacc17internal_compiler29simplified_qrt_call_two_qbitsEPKcS2_S2_mm
 

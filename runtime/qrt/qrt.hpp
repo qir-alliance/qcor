@@ -75,6 +75,7 @@ void submit(xacc::AcceleratorBuffer *buffer);
 void submit(xacc::AcceleratorBuffer **buffers, const int nBuffers);
 
 std::shared_ptr<xacc::CompositeInstruction> getProgram();
+xacc::CompositeInstruction* program_raw_pointer();
 void clearProgram();
 
 } // namespace quantum

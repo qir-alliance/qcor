@@ -62,4 +62,5 @@ int main(int argc, char **argv) {
   // dump the results
   // EXPECTED: only "100" bitstring
   q.print();
+  qcor::print_kernel(std::cout, QuantumPhaseEstimation, q);
 }

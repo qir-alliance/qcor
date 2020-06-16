@@ -275,6 +275,7 @@ void submit(xacc::AcceleratorBuffer **buffers, const int nBuffers) {
 std::shared_ptr<xacc::CompositeInstruction> getProgram() {
   return program;
 }
+xacc::CompositeInstruction* program_raw_pointer() {return program.get();}
 void clearProgram() {
   if (program && provider )
     program = provider->createComposite(program->name());
