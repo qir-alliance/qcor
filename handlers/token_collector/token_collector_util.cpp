@@ -155,7 +155,6 @@ void run_token_collector_llvm_rt(clang::Preprocessor &PP,
     // If canParse, get the CompositeInst, if not, return the code
     // to be added to qrt_code
     if (compiler->canParse(str_src)) {
-      // FIXME, may return multiple instructions
       return {compiler->compile(str_src)->getComposites()[0], ""};
     } else {
       return {nullptr, ss.str() + "\n"};
@@ -267,7 +266,7 @@ void run_token_collector_llvm_rt(clang::Preprocessor &PP,
   std::string extra_preamble = "", language = "xasm";
   std::map<std::string, std::string> oracle_name_to_extra_preamble;
   std::map<std::string, int> creg_name_to_size;
-
+  int countQregs = 0;
   //   for (int i = 0; i < Toks.size(); i++) {
   //     std::cout << "Toks: " << PP.getSpelling(Toks[i]) << "\n";
   //   }
@@ -350,6 +349,44 @@ void run_token_collector_llvm_rt(clang::Preprocessor &PP,
       continue;
     }
 
+    if (current_token_str == "qreg") {
+
+      // allocate called within kernel, likely with openqasm
+      // get the size and allocated it, but dont add to kernel string
+
+      // skip qreg
+      i++;
+      current_token = Toks[i];
+
+      // get qreg var name
+      auto variable_name = PP.getSpelling(current_token);
+
+      // skip [
+      i += 2;
+      current_token = Toks[i];
+
+      auto size = std::stoi(PP.getSpelling(current_token));
+
+      // skip ] and ;
+      i += 2;
+
+      auto q = qalloc(size);
+      q.setNameAndStore(variable_name.c_str());
+
+      qrt_code << "auto " << variable_name << " = " << bufferNames[countQregs]
+               << ";\n";
+
+      classical_variables.push_back({"qreg", variable_name});
+      countQregs++;
+
+      continue;
+    }
+
+    if (current_token_str == "OPENQASM") {
+      i += 2;
+      continue;
+    }
+
     if (current_token_str == "measure") {
       // we have an ibm style measure,
       // so make sure that we map to individual measures
@@ -404,7 +441,6 @@ void run_token_collector_llvm_rt(clang::Preprocessor &PP,
       auto creg_name = PP.getSpelling(Toks[i + 1]);
       auto creg_size = PP.getSpelling(Toks[i + 3]);
 
-      //   std::cout << "CREG: " << creg_name << ", " << creg_size << "\n";
       creg_name_to_size.insert({creg_name, std::stoi(creg_size)});
 
       std::stringstream sss;
@@ -414,8 +450,6 @@ void run_token_collector_llvm_rt(clang::Preprocessor &PP,
         current_token = Toks[i];
         current_token_str = PP.getSpelling(current_token);
       }
-
-      //   std::cout << "saving creg; " << sss.str() << "\n";
 
       extra_preamble += sss.str() + ";\n";
 
@@ -427,8 +461,8 @@ void run_token_collector_llvm_rt(clang::Preprocessor &PP,
 
       process_for_block(i, compiler, current_token, Toks, terminating_char,
                         qrt_code, extra_preamble);
-    //   std::cout << "out of for loop now, current is "
-    //             << PP.getSpelling(current_token) << "\n";
+      //   std::cout << "out of for loop now, current is "
+      //             << PP.getSpelling(current_token) << "\n";
       continue;
     }
 

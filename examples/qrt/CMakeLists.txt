@@ -12,3 +12,4 @@ add_test(NAME qrt_simple-objective-function COMMAND ${CMAKE_BINARY_DIR}/qcor -qr
 add_test(NAME qrt_qpe_example COMMAND ${CMAKE_BINARY_DIR}/qcor -qrt -c -I${CMAKE_CURRENT_SOURCE_DIR}/shared ${CMAKE_CURRENT_SOURCE_DIR}/qpe/qpe_example_qrt.cpp)
 add_test(NAME qrt_kernel_include COMMAND ${CMAKE_BINARY_DIR}/qcor -qrt -c -I${CMAKE_CURRENT_SOURCE_DIR}/shared ${CMAKE_CURRENT_SOURCE_DIR}/simple/multiple_kernels.cpp)
 add_test(NAME qrt_period_finding COMMAND ${CMAKE_BINARY_DIR}/qcor -qrt -c -I${CMAKE_CURRENT_SOURCE_DIR}/shared ${CMAKE_CURRENT_SOURCE_DIR}/simple/period_finding.cpp)
+add_test(NAME qrt_grover COMMAND ${CMAKE_BINARY_DIR}/qcor -qrt -c ${CMAKE_CURRENT_SOURCE_DIR}/grover/grover.cpp)

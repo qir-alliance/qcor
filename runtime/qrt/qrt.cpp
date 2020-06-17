@@ -113,6 +113,12 @@ void two_qubit_inst(const std::string &name, const qubit &qidx1,
 
 void h(const qubit &qidx) { one_qubit_inst("H", qidx); }
 void x(const qubit &qidx) { one_qubit_inst("X", qidx); }
+void y(const qubit &qidx) { one_qubit_inst("Y", qidx); }
+void z(const qubit &qidx) { one_qubit_inst("Z", qidx); }
+
+void s(const qubit &qidx) { one_qubit_inst("S", qidx); }
+void sdg(const qubit &qidx) { one_qubit_inst("Sdg", qidx); }
+
 void t(const qubit &qidx) { one_qubit_inst("T", qidx); }
 void tdg(const qubit &qidx) { one_qubit_inst("Tdg", qidx); }
 

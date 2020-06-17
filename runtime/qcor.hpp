@@ -113,11 +113,12 @@ kernel_as_composite_instruction(QuantumKernel &k, Args... args) {
   quantum::clearProgram();
 #endif
   // turn off execution
+  const auto cached_exec = xacc::internal_compiler::__execute;
   xacc::internal_compiler::__execute = false;
   // Execute to compile, this will store and we can get it
   k(args...);
   // turn execution on
-  xacc::internal_compiler::__execute = true;
+  xacc::internal_compiler::__execute = cached_exec;
 #ifdef QCOR_USE_QRT
   return quantum::getProgram();
 #else
@@ -404,6 +405,33 @@ public:
     __execute = __cached_execute_flag;
   }
 };
+
+template <typename QuantumKernel, typename... Args>
+std::function<void(Args...)> measure_all(QuantumKernel &kernel, Args... args) {
+  return [&](Args... args) {
+    auto internal_kernel =
+        qcor::__internal__::kernel_as_composite_instruction(kernel, args...);
+    auto q = std::get<0>(std::forward_as_tuple(args...));
+    auto q_name = q.name();
+    auto nq = q.size();
+    auto observable = allZs(nq);
+    auto observed = observable.observe(internal_kernel)[0];
+    auto visitor = std::make_shared<xacc_to_qrt_mapper>(q_name);
+    quantum::clearProgram();
+    xacc::InstructionIterator iter(observed);
+    while (iter.hasNext()) {
+      auto next = iter.next();
+      if (!next->isComposite()) {
+        next->accept(visitor);
+      }
+    }
+    if (xacc::internal_compiler::__execute) {
+        ::quantum::submit(q.results());
+    }
+    return;
+  };
+}
+
 #endif
 } // namespace qcor
 

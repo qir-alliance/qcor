@@ -6,6 +6,8 @@
 #include "Circuit.hpp"
 #include <Instruction.hpp>
 
+#include "qrt.hpp"
+
 namespace qcor {
 using namespace xacc::quantum;
 
@@ -118,8 +120,7 @@ public:
       for (const auto &arg : circ.getArguments()) {
         if (arg->name.find("__xacc__literal_") != std::string::npos) {
           ss << ", " << arg->name << arg;
-          }
-        else {
+        } else {
           ss << ", " << arg->name;
         }
       }

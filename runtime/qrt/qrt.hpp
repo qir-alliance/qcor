@@ -5,33 +5,17 @@
 #include <CompositeInstruction.hpp>
 #include <memory>
 
+#include "AllGateVisitor.hpp"
+#include "InstructionIterator.hpp"
+
 using namespace xacc::internal_compiler;
+using namespace xacc::quantum;
 
 namespace xacc {
 class AcceleratorBuffer;
 class CompositeInstruction;
 class IRProvider;
 class Observable;
-
-namespace internal_compiler {
-// Current runtime controlled bit indices
-// (if the current kernel is wrapped in a Controlled block)
-extern std::vector<int> __controlledIdx;
-
-void simplified_qrt_call_one_qbit(const char * gate_name,
-                                 const char * buffer_name,
-                                 const std::size_t idx);
-void simplified_qrt_call_one_qbit_one_param(const char * gate_name,
-                                           const char * buffer_name,
-                                           const std::size_t idx,
-                                           const double parameter);
-void simplified_qrt_call_two_qbits(const char * gate_name,
-                                  const char * buffer_name_1,
-                                  const char * buffer_name_2,
-                                  const std::size_t src_idx,
-                                  const std::size_t tgt_idx);
-
-} // namespace internal_compiler
 } // namespace xacc
 
 namespace quantum {
@@ -48,8 +32,13 @@ void two_qubit_inst(const std::string &name, const qubit &qidx1,
 
 void h(const qubit &qidx);
 void x(const qubit &qidx);
+void y(const qubit &qidx);
+void z(const qubit &qidx);
+
 void t(const qubit &qidx);
 void tdg(const qubit &qidx);
+void s(const qubit &qidx);
+void sdg(const qubit &qidx);
 
 void rx(const qubit &qidx, const double theta);
 void ry(const qubit &qidx, const double theta);
@@ -75,9 +64,123 @@ void submit(xacc::AcceleratorBuffer *buffer);
 void submit(xacc::AcceleratorBuffer **buffers, const int nBuffers);
 
 std::shared_ptr<xacc::CompositeInstruction> getProgram();
-xacc::CompositeInstruction* program_raw_pointer();
+xacc::CompositeInstruction *program_raw_pointer();
 void clearProgram();
 
 } // namespace quantum
+
+namespace xacc {
+
+namespace internal_compiler {
+// Current runtime controlled bit indices
+// (if the current kernel is wrapped in a Controlled block)
+extern std::vector<int> __controlledIdx;
+
+void simplified_qrt_call_one_qbit(const char *gate_name,
+                                  const char *buffer_name,
+                                  const std::size_t idx);
+void simplified_qrt_call_one_qbit_one_param(const char *gate_name,
+                                            const char *buffer_name,
+                                            const std::size_t idx,
+                                            const double parameter);
+void simplified_qrt_call_two_qbits(const char *gate_name,
+                                   const char *buffer_name_1,
+                                   const char *buffer_name_2,
+                                   const std::size_t src_idx,
+                                   const std::size_t tgt_idx);
+
+class xacc_to_qrt_mapper : public AllGateVisitor,
+                           public xacc::InstructionVisitor<Circuit> {
+protected:
+  std::string &buffer_name_to_measure;
+
+public:
+  // Ctor: cache the kernel name of the CompositeInstruction
+  xacc_to_qrt_mapper(std::string &b) : buffer_name_to_measure(b) {}
+
+  // One-qubit gates
+  void visit(Hadamard &h) override {
+    ::quantum::h({h.getBufferNames()[0], h.bits()[0]});
+  }
+  void visit(Rz &rz) override {
+    ::quantum::rz({rz.getBufferNames()[0], rz.bits()[0]},
+                  rz.getParameter(0).as<double>());
+  }
+  void visit(Ry &ry) override {
+    ::quantum::ry({ry.getBufferNames()[0], ry.bits()[0]},
+                  ry.getParameter(0).as<double>());
+  }
+  void visit(Rx &rx) override {
+    ::quantum::rx({rx.getBufferNames()[0], rx.bits()[0]},
+                  rx.getParameter(0).as<double>());
+  }
+  void visit(xacc::quantum::X &x) override {
+    ::quantum::x({x.getBufferNames()[0], x.bits()[0]});
+  }
+  void visit(xacc::quantum::Y &y) override {
+    ::quantum::y({y.getBufferNames()[0], y.bits()[0]});
+  }
+  void visit(xacc::quantum::Z &z) override {
+    ::quantum::z({z.getBufferNames()[0], z.bits()[0]});
+  }
+  void visit(S &s) override {
+    ::quantum::s({s.getBufferNames()[0], s.bits()[0]});
+  }
+  void visit(Sdg &sdg) override {
+    ::quantum::sdg({sdg.getBufferNames()[0], sdg.bits()[0]});
+  }
+  void visit(T &t) override {
+    ::quantum::t({t.getBufferNames()[0], t.bits()[0]});
+  }
+  void visit(Tdg &tdg) override {
+    ::quantum::tdg({tdg.getBufferNames()[0], tdg.bits()[0]});
+  }
+
+  // Two-qubit gates
+  void visit(CNOT &cnot) override {
+    ::quantum::cnot({cnot.getBufferNames()[0], cnot.bits()[0]},
+                    {cnot.getBufferNames()[1], cnot.bits()[1]});
+  };
+  void visit(CY &cy) override {
+    ::quantum::cy({cy.getBufferNames()[0], cy.bits()[0]},
+                  {cy.getBufferNames()[1], cy.bits()[1]});
+  }
+  void visit(CZ &cz) override {
+    ::quantum::cz({cz.getBufferNames()[0], cz.bits()[0]},
+                  {cz.getBufferNames()[1], cz.bits()[1]});
+  }
+  void visit(Swap &s) override {
+    ::quantum::swap({s.getBufferNames()[0], s.bits()[0]},
+                    {s.getBufferNames()[1], s.bits()[1]});
+  }
+  void visit(CRZ &crz) override {
+    ::quantum::crz({crz.getBufferNames()[0], crz.bits()[0]},
+                   {crz.getBufferNames()[1], crz.bits()[1]},
+                   crz.getParameter(0).as<double>());
+  }
+  void visit(CH &ch) override {
+    ::quantum::ch({ch.getBufferNames()[0], ch.bits()[0]},
+                  {ch.getBufferNames()[1], ch.bits()[1]});
+  }
+  void visit(CPhase &cphase) override {
+    ::quantum::cphase({cphase.getBufferNames()[0], cphase.bits()[0]},
+                      {cphase.getBufferNames()[1], cphase.bits()[1]},
+                      cphase.getParameter(0).as<double>());
+  }
+
+  void visit(Measure &measure) override {
+    ::quantum::mz({buffer_name_to_measure, measure.bits()[0]});
+  }
+  void visit(Identity &i) override {}
+  void visit(U &u) override {}
+  void visit(U1 &u1) override {
+    ::quantum::u1({u1.getBufferNames()[0], u1.bits()[0]},
+                  u1.getParameter(0).as<double>());
+  }
+  void visit(Circuit &circ) override {}
+};
+
+} // namespace internal_compiler
+} // namespace xacc
 
 #endif
