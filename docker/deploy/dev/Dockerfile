@@ -1,20 +1,6 @@
 from qcor/deploy-base
 workdir /home/dev
-run cd /home/dev && git clone --recursive https://github.com/eclipse/xacc && cd xacc && mkdir build && cd build \
-    && cmake .. \
-    && make -j$(nproc) install \
-    && cd ../../ && git clone https://github.com/ornl-qci/tnqvm && cd tnqvm && mkdir build && cd build \
-    && cmake .. -DXACC_DIR=~/.xacc && make -j$(nproc) install \
-    && cd /home/dev && git clone -b maint https://bitbucket.org/petsc/petsc petsc && cd petsc \
-    && export PETSC_DIR=${PWD} && export PETSC_ARCH=linux-gnu-c-complex \
-    && ./configure --with-scalar-type=complex --download-mpich --download-fblaslapack=1 \
-                   --with-debugging=no COPTFLAGS=-O3 CXXOPTFLAGS=-O3 FOPTFLAGS=-O3 --with-64-bit-indices \
-    && make PETSC_DIR=${PETSC_DIR} PETSC_ARCH=${PETSC_ARCH} all \
-    && cd /home/dev && git clone -b xacc-integration https://github.com/ORNL-QCI/QuaC.git \
-    && cd QuaC && mkdir build && cd build \
-    && cmake .. -DPETSC_DIR=${PETSC_DIR} -DPETSC_ARCH=linux-gnu-c-complex -DXACC_DIR=~/.xacc \
-    && make install \
-    && apt-get update && apt-get install -y uuid-dev pkg-config \ 
+run cd /home/dev && apt-get update && apt-get install -y uuid-dev pkg-config \
     && git clone https://github.com/zeromq/libzmq \
     && cd libzmq/ && mkdir build && cd build \
     && cmake .. -DCMAKE_INSTALL_PREFIX=~/.zmq \
@@ -30,6 +16,20 @@ run cd /home/dev && git clone --recursive https://github.com/eclipse/xacc && cd 
     && cmake .. -DCMAKE_INSTALL_PREFIX=~/.zmq \
     && make -j$(nproc) install \
     && cd ../.. \
+    && git clone --recursive https://github.com/eclipse/xacc && cd xacc && mkdir build && cd build \
+    && cmake .. \
+    && make -j$(nproc) install \
+    && cd ../../ && git clone https://github.com/ornl-qci/tnqvm && cd tnqvm && mkdir build && cd build \
+    && cmake .. -DXACC_DIR=~/.xacc && make -j$(nproc) install \
+    && cd /home/dev && git clone -b maint https://bitbucket.org/petsc/petsc petsc && cd petsc \
+    && export PETSC_DIR=${PWD} && export PETSC_ARCH=linux-gnu-c-complex \
+    && ./configure --with-scalar-type=complex --download-mpich --download-fblaslapack=1 \
+                   --with-debugging=no COPTFLAGS=-O3 CXXOPTFLAGS=-O3 FOPTFLAGS=-O3 --with-64-bit-indices \
+    && make PETSC_DIR=${PETSC_DIR} PETSC_ARCH=${PETSC_ARCH} all \
+    && cd /home/dev && git clone -b xacc-integration https://github.com/ORNL-QCI/QuaC.git \
+    && cd QuaC && mkdir build && cd build \
+    && cmake .. -DPETSC_DIR=${PETSC_DIR} -DPETSC_ARCH=linux-gnu-c-complex -DXACC_DIR=~/.xacc \
+    && make install \
     && cd /home/dev && git clone https://github.com/ornl-qci/qcor && cd qcor && mkdir build && cd build \
     && cmake .. && make -j$(nproc) install \
     && git clone https://github.com/rigetti/qcs-cli && cd qcs-cli \
