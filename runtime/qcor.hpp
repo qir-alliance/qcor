@@ -1,6 +1,7 @@
 #ifndef RUNTIME_QCOR_HPP_
 #define RUNTIME_QCOR_HPP_
 
+#include <IRTransformation.hpp>
 #include <functional>
 #include <future>
 #include <memory>
@@ -138,6 +139,8 @@ observe(std::shared_ptr<Observable> obs,
 
 // Get the objective function from the service registry
 std::shared_ptr<ObjectiveFunction> get_objective(const std::string &type);
+std::shared_ptr<xacc::IRTransformation>
+get_transformation(const std::string &transform_type);
 
 } // namespace __internal__
 
@@ -426,12 +429,55 @@ std::function<void(Args...)> measure_all(QuantumKernel &kernel, Args... args) {
       }
     }
     if (xacc::internal_compiler::__execute) {
-        ::quantum::submit(q.results());
+      ::quantum::submit(q.results());
     }
     return;
   };
 }
 
+template <typename QuantumKernel, typename... Args>
+std::function<void(Args...)>
+apply_transformations(QuantumKernel &kernel,
+                      std::vector<std::string> &&transforms, Args... args) {
+  auto internal_kernel =
+      qcor::__internal__::kernel_as_composite_instruction(kernel, args...);
+
+  for (auto &transform : transforms) {
+
+    auto xacc_transform = qcor::__internal__::get_transformation(transform);
+    xacc_transform->apply(internal_kernel, xacc::internal_compiler::get_qpu());
+  }
+
+  return [internal_kernel](Args... args) {
+    // map back to executable kernel
+    quantum::clearProgram();
+    auto q = std::get<0>(std::forward_as_tuple(args...));
+    auto q_name = q.name();
+    auto visitor = std::make_shared<xacc_to_qrt_mapper>(q_name);
+    xacc::InstructionIterator iter(internal_kernel);
+    while (iter.hasNext()) {
+      auto next = iter.next();
+      if (!next->isComposite()) {
+        next->accept(visitor);
+      }
+    }
+    if (xacc::internal_compiler::__execute) {
+      ::quantum::submit(q.results());
+    }
+  };
+}
+
+template <typename QuantumKernel, typename... Args>
+const std::size_t n_instructions(QuantumKernel &kernel, Args... args) {
+  return qcor::__internal__::kernel_as_composite_instruction(kernel, args...)
+      ->nInstructions();
+}
+
+template <typename QuantumKernel, typename... Args>
+const std::size_t depth(QuantumKernel &kernel, Args... args) {
+  return qcor::__internal__::kernel_as_composite_instruction(kernel, args...)
+      ->depth();
+}
 #endif
 } // namespace qcor
 

@@ -20,6 +20,24 @@ class Observable;
 
 namespace quantum {
 
+// This represents the public API for the xacc-enabled 
+// qcor quantum runtime library. The goal here is to provide 
+// and API that compilers can translate high-level 
+// quantum kernel language representations to 
+// (written in openqasm, quil, xasm, etc). The implementation of this API 
+// seeks to build up an xacc::CompositeInstruction with each individual 
+// quantum instruction invocation. Once done, clients can invoke 
+// the submit method to launch the built up program the 
+// user specified backend. 
+
+// Clients must invoke initialize before building up the CompositeInstruction.
+// This call will take the name of the backend and the name of the CompositeInstruction. 
+
+// Note the qubit type is a typedef from xacc, falls back to a 
+// std::pair<std::string, std::size_t> where the string represents 
+// the variable name of the qubit register the qubit belongs to, and the 
+// size_t represents the qubit index in that register. 
+
 extern std::shared_ptr<xacc::CompositeInstruction> program;
 extern std::shared_ptr<xacc::IRProvider> provider;
 
@@ -30,41 +48,52 @@ void one_qubit_inst(const std::string &name, const qubit &qidx,
 void two_qubit_inst(const std::string &name, const qubit &qidx1,
                     const qubit &qidx2, std::vector<double> parameters = {});
 
+// Common single-qubit gates. 
 void h(const qubit &qidx);
 void x(const qubit &qidx);
 void y(const qubit &qidx);
 void z(const qubit &qidx);
-
 void t(const qubit &qidx);
 void tdg(const qubit &qidx);
 void s(const qubit &qidx);
 void sdg(const qubit &qidx);
 
+// Common single-qubit, parameterized instructions
 void rx(const qubit &qidx, const double theta);
 void ry(const qubit &qidx, const double theta);
 void rz(const qubit &qidx, const double theta);
 // U1(theta) gate
 void u1(const qubit &qidx, const double theta);
+void u3(const qubit& qidx, const double theta, const double phi, const double lambda);
 
+// Measure-Z
 void mz(const qubit &qidx);
 
-// Two-qubit gates:
+// Common two-qubit gates.
 void cnot(const qubit &src_idx, const qubit &tgt_idx);
 void cy(const qubit &src_idx, const qubit &tgt_idx);
 void cz(const qubit &src_idx, const qubit &tgt_idx);
 void ch(const qubit &src_idx, const qubit &tgt_idx);
 void swap(const qubit &src_idx, const qubit &tgt_idx);
+
+// Common parameterized 2 qubit gates. 
 void cphase(const qubit &src_idx, const qubit &tgt_idx, const double theta);
 void crz(const qubit &src_idx, const qubit &tgt_idx, const double theta);
 
+// exponential of i * theta * H, where H is an Observable pointer
 void exp(qreg q, const double theta, xacc::Observable *H);
 void exp(qreg q, const double theta, std::shared_ptr<xacc::Observable> H);
 
+// Submission API. Submit the constructed CompositeInstruction operating 
+// on the provided AcceleratorBuffer(s) (note qreg wraps an AcceleratorBuffer)
 void submit(xacc::AcceleratorBuffer *buffer);
 void submit(xacc::AcceleratorBuffer **buffers, const int nBuffers);
 
+// Some getters for the qcor runtime library. 
 std::shared_ptr<xacc::CompositeInstruction> getProgram();
 xacc::CompositeInstruction *program_raw_pointer();
+
+// Clear the current program
 void clearProgram();
 
 } // namespace quantum

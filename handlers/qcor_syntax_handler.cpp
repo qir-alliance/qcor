@@ -14,7 +14,7 @@ using namespace clang;
 namespace {
 
 bool qrt = false;
-std::string qpu_name = "tnqvm";
+std::string qpu_name = "qpp";
 int shots = 0;
 
 class QCORSyntaxHandler : public SyntaxHandler {
@@ -51,9 +51,6 @@ public:
     // If the function has no arguments, then we throw an error
     const DeclaratorChunk::FunctionTypeInfo &FTI = D.getFunctionTypeInfo();
     std::string kernel_name = D.getName().Identifier->getName().str();
-    if (!FTI.Params) {
-      //   diagnostics.Report(D.getBeginLoc(), invalid_no_args);
-    }
 
     function_prototype = "(";
     // Loop over the function arguments and get the
@@ -181,6 +178,7 @@ public:
         }
         ++i;
         qpu_name = args[i];
+
       } else if (args[i] == "-shots") {
         if (i + 1 >= e) {
           D.Report(D.getCustomDiagID(DiagnosticsEngine::Error,

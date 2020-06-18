@@ -11,14 +11,21 @@
 
 namespace qcor {
 void set_verbose(bool verbose) { xacc::set_verbose(verbose); }
-void set_shots(const int shots){ quantum::set_shots(shots);}
+void set_shots(const int shots) { quantum::set_shots(shots); }
 
 namespace __internal__ {
-std::shared_ptr<ObjectiveFunction> get_objective(const std::string& type) {
+std::shared_ptr<ObjectiveFunction> get_objective(const std::string &type) {
   if (!xacc::isInitialized())
     xacc::internal_compiler::compiler_InitializeXACC();
   return xacc::getService<ObjectiveFunction>(type);
 }
+std::shared_ptr<xacc::IRTransformation>
+get_transformation(const std::string &transform_type) {
+  if (!xacc::isInitialized())
+    xacc::internal_compiler::compiler_InitializeXACC();
+  return xacc::getService<xacc::IRTransformation>(transform_type);
+}
+
 std::vector<std::shared_ptr<xacc::CompositeInstruction>>
 observe(std::shared_ptr<xacc::Observable> obs,
         std::shared_ptr<CompositeInstruction> program) {

@@ -267,9 +267,6 @@ void run_token_collector_llvm_rt(clang::Preprocessor &PP,
   std::map<std::string, std::string> oracle_name_to_extra_preamble;
   std::map<std::string, int> creg_name_to_size;
   int countQregs = 0;
-  //   for (int i = 0; i < Toks.size(); i++) {
-  //     std::cout << "Toks: " << PP.getSpelling(Toks[i]) << "\n";
-  //   }
 
   for (int i = 0; i < Toks.size(); i++) {
     auto current_token = Toks[i];
