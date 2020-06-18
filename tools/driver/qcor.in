@@ -68,6 +68,13 @@ def main(argv=None):
         sys.argv.remove('-qrt')
         sHandlerArgs += ['-Xclang', '-plugin-arg-qcor-args', '-Xclang', '-qrt', '-DQCOR_USE_QRT']
 
+    if '-print-qir' in sys.argv[1:]:
+        if not qrt:
+            print('[qcor] Cannot request -print-qir with -qrt flag. Please also pass -qrt.')
+            exit(1)
+        sys.argv.remove('-print-qir')
+        sHandlerArgs += ['-Xclang', '-load', '-Xclang', '@CMAKE_INSTALL_PREFIX@/qopt-plugins/libprint_llvm_qir.so']
+
     # Get the filename we are compiling or the object file
     filename = ''
     fileType = ''

@@ -25,4 +25,16 @@ if(APPLE)
     )
 endif(APPLE)
 
+if(APPLE)
+  set_target_properties(print_llvm_qir
+                        PROPERTIES INSTALL_RPATH "@loader_path/../lib;${LLVM_INSTALL_PREFIX}/lib")
+  set_target_properties(print_llvm_qir
+                        PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
+else()
+  set_target_properties(print_llvm_qir
+                        PROPERTIES INSTALL_RPATH "$ORIGIN/../lib:${LLVM_INSTALL_PREFIX}/lib")
+  set_target_properties(print_llvm_qir PROPERTIES LINK_FLAGS "-shared")
+endif()
+
+
 install(TARGETS print_llvm_qir DESTINATION qopt-plugins)
