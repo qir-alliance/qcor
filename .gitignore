@@ -28,11 +28,13 @@
 *.out
 *.app
 /build/
+/plugins/
 /.cproject
 /.project
 /.settings/
+**/*.jar
 **/.ptp*
-**/.*.cpp
+*.ab
 /dist/
 /*egg*/
 /python/*egg*
@@ -40,3 +42,9 @@
 /wheelhouse/
 **/.ipynb_checkpoints
 compile_commands.json
+/docs/doxygen/html**
+**/*.dat
+**/.antlr
+# IDE files
+.vscode/*
+.theia/*

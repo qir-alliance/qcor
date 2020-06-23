@@ -38,7 +38,7 @@ __qpu__ void qaoa_ansatz(qreg q, int n_steps, std::vector<double> gamma,
 
     // Add the reference hamiltonian term
     for (int i = 0; i < nQubits; i++) {
-      auto ref_ham_term = qcor::createObservable("X" + std::to_string(i));
+      auto ref_ham_term = qcor::X(i);
       auto m_beta = beta[beta_counter];
       exp_i_theta(q, m_beta, ref_ham_term);
       beta_counter++;

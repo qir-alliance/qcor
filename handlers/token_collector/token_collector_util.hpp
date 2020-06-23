@@ -7,12 +7,10 @@
 
 namespace qcor {
 
-// This goal of this function is to take the provided
-// Tokens and figure out what source language the kernel is
-// written in, and return the XACC quantum kernel + the name of the compiler.
-std::pair<std::string, std::string>
-run_token_collector(clang::Preprocessor &PP, clang::CachedTokens &Toks,
-                    const std::string &function_prototype);
+std::string run_token_collector(clang::Preprocessor &PP,
+                                clang::CachedTokens &Toks,
+                                std::vector<std::string> bufferNames,
+                                const std::string &function_prototype);
 
 void run_token_collector_llvm_rt(clang::Preprocessor &PP,
                                  clang::CachedTokens &Toks,

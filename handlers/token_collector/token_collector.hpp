@@ -9,6 +9,7 @@ namespace qcor {
 class TokenCollector : public xacc::Identifiable {
 public:
   virtual void collect(clang::Preprocessor &PP, clang::CachedTokens &Toks,
+                       std::vector<std::string> bufferNames,
                        std::stringstream &ss) = 0;
 };
 

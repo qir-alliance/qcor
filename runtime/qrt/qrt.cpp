@@ -173,6 +173,10 @@ void crz(const qubit &src_idx, const qubit &tgt_idx, const double theta) {
   two_qubit_inst("CRZ", src_idx, tgt_idx, {theta});
 }
 
+void exp(qreg q, const double theta, xacc::Observable& H) {
+  exp(q, theta, xacc::as_shared_ptr(&H));
+}
+
 void exp(qreg q, const double theta, xacc::Observable *H) {
   exp(q, theta, xacc::as_shared_ptr(H));
 }

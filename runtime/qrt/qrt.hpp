@@ -81,6 +81,7 @@ void cphase(const qubit &src_idx, const qubit &tgt_idx, const double theta);
 void crz(const qubit &src_idx, const qubit &tgt_idx, const double theta);
 
 // exponential of i * theta * H, where H is an Observable pointer
+void exp(qreg q, const double theta, xacc::Observable& H);
 void exp(qreg q, const double theta, xacc::Observable *H);
 void exp(qreg q, const double theta, std::shared_ptr<xacc::Observable> H);
 

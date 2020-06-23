@@ -1,4 +1,5 @@
 #include "qcor.hpp"
+#include "qrt.hpp"
 #include "xacc_internal_compiler.hpp"
 #include "xacc_quantum_gate_api.hpp"
 #include "xacc_service.hpp"

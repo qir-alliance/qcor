@@ -110,9 +110,9 @@ template <typename Function, typename Tuple> auto call(Function f, Tuple t) {
 template <typename QuantumKernel, typename... Args>
 std::shared_ptr<CompositeInstruction>
 kernel_as_composite_instruction(QuantumKernel &k, Args... args) {
-#ifdef QCOR_USE_QRT
+  // #ifdef QCOR_USE_QRT
   quantum::clearProgram();
-#endif
+  // #endif
   // turn off execution
   const auto cached_exec = xacc::internal_compiler::__execute;
   xacc::internal_compiler::__execute = false;
@@ -120,11 +120,11 @@ kernel_as_composite_instruction(QuantumKernel &k, Args... args) {
   k(args...);
   // turn execution on
   xacc::internal_compiler::__execute = cached_exec;
-#ifdef QCOR_USE_QRT
+  // #ifdef QCOR_USE_QRT
   return quantum::getProgram();
-#else
-  return xacc::internal_compiler::getLastCompiled();
-#endif
+  // #else
+  //   return xacc::internal_compiler::getLastCompiled();
+  // #endif
 }
 
 // Observe the given kernel, and return the expected value
@@ -148,9 +148,9 @@ template <typename QuantumKernel, typename... Args>
 void print_kernel(std::ostream &os, QuantumKernel &kernel, Args... args) {
   os << __internal__::kernel_as_composite_instruction(kernel, args...)
             ->toString();
-#ifdef QCOR_USE_QRT
+  // #ifdef QCOR_USE_QRT
   quantum::clearProgram();
-#endif
+  // #endif
 }
 
 // The ObjectiveFunction represents a functor-like data structure that
@@ -182,6 +182,7 @@ protected:
 
   // The buffer containing all execution results
   xacc::internal_compiler::qreg qreg;
+  bool kernel_is_xacc_composite = false;
 
   HeterogeneousMap options;
 
@@ -206,6 +207,7 @@ public:
                           std::shared_ptr<CompositeInstruction> qk) {
     observable = obs;
     kernel = qk;
+    kernel_is_xacc_composite = true;
   }
 
   // Initialize this ObjectiveFunction with the problem
@@ -226,26 +228,20 @@ public:
   // quantum kernel
   template <typename... ArgumentTypes>
   double operator()(ArgumentTypes... args) {
-#ifdef QCOR_USE_QRT
-    auto functor =
-        reinterpret_cast<void (*)(ArgumentTypes...)>(pointer_to_functor);
-    kernel = __internal__::kernel_as_composite_instruction(functor, args...);
-#else
     if (!kernel) {
       auto functor =
           reinterpret_cast<void (*)(ArgumentTypes...)>(pointer_to_functor);
       kernel = __internal__::kernel_as_composite_instruction(functor, args...);
     }
-#endif
-
+    
     if (!qreg.results()) {
       // this hasn't been set, so set it
       qreg = std::get<0>(std::forward_as_tuple(args...));
     }
 
-#ifndef QCOR_USE_QRT
-    kernel->updateRuntimeArguments(args...);
-#endif
+    if (kernel_is_xacc_composite) {
+      kernel->updateRuntimeArguments(args...);
+    }
     return operator()();
   }
 };
@@ -266,11 +262,6 @@ auto observe(QuantumKernel &kernel, std::shared_ptr<Observable> obs,
     // Get the first argument, which should be a qreg
     auto q = std::get<0>(std::forward_as_tuple(args...));
 
-    // Set the arguments on the IR
-#ifndef QCOR_USE_QRT
-    program->updateRuntimeArguments(args...);
-#endif
-
     // Observe the program
     auto programs = obs->observe(program);
 
@@ -288,12 +279,6 @@ auto observe(QuantumKernel &kernel, Observable &obs, Args... args) {
   return [program, &obs](Args... args) {
     // Get the first argument, which should be a qreg
     auto q = std::get<0>(std::forward_as_tuple(args...));
-    // std::cout << "\n" << program->toString() << "\n";
-
-    // Set the arguments on the IR
-#ifndef QCOR_USE_QRT
-    program->updateRuntimeArguments(args...);
-#endif
 
     // Observe the program
     auto programs = obs.observe(program);
@@ -389,7 +374,6 @@ Handle taskInitiate(std::shared_ptr<ObjectiveFunction> objective,
       nParameters);
 }
 
-#ifdef QCOR_USE_QRT
 // Controlled-Op transform:
 // Usage: Controlled::Apply(controlBit, QuantumKernel, Args...)
 // where Args... are arguments that will be passed to the kernel.
@@ -478,7 +462,6 @@ const std::size_t depth(QuantumKernel &kernel, Args... args) {
   return qcor::__internal__::kernel_as_composite_instruction(kernel, args...)
       ->depth();
 }
-#endif
 } // namespace qcor
 
 #endif

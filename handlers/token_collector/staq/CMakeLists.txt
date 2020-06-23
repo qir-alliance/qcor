@@ -21,9 +21,9 @@ add_library(${LIBRARY_NAME} SHARED ${SRC})
 
 target_include_directories(
   ${LIBRARY_NAME}
-  PUBLIC . .. ${CLANG_INCLUDE_DIRS})
+  PUBLIC . .. ${CMAKE_SOURCE_DIR}/runtime/qrt ${CLANG_INCLUDE_DIRS})
 
-target_link_libraries(${LIBRARY_NAME} PUBLIC ${CLANG_LIBS} ${LLVM_LIBS} xacc::xacc)
+target_link_libraries(${LIBRARY_NAME} PUBLIC ${CLANG_LIBS} ${LLVM_LIBS} xacc::xacc qrt)
 
 set(_bundle_name qcor_staq_token)
 set_target_properties(${LIBRARY_NAME}
@@ -51,3 +51,7 @@ else()
 endif()
 
 install(TARGETS ${LIBRARY_NAME} DESTINATION ${CMAKE_INSTALL_PREFIX}/plugins)
+
+if (QCOR_BUILD_TESTS) 
+  add_subdirectory(tests)
+endif()

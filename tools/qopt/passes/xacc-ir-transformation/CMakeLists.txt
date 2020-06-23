@@ -33,7 +33,7 @@ target_link_libraries(${LIBRARY_NAME}
 install(TARGETS ${LIBRARY_NAME} DESTINATION plugins)
 
 if (QCOR_BUILD_TESTS)
- add_subdirectory(tests)
+ #add_subdirectory(tests)
 endif()
 
 if(APPLE)

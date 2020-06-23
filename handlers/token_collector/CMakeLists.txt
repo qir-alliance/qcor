@@ -27,4 +27,8 @@ install(TARGETS ${LIBRARY_NAME} DESTINATION lib)
 
 add_subdirectory(xasm)
 add_subdirectory(staq)
-add_subdirectory(quil)
+#add_subdirectory(quil)
+
+if (QCOR_BUILD_TESTS)
+  add_subdirectory(tests)
+endif()

@@ -11,7 +11,7 @@
 
 namespace qcor {
 void set_verbose(bool verbose) { xacc::set_verbose(verbose); }
-void set_shots(const int shots) { quantum::set_shots(shots); }
+void set_shots(const int shots) { ::quantum::set_shots(shots); }
 
 namespace __internal__ {
 std::shared_ptr<ObjectiveFunction> get_objective(const std::string &type) {

@@ -52,7 +52,8 @@ public:
   // Ctor: cache the kernel name of the CompositeInstruction
   qrt_mapper(const std::string &top_level_kernel_name)
       : kernelName(top_level_kernel_name) {}
-
+  qrt_mapper() = default;
+  
   auto get_new_src() { return ss.str(); }
   // One-qubit gates
   void visit(Hadamard &h) override { addOneQubitGate("h", h); }
