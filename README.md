@@ -9,6 +9,12 @@
 QCOR is a C++ language extension and associated compiler implementation
 for hybrid quantum-classical programming.
 
+
+Documentation
+-------------
+
+* [API Documentation](https://ornl-qci.github.io/qcor-api-docs/)
+
 Quick Start
 -----------
 QCOR nightly docker images are available that serve up an Eclipse Theia IDE (the same IDE Gitpod uses) on port 3000. To get started, run 
