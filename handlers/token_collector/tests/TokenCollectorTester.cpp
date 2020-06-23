@@ -21,8 +21,7 @@ TEST(TokenCollectorTester, checkSimple) {
     cached.push_back(t);
   }
 
-  auto results = qcor::run_token_collector(*PP, cached, {"q"},
-                                           "void foo(qreg q, double theta)");
+  auto results = qcor::run_token_collector(*PP, cached, {"q"});
 
   std::cout << results << "\n";
 }
@@ -67,7 +66,7 @@ TEST(TokenCollectorTester, checkQPE) {
     cached.push_back(t);
   }
   auto results =
-      qcor::run_token_collector(*PP, cached, {"q"}, "void qpe(qreg q)");
+      qcor::run_token_collector(*PP, cached, {"q"});
   std::cout << results << "\n";
 }
 
@@ -86,7 +85,7 @@ TEST(TokenCollectorTester, checkOpenQasm) {
     cached.push_back(t);
   }
   auto results =
-      qcor::run_token_collector(*PP, cached, {"r"}, "void bell(qreg r)");
+      qcor::run_token_collector(*PP, cached, {"r"});
   std::cout << results << "\n";
 
   EXPECT_EQ(R"#(quantum::h(r[0]);
@@ -122,7 +121,7 @@ TEST(TokenCollectorTester, checkMixed) {
     cached.push_back(t);
   }
   auto results =
-      qcor::run_token_collector(*PP, cached, {"r"}, "void bell(qreg r)");
+      qcor::run_token_collector(*PP, cached, {"r"});
   std::cout << results << "\n";
 
   EXPECT_EQ(R"#(quantum::h(q[0]);

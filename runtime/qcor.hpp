@@ -233,8 +233,6 @@ public:
       functor =
           reinterpret_cast<void (*)(ArgumentTypes...)>(pointer_to_functor);
     }
-    
-    kernel = __internal__::kernel_as_composite_instruction(functor, args...);
 
     if (!qreg.results()) {
       // this hasn't been set, so set it
@@ -243,6 +241,8 @@ public:
 
     if (kernel_is_xacc_composite) {
       kernel->updateRuntimeArguments(args...);
+    } else {
+      kernel = __internal__::kernel_as_composite_instruction(functor, args...);
     }
     return operator()();
   }

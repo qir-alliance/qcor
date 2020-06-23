@@ -90,7 +90,7 @@ public:
     // Get Tokens as a string, rewrite code
     // with XACC api calls
 
-    auto new_src = qcor::run_token_collector(PP, Toks, bufferNames, function_prototype );
+    auto new_src = qcor::run_token_collector(PP, Toks, bufferNames);
 
     OS << "quantum::initialize(\"" << qpu_name << "\", \"" << kernel_name
        << "\");\n";
