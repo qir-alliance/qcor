@@ -6,14 +6,14 @@ __qpu__ void ansatz(qreg q, double theta) {
   CX(q[1], q[0]);
 }
 
-
 int main(int argc, char **argv) {
   // Allocate 2 qubits
   auto q = qalloc(2);
 
   // Create the Deuteron Hamiltonian (Observable)
-  auto H = qcor::createObservable(
-      "5.907 - 2.1433 X0X1 - 2.1433 Y0Y1 + .21829 Z0 - 6.125 Z1");
+  auto H = 5.907 - 2.1433 * qcor::X(0) * qcor::X(1) -
+           2.1433 * qcor::Y(0) * qcor::Y(1) + .21829 * qcor::Z(0) -
+           6.125 * qcor::Z(1);
 
   // Create the ObjectiveFunction, here we want to run VQE
   // need to provide ansatz and the Observable
@@ -22,7 +22,7 @@ int main(int argc, char **argv) {
   // Create the Optimizer
   auto optimizer = qcor::createOptimizer("nlopt");
 
-  // Call taskInitiate, kick off optimization of the give 
+  // Call taskInitiate, kick off optimization of the give
   // functor dependent on the ObjectiveFunction, async call
   auto handle = qcor::taskInitiate(
       objective, optimizer,

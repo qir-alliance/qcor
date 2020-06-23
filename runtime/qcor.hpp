@@ -228,12 +228,14 @@ public:
   // quantum kernel
   template <typename... ArgumentTypes>
   double operator()(ArgumentTypes... args) {
-    if (!kernel) {
-      auto functor =
+    void (*functor)(ArgumentTypes...);
+    if (pointer_to_functor) {
+      functor =
           reinterpret_cast<void (*)(ArgumentTypes...)>(pointer_to_functor);
-      kernel = __internal__::kernel_as_composite_instruction(functor, args...);
     }
     
+    kernel = __internal__::kernel_as_composite_instruction(functor, args...);
+
     if (!qreg.results()) {
       // this hasn't been set, so set it
       qreg = std::get<0>(std::forward_as_tuple(args...));

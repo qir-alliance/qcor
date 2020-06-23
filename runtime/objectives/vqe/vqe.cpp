@@ -21,11 +21,15 @@ protected:
     if (!vqe) {
       vqe = xacc::getAlgorithm("vqe");
     }
-    vqe->initialize(
+    auto success = vqe->initialize(
         {std::make_pair("ansatz", kernel),
          std::make_pair("accelerator", xacc::internal_compiler::get_qpu()),
          std::make_pair("observable", observable)});
 
+    if (!success) {
+        xacc::error("QCOR VQE Error - could not initialize vqe algorithm.");
+    }
+    
     auto tmp_child = qalloc(qreg.size());
     auto val = vqe->execute(xacc::as_shared_ptr(tmp_child.results()), {})[0];
     qreg.addChild(tmp_child);
