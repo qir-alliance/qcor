@@ -24,6 +24,7 @@ find_package(XACC REQUIRED)
 
 add_subdirectory(handlers)
 add_subdirectory(runtime)
+add_subdirectory(lib)
 add_subdirectory(tools)
 
 if (QCOR_BUILD_TESTS)
