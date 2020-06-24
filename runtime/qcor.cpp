@@ -2,11 +2,12 @@
 
 #include "Optimizer.hpp"
 
+#include "qalloc.hpp"
+#include "qrt.hpp"
 #include "xacc.hpp"
 #include "xacc_quantum_gate_api.hpp"
 #include "xacc_service.hpp"
-#include "qalloc.hpp"
-#include "qrt.hpp"
+#include <memory>
 
 namespace qcor {
 void set_verbose(bool verbose) { xacc::set_verbose(verbose); }
@@ -61,15 +62,16 @@ double observe(std::shared_ptr<CompositeInstruction> program, Observable &obs,
 }
 } // namespace __internal__
 
-std::shared_ptr<Observable> transform(Observable &obs, std::string transf){
-  if (transf != "jw"){
-    throw "transform: " + transf + " not defined! Using Jordan-Wigner (`jw`)";
-  }
-  auto obsv = xacc::as_shared_ptr(&obs);
-  return (*xacc::getService<xacc::ObservableTransform>("jw")).transform(obsv);
+PauliOperator transform(FermionOperator &obs, std::string transf) {
+  if (!xacc::isInitialized())
+    xacc::internal_compiler::compiler_InitializeXACC();
+  auto obsv = std::make_shared<FermionOperator>(obs);
+  auto terms = std::dynamic_pointer_cast<PauliOperator>(
+      xacc::getService<xacc::ObservableTransform>(transf)->transform(obsv));
+  return *terms;
 }
 
-std::shared_ptr<xacc::Optimizer> createOptimizer(const char *type,
+std::shared_ptr<xacc::Optimizer> createOptimizer(const std::string &type,
                                                  HeterogeneousMap &&options) {
   if (!xacc::isInitialized())
     xacc::internal_compiler::compiler_InitializeXACC();
@@ -82,12 +84,12 @@ std::shared_ptr<xacc::Observable> createObservable(const std::string &repr) {
   return xacc::quantum::getObservable("pauli", std::string(repr));
 }
 
-std::shared_ptr<Observable> createObservable(const std::string& type, const std::string& repr) {
+std::shared_ptr<Observable> createObservable(const std::string &type,
+                                             const std::string &repr) {
   if (!xacc::isInitialized())
     xacc::internal_compiler::compiler_InitializeXACC();
   return xacc::quantum::getObservable(type, std::string(repr));
 }
-
 
 std::shared_ptr<xacc::CompositeInstruction> compile(const std::string &src) {
   return xacc::getCompiler("xasm")->compile(src)->getComposites()[0];
