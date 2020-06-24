@@ -62,14 +62,6 @@ double observe(std::shared_ptr<CompositeInstruction> program, Observable &obs,
 }
 } // namespace __internal__
 
-PauliOperator transform(FermionOperator &obs, std::string transf) {
-  if (!xacc::isInitialized())
-    xacc::internal_compiler::compiler_InitializeXACC();
-  auto obsv = std::make_shared<FermionOperator>(obs);
-  auto terms = std::dynamic_pointer_cast<PauliOperator>(
-      xacc::getService<xacc::ObservableTransform>(transf)->transform(obsv));
-  return *terms;
-}
 
 std::shared_ptr<xacc::Optimizer> createOptimizer(const std::string &type,
                                                  HeterogeneousMap &&options) {
