@@ -12,6 +12,15 @@ def main(argv=None):
     baseIncludes = ['-I', '@CMAKE_INSTALL_PREFIX@/include/xacc', '-I', '@CMAKE_INSTALL_PREFIX@/include/qcor', '-I', '@CMAKE_INSTALL_PREFIX@/include/quantum/gate']
     defaultFlags = ['-std=c++17', '-fplugin=@CMAKE_INSTALL_PREFIX@/clang-plugins/libqcor-syntax-handler.so']
 
+    # This flag is primarily for our testers to point to the 
+    # qcor syntax handler before make install is called
+    if '-internal-syntax-handler-plugin-path' in sys.argv[1:]:
+        idx = sys.argv.index('-internal-syntax-handler-plugin-path')
+        pth = sys.argv[idx+1]
+        sys.argv.remove(pth)
+        sys.argv.remove('-internal-syntax-handler-plugin-path')
+        defaultFlags = ['-std=c++17', '-fplugin='+pth+'/libqcor-syntax-handler.so']
+
     # Need to know if this is compile-only
     compileOnly = '-c' in sys.argv[1:]
 
