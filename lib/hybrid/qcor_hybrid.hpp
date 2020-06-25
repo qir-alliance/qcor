@@ -32,9 +32,8 @@ public:
 
 // High-level VQE class, enables programmers to
 // easily construct the VQE task given an parameterized
-// qcor quantum kernel, the Hamiltonian / Observable of
-// interest, and the dimension or number of parameters
-// that make up the parameterized circuit
+// qcor quantum kernel and the Hamiltonian / Observable of
+// interest
 template <typename QuantumKernel> class VQE {
 protected:
   // Reference to the paramerized
