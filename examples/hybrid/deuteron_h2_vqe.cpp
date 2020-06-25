@@ -73,9 +73,10 @@ int main() {
 
   // Now run with the mixed language kernel,
   // initialize the optimization to x = .55, also
-  // use a custom Optimizer
-  auto optimizer =
-      qcor::createOptimizer("nlopt", {std::make_pair("nlopt-maxeval", 10)});
+  // use a custom Optimizer (gradient enabled)
+  auto optimizer = qcor::createOptimizer(
+      "nlopt", {std::make_pair("nlopt-optimizer", "l-bfgs"),
+                std::make_pair("nlopt-maxeval", 20)});
   qcor::VQE vqe_openqasm(xasm_open_qasm_mixed_ansatz, H);
   const auto [energy_oq, params_oq] = vqe_openqasm.execute(optimizer, .55);
 
@@ -87,12 +88,12 @@ int main() {
   auto all_energies_and_params = vqe_openqasm.get_unique_energies();
   std::cout << "All Energies and Parameters:\n";
   for (const auto energy_param : all_energies_and_params) {
-      auto energy = energy_param.first;
-      auto pset = energy_param.second;
-      std::cout << "E: Pvec = " << energy << ": [ ";
-      for (auto p : pset) { 
-          std::cout << p << " ";
-      }
-      std::cout << "]" << std::endl;
+    auto energy = energy_param.first;
+    auto pset = energy_param.second;
+    std::cout << "E: Pvec = " << energy << ": [ ";
+    for (auto p : pset) {
+      std::cout << p << " ";
+    }
+    std::cout << "]" << std::endl;
   }
 }

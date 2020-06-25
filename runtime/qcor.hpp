@@ -94,6 +94,9 @@ template <typename... Args>
 using TranslationFunctor =
     std::function<std::tuple<Args...>(const std::vector<double>)>;
 
+using GradientEvaluator =
+    std::function<void(std::vector<double> x, std::vector<double> &dx)>;
+
 namespace __internal__ {
 
 template <typename Function, typename Tuple, size_t... I>
@@ -137,9 +140,9 @@ std::shared_ptr<ObjectiveFunction> get_objective(const std::string &type);
 std::shared_ptr<xacc::IRTransformation>
 get_transformation(const std::string &transform_type);
 
-// This internal utility class enables the merging of all 
-// quantum kernel double or std::vector<double> parameters 
-// into a single std::vector<double> (these correspond to circuit 
+// This internal utility class enables the merging of all
+// quantum kernel double or std::vector<double> parameters
+// into a single std::vector<double> (these correspond to circuit
 // rotation parameters)
 class ConvertDoubleLikeToVectorDouble {
 public:
@@ -171,13 +174,13 @@ void tuple_for_each(TupleType &&t, FunctionType f,
                     std::integral_constant<size_t, I>) {
   f(std::get<I>(t));
   __internal__::tuple_for_each(std::forward<TupleType>(t), f,
-                 std::integral_constant<size_t, I + 1>());
+                               std::integral_constant<size_t, I + 1>());
 }
 
 template <typename TupleType, typename FunctionType>
 void tuple_for_each(TupleType &&t, FunctionType f) {
   __internal__::tuple_for_each(std::forward<TupleType>(t), f,
-                 std::integral_constant<size_t, 0>());
+                               std::integral_constant<size_t, 0>());
 }
 
 } // namespace __internal__
@@ -204,8 +207,8 @@ constexpr auto enumerate(T &&iterable) {
   return iterable_wrapper{std::forward<T>(iterable)};
 }
 
-// This function allows programmers to get a QASM like string view 
-// of the quantum kernel persisted to teh provided ostream 
+// This function allows programmers to get a QASM like string view
+// of the quantum kernel persisted to teh provided ostream
 template <typename QuantumKernel, typename... Args>
 void print_kernel(std::ostream &os, QuantumKernel &kernel, Args... args) {
   os << __internal__::kernel_as_composite_instruction(kernel, args...)
@@ -445,6 +448,21 @@ Handle taskInitiate(std::shared_ptr<ObjectiveFunction> objective,
       nParameters);
 }
 
+template <typename... Args>
+Handle taskInitiate(std::shared_ptr<ObjectiveFunction> objective,
+                    std::shared_ptr<Optimizer> optimizer,
+                    GradientEvaluator &grad_evaluator,
+                    TranslationFunctor<Args...> translation,
+                    const int nParameters) {
+  return taskInitiate(
+      objective, optimizer,
+      [=](const std::vector<double> x, std::vector<double> &dx) {
+        grad_evaluator(x, dx);
+        auto translated_tuple = translation(x);
+        return qcor::__internal__::call(objective, translated_tuple);
+      },
+      nParameters);
+}
 // Controlled-Op transform:
 // Usage: Controlled::Apply(controlBit, QuantumKernel, Args...)
 // where Args... are arguments that will be passed to the kernel.

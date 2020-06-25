@@ -4,7 +4,7 @@
 #include "qcor.hpp"
 
 namespace qcor {
-
+static constexpr double pi = 3.141592653589793238;
 namespace __internal__ {
 // This simple struct is a way for us to
 // enumerate commonly seen TranslationFunctors, a utility
@@ -51,6 +51,8 @@ protected:
   // Register of qubits to operate on
   qreg q;
 
+  GradientEvaluator grad_eval;
+
 public:
   // Typedef for describing the energy / params return type
   using VQEResultType = std::pair<double, std::vector<double>>;
@@ -58,13 +60,19 @@ public:
   // Typedef describing all seen energies and corresponding parameters
   using VQEEnergiesAndParameters =
       std::vector<std::pair<double, std::vector<double>>>;
-      
+
   // Constructor
   VQE(QuantumKernel &kernel, Observable &obs)
       : ansatz(kernel), observable(obs) {
     q = qalloc(obs.nBits());
   }
 
+  // Constructor, with gradient evaluator specification
+  VQE(QuantumKernel &kernel, Observable &obs, GradientEvaluator &geval)
+      : ansatz(kernel), observable(obs), grad_eval(geval) {
+    q = qalloc(obs.nBits());
+  }
+  
   // Execute the VQE task synchronously, assumes default optimizer
   template <typename... Args> VQEResultType execute(Args... initial_params) {
     auto optimizer = qcor::createOptimizer("nlopt");
@@ -112,8 +120,38 @@ public:
     __internal__::CountRotationAngles count_params(n_params);
     __internal__::tuple_for_each(init_args_tuple, count_params);
 
-    // Run TaskInitiate, kick of the VQE job asynchronously
-    return qcor::taskInitiate(objective, optimizer, arg_translator, n_params);
+    if (optimizer->isGradientBased()) {
+
+      if (!grad_eval) {
+        grad_eval = [&, arg_translator, objective](const std::vector<double> x,
+                                                   std::vector<double> &dx) {
+          for (int i = 0; i < dx.size(); i++) {
+            auto xplus = x[i] + pi / 2.;
+            auto xminus = x[i] - pi / 2.;
+            std::vector<double> tmpx_plus = x, tmpx_minus = x;
+            tmpx_plus[i] = xplus;
+            tmpx_minus[i] = xminus;
+
+            auto translated_tuple_xp = arg_translator(tmpx_plus);
+            auto translated_tuple_xm = arg_translator(tmpx_minus);
+
+            auto results1 =
+                qcor::__internal__::call(objective, translated_tuple_xp);
+            auto results2 =
+                qcor::__internal__::call(objective, translated_tuple_xm);
+
+            dx[i] = 0.5 * (results1 - results2);
+          }
+        };
+      }
+
+      return qcor::taskInitiate(objective, optimizer, grad_eval, arg_translator,
+                                n_params);
+
+    } else {
+      // Run TaskInitiate, kick of the VQE job asynchronously
+      return qcor::taskInitiate(objective, optimizer, arg_translator, n_params);
+    }
   }
 
   // Sync up the results with the host thread
@@ -131,7 +169,7 @@ public:
     }
     return ret;
   }
-  
+
   // Return all energies seen at their corresponding parameter sets
   VQEEnergiesAndParameters get_unique_energies() {
     auto tmp_ei = q.results()->getAllUnique("qcor-params-energy");
