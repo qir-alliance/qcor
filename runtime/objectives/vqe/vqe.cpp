@@ -27,11 +27,18 @@ protected:
          std::make_pair("observable", observable)});
 
     if (!success) {
-        xacc::error("QCOR VQE Error - could not initialize vqe algorithm.");
+      xacc::error("QCOR VQE Error - could not initialize vqe algorithm.");
     }
-    
+
     auto tmp_child = qalloc(qreg.size());
     auto val = vqe->execute(xacc::as_shared_ptr(tmp_child.results()), {})[0];
+    // want to store parameters, have to do it here
+    for (auto &child : tmp_child.results()->getChildren()) {
+      child->addExtraInfo("parameters", current_iterate_parameters);
+      auto tmp = current_iterate_parameters;
+      tmp.push_back(val);
+      child->addExtraInfo("qcor-params-energy", tmp);
+    }
     qreg.addChild(tmp_child);
     return val;
   }

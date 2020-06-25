@@ -10,6 +10,7 @@
 
 // start off, include the hybrid header
 // this gives us the VQE class
+#include "qcor.hpp"
 #include "qcor_hybrid.hpp"
 
 // Define one quantum kernel that takes
@@ -49,19 +50,18 @@ int main() {
            6.125 * qcor::Z(1);
 
   // Create a VQE instance, must give it
-  // the parameterized ansatz functor, the
-  // Observable, and the total number of parameters
-  qcor::VQE vqe(ansatz, H, 1);
+  // the parameterized ansatz functor and Observable
+  qcor::VQE vqe(ansatz, H);
 
-  // Execute synchronously, indicating the argument structure after
-  // the required qreg first argument
-  const auto [energy, params] = vqe.execute<double>();
+  // Execute synchronously, providing the initial parameters to
+  // start the optimization at
+  const auto [energy, params] = vqe.execute(0.0);
   std::cout << "<H>(" << params[0] << ") = " << energy << "\n";
 
   // Now do the same for the vector double ansatz, but
   // also demonstrate the async interface
-  qcor::VQE vqe_vec(ansatz_vec, H, 1);
-  auto handle = vqe_vec.execute_async<std::vector<double>>();
+  qcor::VQE vqe_vec(ansatz_vec, H);
+  auto handle = vqe_vec.execute_async(std::vector<double>{0.0});
 
   // Can go do other work, quantum execution is happening on
   // separate thread
@@ -71,8 +71,28 @@ int main() {
 
   std::cout << "<H>(" << params_vec[0] << ") = " << energy_vec << "\n";
 
-  qcor::VQE vqe_openqasm(xasm_open_qasm_mixed_ansatz, H, 1);
-  const auto [energy_oq, params_oq] = vqe_openqasm.execute<double>();
+  // Now run with the mixed language kernel,
+  // initialize the optimization to x = .55, also
+  // use a custom Optimizer
+  auto optimizer =
+      qcor::createOptimizer("nlopt", {std::make_pair("nlopt-maxeval", 10)});
+  qcor::VQE vqe_openqasm(xasm_open_qasm_mixed_ansatz, H);
+  const auto [energy_oq, params_oq] = vqe_openqasm.execute(optimizer, .55);
 
   std::cout << "<H>(" << params_oq[0] << ") = " << energy_oq << "\n";
+
+  // Can query information about the vqe run
+  // Here, we get all parameter sets executed and correspnding energies seen
+  auto all_params = vqe_openqasm.get_unique_parameters();
+  auto all_energies_and_params = vqe_openqasm.get_unique_energies();
+  std::cout << "All Energies and Parameters:\n";
+  for (const auto energy_param : all_energies_and_params) {
+      auto energy = energy_param.first;
+      auto pset = energy_param.second;
+      std::cout << "E: Pvec = " << energy << ": [ ";
+      for (auto p : pset) { 
+          std::cout << p << " ";
+      }
+      std::cout << "]" << std::endl;
+  }
 }

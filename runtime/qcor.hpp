@@ -6,6 +6,7 @@
 #include <future>
 #include <memory>
 #include <tuple>
+#include <vector>
 
 #include "CompositeInstruction.hpp"
 #include "Observable.hpp"
@@ -110,9 +111,7 @@ template <typename Function, typename Tuple> auto call(Function f, Tuple t) {
 template <typename QuantumKernel, typename... Args>
 std::shared_ptr<CompositeInstruction>
 kernel_as_composite_instruction(QuantumKernel &k, Args... args) {
-  // #ifdef QCOR_USE_QRT
   quantum::clearProgram();
-  // #endif
   // turn off execution
   const auto cached_exec = xacc::internal_compiler::__execute;
   xacc::internal_compiler::__execute = false;
@@ -120,11 +119,7 @@ kernel_as_composite_instruction(QuantumKernel &k, Args... args) {
   k(args...);
   // turn execution on
   xacc::internal_compiler::__execute = cached_exec;
-  // #ifdef QCOR_USE_QRT
   return quantum::getProgram();
-  // #else
-  //   return xacc::internal_compiler::getLastCompiled();
-  // #endif
 }
 
 // Observe the given kernel, and return the expected value
@@ -142,8 +137,75 @@ std::shared_ptr<ObjectiveFunction> get_objective(const std::string &type);
 std::shared_ptr<xacc::IRTransformation>
 get_transformation(const std::string &transform_type);
 
+// This internal utility class enables the merging of all 
+// quantum kernel double or std::vector<double> parameters 
+// into a single std::vector<double> (these correspond to circuit 
+// rotation parameters)
+class ConvertDoubleLikeToVectorDouble {
+public:
+  std::vector<double> &vec;
+  ConvertDoubleLikeToVectorDouble(std::vector<double> &v) : vec(v) {}
+  void operator()(std::vector<double> tuple_element_vec) {
+    for (auto &e : tuple_element_vec) {
+      vec.push_back(e);
+    }
+  }
+  void operator()(double tuple_element_double) {
+    vec.push_back(tuple_element_double);
+  }
+  template <typename T> void operator()(T &) {}
+};
+
+template <typename TupleType, typename FunctionType>
+void tuple_for_each(
+    TupleType &&, FunctionType,
+    std::integral_constant<
+        size_t, std::tuple_size<
+                    typename std::remove_reference<TupleType>::type>::value>) {}
+
+template <std::size_t I, typename TupleType, typename FunctionType,
+          typename = typename std::enable_if<
+              I != std::tuple_size<typename std::remove_reference<
+                       TupleType>::type>::value>::type>
+void tuple_for_each(TupleType &&t, FunctionType f,
+                    std::integral_constant<size_t, I>) {
+  f(std::get<I>(t));
+  tuple_for_each(std::forward<TupleType>(t), f,
+                 std::integral_constant<size_t, I + 1>());
+}
+
+template <typename TupleType, typename FunctionType>
+void tuple_for_each(TupleType &&t, FunctionType f) {
+  tuple_for_each(std::forward<TupleType>(t), f,
+                 std::integral_constant<size_t, 0>());
+}
+
 } // namespace __internal__
 
+// C++17 python-like enumerate utility function
+template <typename T, typename TIter = decltype(std::begin(std::declval<T>())),
+          typename = decltype(std::end(std::declval<T>()))>
+constexpr auto enumerate(T &&iterable) {
+  struct iterator {
+    size_t i;
+    TIter iter;
+    bool operator!=(const iterator &other) const { return iter != other.iter; }
+    void operator++() {
+      ++i;
+      ++iter;
+    }
+    auto operator*() const { return std::tie(i, *iter); }
+  };
+  struct iterable_wrapper {
+    T iterable;
+    auto begin() { return iterator{0, std::begin(iterable)}; }
+    auto end() { return iterator{0, std::end(iterable)}; }
+  };
+  return iterable_wrapper{std::forward<T>(iterable)};
+}
+
+// This function allows programmers to get a QASM like string view 
+// of the quantum kernel persisted to teh provided ostream 
 template <typename QuantumKernel, typename... Args>
 void print_kernel(std::ostream &os, QuantumKernel &kernel, Args... args) {
   os << __internal__::kernel_as_composite_instruction(kernel, args...)
@@ -185,6 +247,7 @@ protected:
   bool kernel_is_xacc_composite = false;
 
   HeterogeneousMap options;
+  std::vector<double> current_iterate_parameters;
 
   // To be implemented by subclasses. Subclasses
   // can assume that the kernel has been evaluated
@@ -220,7 +283,7 @@ public:
   void set_options(HeterogeneousMap &opts) { options = opts; }
 
   // Set the results buffer
-  void set_qreg(xacc::internal_compiler::qreg q) { qreg = q; }
+  void set_qreg(xacc::internal_compiler::qreg &q) { qreg = q; }
   xacc::internal_compiler::qreg get_qreg() { return qreg; }
 
   // Evaluate this Objective function at the give parameters.
@@ -243,6 +306,15 @@ public:
       kernel->updateRuntimeArguments(args...);
     } else {
       kernel = __internal__::kernel_as_composite_instruction(functor, args...);
+      current_iterate_parameters.clear();
+      __internal__::ConvertDoubleLikeToVectorDouble convert(
+          current_iterate_parameters);
+      __internal__::tuple_for_each(std::make_tuple(args...), convert);
+      //   std::cout << "current params: ";
+      //   for (auto e : current_iterate_parameters) {
+      //       std::cout << e << " ";
+      //   }
+      //   std::cout << std::endl;
     }
     return operator()();
   }
@@ -349,6 +421,7 @@ createObjectiveFunction(const std::string &obj_name, QuantumKernel &kernel,
   obj_func->set_options(options);
   return obj_func;
 }
+
 Handle taskInitiate(std::shared_ptr<ObjectiveFunction> objective,
                     std::shared_ptr<Optimizer> optimizer,
                     std::function<double(const std::vector<double>,
@@ -362,6 +435,7 @@ Handle taskInitiate(std::shared_ptr<ObjectiveFunction> objective,
 Handle taskInitiate(std::shared_ptr<ObjectiveFunction> objective,
                     std::shared_ptr<Optimizer> optimizer,
                     qcor::OptFunction &opt_function);
+
 template <typename... Args>
 Handle taskInitiate(std::shared_ptr<ObjectiveFunction> objective,
                     std::shared_ptr<Optimizer> optimizer,
