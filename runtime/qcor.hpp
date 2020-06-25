@@ -170,13 +170,13 @@ template <std::size_t I, typename TupleType, typename FunctionType,
 void tuple_for_each(TupleType &&t, FunctionType f,
                     std::integral_constant<size_t, I>) {
   f(std::get<I>(t));
-  tuple_for_each(std::forward<TupleType>(t), f,
+  __internal__::tuple_for_each(std::forward<TupleType>(t), f,
                  std::integral_constant<size_t, I + 1>());
 }
 
 template <typename TupleType, typename FunctionType>
 void tuple_for_each(TupleType &&t, FunctionType f) {
-  tuple_for_each(std::forward<TupleType>(t), f,
+  __internal__::tuple_for_each(std::forward<TupleType>(t), f,
                  std::integral_constant<size_t, 0>());
 }
 
@@ -310,11 +310,6 @@ public:
       __internal__::ConvertDoubleLikeToVectorDouble convert(
           current_iterate_parameters);
       __internal__::tuple_for_each(std::make_tuple(args...), convert);
-      //   std::cout << "current params: ";
-      //   for (auto e : current_iterate_parameters) {
-      //       std::cout << e << " ";
-      //   }
-      //   std::cout << std::endl;
     }
     return operator()();
   }
