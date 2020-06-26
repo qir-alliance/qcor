@@ -7,6 +7,7 @@
 #include <memory>
 #include <tuple>
 #include <vector>
+#include <random>
 
 #include "CompositeInstruction.hpp"
 #include "Observable.hpp"
@@ -207,6 +208,23 @@ constexpr auto enumerate(T &&iterable) {
   return iterable_wrapper{std::forward<T>(iterable)};
 }
 
+template<typename ScalarType>
+auto random_vector(const ScalarType l_range, const ScalarType r_range,
+                   const std::size_t size) {
+  // Generate a random initial parameter set
+  std::random_device rnd_device;
+  std::mt19937 mersenne_engine{rnd_device()}; // Generates random integers
+  std::uniform_real_distribution<ScalarType> dist{l_range, r_range};
+  auto gen = [&dist, &mersenne_engine]() { return dist(mersenne_engine); };
+  std::vector<ScalarType> vec(size);
+  std::generate(vec.begin(), vec.end(), gen);
+  return vec;
+}
+
+template<typename... Args>
+auto args_translator(std::function<std::tuple<Args...>(const std::vector<double>)>&& functor_lambda) {
+   return TranslationFunctor<Args...>(functor_lambda);
+}
 // This function allows programmers to get a QASM like string view
 // of the quantum kernel persisted to teh provided ostream
 template <typename QuantumKernel, typename... Args>

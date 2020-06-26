@@ -10,7 +10,6 @@
 
 // start off, include the hybrid header
 // this gives us the VQE class
-#include "qcor.hpp"
 #include "qcor_hybrid.hpp"
 
 // Define one quantum kernel that takes

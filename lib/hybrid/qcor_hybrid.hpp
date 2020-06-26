@@ -10,12 +10,19 @@ namespace __internal__ {
 // enumerate commonly seen TranslationFunctors, a utility
 // that maps quantum kernel argument structure to the
 // qcor Optimizer / OptFunction std::vector<double> x parameters.
-struct TranslationFunctorGenerator {
+struct TranslationFunctorAutoGenerator {
 
   qcor::TranslationFunctor<qreg, double> operator()(qreg &q,
                                                     std::tuple<double> &&);
   qcor::TranslationFunctor<qreg, std::vector<double>>
   operator()(qreg &q, std::tuple<std::vector<double>> &&);
+
+  template <typename... Args>
+  qcor::TranslationFunctor<qreg, Args...> operator()(qreg &q,
+                                                     std::tuple<Args...> &&) {
+    return
+        [](const std::vector<double>) { return std::tuple<qreg, Args...>(); };
+  }
 };
 
 class CountRotationAngles {
@@ -26,6 +33,7 @@ public:
     count += tuple_element_vec.size();
   }
   void operator()(double tuple_element_double) { count++; }
+  template <typename T> void operator()(T &tuple_element) {}
 };
 
 } // namespace __internal__
@@ -36,6 +44,10 @@ public:
 // interest
 template <typename QuantumKernel> class VQE {
 protected:
+  inline static const std::string OBJECTIVE_NAME = "vqe";
+  inline static const std::string OPTIMIZER_INIT_PARAMS = "initial-parameters";
+  inline static const std::string DEFAULT_OPTIMIZER = "nlopt";
+
   // Reference to the paramerized
   // quantum kernel functor
   QuantumKernel &ansatz;
@@ -51,7 +63,14 @@ protected:
   // Register of qubits to operate on
   qreg q;
 
+  // The GradientEvaluator to use if
+  // we are given an Optimizer that is gradient-based
   GradientEvaluator grad_eval;
+
+  // Any holding user-specified qcor::TranslationFunctor<qreg, Args...>
+  // Using any here to keep us from having to
+  // template VQE class any further.
+  std::any translation_functor;
 
 public:
   // Typedef for describing the energy / params return type
@@ -72,17 +91,37 @@ public:
       : ansatz(kernel), observable(obs), grad_eval(geval) {
     q = qalloc(obs.nBits());
   }
-  
+
+  // Constructor, takes a TranslationFunctor as a general
+  // template type that we store to the protected any member
+  // and cast later
+  template <typename TranslationFunctorT>
+  VQE(QuantumKernel &kernel, Observable &obs, TranslationFunctorT &&tfunc)
+      : ansatz(kernel), observable(obs), translation_functor(tfunc) {
+    q = qalloc(obs.nBits());
+  }
+
+  // Constructor, takes a TranslationFunctor as a general
+  // template type that we store to the protected any member
+  // and cast later. Also takes gradient evaluator
+  template <typename TranslationFunctorT>
+  VQE(QuantumKernel &kernel, Observable &obs, GradientEvaluator &geval,
+      TranslationFunctorT &&tfunc)
+      : ansatz(kernel), observable(obs), translation_functor(tfunc),
+        grad_eval(geval) {
+    q = qalloc(obs.nBits());
+  }
+
   // Execute the VQE task synchronously, assumes default optimizer
   template <typename... Args> VQEResultType execute(Args... initial_params) {
-    auto optimizer = qcor::createOptimizer("nlopt");
+    auto optimizer = qcor::createOptimizer(DEFAULT_OPTIMIZER);
     auto handle = execute_async<Args...>(optimizer, initial_params...);
     return this->sync(handle);
   }
 
   // Execute the VQE task asynchronously, default optimizer
   template <typename... Args> Handle execute_async(Args... initial_params) {
-    auto optimizer = qcor::createOptimizer("nlopt");
+    auto optimizer = qcor::createOptimizer(DEFAULT_OPTIMIZER);
     return execute_async<Args...>(optimizer, initial_params...);
   }
 
@@ -99,7 +138,8 @@ public:
   Handle execute_async(std::shared_ptr<Optimizer> optimizer,
                        Args... initial_params) {
     // Get the VQE ObjectiveFunction and set the qreg
-    auto objective = qcor::createObjectiveFunction("vqe", ansatz, observable);
+    auto objective =
+        qcor::createObjectiveFunction(OBJECTIVE_NAME, ansatz, observable);
     objective->set_qreg(q);
 
     // Convert input args to a tuple
@@ -110,11 +150,17 @@ public:
     __internal__::ConvertDoubleLikeToVectorDouble build_up_init_params(
         init_params);
     __internal__::tuple_for_each(init_args_tuple, build_up_init_params);
-    optimizer->appendOption("initial-parameters", init_params);
+    optimizer->appendOption(OPTIMIZER_INIT_PARAMS, init_params);
 
     // Create the Arg Translator
-    __internal__::TranslationFunctorGenerator gen;
-    auto arg_translator = gen(q, std::tuple<Args...>());
+    TranslationFunctor<qreg, Args...> arg_translator;
+    if (translation_functor.has_value()) {
+      arg_translator =
+          std::any_cast<TranslationFunctor<qreg, Args...>>(translation_functor);
+    } else {
+      __internal__::TranslationFunctorAutoGenerator auto_gen;
+      arg_translator = auto_gen(q, std::tuple<Args...>());
+    }
 
     // Count all rotation angles (n parameters)
     __internal__::CountRotationAngles count_params(n_params);
