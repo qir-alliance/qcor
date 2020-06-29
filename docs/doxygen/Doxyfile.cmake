@@ -806,7 +806,8 @@ WARN_LOGFILE           =
 # Note: If this tag is empty the current directory is searched.
 
 INPUT                  = ../../handlers/  \
-                         ../../runtime/ \
+                         ../../runtime/ \ 
+			 ../../lib/ \
                          ../../tools/
 
 # This tag can be used to specify the character encoding of the source files

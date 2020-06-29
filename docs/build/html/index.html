@@ -1,0 +1,265 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title> &mdash; QCOR 1.0.0 documentation</title>
+  
+
+  
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+
+  
+  
+  
+  
+
+  
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script src="_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+
+    
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Installation" href="install.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="#" class="icon icon-home" alt="Documentation Home"> QCOR
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                1.0.0
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="basics.html">Basics</a></li>
+</ul>
+
+            
+          
+        </div>
+        
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="#">QCOR</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="#" class="icon icon-home"></a> &raquo;</li>
+        
+      <li></li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="_sources/index.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <img alt="_images/qcor_full_logo.svg" src="_images/qcor_full_logo.svg" /><div class="section" id="id1">
+<h1><a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h1>
+<p>QCOR is a single-source C++, retargetable quantum-classical compiler enabling
+low and high level quantum programming, compilation, and execution. QCOR represents the integration
+of the XACC quantum framework with the ubiquitous Clang/LLVM classical compiler frameworks. The QCOR
+compiler extends both of these infrastructures via simple plugin extensions, and enables programmers
+to express quantum kernel expressions (functors containing quantum code) alongside standard
+C++.</p>
+<div class="section" id="description-of-architecture">
+<h2>Description of Architecture<a class="headerlink" href="#description-of-architecture" title="Permalink to this headline">¶</a></h2>
+<p>For class documentation, check out this <a class="reference external" href="https://ornl-qci.github.io/xacc-api-docs/">site</a>.</p>
+</div>
+<div class="section" id="qcor-development-team">
+<h2>QCOR Development Team<a class="headerlink" href="#qcor-development-team" title="Permalink to this headline">¶</a></h2>
+<p>QCOR is developed and maintained by:</p>
+<ul class="simple">
+<li><p><a class="reference external" href="mailto:mccaskeyaj&#37;&#52;&#48;ornl&#46;gov">Alex McCaskey</a></p></li>
+<li><p><a class="reference external" href="mailto:humblets&#37;&#52;&#48;ornl&#46;gov">Travis Humble</a></p></li>
+<li><p><a class="reference external" href="mailto:dumitrescuef&#37;&#52;&#48;ornl&#46;gov">Eugene Dumitrescu</a></p></li>
+<li><p><a class="reference external" href="mailto:liakhdi&#37;&#52;&#48;ornl&#46;gov">Dmitry Liakh</a></p></li>
+<li><p><a class="reference external" href="mailto:nguyentm&#37;&#52;&#48;ornl&#46;gov">Thien Nguyen</a></p></li>
+<li><p><a class="reference external" href="mailto:claudinodc&#37;&#52;&#48;ornl&#46;gov">Daniel Chaves-Claudino</a></p></li>
+<li><p><a class="reference external" href="mailto:kharazitd&#37;&#52;&#48;ornl&#46;gov">Tyler Kharazi</a></p></li>
+<li><p><a class="reference external" href="mailto:santanaam&#37;&#52;&#48;ornl&#46;gov">Anthony Santana</a></p></li>
+</ul>
+</div>
+<div class="section" id="questions-bug-reporting-and-issue-tracking">
+<h2>Questions, Bug Reporting, and Issue Tracking<a class="headerlink" href="#questions-bug-reporting-and-issue-tracking" title="Permalink to this headline">¶</a></h2>
+<p>Questions, bug reporting and issue tracking are provided by GitHub. Please
+report all bugs by creating a <a class="reference external" href="https://github.com/ornl-qci/qcor/issues/new">new issue</a>.
+You can ask questions by creating a new issue with the question tag.</p>
+<div class="toctree-wrapper compound">
+<p class="caption"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="install.html">Installation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="install.html#quick-start-with-docker">Quick-Start with Docker</a></li>
+<li class="toctree-l2"><a class="reference internal" href="install.html#dependencies">Dependencies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="install.html#building-from-scratch">Building from Scratch</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="basics.html">Basics</a></li>
+</ul>
+</div>
+<div class="section" id="indices-and-tables">
+<h3>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Permalink to this headline">¶</a></h3>
+<ul class="simple">
+<li><p><a class="reference internal" href="genindex.html"><span class="std std-ref">Index</span></a></p></li>
+<li><p><a class="reference internal" href="py-modindex.html"><span class="std std-ref">Module Index</span></a></p></li>
+<li><p><a class="reference internal" href="search.html"><span class="std std-ref">Search Page</span></a></p></li>
+</ul>
+</div>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="install.html" class="btn btn-neutral float-right" title="Installation" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        
+        &copy; Copyright 2020, Alex McCaskey
+
+    </p>
+  </div>
+    
+    
+    
+    Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

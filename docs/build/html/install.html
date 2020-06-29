@@ -1,0 +1,269 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Installation &mdash; QCOR 1.0.0 documentation</title>
+  
+
+  
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+
+  
+  
+  
+  
+
+  
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script src="_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+
+    
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Basics" href="basics.html" />
+    <link rel="prev" title="" href="index.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="index.html" class="icon icon-home" alt="Documentation Home"> QCOR
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                1.0.0
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Installation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#quick-start-with-docker">Quick-Start with Docker</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#dependencies">Dependencies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#building-from-scratch">Building from Scratch</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="basics.html">Basics</a></li>
+</ul>
+
+            
+          
+        </div>
+        
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">QCOR</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+        
+      <li>Installation</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="_sources/install.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="installation">
+<h1>Installation<a class="headerlink" href="#installation" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="quick-start-with-docker">
+<h2>Quick-Start with Docker<a class="headerlink" href="#quick-start-with-docker" title="Permalink to this headline">¶</a></h2>
+<p>To get up and running quickly and avoid installing the prerequisites you can
+pull the <code class="docutils literal notranslate"><span class="pre">qcor/qcor</span></code> Docker image.
+This image provides an Ubuntu 18.04 container that serves up an Eclipse Theia IDE. QCOR is already
+built and ready to go.</p>
+</div>
+<div class="section" id="dependencies">
+<h2>Dependencies<a class="headerlink" href="#dependencies" title="Permalink to this headline">¶</a></h2>
+<p>Note that you must have a C++17 compliant compiler and a recent version of CMake (version 3.12+).
+You must have XACC installed (see <a class="reference external" href="https://xacc.readthedocs.io/en/latest/install.html#building-xacc">Bulding XACC</a>)</p>
+<p>Easiest way to install CMake - do not use the package manager,
+instead use <cite>pip</cite>, and ensure that <cite>/usr/local/bin</cite> is in your PATH:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$ python3 -m pip install --upgrade cmake
+$ <span class="nb">export</span> <span class="nv">PATH</span><span class="o">=</span><span class="nv">$PATH</span>:/usr/local/bin
+</pre></div>
+</div>
+<p>For now we require our users build a specific fork of LLVM/Clang that
+provides Syntax Handler plugin support. We expect this fork to be upstreamed
+in a future release of LLVM and Clang, and at that point users will only
+need to download the appropriate LLVM/Clang binaries (via <cite>apt-get</cite> for instance).</p>
+<p>To build this fork of LLVM/Clang (be aware this step takes up a good amount of RAM):</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$ apt-get install ninja-build <span class="o">[</span><span class="k">if</span> you dont have ninja<span class="o">]</span>
+$ git clone https://github.com/hfinkel/llvm-project-csp llvm
+$ <span class="nb">cd</span> llvm <span class="o">&amp;&amp;</span> mkdir build <span class="o">&amp;&amp;</span> <span class="nb">cd</span> build
+$ cmake -G Ninja ../llvm -DCMAKE_INSTALL_PREFIX<span class="o">=</span><span class="nv">$HOME</span>/.llvm -DBUILD_SHARED_LIBS<span class="o">=</span>TRUE -DCMAKE_BUILD_TYPE<span class="o">=</span>Release -DLLVM_TARGETS_TO_BUILD<span class="o">=</span><span class="s2">&quot;X86&quot;</span> -DLLVM_ENABLE_DUMP<span class="o">=</span>ON -DLLVM_ENABLE_PROJECTS<span class="o">=</span>clang
+$ cmake --build . --target install
+$ sudo ln -s <span class="nv">$HOME</span>/.llvm/bin/llvm-config /usr/bin
+</pre></div>
+</div>
+</div>
+<div class="section" id="building-from-scratch">
+<h2>Building from Scratch<a class="headerlink" href="#building-from-scratch" title="Permalink to this headline">¶</a></h2>
+<p>Note that, for now, developers must clone QCOR manually:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$ git clone https://github.com/ornl-qci/qcor
+$ <span class="nb">cd</span> qcor <span class="o">&amp;&amp;</span> mkdir build <span class="o">&amp;&amp;</span> <span class="nb">cd</span> build
+$ cmake ..
+$ <span class="o">[</span>with tests<span class="o">]</span> cmake .. -DQCOR_BUILD_TESTS<span class="o">=</span>TRUE
+$ make -j<span class="k">$(</span>nproc<span class="k">)</span> install
+</pre></div>
+</div>
+<p>Update your PATH to ensure that the <code class="docutils literal notranslate"><span class="pre">`qcor`</span></code> compiler is available.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$ <span class="nb">export</span> <span class="nv">PATH</span><span class="o">=</span><span class="nv">$PATH</span>:<span class="nv">$HOME</span>/.xacc/bin <span class="o">(</span>or wherever you installed XACC<span class="o">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="basics.html" class="btn btn-neutral float-right" title="Basics" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="index.html" class="btn btn-neutral float-left" title="" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        
+        &copy; Copyright 2020, Alex McCaskey
+
+    </p>
+  </div>
+    
+    
+    
+    Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>
