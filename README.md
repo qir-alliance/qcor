@@ -13,6 +13,7 @@ for hybrid quantum-classical programming.
 Documentation
 -------------
 
+* [Website and Documentation](https://qcor.readthedocs.io)
 * [API Documentation](https://ornl-qci.github.io/qcor-api-docs/)
 
 Quick Start
