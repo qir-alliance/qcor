@@ -14,7 +14,7 @@ using namespace cppmicroservices;
 
 namespace qcor {
 
-class VQE : public ObjectiveFunction {
+class VQEObjective : public ObjectiveFunction {
 protected:
   std::shared_ptr<xacc::Algorithm> vqe;
   double operator()() override {
@@ -62,7 +62,7 @@ public:
   /**
    */
   void Start(BundleContext context) {
-    auto xt = std::make_shared<qcor::VQE>();
+    auto xt = std::make_shared<qcor::VQEObjective>();
     context.RegisterService<qcor::ObjectiveFunction>(xt);
   }
 

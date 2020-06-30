@@ -2,6 +2,9 @@
 
 #include "AcceleratorBuffer.hpp"
 #include "qcor.hpp"
+#include "qrt.hpp"
+#include <memory>
+// #include <xacc_internal_compiler.hpp>
 
 namespace qcor {
 static constexpr double pi = 3.141592653589793238;
@@ -230,6 +233,220 @@ public:
   }
 };
 
-// Next, add QAOA...
+// QAOA provides a high-level data structure
+// for driving the qcor API in a way that affects the
+// typical QAOA algorithm. Users instantiate this class
+// by providing the cost hamiltonian and number of qaoa steps,
+// and optionally the reference hamiltonian. Running the
+// algorithm is then just simply invoking the execute() method
+class QAOA {
+protected:
+  // The number of qaoa steps
+  std::size_t nSteps = 1;
+
+  // The GradientEvaluator to use if
+  // we are given an Optimizer that is gradient-based
+  GradientEvaluator grad_eval;
+
+  // The cost hamiltonian
+  PauliOperator &cost;
+
+  // The reference hamiltonian
+  PauliOperator ref;
+
+  // The qubit register to run on
+  qreg q;
+
+  // Scale factor for parameter shift gradient rule
+  double ps_scale_factor = 1.0;
+
+  // Internal helper function for creating
+  // the quantum kernel from an xasm string
+  void initial_compile_qaoa_code();
+
+  // Reference to the qaoa parameterized circuit
+  std::shared_ptr<CompositeInstruction> qaoa_circuit;
+
+  // XASM QAOA code for creating the qaoa circuit
+  inline static const std::string qaoa_xasm_code =
+      R"#(__qpu__ void qaoa_ansatz(qreg q, int n, std::vector<double> betas, std::vector<double> gammas, qcor::PauliOperator& costHamiltonian, qcor::PauliOperator& refHamiltonian) {
+  qaoa(q, n, betas, gammas, costHamiltonian, refHamiltonian);
+})#";
+
+  // utility for delegating to xacc error call
+  // implemented in qcor_hybrid.cpp to avoid
+  // xacc.hpp include here
+  void error(const std::string &message);
+
+public:
+  // Helper qaoa algorithm result type
+  using QAOAResultType = std::pair<double, std::vector<double>>;
+
+  // The Constructionr, takes the cost hamiltonian and the number of steps.
+  // will assume reference hamiltonian of an X pauli on all qubits
+  QAOA(PauliOperator &obs, const std::size_t _n_steps)
+      : cost(obs), nSteps(_n_steps), ref(PauliOperator()) {
+    for (int i = 0; i < cost.nBits(); i++) {
+      ref += qcor::X(i);
+    }
+    initial_compile_qaoa_code();
+  }
+
+  // The constructor, takes cost and reference hamiltonian and number of steps
+  QAOA(PauliOperator &obs, PauliOperator &ref_ham, const std::size_t _n_steps)
+      : cost(obs), nSteps(_n_steps), ref(ref_ham) {
+    initial_compile_qaoa_code();
+  }
+
+  // The Constructionr, takes the cost hamiltonian and the number of steps.
+  // will assume reference hamiltonian of an X pauli on all qubits
+  // also provide gradient evaluator
+  QAOA(PauliOperator &obs, GradientEvaluator &geval, const std::size_t _n_steps)
+      : cost(obs), nSteps(_n_steps), ref(PauliOperator()), grad_eval(geval) {
+    for (int i = 0; i < cost.nBits(); i++) {
+      ref += qcor::X(i);
+    }
+    initial_compile_qaoa_code();
+  }
+
+  // The constructor, takes cost and reference hamiltonian and number of steps
+  // Also provide gradient evaluator
+  QAOA(PauliOperator &obs, PauliOperator &ref_ham, GradientEvaluator &geval,
+       const std::size_t _n_steps)
+      : cost(obs), nSteps(_n_steps), ref(ref_ham), grad_eval(geval) {
+    initial_compile_qaoa_code();
+  }
+
+  // Return the number of gamma parameters
+  auto n_gamma() { return cost.getNonIdentitySubTerms().size(); }
+  // Return the number of beta parameters
+  auto n_beta() { return ref.getNonIdentitySubTerms().size(); }
+  // Return the number of qaoa steps
+  auto n_steps() { return nSteps; }
+  // Return the total number of parameters
+  auto n_parameters() { return n_steps() * (n_gamma() + n_beta()); }
+
+  // Provide the scale factor for the parameter shift rule
+  void set_parameter_shift_scale_factor(const double scale) {
+    if (scale < 0.0) {
+      error("invalid parameter shift scale factor, must be greater than 0.0");
+    }
+    ps_scale_factor = scale;
+  }
+  // Execute the algorithm synchronously, optionally provide the initial
+  // parameters. Will fail if initial_parameters.size() != n_parameters()
+  QAOAResultType execute(const std::vector<double> initial_parameters = {}) {
+    auto optimizer = qcor::createOptimizer("nlopt");
+    return execute(optimizer, initial_parameters);
+  }
+
+  // Execute the algorithm synchronously, provding an Optimizer and optionally
+  // initial parameters Will fail if initial_parameters.size() != n_parameters()
+  QAOAResultType execute(std::shared_ptr<Optimizer> optimizer,
+                         const std::vector<double> initial_parameters = {}) {
+    auto handle = execute_async(optimizer, initial_parameters);
+    auto results = this->sync(handle);
+    return std::make_pair(results.first, results.second);
+  }
+
+  // Execute the algorithm asynchronously, provding an Optimizer and optionally
+  // initial parameters Will fail if initial_parameters.size() != n_parameters()
+  Handle execute_async(std::shared_ptr<Optimizer> optimizer,
+                       const std::vector<double> initial_parameters = {}) {
+
+    q = qalloc(cost.nBits());
+    auto n_params = nSteps * (n_gamma() + n_beta());
+
+    std::vector<double> init_params;
+    if (initial_parameters.empty()) {
+      init_params = qcor::random_vector(0.0, 1.0, n_params);
+    } else {
+      if (initial_parameters.size() != n_parameters()) {
+        error("invalid initial_parameters provided, " +
+              std::to_string(n_parameters()) +
+              " != " + std::to_string(initial_parameters.size()));
+      }
+      init_params = initial_parameters;
+    }
+
+    auto objective = qcor::createObjectiveFunction("vqe", qaoa_circuit, cost);
+    objective->set_qreg(q);
+    optimizer->appendOption("initial-parameters", init_params);
+
+    // See if we are using a gradient-based optimizer
+    const auto use_gradients = optimizer->isGradientBased();
+
+    return qcor::taskInitiate(
+        objective, optimizer,
+        [objective, use_gradients, this](const std::vector<double> x,
+                                         std::vector<double> &dx) {
+          // Set the size of the beta vector
+          const auto n_betas = nSteps * q.size();
+
+          // Utility to split x into beta and gamma vecs
+          auto create_betas_gammas = [n_betas](const std::vector<double> x) {
+            std::vector<double> betas;
+            std::vector<double> gammas;
+            for (int i = 0; i < n_betas; ++i) {
+              betas.emplace_back(x[i]);
+            }
+            for (int i = betas.size(); i < x.size(); ++i) {
+              gammas.emplace_back(x[i]);
+            }
+
+            return std::make_pair(betas, gammas);
+          };
+
+          // If we need gradients, evaluate them
+          // with our default parameter shift or the
+          // provide GradientEvaluator
+          if (use_gradients) {
+            if (!grad_eval) {
+              // Parameter shift rule...
+              for (int i = 0; i < dx.size(); i++) {
+                auto xplus = x[i] + ps_scale_factor * pi / 2.;
+                auto xminus = x[i] - ps_scale_factor * pi / 2.;
+                std::vector<double> tmpx_plus = x, tmpx_minus = x;
+                tmpx_plus[i] = xplus;
+                tmpx_minus[i] = xminus;
+
+                // Don't print the verbose output for gradients...
+                const auto cached_verbose = qcor::get_verbose();
+                qcor::set_verbose(false);
+
+                // evaluate at x[i] + scale * pi / 2
+                auto [betas_p, gammas_p] = create_betas_gammas(tmpx_plus);
+                auto results1 =
+                    (*objective)(q, q.size(), betas_p, gammas_p, cost, ref);
+
+                // evaluate at x[i] - scale * pi / 2
+                auto [betas_m, gammas_m] = create_betas_gammas(tmpx_minus);
+                auto results2 =
+                    (*objective)(q, q.size(), betas_m, gammas_m, cost, ref);
+                qcor::set_verbose(cached_verbose);
+
+                // set the gradient element
+                dx[i] = 0.5 * (results1 - results2);
+              }
+            } else {
+              // evaluate with the custom evaluator
+              grad_eval(x, dx);
+            }
+          }
+
+          // Evaluate at x and return
+          auto [betas, gammas] = create_betas_gammas(x);
+          return (*objective)(q, q.size(), betas, gammas, cost, ref);
+        },
+        n_params);
+  }
+
+  // Sync up the results with the host thread
+  QAOAResultType sync(Handle &h) {
+    auto results = qcor::sync(h);
+    return std::make_pair(results.opt_val, results.opt_params);
+  }
+}; // namespace qcor
+// Next, add Adapt
 
 } // namespace qcor

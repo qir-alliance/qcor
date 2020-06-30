@@ -11,6 +11,7 @@
 
 namespace qcor {
 void set_verbose(bool verbose) { xacc::set_verbose(verbose); }
+bool get_verbose() {return xacc::verbose;}
 void set_shots(const int shots) { ::quantum::set_shots(shots); }
 
 namespace __internal__ {
@@ -112,6 +113,7 @@ Handle taskInitiate(std::shared_ptr<ObjectiveFunction> objective,
                     std::shared_ptr<Optimizer> optimizer,
                     qcor::OptFunction &opt_function) {
   return std::async(std::launch::async, [=, &opt_function]() -> ResultsBuffer {
+      std::cout << "RUNNING\n";
     auto results = optimizer->optimize(opt_function);
     ResultsBuffer rb;
     rb.q_buffer = objective->get_qreg();

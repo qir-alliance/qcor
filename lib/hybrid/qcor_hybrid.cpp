@@ -1,4 +1,7 @@
 #include "qcor_hybrid.hpp"
+#include "Compiler.hpp"
+#include "xacc.hpp"
+#include "xacc_service.hpp"
 
 namespace qcor {
 namespace __internal__ {
@@ -9,11 +12,20 @@ TranslationFunctorAutoGenerator::operator()(qreg &q, std::tuple<double> &&t) {
       [&](const std::vector<double> x) { return std::make_tuple(q, x[0]); });
 }
 qcor::TranslationFunctor<qreg, std::vector<double>>
-TranslationFunctorAutoGenerator::operator()(qreg &q,
-                                        std::tuple<std::vector<double>> &&) {
+TranslationFunctorAutoGenerator::operator()(
+    qreg &q, std::tuple<std::vector<double>> &&) {
   return qcor::TranslationFunctor<qreg, std::vector<double>>(
       [&](const std::vector<double> x) { return std::make_tuple(q, x); });
 }
 } // namespace __internal__
+
+void QAOA::initial_compile_qaoa_code() {
+  if (!xacc::isInitialized()) {
+    xacc::Initialize();
+  }
+  auto xasm = xacc::getService<xacc::Compiler>("xasm");
+  qaoa_circuit = xasm->compile(qaoa_xasm_code)->getComposites()[0];
+}
+void QAOA::error(const std::string &message) { xacc::error(message); }
 
 } // namespace qcor

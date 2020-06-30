@@ -5,9 +5,9 @@
 #include <functional>
 #include <future>
 #include <memory>
+#include <random>
 #include <tuple>
 #include <vector>
-#include <random>
 
 #include "CompositeInstruction.hpp"
 #include "Observable.hpp"
@@ -78,6 +78,7 @@ using Handle = std::future<ResultsBuffer>;
 ResultsBuffer sync(Handle &handle) { return handle.get(); }
 
 void set_verbose(bool verbose);
+bool get_verbose();
 void set_shots(const int shots);
 
 class ObjectiveFunction;
@@ -99,6 +100,21 @@ using GradientEvaluator =
     std::function<void(std::vector<double> x, std::vector<double> &dx)>;
 
 namespace __internal__ {
+
+// This class gives us a way to
+// run some startup routine before
+// main(). Specifically we use it to ensure that
+// the accelerator backend is set in the event no
+// quantum kernels are found by the syntax handler.
+class internal_startup {
+public:
+  internal_startup() {
+#ifdef __internal__qcor__compile__backend
+    quantum::initialize(__internal__qcor__compile__backend, "empty");
+#endif
+  }
+};
+internal_startup startup;
 
 template <typename Function, typename Tuple, size_t... I>
 auto call(Function f, Tuple t, std::index_sequence<I...>) {
@@ -208,7 +224,7 @@ constexpr auto enumerate(T &&iterable) {
   return iterable_wrapper{std::forward<T>(iterable)};
 }
 
-template<typename ScalarType>
+template <typename ScalarType>
 auto random_vector(const ScalarType l_range, const ScalarType r_range,
                    const std::size_t size) {
   // Generate a random initial parameter set
@@ -221,9 +237,11 @@ auto random_vector(const ScalarType l_range, const ScalarType r_range,
   return vec;
 }
 
-template<typename... Args>
-auto args_translator(std::function<std::tuple<Args...>(const std::vector<double>)>&& functor_lambda) {
-   return TranslationFunctor<Args...>(functor_lambda);
+template <typename... Args>
+auto args_translator(
+    std::function<std::tuple<Args...>(const std::vector<double>)>
+        &&functor_lambda) {
+  return TranslationFunctor<Args...>(functor_lambda);
 }
 // This function allows programmers to get a QASM like string view
 // of the quantum kernel persisted to teh provided ostream

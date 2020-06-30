@@ -2,10 +2,13 @@
 // with QCOR's VQE Objective Function.
 // Note: we can also explicitly construct this ansatz circuit in QCOR.
 // e.g., see qaoa_example.cpp
-#include <qalloc>
 #include "qcor.hpp"
+#include <qalloc>
 
-__qpu__ void qaoa_ansatz(qreg q, int n, std::vector<double> betas, std::vector<double> gammas, qcor::PauliOperator& costHamiltonian, qcor::PauliOperator& refHamiltonian) {
+__qpu__ void qaoa_ansatz(qreg q, int n, std::vector<double> betas,
+                         std::vector<double> gammas,
+                         qcor::PauliOperator &costHamiltonian,
+                         qcor::PauliOperator &refHamiltonian) {
   // Just use the built-in qaoa circuit
   qaoa(q, n, betas, gammas, costHamiltonian, refHamiltonian);
 }
@@ -16,7 +19,9 @@ int main(int argc, char **argv) {
   auto buffer = qalloc(2);
   auto optimizer = qcor::createOptimizer("nlopt");
   // Cost Hamiltonian
-  auto observable = 5.907-2.1433*qcor::X(0)*qcor::X(1)-2.1433*qcor::Y(0)*qcor::Y(1)+0.21829*qcor::Z(0)-6.125*qcor::Z(1);
+  auto observable = 5.907 - 2.1433 * qcor::X(0) * qcor::X(1) -
+                    2.1433 * qcor::Y(0) * qcor::Y(1) + 0.21829 * qcor::Z(0) -
+                    6.125 * qcor::Z(1);
   // Mixer Hamiltonian
   auto refHamiltonian = qcor::X(0) + qcor::X(1);
 
@@ -44,7 +49,8 @@ int main(int argc, char **argv) {
           gammas.emplace_back(x[i]);
         }
         // Evaluate the objective function
-        const double costVal = (*vqe)(buffer, buffer.size(), betas, gammas, observable, refHamiltonian);
+        const double costVal = (*vqe)(buffer, buffer.size(), betas, gammas,
+                                      observable, refHamiltonian);
         std::cout << "Iter " << iterCount << ": Cost = " << costVal << "\n";
         iterCount++;
         return costVal;
