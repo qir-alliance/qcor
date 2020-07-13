@@ -42,6 +42,7 @@ extern std::shared_ptr<xacc::IRProvider> provider;
 
 void initialize(const std::string qpu_name, const std::string kernel_name);
 void set_shots(int shots);
+void set_backend(std::string accelerator_name, const int shots = 1024);
 void one_qubit_inst(const std::string &name, const qubit &qidx,
                     std::vector<double> parameters = {});
 void two_qubit_inst(const std::string &name, const qubit &qidx1,
@@ -90,6 +91,8 @@ void submit(xacc::AcceleratorBuffer *buffer);
 void submit(xacc::AcceleratorBuffer **buffers, const int nBuffers);
 
 // Some getters for the qcor runtime library. 
+void set_current_program(std::shared_ptr<xacc::CompositeInstruction> p);
+
 std::shared_ptr<xacc::CompositeInstruction> getProgram();
 xacc::CompositeInstruction *program_raw_pointer();
 

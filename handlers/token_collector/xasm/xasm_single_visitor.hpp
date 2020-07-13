@@ -2,6 +2,7 @@
 #include "xacc.hpp"
 #include "xasm_singleVisitor.h"
 #include <IRProvider.hpp>
+#include <regex>
 
 using namespace xasm;
 
@@ -11,6 +12,9 @@ using xasm_single_result_type =
     std::pair<std::string, std::shared_ptr<xacc::Instruction>>;
 
 class xasm_single_visitor : public xasm::xasm_singleVisitor {
+protected:
+  int n_cached_execs = 0;
+
 public:
   xasm_single_result_type result;
 
@@ -26,6 +30,7 @@ public:
     if (!xacc::isInitialized()) {
       xacc::Initialize();
     }
+
     // if not in instruction registry, then forward to classical instructions
     auto inst_name = context->inst_name->getText();
     auto provider = xacc::getIRProvider("quantum");
@@ -107,9 +112,13 @@ public:
       for (auto c : context->children) {
         ss << c->getText() << " ";
       }
-      ss << "\n";
 
-      result.first = ss.str();
+      // always wrap in execute false
+      result.first =
+          "const auto cached_exec_" + context->inst_name->getText() +
+          " = __execute;\n__execute = false;\n" + ss.str() +
+          "\n__execute = cached_exec_" + context->inst_name->getText() + ";\n";
+      n_cached_execs++;
     }
 
     return 0;
@@ -123,12 +132,27 @@ public:
 
     std::stringstream ss;
 
+    bool wrap_false_exec = false;
+    std::string adjoint_call_name = "";
     for (auto c : context->children) {
+      if (c->getText().find("::adjoint") != std::string::npos) {
+        wrap_false_exec = true;
+        adjoint_call_name = c->getText();
+        adjoint_call_name = std::regex_replace(adjoint_call_name, std::regex("::"), "_");
+      }
       ss << c->getText() << " ";
     }
     ss << "\n";
 
-    result.first = ss.str();
+    if (wrap_false_exec) {
+      result.first =
+          "const auto cached_exec_" + adjoint_call_name +
+          " = __execute;\n__execute = false;\n" + ss.str() +
+          "__execute = cached_exec_" + adjoint_call_name + ";\n";
+      n_cached_execs++;
+    } else {
+      result.first = ss.str();
+    }
     return 0;
   }
 

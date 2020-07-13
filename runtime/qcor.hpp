@@ -1,5 +1,4 @@
-#ifndef RUNTIME_QCOR_HPP_
-#define RUNTIME_QCOR_HPP_
+#pragma once
 
 #include <IRTransformation.hpp>
 #include <functional>
@@ -9,12 +8,8 @@
 #include <tuple>
 #include <vector>
 
-#include "CompositeInstruction.hpp"
-#include "Observable.hpp"
-#include "Optimizer.hpp"
-
-#include "PauliOperator.hpp"
 #include "qalloc"
+#include "qrt/qrt.hpp"
 #include "xacc_internal_compiler.hpp"
 
 #include "qrt.hpp"
@@ -27,6 +22,7 @@ using Observable = xacc::Observable;
 using Optimizer = xacc::Optimizer;
 using CompositeInstruction = xacc::CompositeInstruction;
 using PauliOperator = xacc::quantum::PauliOperator;
+using qreg = xacc::internal_compiler::qreg;
 
 PauliOperator X(int idx) { return PauliOperator({{idx, "X"}}); }
 
@@ -80,6 +76,7 @@ ResultsBuffer sync(Handle &handle) { return handle.get(); }
 void set_verbose(bool verbose);
 bool get_verbose();
 void set_shots(const int shots);
+void error(const std::string &msg);
 
 class ObjectiveFunction;
 
@@ -115,6 +112,8 @@ public:
   }
 };
 internal_startup startup;
+
+std::shared_ptr<qcor::CompositeInstruction> create_composite(std::string name);
 
 template <typename Function, typename Tuple, size_t... I>
 auto call(Function f, Tuple t, std::index_sequence<I...>) {
@@ -587,6 +586,75 @@ const std::size_t depth(QuantumKernel &kernel, Args... args) {
   return qcor::__internal__::kernel_as_composite_instruction(kernel, args...)
       ->depth();
 }
+
+template <typename Derived, typename... Args> class QuantumKernel {
+protected:
+  // Tuple holder for variadic kernel arguments
+  std::tuple<Args...> args_tuple;
+
+  // Parent kernel - null if this is the top-level kernel
+  // not null if this is a nested kernel call
+  std::shared_ptr<qcor::CompositeInstruction> parent_kernel;
+
+  // Default, submit this kernel, if parent is given
+  // turn this to false
+  bool is_callable = true;
+
+  bool disable_destructor = false;
+
+public:
+  // Default constructor, takes quantum kernel function arguments
+  QuantumKernel(Args... args) : args_tuple(std::make_tuple(args...)) {}
+
+  // Internal constructor, provide parent kernel, this
+  // kernel now represents a nested kernel call and
+  // appends to the parent kernel
+  QuantumKernel(std::shared_ptr<qcor::CompositeInstruction> _parent_kernel,
+                Args... args)
+      : args_tuple(std::make_tuple(args...)), parent_kernel(_parent_kernel),
+        is_callable(false) {}
+
+  QuantumKernel() : is_callable(false) {}
+
+  static void adjoint(std::shared_ptr<CompositeInstruction> parent_kernel,
+                      Args... args) {
+
+    // instantiate and don't let it call the destructor
+    Derived derived;
+    derived.disable_destructor = true;
+
+    // run the operator()(args...) call to get the parent_kernel
+    derived(args...);
+
+    // get the instructions
+    auto instructions = derived.parent_kernel->getInstructions();
+
+    // Assert that we don't have measurement
+    if (!std::all_of(
+            instructions.cbegin(), instructions.cend(),
+            [](const auto &inst) { return inst->name() != "Measure"; })) {
+      error(
+          "Unable to create Adjoint for kernels that have Measure operations.");
+    }
+
+    std::reverse(instructions.begin(), instructions.end());
+    for (const auto &inst : instructions) {
+      // Parametric gates:
+      if (inst->name() == "Rx" || inst->name() == "Ry" ||
+          inst->name() == "Rz" || inst->name() == "CPHASE") {
+        inst->setParameter(0, -inst->getParameter(0).template as<double>());
+      }
+      // TODO: Handles T and S gates, etc... => T -> Tdg
+    }
+
+    // add the instructions to the current parent kernel
+    parent_kernel->addInstructions(instructions);
+
+    // no measures, so no execute
+  }
+
+  virtual ~QuantumKernel() {}
+};
 } // namespace qcor
 
 #endif

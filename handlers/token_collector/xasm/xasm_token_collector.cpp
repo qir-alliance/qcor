@@ -136,8 +136,7 @@ void XasmTokenCollector::collect(clang::Preprocessor &PP,
   // or quantum IR from xacc.
   using namespace antlr4;
   for (const auto &line : lines) {
-    // xasm_single_result_type result;
-    xasm_single_visitor visitor; //(result);
+    xasm_single_visitor visitor;
 
     ANTLRInputStream input(line);
     xasm_singleLexer lexer(&input);

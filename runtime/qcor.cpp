@@ -13,8 +13,14 @@ namespace qcor {
 void set_verbose(bool verbose) { xacc::set_verbose(verbose); }
 bool get_verbose() {return xacc::verbose;}
 void set_shots(const int shots) { ::quantum::set_shots(shots); }
+void error(const std::string& msg) {
+    xacc::error(msg);
+}
 
 namespace __internal__ {
+std::shared_ptr<qcor::CompositeInstruction> create_composite(std::string name) {
+    return xacc::getIRProvider("quantum")->createComposite(name);
+}
 std::shared_ptr<ObjectiveFunction> get_objective(const std::string &type) {
   if (!xacc::isInitialized())
     xacc::internal_compiler::compiler_InitializeXACC();

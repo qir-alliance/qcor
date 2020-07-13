@@ -55,6 +55,14 @@ void initialize(const std::string qpu_name, const std::string kernel_name) {
   __entry_point_initialized = true;
 }
 
+void set_backend(std::string accelerator_name, const int shots) {
+
+  xacc::internal_compiler::compiler_InitializeXACC(accelerator_name.c_str());
+  provider = xacc::getIRProvider("quantum");
+
+  set_shots(shots);
+}
+
 void set_shots(int shots) {
   xacc::internal_compiler::get_qpu()->updateConfiguration(
       {std::make_pair("shots", shots)});
@@ -173,7 +181,7 @@ void crz(const qubit &src_idx, const qubit &tgt_idx, const double theta) {
   two_qubit_inst("CRZ", src_idx, tgt_idx, {theta});
 }
 
-void exp(qreg q, const double theta, xacc::Observable& H) {
+void exp(qreg q, const double theta, xacc::Observable &H) {
   exp(q, theta, xacc::as_shared_ptr(&H));
 }
 
@@ -288,6 +296,11 @@ void submit(xacc::AcceleratorBuffer *buffer) {
 void submit(xacc::AcceleratorBuffer **buffers, const int nBuffers) {
   xacc::internal_compiler::execute(buffers, nBuffers, program);
 }
+
+void set_current_program(std::shared_ptr<xacc::CompositeInstruction> p) {
+  program = p;
+}
+
 std::shared_ptr<xacc::CompositeInstruction> getProgram() { return program; }
 xacc::CompositeInstruction *program_raw_pointer() { return program.get(); }
 void clearProgram() {
