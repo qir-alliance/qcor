@@ -8,7 +8,7 @@ def main(argv=None):
                             '-L', '@CMAKE_INSTALL_PREFIX@/lib', '-lxacc',
                             '-lqcor', '-lqrt', '-lqcor-hybrid', '-lCppMicroServices',
                             '-lxacc-quantum-gate',
-                            '-lxacc-pauli', '-lpthread']
+                            '-lxacc-pauli', '-lpthread', '-lxacc-fermion']
     baseIncludes = ['-I', '@CMAKE_INSTALL_PREFIX@/include/xacc', '-I', '@CMAKE_INSTALL_PREFIX@/include/qcor', '-I', '@CMAKE_INSTALL_PREFIX@/include/quantum/gate']
     defaultFlags = ['-std=c++17', '-fplugin=@CMAKE_INSTALL_PREFIX@/clang-plugins/libqcor-syntax-handler.so']
 

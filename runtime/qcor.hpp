@@ -10,14 +10,12 @@
 #include <vector>
 
 #include "CompositeInstruction.hpp"
-#include "Observable.hpp"
 #include "Optimizer.hpp"
-
-#include "PauliOperator.hpp"
+#include "Observable.hpp"
 #include "qalloc"
-#include "xacc_internal_compiler.hpp"
-
 #include "qrt.hpp"
+#include "operator_algebra.hpp"
+#include "xacc_internal_compiler.hpp"
 
 namespace qcor {
 
@@ -26,46 +24,6 @@ using HeterogeneousMap = xacc::HeterogeneousMap;
 using Observable = xacc::Observable;
 using Optimizer = xacc::Optimizer;
 using CompositeInstruction = xacc::CompositeInstruction;
-using PauliOperator = xacc::quantum::PauliOperator;
-
-PauliOperator X(int idx) { return PauliOperator({{idx, "X"}}); }
-
-PauliOperator Y(int idx) { return PauliOperator({{idx, "Y"}}); }
-
-PauliOperator Z(int idx) { return PauliOperator({{idx, "Z"}}); }
-
-PauliOperator allZs(const int nQubits) {
-  auto ret = Z(0);
-  for (int i = 1; i < nQubits; i++) {
-    ret *= Z(i);
-  }
-  return ret;
-}
-
-template <typename T> PauliOperator operator+(T coeff, PauliOperator &op) {
-  return PauliOperator(coeff) + op;
-}
-template <typename T> PauliOperator operator+(PauliOperator &op, T coeff) {
-  return PauliOperator(coeff) + op;
-}
-
-template <typename T> PauliOperator operator-(T coeff, PauliOperator &op) {
-  return -1.0 * coeff + op;
-}
-
-template <typename T> PauliOperator operator-(PauliOperator &op, T coeff) {
-  return -1.0 * coeff + op;
-}
-
-PauliOperator SP(int idx) {
-  std::complex<double> imag(0.0, 1.0);
-  return X(idx) + imag * Y(idx);
-}
-
-PauliOperator SM(int idx) {
-  std::complex<double> imag(0.0, 1.0);
-  return X(idx) - imag * Y(idx);
-}
 
 class ResultsBuffer {
 public:
@@ -406,6 +364,8 @@ createOptimizer(const std::string &type, HeterogeneousMap &&options = {});
 // Create an observable from a string representation
 std::shared_ptr<Observable> createObservable(const std::string &repr);
 
+std::shared_ptr<Observable> createObservable(const std::string &type,
+                                             const std::string &repr);
 std::shared_ptr<ObjectiveFunction> createObjectiveFunction(
     const std::string &obj_name, std::shared_ptr<CompositeInstruction> kernel,
     std::shared_ptr<Observable> observable, HeterogeneousMap &&options = {}) {

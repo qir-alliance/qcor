@@ -2,12 +2,12 @@
 
 #include "Optimizer.hpp"
 
+#include "qalloc.hpp"
+#include "qrt.hpp"
 #include "xacc.hpp"
 #include "xacc_quantum_gate_api.hpp"
 #include "xacc_service.hpp"
-
-#include "qalloc.hpp"
-#include "qrt.hpp"
+#include <memory>
 
 namespace qcor {
 void set_verbose(bool verbose) { xacc::set_verbose(verbose); }
@@ -63,6 +63,7 @@ double observe(std::shared_ptr<CompositeInstruction> program, Observable &obs,
 }
 } // namespace __internal__
 
+
 std::shared_ptr<xacc::Optimizer> createOptimizer(const std::string &type,
                                                  HeterogeneousMap &&options) {
   if (!xacc::isInitialized())
@@ -74,6 +75,13 @@ std::shared_ptr<xacc::Observable> createObservable(const std::string &repr) {
   if (!xacc::isInitialized())
     xacc::internal_compiler::compiler_InitializeXACC();
   return xacc::quantum::getObservable("pauli", std::string(repr));
+}
+
+std::shared_ptr<Observable> createObservable(const std::string &type,
+                                             const std::string &repr) {
+  if (!xacc::isInitialized())
+    xacc::internal_compiler::compiler_InitializeXACC();
+  return xacc::quantum::getObservable(type, std::string(repr));
 }
 
 std::shared_ptr<xacc::CompositeInstruction> compile(const std::string &src) {
