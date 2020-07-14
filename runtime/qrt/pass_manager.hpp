@@ -34,8 +34,8 @@ public:
   // List of passes for level 1:
   // Ordered list of passes to be executed.
   // Can have duplicated entries (run multiple times).
-  static const constexpr char *const LEVEL1_PASSES[] = {
-      "rotation-folding", "circuit-optimizer", "swap-shortest-path"};
+  static const constexpr char *const LEVEL1_PASSES[] = {"rotation-folding",
+                                                        "circuit-optimizer"};
   // TODO: define other levels if neccesary:
   // e.g. could be looping those passes multiple times.
 private:
