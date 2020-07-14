@@ -103,7 +103,7 @@ namespace __internal__ {
 // !! TEMP CODE !!
 // This will eventually be parsed from the CLI
 #define __internal__qcor__compile__opt__level 1
-
+#define __internal__qcor__compile__opt__print__stats
 // This class gives us a way to
 // run some startup routine before
 // main(). Specifically we use it to ensure that
@@ -114,9 +114,13 @@ public:
   internal_startup() {
 #ifdef __internal__qcor__compile__backend
     quantum::initialize(__internal__qcor__compile__backend, "empty");
-#endif 
+#endif
 #ifdef __internal__qcor__compile__opt__level
-  xacc::internal_compiler::__opt_level = __internal__qcor__compile__opt__level;
+    xacc::internal_compiler::__opt_level =
+        __internal__qcor__compile__opt__level;
+#endif
+#ifdef __internal__qcor__compile__opt__print__stats
+    xacc::internal_compiler::__print_opt_stats = true;
 #endif
   }
 };

@@ -12,6 +12,7 @@ namespace xacc {
 namespace internal_compiler {
 // Extern vars:
 int __opt_level = 0;
+bool __print_opt_stats = false;
 std::vector<int> __controlledIdx = {};
 
 void simplified_qrt_call_one_qbit(const char *gate_name,
@@ -286,6 +287,12 @@ void exp(qreg q, const double theta, std::shared_ptr<xacc::Observable> H) {
 void submit(xacc::AcceleratorBuffer *buffer) {
   qcor::internal::PassManager passManager(__opt_level);
   const auto optData = passManager.optimize(program);
+  if (__print_opt_stats) {
+    // Prints out the Optimizer Stats if requested.
+    for (const auto &passData : optData) {
+      std::cout << passData.toString(false);
+    }
+  }
   xacc::internal_compiler::execute(buffer, program);
   clearProgram();
 }
