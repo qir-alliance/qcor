@@ -4,7 +4,6 @@
 #include "qcor.hpp"
 #include "qrt.hpp"
 #include <memory>
-// #include <xacc_internal_compiler.hpp>
 
 namespace qcor {
 static constexpr double pi = 3.141592653589793238;
