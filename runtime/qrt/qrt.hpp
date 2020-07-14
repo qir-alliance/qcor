@@ -104,6 +104,12 @@ namespace internal_compiler {
 // Current runtime controlled bit indices
 // (if the current kernel is wrapped in a Controlled block)
 extern std::vector<int> __controlledIdx;
+// Optimization level: parsed from command line input.
+// Convention: 
+// 0 : no optimization
+// 1 : standard optimization (within reasonable walltime limit)
+// 2 : extensive optimization (TBD)
+extern int __opt_level;
 
 void simplified_qrt_call_one_qbit(const char *gate_name,
                                   const char *buffer_name,

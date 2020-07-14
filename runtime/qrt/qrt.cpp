@@ -7,10 +7,12 @@
 #include <Eigen/Dense>
 #include <Utils.hpp>
 
-std::vector<int> xacc::internal_compiler::__controlledIdx = {};
-
 namespace xacc {
 namespace internal_compiler {
+// Extern vars:
+int __opt_level = 0;
+std::vector<int> __controlledIdx = {};
+
 void simplified_qrt_call_one_qbit(const char *gate_name,
                                   const char *buffer_name,
                                   const std::size_t idx) {
