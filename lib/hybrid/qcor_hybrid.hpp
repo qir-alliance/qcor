@@ -27,6 +27,8 @@ struct TranslationFunctorAutoGenerator {
   }
 };
 
+// Utility class to count the number of rotation 
+// angles in a parameterized circuit evaluation
 class CountRotationAngles {
 public:
   std::size_t &count;

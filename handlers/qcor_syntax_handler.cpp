@@ -15,7 +15,7 @@ namespace {
 
 bool qrt = false;
 std::string qpu_name = "qpp";
-int shots = 0;
+int shots = 1024;
 
 class QCORSyntaxHandler : public SyntaxHandler {
 public:
@@ -23,8 +23,6 @@ public:
 
   void GetReplacement(Preprocessor &PP, Declarator &D, CachedTokens &Toks,
                       llvm::raw_string_ostream &OS) override {
-
-    // FIXME need way to get backend name from user/command line
 
     // Get the Diagnostics engine and create a few custom
     // error messgaes
@@ -89,70 +87,121 @@ public:
 
     auto new_src = qcor::run_token_collector(PP, Toks, bufferNames);
 
-    OS << function_prototype << "{\n";
-
-    OS << "quantum::initialize(\"" << qpu_name << "\", \"" << kernel_name
-       << "\");\n";
-    for (auto &buf : bufferNames) {
-      OS << buf << ".setNameAndStore(\"" + buf + "\");\n";
+    // First re-write, forward declare a function
+    // we will implement further down
+    OS << "void __internal_call_function_" << kernel_name << "("
+       << program_arg_types[0];
+    for (int i = 1; i < program_arg_types.size(); i++) {
+      OS << ", " << program_arg_types[i];
     }
-
-    if (shots > 0) {
-      OS << "quantum::set_shots(" << shots << ");\n";
-    }
-    OS << new_src;
-    OS << "if (__execute) {\n";
-
-    if (bufferNames.size() > 1) {
-      OS << "xacc::AcceleratorBuffer * buffers[" << bufferNames.size()
-         << "] = {";
-      OS << bufferNames[0] << ".results()";
-      for (unsigned int k = 1; k < bufferNames.size(); k++) {
-        OS << ", " << bufferNames[k] << ".results()";
-      }
-      OS << "};\n";
-      OS << "std::cout << \"execing: \" << quantum::getProgram()->toString() "
-            "<< \"\\n\";\n";
-
-      OS << "quantum::submit(buffers," << bufferNames.size();
-    } else {
-      OS << "quantum::submit(" << bufferNames[0] << ".results()";
-    }
-
     OS << ");\n";
-    OS << "}";
-    OS << "\n}\n";
 
-    OS << "class " << kernel_name << "{\n";
-    OS << "public:\n";
-    OS << "static void adjoint(";
-    for (int i = 0; i < program_arg_types.size(); i++) {
-      if (i > 0) {
-        OS << ",";
-      }
-      auto arg_type = program_arg_types[i];
-      auto arg_var = program_parameters[i];
+    // Call that forward declared function with the function args
+    OS << "__internal_call_function_" << kernel_name << "("
+       << program_parameters[0];
+    for (int i = 1; i < program_parameters.size(); i++) {
+      OS << ", " << program_parameters[i];
+    }
+    OS << ");\n";
 
-      OS << arg_type << " " << arg_var;
+    // Close the transformed function
+    OS << "}\n";
+
+    // Declare the QuantumKernel subclass
+    OS << "class " << kernel_name << " : public qcor::QuantumKernel<class "
+       << kernel_name << ", " << program_arg_types[0];
+    for (int i = 1; i < program_arg_types.size(); i++) {
+      OS << ", " << program_arg_types[i];
+    }
+    OS << "> {\n";
+
+    // declare the super-type as a friend
+    OS << "friend class qcor::QuantumKernel<class " << kernel_name << ", "
+       << program_arg_types[0];
+    for (int i = 1; i < program_arg_types.size(); i++) {
+      OS << ", " << program_arg_types[i];
+    }
+    OS << ">;\n";
+
+    // declare protected operator()() method
+    OS << "protected:\n";
+    OS << "void operator()(" << program_arg_types[0] << " "
+       << program_parameters[0];
+    for (int i = 1; i < program_arg_types.size(); i++) {
+      OS << ", " << program_arg_types[i] << " " << program_parameters[i];
     }
     OS << ") {\n";
+    OS << "if (!parent_kernel) {\n";
+    OS << "parent_kernel = "
+          "qcor::__internal__::create_composite(kernel_name);\n";
+    OS << "// q.setNameAndStore();\n";
+    OS << "}\n";
+    OS << "quantum::set_current_program(parent_kernel);\n";
+    OS << new_src << "\n";
+    OS << "}\n";
 
-    OS << "quantum::initialize(\"" << qpu_name << "\", \"" << kernel_name
-       << "\");\n";
-    for (auto &buf : bufferNames) {
-      OS << buf << ".setNameAndStore(\"" + buf + "\");\n";
+    // declare public members, methods, constructors
+    OS << "public:\n";
+    OS << "inline static const std::string kernel_name = \"" << kernel_name
+       << "\";\n";
+
+    // First constructor, default one KERNEL_NAME(Args...);
+    OS << kernel_name << "(" << program_arg_types[0] << " "
+       << program_parameters[0];
+    for (int i = 1; i < program_arg_types.size(); i++) {
+      OS << ", " << program_arg_types[i] << " " << program_parameters[i];
     }
-
-    if (shots > 0) {
-      OS << "quantum::set_shots(" << shots << ");\n";
+    OS << "): QuantumKernel<" << kernel_name << ", " << program_arg_types[0];
+    for (int i = 1; i < program_arg_types.size(); i++) {
+      OS << ", " << program_arg_types[i];
     }
+    OS << "> (" << program_parameters[0];
+    for (int i = 1; i < program_parameters.size(); i++) {
+      OS << ", " << program_parameters[i];
+    }
+    OS << ") {}\n";
 
-    OS << new_src;
+    // Second constructor, takes parent CompositeInstruction
+    // KERNEL_NAME(CompositeInstruction, Args...)
+    OS << kernel_name
+       << "(std::shared_ptr<qcor::CompositeInstruction> _parent, "
+       << program_arg_types[0] << " " << program_parameters[0];
+    for (int i = 1; i < program_arg_types.size(); i++) {
+      OS << ", " << program_arg_types[i] << " " << program_parameters[i];
+    }
+    OS << "): QuantumKernel<" << kernel_name << ", " << program_arg_types[0];
+    for (int i = 1; i < program_arg_types.size(); i++) {
+      OS << ", " << program_arg_types[i];
+    }
+    OS << "> (_parent, " << program_parameters[0];
+    for (int i = 1; i < program_parameters.size(); i++) {
+      OS << ", " << program_parameters[i];
+    }
+    OS << ") {}\n";
 
-    OS << "quantum::adjoint();\n";
+    // Third constructor, nullary constructor
+    OS << kernel_name << "() : QuantumKernel<" << kernel_name << ", "
+       << program_arg_types[0];
+    for (int i = 1; i < program_arg_types.size(); i++) {
+      OS << ", " << program_arg_types[i];
+    }
+    OS << ">() {}\n";
 
-    OS << "if (__execute) {\n";
-
+    // Destructor definition
+    OS << "virtual ~" << kernel_name << "() {\n";
+    OS << "if (disable_destructor) {return;}\n";
+    OS << "quantum::set_backend(\"" << qpu_name << "\", " << shots << ");\n";
+    OS << "auto [" << program_parameters[0];
+    for (int i = 1; i < program_parameters.size(); i++) {
+      OS << ", " << program_parameters[i];
+    }
+    OS << "] = args_tuple;\n";
+    OS << "operator()(" << program_parameters[0];
+    for (int i = 1; i < program_parameters.size(); i++) {
+      OS << ", " << program_parameters[i];
+    }
+    OS << ");\n";
+    OS << "if (is_callable) {\n";
     if (bufferNames.size() > 1) {
       OS << "xacc::AcceleratorBuffer * buffers[" << bufferNames.size()
          << "] = {";
@@ -168,11 +217,40 @@ public:
 
     OS << ");\n";
     OS << "}\n";
-
-    // close adjoint()
     OS << "}\n";
-    // close class
-    OS << "};";
+
+    // close the quantum kernel subclass
+    OS << "};\n";
+
+    // Add a function with the kernel_name that takes
+    // a parent CompositeInstruction as its first arg
+    OS << "void " << kernel_name
+       << "(std::shared_ptr<qcor::CompositeInstruction> parent, "
+       << program_arg_types[0] << " " << program_parameters[0];
+    for (int i = 1; i < program_arg_types.size(); i++) {
+      OS << ", " << program_arg_types[i] << " " << program_parameters[i];
+    }
+    OS << ") {\n";
+    OS << "class " << kernel_name << " k(parent, " << program_parameters[0];
+    for (int i = 1; i < program_parameters.size(); i++) {
+      OS << ", " << program_parameters[i];
+    }
+    OS << ");\n";
+    OS << "}\n";
+
+    // Declare the previous forward declaration
+    OS << "void __internal_call_function_" << kernel_name << "("
+       << program_arg_types[0] << " " << program_parameters[0];
+    for (int i = 1; i < program_arg_types.size(); i++) {
+      OS << ", " << program_arg_types[i] << " " << program_parameters[i];
+    }
+    OS << ") {\n";
+    OS << "class " << kernel_name << " k(" << program_parameters[0];
+    for (int i = 1; i < program_parameters.size(); i++) {
+      OS << ", " << program_parameters[i];
+    }
+    OS << ");\n";
+    OS << "}\n";
 
     auto s = OS.str();
     qcor::info("[qcor syntax-handler] Rewriting " + kernel_name + " to\n\n" +
@@ -180,10 +258,9 @@ public:
   }
 
   void AddToPredefines(llvm::raw_string_ostream &OS) override {
-    OS << "#include \"qrt.hpp\"\n";
+    OS << "#include \"qcor.hpp\"\n";
 
-    OS << "#include \"xacc_internal_compiler.hpp\"\nusing namespace "
-          "xacc::internal_compiler;\n";
+    OS << "using namespace xacc::internal_compiler;\n";
   }
 };
 
@@ -259,7 +336,8 @@ public:
 //             instructions.cbegin(), instructions.cend(),
 //             [](const auto &inst) { return inst->name() != "Measure"; })) {
 //       xacc::error(
-//           "Unable to create Adjoint for kernels that have Measure operations.");
+//           "Unable to create Adjoint for kernels that have Measure
+//           operations.");
 //     }
 //     std::reverse(instructions.begin(), instructions.end());
 //     for (const auto &inst : instructions) {
@@ -297,7 +375,8 @@ public:
 //   // kernelFuncClass(abc).adjoint();
 //   // -> DTor of the Adjoint instance called here (m_usedAsCallable = true)
 //   // hence adding the adjoint body to the global composite.
-//   // -> DTor of the kernelFuncClass(abc) instance called here (m_usedAsCallable
+//   // -> DTor of the kernelFuncClass(abc) instance called here
+//   (m_usedAsCallable
 //   // = false) hence having no effect.
 //   // ... code ...
 //   virtual ~KernelBase() {
@@ -313,9 +392,12 @@ public:
 // protected:
 //   // Copy ctor:
 //   // Deep copy of the CompositeInstruction to prevent dangling references.
-//   KernelBase(KernelBase *other, const std::string &in_optional_newName = "") {
-//     const auto kernelName = in_optional_newName.empty() ? other->m_body->name()
-//                                                         : in_optional_newName;
+//   KernelBase(KernelBase *other, const std::string &in_optional_newName = "")
+//   {
+//     const auto kernelName = in_optional_newName.empty() ?
+//     other->m_body->name()
+//                                                         :
+//                                                         in_optional_newName;
 //     auto provider = xacc::getIRProvider("quantum");
 //     m_body = provider->createComposite(kernelName);
 //     for (const auto &inst : other->m_body->getInstructions()) {
@@ -332,7 +414,8 @@ public:
 //   // kernelFuncClass(qubitReg).adjoint(); => FALSE (on the original
 //   // kernelFuncClass instance) but TRUE for the one returned by the adjoint()
 //   // member function. This will allow arbitrary chaining: e.g.
-//   // kernelFuncClass(qubitReg).adjoint().ctrl(k); only the last kernel returned
+//   // kernelFuncClass(qubitReg).adjoint().ctrl(k); only the last kernel
+//   returned
 //   // by ctrl() will be the *Callable*;
 //   bool m_usedAsCallable;
 //   // The XACC composite instruction described by this kernel body:
@@ -382,7 +465,8 @@ public:
 // // returning *void* to returing *KernelBase*,
 // // i.e. we need to be able to rewrite:
 // // "__qpu__ void" ==> "__qpu__ KernelBase" (__qpu__ is handled by the
-// // pre-processor) Possibility: the *qcor* script to do that before calling clang
+// // pre-processor) Possibility: the *qcor* script to do that before calling
+// clang
 // // ??
 // //////////////////////////////////////////////////
 // // TEST kernel-in-kernel

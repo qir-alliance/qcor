@@ -7,9 +7,11 @@
 
 namespace qcor {
 
+// Remap xacc types to qcor ones
 using Observable = xacc::Observable;
 using PauliOperator = xacc::quantum::PauliOperator;
 
+// Convenience functions for constructing Pauli operators
 PauliOperator X(int idx);
 PauliOperator Y(int idx);
 PauliOperator Z(int idx);
@@ -17,6 +19,7 @@ PauliOperator SP(int idx);
 PauliOperator SM(int idx);
 PauliOperator allZs(const int nQubits);
  
+// Expose extra algebra needed for pauli operators
 template <typename T> PauliOperator operator+(T coeff, PauliOperator &op) {
   return PauliOperator(coeff) + op;
 }
@@ -52,6 +55,7 @@ auto observe(QuantumKernel &kernel, std::shared_ptr<Observable> obs,
   }(args...);
 }
 
+// Public observe function, returns expected value of Observable
 template <typename QuantumKernel, typename... Args>
 auto observe(QuantumKernel &kernel, Observable &obs, Args... args) {
   auto program = __internal__::kernel_as_composite_instruction(kernel, args...);

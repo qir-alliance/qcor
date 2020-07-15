@@ -17,13 +17,13 @@ std::shared_ptr<ObjectiveFunction> get_objective(const std::string &type);
 // The ObjectiveFunction represents a functor-like data structure that
 // models a general parameterized scalar function. It is initialized with a
 // problem-specific Observable and Quantum Kernel, and exposes a method for
-// evaluation, given a list or array of scalar parameters.
+// evaluation, given a sequence of general function arguments.
 // Implementations of this concept are problem-specific, and leverage the
 // observe() functionality of the provided Observable to produce one or many
 // measured Kernels that are then queued for execution on the available quantum
-// co-processor, given the current value of the input parameters. The results of
+// co-processor, given the current value of the input arguments. The results of
 // these quantum executions are to be used by the ObjectiveFunction to return a
-// list of scalar values, representing the evaluation of the ObjectiveFunction
+// scalar value (double), representing the evaluation of the ObjectiveFunction
 // at the given set of input parameters. Furthermore, the ObjectiveFunction has
 // access to a global ResultBuffer that it uses to publish execution results at
 // the current input parameters
@@ -43,9 +43,17 @@ protected:
 
   // The buffer containing all execution results
   xacc::internal_compiler::qreg qreg;
+
+  // Bool to indicate if this ObjectiveFunction 
+  // was initialized with a CompositeInstruction
+  // and not a functor
   bool kernel_is_xacc_composite = false;
 
+  // Reference to any extra options for objective function 
+  // execution
   HeterogeneousMap options;
+
+  // Reference to the current iteration's parameters
   std::vector<double> current_iterate_parameters;
 
   // To be implemented by subclasses. Subclasses
@@ -79,6 +87,7 @@ public:
     pointer_to_functor = qk;
   }
 
+  // Set any extra options needed for the objective function
   void set_options(HeterogeneousMap &opts) { options = opts; }
 
   // Set the results buffer
@@ -105,33 +114,41 @@ public:
     if (kernel_is_xacc_composite) {
       kernel->updateRuntimeArguments(args...);
     } else {
-      // create a temporary
+      // create a temporary with name given by mem_location_qkernel
       std::stringstream name_ss;
       name_ss << this << "_qkernel";
       kernel = qcor::__internal__::create_composite(name_ss.str());
+
+      // Run the functor, this will add 
+      // all quantum instructions to the parent kernel
       functor(kernel, args...);
 
+      // Set the current iteration parameters
       current_iterate_parameters.clear();
       __internal__::ConvertDoubleLikeToVectorDouble convert(
           current_iterate_parameters);
       __internal__::tuple_for_each(std::make_tuple(args...), convert);
     }
+
+    // Run the subclass operator()() method
     return operator()();
   }
 };
 
+// Create an ObjectiveFunction of given name, with a CompositeInstruction 
+// and a shared_ptr to an Observable. 
 std::shared_ptr<ObjectiveFunction> createObjectiveFunction(
     const std::string &obj_name, std::shared_ptr<CompositeInstruction> kernel,
     std::shared_ptr<Observable> observable, HeterogeneousMap &&options = {});
 
+// Create an ObjectiveFunction of given name, with a CompositeInstruction 
+// and a reference to an Observable. 
 std::shared_ptr<ObjectiveFunction> createObjectiveFunction(
     const std::string &obj_name, std::shared_ptr<CompositeInstruction> kernel,
     Observable &observable, HeterogeneousMap &&options = {});
 
-// Create an Objective Function that makes calls to the
-// provided Quantum Kernel, with measurements dictated by
-// the provided Observable. Optionally can provide problem-specific
-// options map.
+// Create an ObjectiveFunction of given name, with a quantum kernel functor 
+// and a shared_ptr to an Observable. 
 template <typename... Args>
 std::shared_ptr<ObjectiveFunction> createObjectiveFunction(
     const std::string &obj_name,
@@ -147,10 +164,8 @@ std::shared_ptr<ObjectiveFunction> createObjectiveFunction(
   return obj_func;
 }
 
-// This method takes as input a functor with a signature
-// that takes a CompositeInstruction as the first input argument,
-// followed by other arguments that feed into the creation of the
-// quantum kernel.
+// Create an ObjectiveFunction of given name, with a quantum kernel functor 
+// and a reference to an Observable. 
 template <typename... Args>
 std::shared_ptr<ObjectiveFunction> createObjectiveFunction(
     const std::string &obj_name,
