@@ -100,10 +100,6 @@ using GradientEvaluator =
     std::function<void(std::vector<double> x, std::vector<double> &dx)>;
 
 namespace __internal__ {
-// !! TEMP CODE !!
-// This will eventually be parsed from the CLI
-#define __internal__qcor__compile__opt__level 1
-#define __internal__qcor__compile__opt__print__stats
 // This class gives us a way to
 // run some startup routine before
 // main(). Specifically we use it to ensure that
