@@ -27,7 +27,7 @@ struct TranslationFunctorAutoGenerator {
   }
 };
 
-// Utility class to count the number of rotation 
+// Utility class to count the number of rotation
 // angles in a parameterized circuit evaluation
 class CountRotationAngles {
 public:
@@ -46,7 +46,8 @@ public:
 // easily construct the VQE task given an parameterized
 // qcor quantum kernel and the Hamiltonian / Observable of
 // interest
-template <typename QuantumKernel> class VQE {
+template <typename... KernelArgs> class VQE {
+
 protected:
   inline static const std::string OBJECTIVE_NAME = "vqe";
   inline static const std::string OPTIMIZER_INIT_PARAMS = "initial-parameters";
@@ -54,7 +55,7 @@ protected:
 
   // Reference to the paramerized
   // quantum kernel functor
-  QuantumKernel &ansatz;
+  void *ansatz_ptr;
 
   // Reference to the Hamiltonian / Observable,
   // will dictate measurements on the kernel
@@ -85,14 +86,20 @@ public:
       std::vector<std::pair<double, std::vector<double>>>;
 
   // Constructor
-  VQE(QuantumKernel &kernel, Observable &obs)
-      : ansatz(kernel), observable(obs) {
+  VQE(void (*quantum_kernel_functor)(std::shared_ptr<CompositeInstruction>,
+                                     qreg, KernelArgs...),
+      Observable &obs)
+      : ansatz_ptr(reinterpret_cast<void *>(quantum_kernel_functor)),
+        observable(obs) {
     q = qalloc(obs.nBits());
   }
 
   // Constructor, with gradient evaluator specification
-  VQE(QuantumKernel &kernel, Observable &obs, GradientEvaluator &geval)
-      : ansatz(kernel), observable(obs), grad_eval(geval) {
+  VQE(void (*quantum_kernel_functor)(std::shared_ptr<CompositeInstruction>,
+                                     qreg, KernelArgs...),
+      Observable &obs, GradientEvaluator &geval)
+      : ansatz_ptr(reinterpret_cast<void *>(quantum_kernel_functor)),
+        observable(obs), grad_eval(geval) {
     q = qalloc(obs.nBits());
   }
 
@@ -100,8 +107,11 @@ public:
   // template type that we store to the protected any member
   // and cast later
   template <typename TranslationFunctorT>
-  VQE(QuantumKernel &kernel, Observable &obs, TranslationFunctorT &&tfunc)
-      : ansatz(kernel), observable(obs), translation_functor(tfunc) {
+  VQE(void (*quantum_kernel_functor)(std::shared_ptr<CompositeInstruction>,
+                                     qreg, KernelArgs...),
+      Observable &obs, TranslationFunctorT &&tfunc)
+      : ansatz_ptr(reinterpret_cast<void *>(quantum_kernel_functor)),
+        observable(obs), translation_functor(tfunc) {
     q = qalloc(obs.nBits());
   }
 
@@ -109,41 +119,47 @@ public:
   // template type that we store to the protected any member
   // and cast later. Also takes gradient evaluator
   template <typename TranslationFunctorT>
-  VQE(QuantumKernel &kernel, Observable &obs, GradientEvaluator &geval,
-      TranslationFunctorT &&tfunc)
-      : ansatz(kernel), observable(obs), translation_functor(tfunc),
-        grad_eval(geval) {
+  VQE(void (*quantum_kernel_functor)(std::shared_ptr<CompositeInstruction>,
+                                     qreg, KernelArgs...),
+      Observable &obs, GradientEvaluator &geval, TranslationFunctorT &&tfunc)
+      : ansatz_ptr(reinterpret_cast<void *>(quantum_kernel_functor)),
+        observable(obs), translation_functor(tfunc), grad_eval(geval) {
     q = qalloc(obs.nBits());
   }
 
   // Execute the VQE task synchronously, assumes default optimizer
-  template <typename... Args> VQEResultType execute(Args... initial_params) {
+  VQEResultType execute(KernelArgs... initial_params) {
     auto optimizer = qcor::createOptimizer(DEFAULT_OPTIMIZER);
-    auto handle = execute_async<Args...>(optimizer, initial_params...);
+    auto handle = execute_async(optimizer, initial_params...);
     return this->sync(handle);
   }
 
   // Execute the VQE task asynchronously, default optimizer
-  template <typename... Args> Handle execute_async(Args... initial_params) {
+  Handle execute_async(KernelArgs... initial_params) {
     auto optimizer = qcor::createOptimizer(DEFAULT_OPTIMIZER);
-    return execute_async<Args...>(optimizer, initial_params...);
+    return execute_async(optimizer, initial_params...);
   }
 
   // Execute the VQE task synchronously, use provided Optimizer
-  template <typename... Args>
+  //   template <typename... Args>
   VQEResultType execute(std::shared_ptr<Optimizer> optimizer,
-                        Args... initial_params) {
-    auto handle = execute_async<Args...>(optimizer, initial_params...);
+                        KernelArgs... initial_params) {
+    auto handle = execute_async(optimizer, initial_params...);
     return this->sync(handle);
   }
 
   // Execute the VQE task asynchronously, use provided Optimizer
-  template <typename... Args>
+  //   template <typename... Args>
   Handle execute_async(std::shared_ptr<Optimizer> optimizer,
-                       Args... initial_params) {
+                       KernelArgs... initial_params) {
+
+    auto ansatz_casted =
+        reinterpret_cast<void (*)(std::shared_ptr<CompositeInstruction>, qreg,
+                                  KernelArgs...)>(ansatz_ptr);
+
     // Get the VQE ObjectiveFunction and set the qreg
-    auto objective =
-        qcor::createObjectiveFunction(OBJECTIVE_NAME, ansatz, observable);
+    auto objective = qcor::createObjectiveFunction(OBJECTIVE_NAME,
+                                                   ansatz_casted, observable);
     objective->set_qreg(q);
 
     // Convert input args to a tuple
@@ -157,13 +173,13 @@ public:
     optimizer->appendOption(OPTIMIZER_INIT_PARAMS, init_params);
 
     // Create the Arg Translator
-    TranslationFunctor<qreg, Args...> arg_translator;
+    TranslationFunctor<qreg, KernelArgs...> arg_translator;
     if (translation_functor.has_value()) {
-      arg_translator =
-          std::any_cast<TranslationFunctor<qreg, Args...>>(translation_functor);
+      arg_translator = std::any_cast<TranslationFunctor<qreg, KernelArgs...>>(
+          translation_functor);
     } else {
       __internal__::TranslationFunctorAutoGenerator auto_gen;
-      arg_translator = auto_gen(q, std::tuple<Args...>());
+      arg_translator = auto_gen(q, std::tuple<KernelArgs...>());
     }
 
     // Count all rotation angles (n parameters)
