@@ -15,7 +15,7 @@ namespace {
 
 bool qrt = false;
 std::string qpu_name = "qpp";
-int shots = 1024;
+int shots = 0;
 
 class QCORSyntaxHandler : public SyntaxHandler {
 public:
@@ -46,45 +46,34 @@ public:
     const DeclaratorChunk::FunctionTypeInfo &FTI = D.getFunctionTypeInfo();
     std::string kernel_name = D.getName().Identifier->getName().str();
 
-    std::string function_prototype = "void " + kernel_name + "(";
     // Loop over the function arguments and get the
     // buffer name and any program parameter doubles.
     std::vector<std::string> program_parameters, program_arg_types;
     std::vector<std::string> bufferNames;
     for (unsigned int ii = 0; ii < FTI.NumParams; ii++) {
-      if (ii > 0) {
-        function_prototype += ", ";
-      }
-
       auto &paramInfo = FTI.Params[ii];
       Token IdentToken, TypeToken;
       auto ident = paramInfo.Ident;
       auto &decl = paramInfo.Param;
+      auto parm_var_decl = cast<ParmVarDecl>(decl);
       PP.getRawToken(paramInfo.IdentLoc, IdentToken);
       PP.getRawToken(decl->getBeginLoc(), TypeToken);
 
-      auto type = PP.getSpelling(TypeToken);
+      auto type = QualType::getAsString(parm_var_decl->getType().split(),
+                                        PrintingPolicy{{}});
       auto var = PP.getSpelling(IdentToken);
 
-      function_prototype += type + " " + var;
-
+      if (type == "class xacc::internal_compiler::qreg") {
+        bufferNames.push_back(ident->getName().str());
+        type = "qreg";
+      }
       program_arg_types.push_back(type);
       program_parameters.push_back(var);
-
-      auto parm_var_decl = cast<ParmVarDecl>(decl);
-
-      if (parm_var_decl &&
-          QualType::getAsString(parm_var_decl->getType().split(),
-                                PrintingPolicy{{}}) ==
-              "class xacc::internal_compiler::qreg") {
-        bufferNames.push_back(ident->getName().str());
-      }
     }
-    function_prototype += ")";
 
     // Get Tokens as a string, rewrite code
     // with XACC api calls
-
+    qcor::append_kernel(kernel_name);
     auto new_src = qcor::run_token_collector(PP, Toks, bufferNames);
 
     // First re-write, forward declare a function
@@ -179,18 +168,14 @@ public:
     }
     OS << ") {}\n";
 
-    // Third constructor, nullary constructor
-    OS << kernel_name << "() : QuantumKernel<" << kernel_name << ", "
-       << program_arg_types[0];
-    for (int i = 1; i < program_arg_types.size(); i++) {
-      OS << ", " << program_arg_types[i];
-    }
-    OS << ">() {}\n";
-
     // Destructor definition
     OS << "virtual ~" << kernel_name << "() {\n";
     OS << "if (disable_destructor) {return;}\n";
-    OS << "quantum::set_backend(\"" << qpu_name << "\", " << shots << ");\n";
+    if (shots > 0) {
+      OS << "quantum::set_backend(\"" << qpu_name << "\", " << shots << ");\n";
+    } else {
+      OS << "quantum::set_backend(\"" << qpu_name << "\");\n";
+    }
     OS << "auto [" << program_parameters[0];
     for (int i = 1; i < program_parameters.size(); i++) {
       OS << ", " << program_parameters[i];

@@ -38,6 +38,8 @@ void simplified_qrt_call_two_qbits(const char *gate_name,
 namespace quantum {
 std::shared_ptr<xacc::CompositeInstruction> program = nullptr;
 std::shared_ptr<xacc::IRProvider> provider = nullptr;
+std::vector<std::string> kernels_in_translation_unit = {};
+
 // We only allow *single* quantum entry point,
 // i.e. a master quantum kernel which is invoked from classical code.
 // Multiple kernels can be defined to be used inside the *entry-point* kernel.
@@ -61,6 +63,11 @@ void set_backend(std::string accelerator_name, const int shots) {
   provider = xacc::getIRProvider("quantum");
 
   set_shots(shots);
+}
+
+void set_backend(std::string accelerator_name) {
+  xacc::internal_compiler::compiler_InitializeXACC(accelerator_name.c_str());
+  provider = xacc::getIRProvider("quantum");
 }
 
 void set_shots(int shots) {

@@ -1,4 +1,3 @@
-#include "qcor.hpp"
 
 __qpu__ void ansatz(qreg q, double theta) {
   X(q[0]);

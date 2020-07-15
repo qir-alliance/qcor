@@ -84,6 +84,7 @@ kernel_as_composite_instruction(QuantumKernel &k, Args... args) {
 // Internal function for creating a CompositeInstruction, this lets us 
 // keep XACC out of the include headers here and put it in the cpp.
 std::shared_ptr<qcor::CompositeInstruction> create_composite(std::string name);
+std::shared_ptr<qcor::CompositeInstruction> create_ctrl_u();
 
 // Utility for calling a Functor via mapping a tuple of Args to 
 // a sequence of Args... 

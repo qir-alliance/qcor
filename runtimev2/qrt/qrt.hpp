@@ -39,10 +39,12 @@ namespace quantum {
 
 extern std::shared_ptr<xacc::CompositeInstruction> program;
 extern std::shared_ptr<xacc::IRProvider> provider;
+extern std::vector<std::string> kernels_in_translation_unit;
 
 void initialize(const std::string qpu_name, const std::string kernel_name);
 void set_shots(int shots);
-void set_backend(std::string accelerator_name, const int shots = 1024);
+void set_backend(std::string accelerator_name);
+void set_backend(std::string accelerator_name, const int shots);
 void one_qubit_inst(const std::string &name, const qubit &qidx,
                     std::vector<double> parameters = {});
 void two_qubit_inst(const std::string &name, const qubit &qidx1,

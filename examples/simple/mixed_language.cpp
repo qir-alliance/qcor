@@ -1,4 +1,3 @@
-#include <qalloc>
 
 // Define a multi-register kernel
 __qpu__ void bell_multi(qreg q, qreg r) {

@@ -41,31 +41,35 @@ protected:
   // turn this to false
   bool is_callable = true;
 
-  // Turn off destructor execution, useful for 
+  // Turn off destructor execution, useful for
   // qcor developers, not to be used by clients / programmers
   bool disable_destructor = false;
 
 public:
   // Default constructor, takes quantum kernel function arguments
-  QuantumKernel(Args... args) : args_tuple(std::make_tuple(args...)) {}
+  QuantumKernel(Args... args) : args_tuple(std::forward_as_tuple(args...)) {}
 
   // Internal constructor, provide parent kernel, this
   // kernel now represents a nested kernel call and
   // appends to the parent kernel
   QuantumKernel(std::shared_ptr<qcor::CompositeInstruction> _parent_kernel,
                 Args... args)
-      : args_tuple(std::make_tuple(args...)), parent_kernel(_parent_kernel),
-        is_callable(false) {}
+      : args_tuple(std::forward_as_tuple(args...)),
+        parent_kernel(_parent_kernel), is_callable(false) {}
 
-  // Nullary constructor, should not be callable
-  QuantumKernel() : is_callable(false) {}
+  static void print_kernel(std::ostream &os, Args... args) {
+    Derived derived(args...);
+    derived.disable_destructor = true;
+    derived(args...);
+    os << derived.parent_kernel->toString() << "\n";
+  }
 
   // Create the Adjoint of this quantum kernel
   static void adjoint(std::shared_ptr<CompositeInstruction> parent_kernel,
                       Args... args) {
 
     // instantiate and don't let it call the destructor
-    Derived derived;
+    Derived derived(args...);
     derived.disable_destructor = true;
 
     // run the operator()(args...) call to get the parent_kernel
@@ -90,6 +94,9 @@ public:
         inst->setParameter(0, -inst->getParameter(0).template as<double>());
       }
       // TODO: Handles T and S gates, etc... => T -> Tdg
+      else if (inst->name() == "T") {
+          
+      }
     }
 
     // add the instructions to the current parent kernel
@@ -100,21 +107,30 @@ public:
 
   // Create the controlled version of this quantum kernel
   static void ctrl(std::shared_ptr<CompositeInstruction> parent_kernel,
-                   size_t ctrlIdx, Args... args) {
+                   int ctrlIdx, Args... args) {
     // instantiate and don't let it call the destructor
-    Derived derived;
+    Derived derived(args...);
     derived.disable_destructor = true;
 
-    // run the operator()(args...) call to get the parent_kernel
+    // run the operator()(args...) call to get the the functor
+    // as a CompositeInstruction (derived.parent_kernel)
     derived(args...);
 
-    // get the instructions
-    auto instructions = derived.parent_kernel->getInstructions();
-
     // Use the controlled gate module of XACC to transform
-    // controlledKernel.m_body
-    // auto ctrlKernel = quantum::controlledKernel(derived.parent_kernel,
-    // ctrlIdx);
+    auto tempKernel = qcor::__internal__::create_composite("temp_control");
+    tempKernel->addInstruction(derived.parent_kernel);
+
+    auto ctrlKernel = qcor::__internal__::create_ctrl_u();
+    ctrlKernel->expand({
+        std::make_pair("U", tempKernel),
+        std::make_pair("control-idx", ctrlIdx),
+    });
+
+    // std::cout << "HELLO\n" << ctrlKernel->toString() << "\n";
+    for (int instId = 0; instId < ctrlKernel->nInstructions(); ++instId) {
+      parent_kernel->addInstruction(
+          ctrlKernel->getInstruction(instId)->clone());
+    }
   }
   virtual ~QuantumKernel() {}
 };

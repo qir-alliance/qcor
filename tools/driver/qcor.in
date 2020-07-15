@@ -67,7 +67,6 @@ def main(argv=None):
         shots = sys.argv[sidx+1]
         sys.argv.remove(shots)
         sys.argv.remove('-shots')
-        hidden_cache_file.write(compile_id + ','+ shots + '\n')
         sHandlerArgs += ['-Xclang', '-plugin-arg-qcor-args', '-Xclang', '-shots', '-Xclang', '-plugin-arg-qcor-args', '-Xclang', shots]
 
     if verbose:

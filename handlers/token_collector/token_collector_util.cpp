@@ -2,16 +2,21 @@
 #include "token_collector.hpp"
 #include "xacc.hpp"
 #include "xacc_service.hpp"
+
 #include <limits>
 #include <qalloc>
 
 #include "qrt_mapper.hpp"
+#include "qrt.hpp"
 
 #include "clang/Basic/TokenKinds.h"
 #include "clang/Lex/Token.h"
 #include "clang/Sema/DeclSpec.h"
 
 namespace qcor {
+void append_kernel(const std::string name) {
+  ::quantum::kernels_in_translation_unit.push_back(name);
+}
 
 void set_verbose(bool verbose) { xacc::set_verbose(verbose); }
 void info(const std::string &s) { xacc::info(s); }

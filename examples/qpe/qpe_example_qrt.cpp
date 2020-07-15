@@ -1,8 +1,7 @@
-#include "qcor.hpp"
 // Use the pre-defined IQFT kernel
 #include "qft.hpp"
 
-using namespace qcor;
+// using namespace qcor;
 
 // The Oracle: T gate
 __qpu__ void compositeOp(qreg q) {
@@ -40,7 +39,7 @@ __qpu__ void QuantumPhaseEstimation(qreg q) {
     for (int j = 0; j < nbCalls; ++j) {
       int ctlBit = i;
       // Controlled-Oracle
-      Controlled::Apply(ctlBit, compositeOp, q);
+      compositeOp::ctrl(ctlBit, q);
     }
   }
 
@@ -62,5 +61,4 @@ int main(int argc, char **argv) {
   // dump the results
   // EXPECTED: only "100" bitstring
   q.print();
-  qcor::print_kernel(std::cout, QuantumPhaseEstimation, q);
 }

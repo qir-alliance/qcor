@@ -5,12 +5,12 @@ add_library(${LIBRARY_NAME}
             token_collector_util.cpp)
 
 target_include_directories(${LIBRARY_NAME}
-                           PUBLIC . ${CMAKE_SOURCE_DIR}/runtime/qrt
+                           PUBLIC . 
                                   ${CLANG_INCLUDE_DIRS}
                                   ${LLVM_INCLUDE_DIRS})
 
 target_link_libraries(${LIBRARY_NAME}
-                      PRIVATE ${CLANG_LIBS} ${LLVM_LIBS} xacc::xacc xacc::quantum_gate)
+                      PRIVATE ${CLANG_LIBS} ${LLVM_LIBS} xacc::xacc xacc::quantum_gate qrt)
 
 if(APPLE)
   set_target_properties(${LIBRARY_NAME}

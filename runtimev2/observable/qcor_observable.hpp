@@ -18,7 +18,7 @@ PauliOperator Z(int idx);
 PauliOperator SP(int idx);
 PauliOperator SM(int idx);
 PauliOperator allZs(const int nQubits);
- 
+
 // Expose extra algebra needed for pauli operators
 template <typename T> PauliOperator operator+(T coeff, PauliOperator &op) {
   return PauliOperator(coeff) + op;
@@ -36,10 +36,18 @@ template <typename T> PauliOperator operator-(PauliOperator &op, T coeff) {
 }
 
 // Public observe function, returns expected value of Observable
-template <typename QuantumKernel, typename... Args>
-auto observe(QuantumKernel &kernel, std::shared_ptr<Observable> obs,
-             Args... args) {
-  auto program = __internal__::kernel_as_composite_instruction(kernel, args...);
+template <typename... Args>
+auto observe(void (*quantum_kernel_functor)(
+                 std::shared_ptr<CompositeInstruction>, Args...),
+             std::shared_ptr<Observable> obs, Args... args) {
+  // create a temporary with name given by mem_location_qkernel
+  std::stringstream name_ss;
+  name_ss << "observe_qkernel";
+  auto program = qcor::__internal__::create_composite(name_ss.str());
+
+  // Run the functor, this will add
+  // all quantum instructions to the parent kernel
+  quantum_kernel_functor(program, args...);
   return [program, obs](Args... args) {
     // Get the first argument, which should be a qreg
     auto q = std::get<0>(std::forward_as_tuple(args...));
@@ -56,9 +64,18 @@ auto observe(QuantumKernel &kernel, std::shared_ptr<Observable> obs,
 }
 
 // Public observe function, returns expected value of Observable
-template <typename QuantumKernel, typename... Args>
-auto observe(QuantumKernel &kernel, Observable &obs, Args... args) {
-  auto program = __internal__::kernel_as_composite_instruction(kernel, args...);
+template <typename... Args>
+auto observe(void (*quantum_kernel_functor)(
+                 std::shared_ptr<CompositeInstruction>, Args...),
+             Observable &obs, Args... args) {
+  // create a temporary with name given by mem_location_qkernel
+  std::stringstream name_ss;
+  name_ss << "observe_qkernel";
+  auto program = qcor::__internal__::create_composite(name_ss.str());
+
+  // Run the functor, this will add
+  // all quantum instructions to the parent kernel
+  quantum_kernel_functor(program, args...);
   return [program, &obs](Args... args) {
     // Get the first argument, which should be a qreg
     auto q = std::get<0>(std::forward_as_tuple(args...));

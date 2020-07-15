@@ -1,7 +1,8 @@
 #pragma once
+#include "IRProvider.hpp"
+#include "qrt.hpp"
 #include "xacc.hpp"
 #include "xasm_singleVisitor.h"
-#include <IRProvider.hpp>
 #include <regex>
 
 using namespace xasm;
@@ -93,31 +94,60 @@ public:
         }
       } else {
 
-        // this is something like exp_i_theta(q,...);
-        auto comp_inst = xacc::ir::asComposite(inst);
-        inst->setBufferNames({context->explist()->exp(0)->getText()});
-        for (int i = 1; i < context->explist()->exp().size(); i++) {
-          comp_inst->addArgument(context->explist()->exp(i)->getText(), "");
+        // I don't want to use xasm circuit gen any more...
+        // So use it as a fallback, but first look for previous
+        if (xacc::container::contains(quantum::kernels_in_translation_unit,
+                                      context->inst_name->getText())) {
+          // If this is a previously seen quantum kernel
+          // then we want to update its signature to add the
+          // parent CompositeInstruction argument
+          std::stringstream ss;
+          for (auto c : context->children) {
+            if (c->getText() == "(") {
+              ss << c->getText() << "parent_kernel, ";
+
+            } else {
+              ss << c->getText() << " ";
+            }
+          }
+
+          result.first = ss.str() + "\n";
+          return 0;
+        } else {
+          // this is something like exp_i_theta(q,...);
+          auto comp_inst = xacc::ir::asComposite(inst);
+          inst->setBufferNames({context->explist()->exp(0)->getText()});
+          for (int i = 1; i < context->explist()->exp().size(); i++) {
+            comp_inst->addArgument(context->explist()->exp(i)->getText(), "");
+          }
         }
       }
 
-      //   std::cout << "INST: " << inst->toString() << "\n";
-
       result.second = inst;
     } else {
-      // if we don't know the instruction, then we should just
-      // add it as a classical call, let the compiler throw an
-      // error if it doesn't know it
-      std::stringstream ss;
-      for (auto c : context->children) {
-        ss << c->getText() << " ";
-      }
 
-      // always wrap in execute false
-      result.first =
-          "const auto cached_exec_" + context->inst_name->getText() +
-          " = __execute;\n__execute = false;\n" + ss.str() +
-          "\n__execute = cached_exec_" + context->inst_name->getText() + ";\n";
+      std::stringstream ss;
+
+      if (xacc::container::contains(quantum::kernels_in_translation_unit,
+                                    context->inst_name->getText())) {
+        // If this is a previously seen quantum kernel
+        // then we want to update its signature to add the
+        // parent CompositeInstruction argument
+
+        for (auto c : context->children) {
+          if (c->getText() == "(") {
+            ss << c->getText() << "parent_kernel, ";
+
+          } else {
+            ss << c->getText() << " ";
+          }
+        }
+      } else {
+        for (auto c : context->children) {
+          ss << c->getText() << " ";
+        }
+      }
+      result.first = ss.str() + "\n";
       n_cached_execs++;
     }
 
@@ -132,27 +162,32 @@ public:
 
     std::stringstream ss;
 
-    bool wrap_false_exec = false;
-    std::string adjoint_call_name = "";
-    for (auto c : context->children) {
-      if (c->getText().find("::adjoint") != std::string::npos) {
-        wrap_false_exec = true;
-        adjoint_call_name = c->getText();
-        adjoint_call_name = std::regex_replace(adjoint_call_name, std::regex("::"), "_");
-      }
-      ss << c->getText() << " ";
-    }
-    ss << "\n";
+    if (context->getText().find("::adjoint") != std::string::npos) {
+      for (auto c : context->children) {
+        if (c->getText() == "(") {
+          ss << c->getText() << "parent_kernel, ";
 
-    if (wrap_false_exec) {
-      result.first =
-          "const auto cached_exec_" + adjoint_call_name +
-          " = __execute;\n__execute = false;\n" + ss.str() +
-          "__execute = cached_exec_" + adjoint_call_name + ";\n";
-      n_cached_execs++;
+        } else {
+          ss << c->getText() << " ";
+        }
+      }
+    } else if (context->getText().find("::ctrl") != std::string::npos) {
+      std::cout << "FOUND CTRL: " << context->getText() << "\n";
+      for (auto c : context->children) {
+        if (c->getText() == "(") {
+          ss << c->getText() << "parent_kernel, ";
+
+        } else {
+          ss << c->getText() << " ";
+        }
+      }
     } else {
-      result.first = ss.str();
+      for (auto c : context->children) {
+        ss << c->getText() << " ";
+      }
     }
+
+    result.first = ss.str() + "\n";
     return 0;
   }
 

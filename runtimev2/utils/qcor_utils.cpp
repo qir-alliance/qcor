@@ -1,6 +1,7 @@
 #include "qcor_utils.hpp"
 #include "qrt.hpp"
 #include "xacc.hpp"
+#include "xacc_service.hpp"
 
 namespace qcor {
 void set_verbose(bool verbose) { xacc::set_verbose(verbose); }
@@ -22,6 +23,9 @@ namespace __internal__ {
 std::shared_ptr<qcor::CompositeInstruction> create_composite(std::string name) {
   return xacc::getIRProvider("quantum")->createComposite(name);
 }
-
+std::shared_ptr<qcor::CompositeInstruction> create_ctrl_u() {
+  return std::dynamic_pointer_cast<xacc::CompositeInstruction>(
+      xacc::getService<xacc::Instruction>("C-U"));
+}
 } // namespace __internal__
 } // namespace qcor

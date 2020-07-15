@@ -1,8 +1,8 @@
-#include "qcor.hpp"
 #include <random>
+
 __qpu__ void qaoa_ansatz(qreg q, int n_steps, std::vector<double> gamma,
                          std::vector<double> beta,
-                         qcor::PauliOperator &cost_ham) {
+                         qcor::PauliOperator& cost_ham) {
 
   // Local Declarations
   auto nQubits = q.size();
