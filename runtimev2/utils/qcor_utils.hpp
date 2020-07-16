@@ -12,12 +12,16 @@
 #include "CompositeInstruction.hpp"
 #include "qrt.hpp"
 #include "xacc_internal_compiler.hpp"
+#include "IRTransformation.hpp"
+#include "IRProvider.hpp"
 
 namespace qcor {
 
 // Typedefs mapping xacc types to qcor types
 using CompositeInstruction = xacc::CompositeInstruction;
 using HeterogeneousMap = xacc::HeterogeneousMap;
+using IRTransformation = xacc::IRTransformation;
+using IRProvider = xacc::IRProvider;
 using qreg = xacc::internal_compiler::qreg;
 
 // The ResultsBuffer is returned upon completion of 
@@ -85,6 +89,9 @@ kernel_as_composite_instruction(QuantumKernel &k, Args... args) {
 // keep XACC out of the include headers here and put it in the cpp.
 std::shared_ptr<qcor::CompositeInstruction> create_composite(std::string name);
 std::shared_ptr<qcor::CompositeInstruction> create_ctrl_u();
+std::shared_ptr<qcor::IRTransformation>
+get_transformation(const std::string &transform_type);
+std::shared_ptr<qcor::IRProvider> get_provider();
 
 // Utility for calling a Functor via mapping a tuple of Args to 
 // a sequence of Args... 

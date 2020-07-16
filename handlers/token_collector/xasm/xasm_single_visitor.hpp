@@ -8,7 +8,7 @@
 using namespace xasm;
 
 std::map<std::string, std::string> common_name_map{
-    {"CX", "CNOT"}, {"qcor::exp", "exp_i_theta"}};
+    {"CX", "CNOT"}, {"qcor::exp", "exp_i_theta"}, {"exp", "exp_i_theta"}};
 using xasm_single_result_type =
     std::pair<std::string, std::shared_ptr<xacc::Instruction>>;
 

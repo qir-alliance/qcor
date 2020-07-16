@@ -208,7 +208,7 @@ __qpu__ void SwapOp(qreg q, int idx1, int idx2) {
 
 // Controlled-Swap
 __qpu__ void cSwap(qreg q, int ctrlIdx, int idx1, int idx2) {
-  qcor::Controlled::Apply(ctrlIdx, SwapOp, q, idx1, idx2);
+    SwapOp::ctrl(ctrlIdx, q, idx1, idx2);
 }
 
 // Single controlled *modular* multiplication by a (mod N)

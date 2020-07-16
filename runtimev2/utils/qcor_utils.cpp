@@ -27,5 +27,11 @@ std::shared_ptr<qcor::CompositeInstruction> create_ctrl_u() {
   return std::dynamic_pointer_cast<xacc::CompositeInstruction>(
       xacc::getService<xacc::Instruction>("C-U"));
 }
+std::shared_ptr<qcor::IRTransformation>
+get_transformation(const std::string &transform_type) {
+  if (!xacc::isInitialized())
+    xacc::internal_compiler::compiler_InitializeXACC();
+  return xacc::getService<xacc::IRTransformation>(transform_type);
+}
 } // namespace __internal__
 } // namespace qcor

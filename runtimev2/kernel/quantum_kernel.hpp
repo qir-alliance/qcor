@@ -1,6 +1,7 @@
 #pragma once
 
 #include "qcor_utils.hpp"
+#include "qrt.hpp"
 
 namespace qcor {
 
@@ -57,11 +58,20 @@ public:
       : args_tuple(std::forward_as_tuple(args...)),
         parent_kernel(_parent_kernel), is_callable(false) {}
 
+  // Static method for printing this kernel as a flat qasm string
   static void print_kernel(std::ostream &os, Args... args) {
     Derived derived(args...);
     derived.disable_destructor = true;
     derived(args...);
     os << derived.parent_kernel->toString() << "\n";
+  }
+
+  // Static method to query how many instructions are in this kernel
+  static std::size_t n_instructions(Args... args) {
+    Derived derived(args...);
+    derived.disable_destructor = true;
+    derived(args...);
+    return derived.parent_kernel->nInstructions();
   }
 
   // Create the Adjoint of this quantum kernel
@@ -77,6 +87,7 @@ public:
 
     // get the instructions
     auto instructions = derived.parent_kernel->getInstructions();
+    std::shared_ptr<CompositeInstruction> program = derived.parent_kernel;
 
     // Assert that we don't have measurement
     if (!std::all_of(
@@ -86,16 +97,23 @@ public:
           "Unable to create Adjoint for kernels that have Measure operations.");
     }
 
+    auto provider = qcor::__internal__::get_provider();
     std::reverse(instructions.begin(), instructions.end());
-    for (const auto &inst : instructions) {
+    for (int i = 0; i < instructions.size(); i++) {
+      auto inst = derived.parent_kernel->getInstruction(i);
       // Parametric gates:
       if (inst->name() == "Rx" || inst->name() == "Ry" ||
-          inst->name() == "Rz" || inst->name() == "CPHASE") {
+          inst->name() == "Rz" || inst->name() == "CPHASE" ||
+          inst->name() == "U1" || inst->name() == "CRZ") {
         inst->setParameter(0, -inst->getParameter(0).template as<double>());
       }
-      // TODO: Handles T and S gates, etc... => T -> Tdg
+      // Handles T and S gates, etc... => T -> Tdg
       else if (inst->name() == "T") {
-          
+        auto tdg = provider->createInstruction("Tdg", inst->bits());
+        program->replaceInstruction(i, tdg);
+      } else if (inst->name() == "S") {
+        auto sdg = provider->createInstruction("Sdg", inst->bits());
+        program->replaceInstruction(i, sdg);
       }
     }
 

@@ -28,6 +28,6 @@ add_subdirectory(tools)
 add_subdirectory(lib)
 
 if (QCOR_BUILD_TESTS)
-  #add_subdirectory(examples)
+  add_subdirectory(examples)
 endif()
 

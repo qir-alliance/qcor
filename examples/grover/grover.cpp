@@ -17,20 +17,22 @@ __qpu__ void grover_5(qreg q) {
 
 }
 
+__qpu__ void measured_grover_5(qreg q) {
+    grover_5(q);
+    for (int i = 0; i < q.size(); i++) {
+        Measure(q[i]);
+    }
+}
+
 int main() {
 
   // Allocate the qubits
   auto q = qalloc(9);
 
-  // This kernel is unmeasured, 
-  // add measures to them
-  auto measure_grov = qcor::measure_all(grover_5, q);
-
-  // print it so we can see
-  qcor::print_kernel(std::cout, measure_grov, q);
+  measured_grover_5::print_kernel(std::cout, q);
 
   // Run the kernel
-  measure_grov(q);
+  measured_grover_5(q);
 
   // print the results
   q.print();
