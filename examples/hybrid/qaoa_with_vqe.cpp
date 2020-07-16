@@ -2,7 +2,7 @@
 
 __qpu__ void qaoa_ansatz(qreg q, int n_steps, std::vector<double> gamma,
                          std::vector<double> beta,
-                         qcor::PauliOperator &cost_ham) {
+                         qcor::PauliOperator cost_ham) {
 
   // Local Declarations
   auto nQubits = q.size();
@@ -77,7 +77,7 @@ int main(int argc, char **argv) {
             std::vector<double> gamma(x.begin(), x.begin() + nSteps * nGamma),
                 beta(x.begin() + nSteps * nGamma,
                      x.begin() + nSteps * nGamma + nSteps * nBeta);
-            return std::make_tuple(qalloc(4), nSteps, gamma, beta, cost_ham);
+            return std::tuple(qalloc(4), nSteps, gamma, beta, cost_ham);
           });
 
   qcor::set_verbose(true);

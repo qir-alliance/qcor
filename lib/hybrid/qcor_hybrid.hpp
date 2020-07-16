@@ -54,7 +54,7 @@ protected:
   inline static const std::string DEFAULT_OPTIMIZER = "nlopt";
 
   // Reference to the paramerized
-  // quantum kernel functor
+  // quantum kernel functor as a void pointer
   void *ansatz_ptr;
 
   // Reference to the Hamiltonian / Observable,
@@ -175,6 +175,7 @@ public:
     // Create the Arg Translator
     TranslationFunctor<qreg, KernelArgs...> arg_translator;
     if (translation_functor.has_value()) {
+        std::cout << "Using this arg translator\n";
       arg_translator = std::any_cast<TranslationFunctor<qreg, KernelArgs...>>(
           translation_functor);
     } else {
