@@ -34,10 +34,28 @@ public:
   // List of passes for level 1:
   // Ordered list of passes to be executed.
   // Can have duplicated entries (run multiple times).
-  static const constexpr char *const LEVEL1_PASSES[] = {"rotation-folding",
-                                                        "circuit-optimizer"};
-  // TODO: define other levels if neccesary:
-  // e.g. could be looping those passes multiple times.
+  static const constexpr char *const LEVEL1_PASSES[] = {
+    "rotation-folding",
+    // Merge single-qubit gates before running the circuit-optimizer
+    // so that there are potentially more patterns emerged.
+    "single-qubit-gate-merging",
+    "circuit-optimizer",
+  };
+
+  // Level 2 is experimental, brute-force optimization
+  // which could result in long runtime.
+  static const constexpr char *const LEVEL2_PASSES[] = {
+    "rotation-folding",
+    "single-qubit-gate-merging",
+    "circuit-optimizer",
+    // Try to look for any two-qubit blocks
+    // which can be simplified.
+    "two-qubit-block-merging",
+    // Re-run those simpler optimizers to 
+    // make sure all simplification paterns are captured.
+    "single-qubit-gate-merging",
+    "circuit-optimizer",
+  };
 private:
   int m_level;
 };

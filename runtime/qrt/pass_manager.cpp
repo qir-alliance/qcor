@@ -45,21 +45,31 @@ PassManager::PassManager(int level) : m_level(level) {}
 
 std::vector<PassStat> PassManager::optimize(
     std::shared_ptr<xacc::CompositeInstruction> program) const {
-
-  // We only support level 1 atm.
-  if (m_level != 1) {
-    return {};
-  }
-
   std::vector<PassStat> passData;
-  for (const auto &passName : LEVEL1_PASSES) {
+  // Selects the list of passes based on the optimization level.
+  const auto passesToRun = [&]() {
+    if (m_level == 1) {
+      return std::vector<std::string>(std::begin(LEVEL1_PASSES),
+                                      std::end(LEVEL1_PASSES));
+    } else if (m_level == 2) {
+      return std::vector<std::string>(std::begin(LEVEL2_PASSES),
+                                      std::end(LEVEL2_PASSES));
+    }
+    return std::vector<std::string>();
+  }();
+
+  for (const auto &passName : passesToRun) {
     PassStat stat;
     stat.passName = passName;
     // Counts gate before:
     stat.gateCountBefore = PassStat::countGates(program);
     xacc::ScopeTimer timer(passName, false);
-    auto xaccOptTransform = xacc::getService<xacc::IRTransformation>(passName);
-    xaccOptTransform->apply(program, nullptr);
+    auto xaccOptTransform =
+        xacc::getService<xacc::IRTransformation>(passName, false);
+    // Graciously ignores passes which cannot be located.
+    if (xaccOptTransform) {
+      xaccOptTransform->apply(program, nullptr);
+    }
     // Stores the elapsed time.
     stat.wallTimeMs = timer.getDurationMs();
     // Counts gate after:
