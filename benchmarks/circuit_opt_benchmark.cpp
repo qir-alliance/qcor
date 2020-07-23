@@ -14,8 +14,8 @@ __qpu__ void testKernel(qreg q) {
 
 int main() {
 
-  // Allocate the qubits, just use an upper bound number of qubits.
-  auto q = qalloc(30);
+  // Allocate just 1 qubit, we don't actually want to run the simulation.
+  auto q = qalloc(1);
 
   // Run the kernel
   testKernel(q);
