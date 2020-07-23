@@ -26,4 +26,4 @@ for srcFile in listOfSrcFiles:
 for testCase in listOfTestCases:
   print("Run Benchmark: ", testCase)
   testExe = dirPath + "/" + testCase
-  process = subprocess.run([testExe], stdout=sys.stdout)
+  process = subprocess.run([testExe], stdout=sys.stdout, stderr=subprocess.PIPE)
