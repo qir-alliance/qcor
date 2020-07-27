@@ -132,6 +132,11 @@ public:
       OS << ", " << program_arg_types[i] << " " << program_parameters[i];
     }
     OS << ") {\n";
+    if (shots > 0) {
+      OS << "quantum::set_backend(\"" << qpu_name << "\", " << shots << ");\n";
+    } else {
+      OS << "quantum::set_backend(\"" << qpu_name << "\");\n";
+    }
     OS << "if (!parent_kernel) {\n";
     OS << "parent_kernel = "
           "qcor::__internal__::create_composite(kernel_name);\n";
@@ -186,11 +191,7 @@ public:
     // Destructor definition
     OS << "virtual ~" << kernel_name << "() {\n";
     OS << "if (disable_destructor) {return;}\n";
-    if (shots > 0) {
-      OS << "quantum::set_backend(\"" << qpu_name << "\", " << shots << ");\n";
-    } else {
-      OS << "quantum::set_backend(\"" << qpu_name << "\");\n";
-    }
+
     OS << "auto [" << program_parameters[0];
     for (int i = 1; i < program_parameters.size(); i++) {
       OS << ", " << program_parameters[i];

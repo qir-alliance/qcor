@@ -1,19 +1,18 @@
 #pragma once
 
-// Common utilities and typedefs for QCOR programs. 
+#include "CompositeInstruction.hpp"
+#include "IRProvider.hpp"
+#include "IRTransformation.hpp"
+#include "qrt.hpp"
+#include "xacc_internal_compiler.hpp"
 
+#include <Eigen/Dense>
 #include <functional>
 #include <future>
 #include <memory>
 #include <random>
 #include <tuple>
 #include <vector>
-
-#include "CompositeInstruction.hpp"
-#include "qrt.hpp"
-#include "xacc_internal_compiler.hpp"
-#include "IRTransformation.hpp"
-#include "IRProvider.hpp"
 
 namespace qcor {
 
@@ -23,10 +22,11 @@ using HeterogeneousMap = xacc::HeterogeneousMap;
 using IRTransformation = xacc::IRTransformation;
 using IRProvider = xacc::IRProvider;
 using qreg = xacc::internal_compiler::qreg;
+using UnitaryMatrix = Eigen::MatrixXcd;
 
-// The ResultsBuffer is returned upon completion of 
-// the taskInitiate async call, it contains the buffer, 
-// the optimal value for the objective function, and the 
+// The ResultsBuffer is returned upon completion of
+// the taskInitiate async call, it contains the buffer,
+// the optimal value for the objective function, and the
 // optimal parameters
 class ResultsBuffer {
 public:
@@ -41,10 +41,10 @@ using Handle = std::future<ResultsBuffer>;
 // Sync up a Handle
 ResultsBuffer sync(Handle &handle);
 
-// ArgTranslator takes a std function that maps a 
-// vector<double> argument to a tuple corresponding to 
+// ArgTranslator takes a std function that maps a
+// vector<double> argument to a tuple corresponding to
 // the arguments for the quantum kernel in question
-// 
+//
 // FIXME provide example here
 template <typename... Args> class ArgTranslator {
 public:
@@ -60,7 +60,7 @@ template <typename... Args>
 using TranslationFunctor =
     std::function<std::tuple<Args...>(const std::vector<double>)>;
 
-// The GradientEvaluator is user-provided function that sets the 
+// The GradientEvaluator is user-provided function that sets the
 // gradient dx for a given variational iteration at parameter set x
 using GradientEvaluator =
     std::function<void(std::vector<double> x, std::vector<double> &dx)>;
@@ -85,23 +85,25 @@ kernel_as_composite_instruction(QuantumKernel &k, Args... args) {
   return quantum::getProgram();
 }
 
-// Internal function for creating a CompositeInstruction, this lets us 
+// Internal function for creating a CompositeInstruction, this lets us
 // keep XACC out of the include headers here and put it in the cpp.
 std::shared_ptr<qcor::CompositeInstruction> create_composite(std::string name);
 std::shared_ptr<qcor::CompositeInstruction> create_ctrl_u();
 std::shared_ptr<qcor::IRTransformation>
 get_transformation(const std::string &transform_type);
 std::shared_ptr<qcor::IRProvider> get_provider();
+std::shared_ptr<qcor::CompositeInstruction>
+decompose_unitary(const std::string algorithm, UnitaryMatrix &mat, const std::string buffer_name);
 
-// Utility for calling a Functor via mapping a tuple of Args to 
-// a sequence of Args... 
+// Utility for calling a Functor via mapping a tuple of Args to
+// a sequence of Args...
 template <typename Function, typename Tuple, size_t... I>
 auto call(Function f, Tuple t, std::index_sequence<I...>) {
   return f->operator()(std::get<I>(t)...);
 }
 
-// Utility for calling a Functor via mapping a tuple of Args to 
-// a sequence of Args... 
+// Utility for calling a Functor via mapping a tuple of Args to
+// a sequence of Args...
 template <typename Function, typename Tuple> auto call(Function f, Tuple t) {
   static constexpr auto size = std::tuple_size<Tuple>::value;
   return call(f, t, std::make_index_sequence<size>{});
@@ -201,7 +203,7 @@ constexpr auto enumerate(T &&iterable) {
 // Set the backend that quantum kernels are targeting
 void set_backend(const std::string &backend);
 
-// Utility function to expose the XASM xacc Compiler 
+// Utility function to expose the XASM xacc Compiler
 // from the cpp implementation and not include it in the header list above.
 std::shared_ptr<CompositeInstruction> compile(const std::string &src);
 
@@ -214,7 +216,7 @@ bool get_verbose();
 // Set the shots for a given quantum kernel execution
 void set_shots(const int shots);
 
-// Indicate we have an error with the given message. 
+// Indicate we have an error with the given message.
 // This should abort execution
 void error(const std::string &msg);
 
