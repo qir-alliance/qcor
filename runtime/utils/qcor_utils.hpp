@@ -88,10 +88,18 @@ kernel_as_composite_instruction(QuantumKernel &k, Args... args) {
 // Internal function for creating a CompositeInstruction, this lets us
 // keep XACC out of the include headers here and put it in the cpp.
 std::shared_ptr<qcor::CompositeInstruction> create_composite(std::string name);
+
+// Return the CTRL-U CompositeInstruction generator
 std::shared_ptr<qcor::CompositeInstruction> create_ctrl_u();
+
+// Return the IR Transformation
 std::shared_ptr<qcor::IRTransformation>
 get_transformation(const std::string &transform_type);
+
+// return the IR Provider 
 std::shared_ptr<qcor::IRProvider> get_provider();
+
+// Decompose the given unitary matrix with the specified decomposition algorithm.
 std::shared_ptr<qcor::CompositeInstruction>
 decompose_unitary(const std::string algorithm, UnitaryMatrix &mat, const std::string buffer_name);
 

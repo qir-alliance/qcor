@@ -25,7 +25,7 @@ TEST(UnitaryTokenCollectorTester, checkSimple) {
 
   std::stringstream ss;
   auto xasm_tc = xacc::getService<qcor::TokenCollector>("unitary");
-  xasm_tc->collect(*PP.get(), cached, {"a","b","c"}, ss);
+  xasm_tc->collect(*PP.get(), cached, {"a"}, ss);
   std::cout << "heres the test\n";
   std::cout << ss.str() << "\n";
 

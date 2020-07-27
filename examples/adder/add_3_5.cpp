@@ -1,4 +1,3 @@
-#include <qalloc>
 
 __qpu__ void add_3_5(qreg a, qreg b, qreg c) {
   using qcor::openqasm;

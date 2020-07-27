@@ -14,7 +14,7 @@ __qpu__ void ccnot(qreg q) {
   using qcor::unitary;
   
   // Create the unitary matrix
-  qcor::UnitaryMatrix ccnot = qcor::UnitaryMatrix::Identity(8, 8);
+  UnitaryMatrix ccnot = UnitaryMatrix::Identity(8, 8);
   ccnot(6, 6) = 0.0;
   ccnot(7, 7) = 0.0;
   ccnot(6, 7) = 1.0;
