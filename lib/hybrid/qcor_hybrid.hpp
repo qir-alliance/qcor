@@ -465,6 +465,7 @@ public:
     return std::make_pair(results.opt_val, results.opt_params);
   }
 }; // namespace qcor
+
 // Next, add Adapt
 
 } // namespace qcor

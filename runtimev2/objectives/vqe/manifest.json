@@ -1,6 +1,0 @@
-{
-  "bundle.symbolic_name" : "qcor_vqe_objective",
-  "bundle.activator" : true,
-  "bundle.name" : "VQE Objective Function",
-  "bundle.description" : ""
-}

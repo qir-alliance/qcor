@@ -23,7 +23,7 @@ find_package(Clang 10.0.0 REQUIRED)
 find_package(XACC REQUIRED)
 
 add_subdirectory(handlers)
-add_subdirectory(runtimev2)
+add_subdirectory(runtime)
 add_subdirectory(tools)
 add_subdirectory(lib)
 

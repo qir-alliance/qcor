@@ -1,6 +1,0 @@
-{
-  "bundle.symbolic_name" : "qcor_rbmchem_objective",
-  "bundle.activator" : true,
-  "bundle.name" : "RBM Chemistry Objective Function",
-  "bundle.description" : ""
-}

@@ -1,23 +1,97 @@
 #include "qcor.hpp"
-#include "qrt.hpp"
-#include "xacc_internal_compiler.hpp"
-#include "xacc_quantum_gate_api.hpp"
-#include "xacc_service.hpp"
+
 #include <gtest/gtest.h>
 
 using namespace xacc;
-const std::string rucc = R"rucc(__qpu__ void f(qbit q, double t0) {
-    X(q[0]);
-    Ry(q[1],t0);
-    CNOT(q[1],q[0]);
-})rucc";
+void rucc(qreg q, double x) {
+  void __internal_call_function_rucc(qreg, double);
+  __internal_call_function_rucc(q, x);
+}
 
-const std::string rucc_vec =
-    R"rucc(__qpu__ void f_vec(qbit q, std::vector<double> x) {
-    X(q[0]);
-    Ry(q[1],x[0]);
-    CNOT(q[1],q[0]);
-})rucc";
+class rucc : public qcor::QuantumKernel<class rucc, qreg, double> {
+  friend class qcor::QuantumKernel<class rucc, qreg, double>;
+
+protected:
+  void operator()(qreg q, double x) {
+    if (!parent_kernel) {
+      parent_kernel = qcor::__internal__::create_composite(kernel_name);
+      q.setNameAndStore("qreg_edRlhpjLiH");
+    }
+    ::quantum::set_current_program(parent_kernel);
+    ::quantum::x(q[0]);
+    ::quantum::ry(q[1], x);
+    ::quantum::cnot(q[1], q[0]);
+  }
+
+public:
+  inline static const std::string kernel_name = "rucc";
+  rucc(qreg q, double x) : QuantumKernel<rucc, qreg, double>(q, x) {}
+  rucc(std::shared_ptr<qcor::CompositeInstruction> _parent, qreg q, double x)
+      : QuantumKernel<rucc, qreg, double>(_parent, q, x) {}
+  virtual ~rucc() {
+    if (disable_destructor) {
+      return;
+    }
+    ::quantum::set_backend("qpp");
+    auto [q, x] = args_tuple;
+    operator()(q, x);
+    if (is_callable) {
+      ::quantum::submit(q.results());
+    }
+  }
+};
+void rucc(std::shared_ptr<qcor::CompositeInstruction> parent, qreg q,
+          double x) {
+  class rucc k(parent, q, x);
+}
+void __internal_call_function_rucc(qreg q, double x) { class rucc k(q, x); }
+
+void rucc_vec(qreg q, std::vector<double> x) {
+  void __internal_call_function_rucc_vec(qreg, std::vector<double>);
+  __internal_call_function_rucc_vec(q, x);
+}
+class rucc_vec
+    : public qcor::QuantumKernel<class rucc_vec, qreg, std::vector<double>> {
+  friend class qcor::QuantumKernel<class rucc_vec, qreg, std::vector<double>>;
+
+protected:
+  void operator()(qreg q, std::vector<double> x) {
+    if (!parent_kernel) {
+      parent_kernel = qcor::__internal__::create_composite(kernel_name);
+      q.setNameAndStore("qreg_sOsDByIVpM");
+    }
+    ::quantum::set_current_program(parent_kernel);
+    ::quantum::x(q[0]);
+    ::quantum::ry(q[1], x[0]);
+    ::quantum::cnot(q[1], q[0]);
+  }
+
+public:
+  inline static const std::string kernel_name = "rucc_vec";
+  rucc_vec(qreg q, std::vector<double> x)
+      : QuantumKernel<rucc_vec, qreg, std::vector<double>>(q, x) {}
+  rucc_vec(std::shared_ptr<qcor::CompositeInstruction> _parent, qreg q,
+           std::vector<double> x)
+      : QuantumKernel<rucc_vec, qreg, std::vector<double>>(_parent, q, x) {}
+  virtual ~rucc_vec() {
+    if (disable_destructor) {
+      return;
+    }
+    ::quantum::set_backend("qpp");
+    auto [q, x] = args_tuple;
+    operator()(q, x);
+    if (is_callable) {
+      ::quantum::submit(q.results());
+    }
+  }
+};
+void rucc_vec(std::shared_ptr<qcor::CompositeInstruction> parent, qreg q,
+              std::vector<double> x) {
+  class rucc_vec k(parent, q, x);
+}
+void __internal_call_function_rucc_vec(qreg q, std::vector<double> x) {
+  class rucc_vec k(q, x);
+}
 
 TEST(QCORTester, checkTaskInitiate) {
 
@@ -25,23 +99,13 @@ TEST(QCORTester, checkTaskInitiate) {
 
   auto buffer = qalloc(4);
 
-  auto ruccsd = xacc::getService<xacc::Compiler>("xasm")
-                    ->compile(rucc, nullptr)
-                    ->getComposite("f");
-
-  auto ruccsd_vec = xacc::getService<xacc::Compiler>("xasm")
-                        ->compile(rucc_vec, nullptr)
-                        ->getComposite("f_vec");
-
   auto optimizer = qcor::createOptimizer("nlopt");
-  std::shared_ptr<Observable> observable = xacc::quantum::getObservable(
-      "pauli",
+  std::shared_ptr<Observable> observable = qcor::createObservable(
       std::string("5.907 - 2.1433 X0X1 - 2.1433 Y0Y1 + .21829 Z0 - 6.125 Z1"));
 
   // Create the ObjectiveFunction, here we want to run VQE
   // need to provide ansatz and the Observable
-  auto objective = xacc::getService<qcor::ObjectiveFunction>("vqe");
-  objective->initialize(observable.get(), ruccsd);
+  auto objective = qcor::createObjectiveFunction("vqe", rucc, observable);
   objective->set_qreg(buffer);
 
   auto args_translation =
@@ -82,8 +146,7 @@ TEST(QCORTester, checkTaskInitiate) {
   auto results4 = qcor::sync(handle);
   EXPECT_NEAR(-1.748865, results4.opt_val, 1e-4);
 
-  auto objective_vec = xacc::getService<qcor::ObjectiveFunction>("vqe");
-  objective->initialize(observable.get(), ruccsd_vec);
+  auto objective_vec = qcor::createObjectiveFunction("vqe", rucc_vec, observable);
 
   objective->set_qreg(buffer);
 
