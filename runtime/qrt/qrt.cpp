@@ -1,16 +1,20 @@
 #include "qrt.hpp"
 #include "Instruction.hpp"
 #include "PauliOperator.hpp"
+#include "pass_manager.hpp"
 #include "xacc.hpp"
 #include "xacc_internal_compiler.hpp"
 #include "xacc_service.hpp"
 #include <Eigen/Dense>
 #include <Utils.hpp>
 
-std::vector<int> xacc::internal_compiler::__controlledIdx = {};
-
 namespace xacc {
 namespace internal_compiler {
+// Extern vars:
+int __opt_level = 0;
+bool __print_opt_stats = false;
+std::vector<int> __controlledIdx = {};
+
 void simplified_qrt_call_one_qbit(const char *gate_name,
                                   const char *buffer_name,
                                   const std::size_t idx) {
@@ -173,7 +177,7 @@ void crz(const qubit &src_idx, const qubit &tgt_idx, const double theta) {
   two_qubit_inst("CRZ", src_idx, tgt_idx, {theta});
 }
 
-void exp(qreg q, const double theta, xacc::Observable& H) {
+void exp(qreg q, const double theta, xacc::Observable &H) {
   exp(q, theta, xacc::as_shared_ptr(&H));
 }
 
@@ -281,6 +285,14 @@ void exp(qreg q, const double theta, std::shared_ptr<xacc::Observable> H) {
 }
 
 void submit(xacc::AcceleratorBuffer *buffer) {
+  qcor::internal::PassManager passManager(__opt_level);
+  const auto optData = passManager.optimize(program);
+  if (__print_opt_stats) {
+    // Prints out the Optimizer Stats if requested.
+    for (const auto &passData : optData) {
+      std::cout << passData.toString(false);
+    }
+  }
   xacc::internal_compiler::execute(buffer, program);
   clearProgram();
 }

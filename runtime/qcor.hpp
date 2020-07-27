@@ -100,7 +100,6 @@ using GradientEvaluator =
     std::function<void(std::vector<double> x, std::vector<double> &dx)>;
 
 namespace __internal__ {
-
 // This class gives us a way to
 // run some startup routine before
 // main(). Specifically we use it to ensure that
@@ -111,6 +110,13 @@ public:
   internal_startup() {
 #ifdef __internal__qcor__compile__backend
     quantum::initialize(__internal__qcor__compile__backend, "empty");
+#endif
+#ifdef __internal__qcor__compile__opt__level
+    xacc::internal_compiler::__opt_level =
+        __internal__qcor__compile__opt__level;
+#endif
+#ifdef __internal__qcor__compile__opt__print__stats
+    xacc::internal_compiler::__print_opt_stats = true;
 #endif
   }
 };

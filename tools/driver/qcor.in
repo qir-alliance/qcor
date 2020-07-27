@@ -77,6 +77,21 @@ def main(argv=None):
         sys.argv.remove('-print-qir')
         sHandlerArgs += ['-Xclang', '-load', '-Xclang', '@CMAKE_INSTALL_PREFIX@/qopt-plugins/libprint_llvm_qir.so']
 
+    # Optimization level for flattened (runtime) kernel
+    # Default: 0 (no optimization)
+    qrtOptLevel = 0
+    if '-opt' in sys.argv[1:]:
+        sidx = sys.argv.index('-opt')
+        qrtOptLevel = sys.argv[sidx+1]
+        sys.argv.remove(qrtOptLevel)
+        sys.argv.remove('-opt')
+        sys.argv += ['-D__internal__qcor__compile__opt__level='+qrtOptLevel]
+    # Enable runtime kernel optimization stats print-out:
+    # i.e. passes that are executed and their info (walltime, gate count reduction, etc.)
+    if '-print-opt-stats' in sys.argv[1:]:
+        sys.argv.remove('-print-opt-stats')
+        sys.argv += ['-D__internal__qcor__compile__opt__print__stats']
+
     # Get the filename we are compiling or the object file
     filename = ''
     fileType = ''
