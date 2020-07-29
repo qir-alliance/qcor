@@ -5,6 +5,7 @@
 #include "IRTransformation.hpp"
 #include "qrt.hpp"
 #include "xacc_internal_compiler.hpp"
+#include "Optimizer.hpp"
 
 #include <Eigen/Dense>
 #include <functional>
@@ -102,6 +103,10 @@ std::shared_ptr<qcor::IRProvider> get_provider();
 // Decompose the given unitary matrix with the specified decomposition algorithm.
 std::shared_ptr<qcor::CompositeInstruction>
 decompose_unitary(const std::string algorithm, UnitaryMatrix &mat, const std::string buffer_name);
+
+// Decompose the given unitary matrix with the specified decomposition algorithm and optimizer
+std::shared_ptr<qcor::CompositeInstruction>
+decompose_unitary(const std::string algorithm, UnitaryMatrix &mat, const std::string buffer_name, std::shared_ptr<xacc::Optimizer> optimizer);
 
 // Utility for calling a Functor via mapping a tuple of Args to
 // a sequence of Args...

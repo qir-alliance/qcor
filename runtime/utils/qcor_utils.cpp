@@ -34,7 +34,8 @@ get_transformation(const std::string &transform_type) {
   return xacc::getService<xacc::IRTransformation>(transform_type);
 }
 std::shared_ptr<qcor::CompositeInstruction>
-decompose_unitary(const std::string algorithm, UnitaryMatrix &mat, const std::string buffer_name) {
+decompose_unitary(const std::string algorithm, UnitaryMatrix &mat,
+                  const std::string buffer_name) {
   auto tmp = xacc::getService<xacc::Instruction>(algorithm);
   auto decomposed = std::dynamic_pointer_cast<CompositeInstruction>(tmp);
 
@@ -48,14 +49,41 @@ decompose_unitary(const std::string algorithm, UnitaryMatrix &mat, const std::st
   }
 
   for (auto inst : decomposed->getInstructions()) {
-      std::vector<std::string> buffer_names;
-      for (int i = 0; i < inst->nRequiredBits(); i++) {
-          buffer_names.push_back(buffer_name);
-      }
-      inst->setBufferNames(buffer_names);
+    std::vector<std::string> buffer_names;
+    for (int i = 0; i < inst->nRequiredBits(); i++) {
+      buffer_names.push_back(buffer_name);
+    }
+    inst->setBufferNames(buffer_names);
   }
 
   return decomposed;
 }
+
+std::shared_ptr<qcor::CompositeInstruction>
+decompose_unitary(const std::string algorithm, UnitaryMatrix &mat,
+                  const std::string buffer_name,
+                  std::shared_ptr<xacc::Optimizer> optimizer) {
+  auto tmp = xacc::getService<xacc::Instruction>(algorithm);
+  auto decomposed = std::dynamic_pointer_cast<CompositeInstruction>(tmp);
+
+  // default Adam
+  const bool expandOk = decomposed->expand(
+      {std::make_pair("unitary", mat), std::make_pair("optimizer", optimizer)});
+
+  if (!expandOk) {
+    xacc::error("Could not decmpose unitary with " + algorithm);
+  }
+
+  for (auto inst : decomposed->getInstructions()) {
+    std::vector<std::string> buffer_names;
+    for (int i = 0; i < inst->nRequiredBits(); i++) {
+      buffer_names.push_back(buffer_name);
+    }
+    inst->setBufferNames(buffer_names);
+  }
+
+  return decomposed;
+}
+
 } // namespace __internal__
 } // namespace qcor

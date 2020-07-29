@@ -119,9 +119,15 @@ std::string run_token_collector(clang::Preprocessor &PP,
         i++;
       }
 
-      if (arguments.size() < 1) {
-
+      if (arguments.size() == 0) {
+          xacc::error("Invalid decompose arguments, must at least provide the qreg variable");
       }
+      
+      if (arguments.size() == 1) {
+          arguments.push_back("QFAST");
+      }
+
+      
       std::map<int, std::function<void(const std::string arg)>> arg_to_action{
           {0,
            [&](const std::string arg) {

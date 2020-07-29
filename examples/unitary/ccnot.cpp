@@ -10,7 +10,9 @@ __qpu__ void ccnot(qreg q) {
   }
 
   // To program at the unitary matrix level,
-  // simply indicate you are using qcor::unitary namespace
+  // invoke the decompose call, indicating which 
+  // buffer to target, can optionally provide decomposition 
+  // algorithm name and an optimizer. 
   decompose {
     // Create the unitary matrix
     UnitaryMatrix ccnot = UnitaryMatrix::Identity(8, 8);
@@ -19,7 +21,7 @@ __qpu__ void ccnot(qreg q) {
     ccnot(6, 7) = 1.0;
     ccnot(7, 6) = 1.0;
   }
-  (q, QFAST);
+  (q);
 
   // Add some measures
   for (int i = 0; i < q.size(); i++) {

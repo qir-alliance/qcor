@@ -1,4 +1,4 @@
-from qcor/qcor-base
+from qcor/deploy-base
 run git clone --recursive https://github.com/eclipse/xacc && cd xacc && mkdir build && cd build \
     && cmake .. \
     && make -j$(nproc) install 
