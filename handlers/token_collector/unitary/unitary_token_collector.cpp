@@ -87,8 +87,8 @@ void UnitaryTokenCollector::collect(clang::Preprocessor &PP,
   std::cout << ss.str() << "\n";
   // Add the qfast decomp and hook up to the qrt program.
   ss << "auto decomposed_program = "
-        "__internal__::decompose_unitary(\"QFAST\", "
-     << var_name << ", " << bufferNames[0] << ".name());\n";
+        "__internal__::decompose_unitary(decompose_algo_name, "
+     << var_name << ", decompose_buffer_name);\n";
 
   ss << "parent_kernel->addInstruction(decomposed_program);\n";
 }

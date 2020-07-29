@@ -6,8 +6,8 @@
 #include <limits>
 #include <qalloc>
 
-#include "qrt_mapper.hpp"
 #include "qrt.hpp"
+#include "qrt_mapper.hpp"
 
 #include "clang/Basic/TokenKinds.h"
 #include "clang/Lex/Token.h"
@@ -62,6 +62,95 @@ std::string run_token_collector(clang::Preprocessor &PP,
 
       token_collector = xacc::getService<TokenCollector>(lang_name);
       tmp_cache.clear();
+    } else if (PP.getSpelling(Toks[i]) == "decompose") {
+      // Flush the current CachedTokens...
+      if (!tmp_cache.empty())
+        token_collector->collect(PP, tmp_cache, bufferNames, code_ss);
+
+      auto last_tc = token_collector;
+      token_collector = xacc::getService<TokenCollector>("unitary");
+      tmp_cache.clear();
+
+      // skip decompose
+      i++;
+
+      // must open scope
+      if (Toks[i].isNot(clang::tok::l_brace)) {
+        xacc::error("Invalid decompose statement, must be of form decompose "
+                    "{...} (...); with args in parenthesis being optional");
+      }
+
+      // skip l_brace
+      i++; 
+
+      // slurp up all tokens in the decompose scope {...}(...);
+      int l_brace_count = 1;
+      while (true) {
+        if (Toks[i].is(clang::tok::l_brace)) {
+          l_brace_count++;
+        }
+        if (Toks[i].is(clang::tok::r_brace)) {
+          l_brace_count--;
+        }
+        if (l_brace_count == 0) {
+          break;
+        }
+        tmp_cache.push_back(Toks[i]);
+        i++;
+      }
+
+      // advance past the r_brace
+      i++;
+      if (Toks[i].isNot(clang::tok::l_paren)) {
+        xacc::error("Invalid decompose statement, after scope close you must "
+                    "provide at least buffer_name argument.");
+      }
+
+      // get the args, can be
+      // (buffer_name)
+      // (buffer_name, decompose_algo_name)
+      // (buffer_name, decompose_algo_name, optimizer)
+      i++;
+      std::vector<std::string> arguments;
+      while (Toks[i].isNot(clang::tok::r_paren)) {
+          std::cout << "TOKEN HERE: " << PP.getSpelling(Toks[i]) << "\n";
+        if (Toks[i].isNot(clang::tok::comma)) {
+            std::cout << "Adding " << PP.getSpelling(Toks[i]) << " to args.\n";
+          arguments.push_back(PP.getSpelling(Toks[i]));
+        }
+        i++;
+      }
+
+      if (arguments.size() < 1) {
+
+      }
+      std::map<int, std::function<void(const std::string arg)>> arg_to_action{
+          {0,
+           [&](const std::string arg) {
+             code_ss << "auto decompose_buffer_name = " << arg << ".name();\n";
+           }
+           },
+          {1,
+           [&](const std::string arg) {
+             code_ss << "auto decompose_algo_name = \"" << arg << "\";\n";
+           }
+           },
+          {2, [&](const std::string arg) {
+             code_ss << "auto decompose_optimizer = " << arg << ";\n";
+           }
+           }
+      };
+      for (int i = 0; i < arguments.size(); i++) {
+        arg_to_action[i](arguments[i]);
+      }
+
+      if (!tmp_cache.empty())
+        token_collector->collect(PP, tmp_cache, bufferNames, code_ss);
+
+      // advance past the r_paren and semi colon
+      i+=2;
+      tmp_cache.clear();
+      token_collector = last_tc;
     }
 
     tmp_cache.push_back(Toks[i]);
