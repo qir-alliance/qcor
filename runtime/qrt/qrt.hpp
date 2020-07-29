@@ -19,23 +19,24 @@ class Observable;
 
 namespace quantum {
 
-// This represents the public API for the xacc-enabled 
-// qcor quantum runtime library. The goal here is to provide 
-// and API that compilers can translate high-level 
-// quantum kernel language representations to 
-// (written in openqasm, quil, xasm, etc). The implementation of this API 
-// seeks to build up an xacc::CompositeInstruction with each individual 
-// quantum instruction invocation. Once done, clients can invoke 
-// the submit method to launch the built up program the 
-// user specified backend. 
+// This represents the public API for the xacc-enabled
+// qcor quantum runtime library. The goal here is to provide
+// and API that compilers can translate high-level
+// quantum kernel language representations to
+// (written in openqasm, quil, xasm, etc). The implementation of this API
+// seeks to build up an xacc::CompositeInstruction with each individual
+// quantum instruction invocation. Once done, clients can invoke
+// the submit method to launch the built up program the
+// user specified backend.
 
 // Clients must invoke initialize before building up the CompositeInstruction.
-// This call will take the name of the backend and the name of the CompositeInstruction. 
+// This call will take the name of the backend and the name of the
+// CompositeInstruction.
 
-// Note the qubit type is a typedef from xacc, falls back to a 
-// std::pair<std::string, std::size_t> where the string represents 
-// the variable name of the qubit register the qubit belongs to, and the 
-// size_t represents the qubit index in that register. 
+// Note the qubit type is a typedef from xacc, falls back to a
+// std::pair<std::string, std::size_t> where the string represents
+// the variable name of the qubit register the qubit belongs to, and the
+// size_t represents the qubit index in that register.
 
 extern std::shared_ptr<xacc::CompositeInstruction> program;
 extern std::shared_ptr<xacc::IRProvider> provider;
@@ -50,7 +51,7 @@ void one_qubit_inst(const std::string &name, const qubit &qidx,
 void two_qubit_inst(const std::string &name, const qubit &qidx1,
                     const qubit &qidx2, std::vector<double> parameters = {});
 
-// Common single-qubit gates. 
+// Common single-qubit gates.
 void h(const qubit &qidx);
 void x(const qubit &qidx);
 void y(const qubit &qidx);
@@ -66,7 +67,8 @@ void ry(const qubit &qidx, const double theta);
 void rz(const qubit &qidx, const double theta);
 // U1(theta) gate
 void u1(const qubit &qidx, const double theta);
-void u3(const qubit& qidx, const double theta, const double phi, const double lambda);
+void u3(const qubit &qidx, const double theta, const double phi,
+        const double lambda);
 
 // Measure-Z
 void mz(const qubit &qidx);
@@ -78,16 +80,16 @@ void cz(const qubit &src_idx, const qubit &tgt_idx);
 void ch(const qubit &src_idx, const qubit &tgt_idx);
 void swap(const qubit &src_idx, const qubit &tgt_idx);
 
-// Common parameterized 2 qubit gates. 
+// Common parameterized 2 qubit gates.
 void cphase(const qubit &src_idx, const qubit &tgt_idx, const double theta);
 void crz(const qubit &src_idx, const qubit &tgt_idx, const double theta);
 
 // exponential of i * theta * H, where H is an Observable pointer
-void exp(qreg q, const double theta, xacc::Observable& H);
+void exp(qreg q, const double theta, xacc::Observable &H);
 void exp(qreg q, const double theta, xacc::Observable *H);
 void exp(qreg q, const double theta, std::shared_ptr<xacc::Observable> H);
 
-// Submission API. Submit the constructed CompositeInstruction operating 
+// Submission API. Submit the constructed CompositeInstruction operating
 // on the provided AcceleratorBuffer(s) (note qreg wraps an AcceleratorBuffer)
 void submit(xacc::AcceleratorBuffer *buffer);
 void submit(xacc::AcceleratorBuffer **buffers, const int nBuffers);
@@ -109,6 +111,15 @@ namespace internal_compiler {
 // Current runtime controlled bit indices
 // (if the current kernel is wrapped in a Controlled block)
 extern std::vector<int> __controlledIdx;
+// Optimization level: parsed from command line input.
+// Convention:
+// 0 : no optimization
+// 1 : standard optimization (within reasonable walltime limit)
+// 2 : extensive optimization (TBD)
+extern int __opt_level;
+// Should we print out the circuit optimizer stats.
+// Disabled by default. Enabled by qcor CLI option.
+extern bool __print_opt_stats;
 
 void simplified_qrt_call_one_qbit(const char *gate_name,
                                   const char *buffer_name,
@@ -123,8 +134,9 @@ void simplified_qrt_call_two_qbits(const char *gate_name,
                                    const std::size_t src_idx,
                                    const std::size_t tgt_idx);
 
-class xacc_to_qrt_mapper : public xacc::quantum::AllGateVisitor,
-                           public xacc::InstructionVisitor<xacc::quantum::Circuit> {
+class xacc_to_qrt_mapper
+    : public xacc::quantum::AllGateVisitor,
+      public xacc::InstructionVisitor<xacc::quantum::Circuit> {
 protected:
   std::string &buffer_name_to_measure;
 

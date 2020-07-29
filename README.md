@@ -29,7 +29,7 @@ Navigate to ``https://localhost:3000`` in your browser to open the IDE and get s
 Compiler (C++14): GNU 6.1+, Clang 3.4+
 CMake 3.9+ (for build)
 XACC: see https://xacc.readthedocs.io/en/latest/install.html#building-xacc
-LLVM/Clang [Syntax Handler Fork](https://github.com/hfinkel/llvm-project-csp).
+LLVM/Clang [Syntax Handler Fork](https://github.com/ornl-qci/llvm-project-csp).
 ```
 
 ## Linux Build Instructions

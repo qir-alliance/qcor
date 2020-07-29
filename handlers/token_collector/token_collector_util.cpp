@@ -113,9 +113,7 @@ std::string run_token_collector(clang::Preprocessor &PP,
       i++;
       std::vector<std::string> arguments;
       while (Toks[i].isNot(clang::tok::r_paren)) {
-          std::cout << "TOKEN HERE: " << PP.getSpelling(Toks[i]) << "\n";
         if (Toks[i].isNot(clang::tok::comma)) {
-            std::cout << "Adding " << PP.getSpelling(Toks[i]) << " to args.\n";
           arguments.push_back(PP.getSpelling(Toks[i]));
         }
         i++;

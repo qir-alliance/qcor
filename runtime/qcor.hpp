@@ -22,6 +22,13 @@ public:
 #ifdef __internal__qcor__compile__backend
     quantum::initialize(__internal__qcor__compile__backend, "empty");
 #endif
+#ifdef __internal__qcor__compile__opt__level
+    xacc::internal_compiler::__opt_level =
+        __internal__qcor__compile__opt__level;
+#endif
+#ifdef __internal__qcor__compile__opt__print__stats
+    xacc::internal_compiler::__print_opt_stats = true;
+#endif
   }
 };
 internal_startup startup;
