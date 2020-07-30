@@ -18,6 +18,12 @@ int main() {
   auto q = qalloc(1);
 
   // Run the kernel
-  testKernel(q);
+  {
+    class testKernel t(q);
+    t.optimize_only = true;
+    // kernel executed upon destruction, 
+    // will only build up circuit and run pass manager
+  }
+  std::cout << "NInsts: " << quantum::program->nInstructions() << "\n";
 }
 #endif

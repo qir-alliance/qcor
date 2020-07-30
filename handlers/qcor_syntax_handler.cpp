@@ -206,6 +206,12 @@ public:
       OS << ", " << program_parameters[i];
     }
     OS << ");\n";
+
+    OS << "if (optimize_only) {\n";
+    OS << "xacc::internal_compiler::execute_pass_manager();\n";
+    OS << "return;\n";
+    OS << "}\n";
+
     OS << "if (is_callable) {\n";
     if (bufferNames.size() > 1) {
       OS << "xacc::AcceleratorBuffer * buffers[" << bufferNames.size()

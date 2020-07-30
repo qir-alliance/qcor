@@ -65,7 +65,7 @@ std::vector<PassStat> PassManager::optimize(
     stat.gateCountBefore = PassStat::countGates(program);
     xacc::ScopeTimer timer(passName, false);
     auto xaccOptTransform =
-        xacc::getService<xacc::IRTransformation>(passName, false);
+        xacc::getIRTransformation(passName);
     // Graciously ignores passes which cannot be located.
     if (xaccOptTransform) {
       xaccOptTransform->apply(program, nullptr);

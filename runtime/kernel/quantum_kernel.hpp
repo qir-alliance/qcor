@@ -45,8 +45,13 @@ protected:
   // Turn off destructor execution, useful for
   // qcor developers, not to be used by clients / programmers
   bool disable_destructor = false;
-
+  
 public:
+
+  // Flag to indicate we only want to 
+  // run the pass manager and not execute
+  bool optimize_only = false;
+
   // Default constructor, takes quantum kernel function arguments
   QuantumKernel(Args... args) : args_tuple(std::forward_as_tuple(args...)) {}
 

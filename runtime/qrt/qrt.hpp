@@ -133,6 +133,7 @@ void simplified_qrt_call_two_qbits(const char *gate_name,
                                    const char *buffer_name_2,
                                    const std::size_t src_idx,
                                    const std::size_t tgt_idx);
+void execute_pass_manager();
 
 class xacc_to_qrt_mapper
     : public xacc::quantum::AllGateVisitor,

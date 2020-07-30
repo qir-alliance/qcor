@@ -37,6 +37,18 @@ void simplified_qrt_call_two_qbits(const char *gate_name,
                             {buffer_name_1, tgt_idx});
 }
 
+void execute_pass_manager() {
+  qcor::internal::PassManager passManager(__opt_level);
+  const auto optData = passManager.optimize(::quantum::program);
+  if (__print_opt_stats) {
+    // Prints out the Optimizer Stats if requested.
+    for (const auto &passData : optData) {
+      std::cout << passData.toString(false);
+    }
+  }
+}
+
+
 } // namespace internal_compiler
 } // namespace xacc
 namespace quantum {
@@ -300,14 +312,7 @@ void exp(qreg q, const double theta, std::shared_ptr<xacc::Observable> H) {
 }
 
 void submit(xacc::AcceleratorBuffer *buffer) {
-  qcor::internal::PassManager passManager(__opt_level);
-  const auto optData = passManager.optimize(program);
-  if (__print_opt_stats) {
-    // Prints out the Optimizer Stats if requested.
-    for (const auto &passData : optData) {
-      std::cout << passData.toString(false);
-    }
-  }
+  xacc::internal_compiler::execute_pass_manager();
   xacc::internal_compiler::execute(buffer, program);
   clearProgram();
 }
