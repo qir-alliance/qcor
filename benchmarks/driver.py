@@ -11,12 +11,16 @@ qcorExe = str(pathlib.Path.home()) + "/.xacc/bin/qcor"
 
 # CSV result
 # Headers:
-headers = ["Test Case", 
-          "Staq-Walltime", "Staq-Before", "Staq-After", 
-          "Gate Merge-Walltime", "Gate Merge-Before", "Gate Merge-After", 
-          "Circuit Optimizer-Walltime", "Circuit Optimizer-Before", "Circuit Optimizer-After", 
-          "XACC Built-in Combined-Walltime", "XACC Built-in Combined-Before", "XACC Built-in Combined-After", 
-          "Level 1 Combined-Walltime", "Level 1 Combined-Before", "Level 1 Combined-After"]
+headers = ["Test Case",
+           # Independent passes
+           "Staq-Walltime", "Staq-Before", "Staq-After",
+           "Gate Merge-Walltime", "Gate Merge-Before", "Gate Merge-After",
+           "Circuit Optimizer-Walltime", "Circuit Optimizer-Before", "Circuit Optimizer-After",
+           # Passes in sequence
+           "Staq-Walltime", "Staq-Before", "Staq-After",
+           "Gate Merge-Walltime", "Gate Merge-Before", "Gate Merge-After",
+           "Circuit Optimizer-Walltime", "Circuit Optimizer-Before", "Circuit Optimizer-After",
+           ]
 
 # Extract data from log and append data to CSV
 firstWrite = True
@@ -25,24 +29,27 @@ resultCsvFn = "result.csv"
 if os.path.exists(resultCsvFn):
   os.remove(resultCsvFn)
 
+# Analyze the full benchmark data for one test case:
 def analyzeLog(testCaseName, log):
   global firstWrite
   rowData = [os.path.splitext(testCaseName)[0]]
   for line in log.splitlines():
-    # print("Receive '", line)
     # Get elapsed time:
-    if "Elapsed time:" in line: 
+    if "Elapsed time:" in line:
       splitResult = re.search("Elapsed time:(.*)\[ms\]", line)
       rowData.append(float(splitResult.group(1)))
     # Get before:
-    if "Number of Gates Before:" in line: 
+    if "Number of Gates Before:" in line:
       splitResult = re.search("Number of Gates Before: (.*)", line)
       rowData.append(int(splitResult.group(1)))
     # Get after:
-    if "Number of Gates After:" in line: 
+    if "Number of Gates After:" in line:
       splitResult = re.search("Number of Gates After: (.*)", line)
       rowData.append(int(splitResult.group(1)))
-  print("Data: ", rowData)
+  #print("Data: ", rowData)
+  if (len(rowData) != len(headers)):
+    Exception("Failed to parse result for test case " + testCaseName)
+
   with open('result.csv', 'a', newline='') as csvfile:
     resultWriter = csv.writer(csvfile)
     if firstWrite is True:
@@ -51,28 +58,56 @@ def analyzeLog(testCaseName, log):
     # Write data
     resultWriter.writerow(rowData)
 
-# Configurations:
-# Optimization level to run:
-# TODO: enable single-pass execution
-OPT_LEVEL = 1
+# Run a full benchmark suite (the folder in /resources directory)
+def runBenchmarkSuite(suiteName):
+  # Run test cases
+  dirPath = os.path.dirname(os.path.realpath(__file__))
+  listOfSrcFiles = glob.glob(dirPath + "/resources/" + suiteName +"/*.qasm")
+  listOfTestCases = []
+  for srcFile in listOfSrcFiles:
+    testCaseName = os.path.splitext(os.path.basename(srcFile))[0] + ".out"
+    listOfTestCases.append(testCaseName)
+    print("Run Benchmark: ", testCaseName)
+    # Single pass data:
+    compileProcess = subprocess.Popen([qcorExe, "-DTEST_SOURCE_FILE=\"" + srcFile + "\"", "-o", testCaseName, "circuit_opt_run_passes.cpp"],
+                                      stdout=subprocess.PIPE,
+                                      stderr=subprocess.PIPE)
+    stdout, stderr = compileProcess.communicate()
+    if len(stderr) > 1:
+      raise Exception("Failed to compile test case " + testCaseName)
+    resultLog = ""
+    # Run single independent passes:
+    # Sequence: "rotation-folding", "gate merge", "circuit optimizer"
+    passesToRun = ["rotation-folding",
+                  "single-qubit-gate-merging", "circuit-optimizer"]
+    for passName in passesToRun:
+      testExe = dirPath + "/" + testCaseName
+      exeProcess = subprocess.Popen(
+          [testExe, passName], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+      stdout, stderr = exeProcess.communicate()
+      #print(stdout.decode("utf-8"))
+      resultLog += stdout.decode("utf-8")
+    os.remove(testExe)
 
-dirPath = os.path.dirname(os.path.realpath(__file__))
-listOfSrcFiles = glob.glob(dirPath + "/resources/qasm/*.qasm")
-listOfTestCases = []
-for srcFile in listOfSrcFiles:
-  testCaseName = os.path.splitext(os.path.basename(srcFile))[0] + ".out"
-  listOfTestCases.append(testCaseName)
-  print("Compile test case: ", testCaseName)
-  compileProcess = subprocess.Popen([qcorExe, "-DTEST_SOURCE_FILE=\"" + srcFile + "\"", "-o", testCaseName, "-opt", str(OPT_LEVEL), "-print-opt-stats", "circuit_opt_benchmark.cpp"],
-                             stdout=subprocess.PIPE,
-                             stderr=subprocess.PIPE)
-  stdout, stderr = compileProcess.communicate()
-  if len(stderr) > 1:
-    raise Exception("Failed to compile test case " + testCaseName)
-  print("Run Benchmark: ", testCaseName)
-  testExe = dirPath + "/" + testCaseName
-  exeProcess = subprocess.Popen([testExe], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-  stdout, stderr = exeProcess.communicate()
-  analyzeLog(testCaseName, stdout.decode("utf-8")) 
-  os.remove(testExe)
-  
+    # Run passes in sequence (opt-level = 1)
+    # Configurations:
+    # Optimization level to run:
+    OPT_LEVEL = 1
+    compileProcess = subprocess.Popen([qcorExe, "-DTEST_SOURCE_FILE=\"" + srcFile + "\"", "-o", testCaseName, "-opt", str(OPT_LEVEL), "-print-opt-stats", "circuit_opt_benchmark.cpp"],
+                                      stdout=subprocess.PIPE,
+                                      stderr=subprocess.PIPE)
+    stdout, stderr = compileProcess.communicate()
+    if len(stderr) > 1:
+      raise Exception("Failed to compile test case " + testCaseName)
+    testExe = dirPath + "/" + testCaseName
+    exeProcess = subprocess.Popen(
+        [testExe], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    stdout, stderr = exeProcess.communicate()
+    resultLog += stdout.decode("utf-8")
+    os.remove(testExe)
+    # Now analyze the full log
+    analyzeLog(testCaseName, resultLog)
+
+
+# Run the suite: e.g. qasm, chemistry, staq
+runBenchmarkSuite("chemistry")
