@@ -47,7 +47,10 @@ void execute_pass_manager() {
     }
   }
 }
-
+void execute_pass(const char *passName) {
+  const auto passData = qcor::internal::PassManager::runPass(passName, ::quantum::program);
+  std::cout << passData.toString(false);
+}
 
 } // namespace internal_compiler
 } // namespace xacc
