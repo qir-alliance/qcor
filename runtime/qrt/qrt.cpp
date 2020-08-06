@@ -14,6 +14,7 @@ namespace internal_compiler {
 int __opt_level = 0;
 bool __print_opt_stats = false;
 std::vector<int> __controlledIdx = {};
+std::string __user_opt_passes = "";
 
 void simplified_qrt_call_one_qbit(const char *gate_name,
                                   const char *buffer_name,
@@ -39,7 +40,24 @@ void simplified_qrt_call_two_qbits(const char *gate_name,
 
 void execute_pass_manager() {
   qcor::internal::PassManager passManager(__opt_level);
-  const auto optData = passManager.optimize(::quantum::program);
+  auto optData = passManager.optimize(::quantum::program);
+  
+  std::vector<std::string> user_passes;
+  if (!__user_opt_passes.empty()) {
+    std::stringstream ss(__user_opt_passes);
+    // Parses list of passes
+    while (ss.good()) {
+      std::string passName;
+      std::getline(ss, passName, ',');
+      user_passes.emplace_back(passName);
+    }
+  }
+
+  // Runs user-specified passes
+  for (const auto& user_pass: user_passes) {
+    optData.emplace_back(qcor::internal::PassManager::runPass(user_pass, ::quantum::program));
+  }
+
   if (__print_opt_stats) {
     // Prints out the Optimizer Stats if requested.
     for (const auto &passData : optData) {
