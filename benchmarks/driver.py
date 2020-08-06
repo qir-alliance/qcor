@@ -33,6 +33,7 @@ if os.path.exists(resultCsvFn):
 # Analyze the full benchmark data for one test case:
 def analyzeLog(testCaseName, log):
   global firstWrite
+  print(log)
   rowData = [os.path.splitext(testCaseName)[0]]
   for line in log.splitlines():
     # Get elapsed time:
@@ -66,24 +67,30 @@ def runBenchmarkSuite(suiteName):
   listOfSrcFiles = glob.glob(dirPath + "/resources/" + suiteName +"/*.qasm")
   listOfTestCases = []
   # Fixed Staq bug which cannot handle scientific form
-  for srcFile in listOfSrcFiles:
-    with open(srcFile, 'r') as file:
-      data = file.read()
-      match_number = re.compile("-?\d*\.?\d+e[+-]?\d+")
-      e_list = [x for x in re.findall(match_number, data)]
-      e_list = list(dict.fromkeys(e_list))
-      floatList = []
-      for num in e_list:
-        floatList.append(np.format_float_positional(float(num)))
-      for i in range(len(floatList)):
-        # Replace scientific notation
-        data = data.replace(e_list[i], floatList[i])
-    if len(floatList) > 0 :
-      with open(srcFile, 'w') as newFile:
-        newFile.write(data)  
+  # for srcFile in listOfSrcFiles:
+  #   with open(srcFile, 'r') as file:
+  #     data = file.read()
+  #     match_number = re.compile("-?\d*\.?\d+e[+-]?\d+")
+  #     e_list = [x for x in re.findall(match_number, data)]
+  #     e_list = list(dict.fromkeys(e_list))
+  #     floatList = []
+  #     for num in e_list:
+  #       floatList.append(np.format_float_positional(float(num)))
+  #     for i in range(len(floatList)):
+  #       # Replace scientific notation
+  #       data = data.replace(e_list[i], floatList[i])
+  #   if len(floatList) > 0:
+  #     with open(srcFile, 'w') as newFile:
+  #       newFile.write(data)
 
   for srcFile in listOfSrcFiles:
     testCaseName = os.path.splitext(os.path.basename(srcFile))[0] + ".out"
+    # Don't run super long circuits
+    count = len(open(srcFile).readlines())
+    if count > 100000:
+      print("Skip Benchmark: ", testCaseName)
+      continue
+
     listOfTestCases.append(testCaseName)
     print("Run Benchmark: ", testCaseName)
     # Single pass data:
