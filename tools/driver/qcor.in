@@ -85,15 +85,28 @@ def main(argv=None):
         sys.argv.remove(qrtOptLevel)
         sys.argv.remove('-opt')
         sys.argv += ['-D__internal__qcor__compile__opt__level='+qrtOptLevel]
-        # Enable runtime kernel optimization stats print-out:
-        # i.e. passes that are executed and their info (walltime, gate count reduction, etc.)
-        if '-print-opt-stats' in sys.argv[1:]:
-            sys.argv.remove('-print-opt-stats')
-            sys.argv += ['-D__internal__qcor__compile__opt__print__stats']
 
+    # Enable runtime kernel optimization stats print-out:
+    # i.e. passes that are executed and their info (walltime, gate count reduction, etc.)
     if '-print-opt-stats' in sys.argv[1:]:
         sys.argv.remove('-print-opt-stats')
-        
+        sys.argv += ['-D__internal__qcor__compile__opt__print__stats']
+
+    # Specify optimization passes to run *in addition* to the default passes at an optimization level.
+    # Syntax: -opt-pass pass1[,pass2] 
+    # i.e. a comma-separated list of passes.
+    # Rationale:
+    # - This option can be used to run an independent pass by using level 0 (no optimization)
+    # and then specify which pass to be executed.
+    # - It can also be used to add passes to pre-defined list of passes for an optimization level.
+    # e.g., those XACC passes that are contributed externally. 
+    if '-opt-pass' in sys.argv[1:]:
+        sidx = sys.argv.index('-opt-pass')
+        qrtOptPasses = sys.argv[sidx+1]
+        sys.argv.remove(qrtOptPasses)
+        sys.argv.remove('-opt-pass')
+        sys.argv += ['-D__internal__qcor__compile__opt__passes=\"'+qrtOptPasses+'\"']
+
     # Get the filename we are compiling or the object file
     filename = ''
     fileType = ''

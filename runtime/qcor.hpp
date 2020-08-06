@@ -29,6 +29,9 @@ public:
 #ifdef __internal__qcor__compile__opt__print__stats
     xacc::internal_compiler::__print_opt_stats = true;
 #endif
+#ifdef __internal__qcor__compile__opt__passes
+    xacc::internal_compiler::__user_opt_passes = __internal__qcor__compile__opt__passes;
+#endif
   }
 };
 internal_startup startup;
