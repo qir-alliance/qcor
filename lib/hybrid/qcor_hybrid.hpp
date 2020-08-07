@@ -2,8 +2,10 @@
 
 #include "AcceleratorBuffer.hpp"
 #include "qcor.hpp"
+#include "qcor_utils.hpp"
 #include "qrt.hpp"
 #include <memory>
+#include <xacc_internal_compiler.hpp>
 
 namespace qcor {
 static constexpr double pi = 3.141592653589793238;
@@ -175,7 +177,7 @@ public:
     // Create the Arg Translator
     TranslationFunctor<qreg, KernelArgs...> arg_translator;
     if (translation_functor.has_value()) {
-        std::cout << "Using this arg translator\n";
+      std::cout << "Using this arg translator\n";
       arg_translator = std::any_cast<TranslationFunctor<qreg, KernelArgs...>>(
           translation_functor);
     } else {
@@ -468,4 +470,42 @@ public:
 
 // Next, add Adapt
 
+void execute_qite(qreg q, const HeterogeneousMap &&m);
+// Next, QITE
+template <typename... KernelArgs> class QITE {
+protected:
+  Observable &observable;
+  void *state_prep_ptr;
+  const int n_steps;
+  const double step_size;
+  // Register of qubits to operate on
+  qreg q;
+
+public:
+  QITE(void (*state_prep_kernel)(std::shared_ptr<CompositeInstruction>, qreg,
+                                 KernelArgs...),
+       Observable &obs, const int _n_steps, const double _step_size)
+      : state_prep_ptr(reinterpret_cast<void *>(state_prep_kernel)),
+        observable(obs), n_steps(_n_steps), step_size(_step_size) {
+    q = qalloc(obs.nBits());
+  }
+
+  double execute(KernelArgs... initial_args) {
+    auto state_prep_casted =
+        reinterpret_cast<void (*)(std::shared_ptr<CompositeInstruction>, qreg,
+                                  KernelArgs...)>(state_prep_ptr);
+    auto parent_composite =
+        qcor::__internal__::create_composite("qite_composite");
+    state_prep_casted(parent_composite, q, initial_args...);
+    // parent_composite now has the circuit in it
+
+    auto accelerator = xacc::internal_compiler::get_qpu();
+    execute_qite(q, {{"steps", n_steps},
+                     {"step-size", step_size},
+                     {"ansatz", parent_composite},
+                     {"accelerator", accelerator},
+                     {"observable", &observable}});
+    return q.results()->getInformation("opt-val").template as<double>();
+  }
+};
 } // namespace qcor
