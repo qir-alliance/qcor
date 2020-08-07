@@ -121,6 +121,9 @@ extern int __opt_level;
 // Disabled by default. Enabled by qcor CLI option.
 extern bool __print_opt_stats;
 
+// User-customized passes to run
+extern std::string __user_opt_passes;
+
 void simplified_qrt_call_one_qbit(const char *gate_name,
                                   const char *buffer_name,
                                   const std::size_t idx);

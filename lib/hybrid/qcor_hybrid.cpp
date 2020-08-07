@@ -2,6 +2,7 @@
 #include "Compiler.hpp"
 #include "xacc.hpp"
 #include "xacc_service.hpp"
+#include <Utils.hpp>
 
 namespace qcor {
 namespace __internal__ {
@@ -27,5 +28,11 @@ void QAOA::initial_compile_qaoa_code() {
   qaoa_circuit = xasm->compile(qaoa_xasm_code)->getComposites()[0];
 }
 void QAOA::error(const std::string &message) { xacc::error(message); }
+
+
+void execute_qite(qreg q, const HeterogeneousMap &&m) {
+  auto qite = xacc::getAlgorithm("qite", m);
+  qite->execute(xacc::as_shared_ptr(q.results()));
+}
 
 } // namespace qcor

@@ -79,7 +79,7 @@ public:
 
   void visit(Measure &measure) override { addOneQubitGate("mz", measure); }
   void visit(Identity &i) override { addOneQubitGate("i", i); }
-  void visit(U &u) override { addOneQubitGate("u", u); }
+  void visit(U &u) override { addOneQubitGate("u3", u); }
   void visit(U1 &u1) override { addOneQubitGate("u1", u1); }
   void visit(Circuit &circ) override {
     if (circ.name() == kernelName) {

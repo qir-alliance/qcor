@@ -143,6 +143,9 @@ void XasmTokenCollector::collect(clang::Preprocessor &PP,
     CommonTokenStream tokens(&lexer);
     xasm_singleParser parser(&tokens);
 
+    lexer.removeErrorListeners();
+    parser.removeErrorListeners();
+    
     tree::ParseTree *tree = parser.line();
 
     visitor.visitChildren(tree);
