@@ -27,6 +27,8 @@ struct PassStat {
 class PassManager {
 public:
   PassManager(int level);
+  // Static helper to run an optimization pass
+  static PassStat runPass(const std::string &passName, std::shared_ptr<xacc::CompositeInstruction> program);
   // Optimizes the input program.
   // Returns the full statistics about all the passes that have been executed.
   std::vector<PassStat>

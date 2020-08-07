@@ -43,6 +43,32 @@ namespace qcor {
 namespace internal {
 PassManager::PassManager(int level) : m_level(level) {}
 
+PassStat PassManager::runPass(const std::string &passName, std::shared_ptr<xacc::CompositeInstruction> program) {
+  PassStat stat;
+  stat.passName = passName;
+  // Counts gate before:
+  stat.gateCountBefore = PassStat::countGates(program);
+  xacc::ScopeTimer timer(passName, false);
+  
+  if (!xacc::hasService<xacc::IRTransformation>(passName)
+      && !xacc::hasContributedService<xacc::IRTransformation>(passName)) {
+    // Graciously ignores passes which cannot be located.
+    // Returns empty stats
+    return stat;
+  }
+
+  auto xaccOptTransform =
+      xacc::getIRTransformation(passName);
+  if (xaccOptTransform) {
+    xaccOptTransform->apply(program, nullptr);
+  }
+  // Stores the elapsed time.
+  stat.wallTimeMs = timer.getDurationMs();
+  // Counts gate after:
+  stat.gateCountAfter = PassStat::countGates(program);
+  return stat;
+}
+
 std::vector<PassStat> PassManager::optimize(
     std::shared_ptr<xacc::CompositeInstruction> program) const {
   std::vector<PassStat> passData;
@@ -59,22 +85,7 @@ std::vector<PassStat> PassManager::optimize(
   }();
 
   for (const auto &passName : passesToRun) {
-    PassStat stat;
-    stat.passName = passName;
-    // Counts gate before:
-    stat.gateCountBefore = PassStat::countGates(program);
-    xacc::ScopeTimer timer(passName, false);
-    auto xaccOptTransform =
-        xacc::getIRTransformation(passName);
-    // Graciously ignores passes which cannot be located.
-    if (xaccOptTransform) {
-      xaccOptTransform->apply(program, nullptr);
-    }
-    // Stores the elapsed time.
-    stat.wallTimeMs = timer.getDurationMs();
-    // Counts gate after:
-    stat.gateCountAfter = PassStat::countGates(program);
-    passData.emplace_back(std::move(stat));
+    passData.emplace_back(runPass(passName, program));
   }
 
   return passData;
