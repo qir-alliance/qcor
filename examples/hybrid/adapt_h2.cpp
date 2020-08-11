@@ -22,8 +22,10 @@ int main() {
 
   // Create ADAPT-VQE instance
   // Run H2 with the singlet-adapted-uccsd pool
-  qcor::ADAPT adapt(initial_state, H, 2, "singlet-adapted-uccsd", "vqe",
-                    optimizer);
+  int nElectrons = 2;
+  std::string pool = "singlet-adapted-uccsd";
+  std::string subAlgo = "vqe";
+  qcor::ADAPT adapt(initial_state, H, nElectrons, pool, subAlgo, optimizer);
 
   // Execute!
   auto energy = adapt.execute();
