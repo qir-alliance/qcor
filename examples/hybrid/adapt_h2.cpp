@@ -19,14 +19,20 @@ int main() {
            0.0454063 * X(0) * X(1) * X(2) * X(3);
 
   // optimizer
-  auto optimizer = qcor::createOptimizer("nlopt");
+  auto optimizer = qcor::createOptimizer(
+      "nlopt", {std::make_pair("nlopt-optimizer", "l-bfgs")});
 
   // Create ADAPT-VQE instance
   // Run H2 with the singlet-adapted-uccsd pool
   int nElectrons = 2;
   std::string pool = "singlet-adapted-uccsd";
   std::string subAlgo = "vqe";
-  qcor::ADAPT adapt(initial_state, H, nElectrons, pool, subAlgo, optimizer);
+  std::string gradStrategy = "central-difference-gradient";
+  qcor::ADAPT adapt(initial_state, H, optimizer,
+                    {{"sub-algorithm", subAlgo},
+                     {"pool", pool},
+                     {"n-electrons", nElectrons},
+                     {"gradient_strategy", gradStrategy}});
 
   // Execute!
   auto energy = adapt.execute();
