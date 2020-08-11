@@ -29,6 +29,11 @@ public:
   PassManager(int level);
   // Static helper to run an optimization pass
   static PassStat runPass(const std::string &passName, std::shared_ptr<xacc::CompositeInstruction> program);
+  // Default placement strategy
+  static constexpr const char *DEFAULT_PLACEMENT = "swap-shortest-path";
+  // Apply placement
+  static void applyPlacement(std::shared_ptr<xacc::CompositeInstruction> program, const std::string &placementName = DEFAULT_PLACEMENT);
+
   // Optimizes the input program.
   // Returns the full statistics about all the passes that have been executed.
   std::vector<PassStat>

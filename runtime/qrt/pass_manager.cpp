@@ -2,6 +2,7 @@
 #include "InstructionIterator.hpp"
 #include "xacc.hpp"
 #include "xacc_service.hpp"
+#include "xacc_internal_compiler.hpp"
 #include <iomanip>
 #include <numeric>
 namespace {
@@ -89,6 +90,23 @@ std::vector<PassStat> PassManager::optimize(
   }
 
   return passData;
+}
+
+void PassManager::applyPlacement(std::shared_ptr<xacc::CompositeInstruction> program, const std::string &placementName) {
+  if (!xacc::hasService<xacc::IRTransformation>(placementName)
+      && !xacc::hasContributedService<xacc::IRTransformation>(placementName)) {
+    // Graciously ignores services which cannot be located.
+    return;
+  }
+
+  auto irt = xacc::getIRTransformation(placementName);
+  if (irt->type() == xacc::IRTransformationType::Placement &&
+    xacc::internal_compiler::qpu &&
+    !xacc::internal_compiler::qpu->getConnectivity().empty()) {
+    irt->apply(program, xacc::internal_compiler::qpu);
+  }
+  // DEBUG:
+  std::cout << "HOWDY:\n" << program->toString() << "\n";
 }
 
 std::unordered_map<std::string, int> PassStat::countGates(

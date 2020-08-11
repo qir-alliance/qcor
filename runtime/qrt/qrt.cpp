@@ -64,6 +64,9 @@ void execute_pass_manager() {
       std::cout << passData.toString(false);
     }
   }
+  // Apply placement:
+  // TODO: add option to change the placement strategy.
+  qcor::internal::PassManager::applyPlacement(::quantum::program);
 }
 
 
