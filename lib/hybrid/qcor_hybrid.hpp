@@ -468,7 +468,49 @@ public:
   }
 }; // namespace qcor
 
-// Next, add Adapt
+void execute_adapt(qreg q, const HeterogeneousMap &&m);
+
+template <typename... KernelArgs> class ADAPT {
+protected:
+  Observable &observable;
+  void *state_prep_ptr;
+  std::shared_ptr<Optimizer> optimizer;
+  HeterogeneousMap options;
+
+  // Register of qubits to operate on
+  qreg q;
+
+public:
+  ADAPT(void (*state_prep_kernel)(std::shared_ptr<CompositeInstruction>, qreg,
+                                  KernelArgs...),
+        Observable &obs, std::shared_ptr<Optimizer> opt,
+        HeterogeneousMap _options)
+      : state_prep_ptr(reinterpret_cast<void *>(state_prep_kernel)),
+        observable(obs), optimizer(opt), options(_options) {
+    q = qalloc(obs.nBits());
+  }
+
+  double execute(KernelArgs... initial_args) {
+    auto state_prep_casted =
+        reinterpret_cast<void (*)(std::shared_ptr<CompositeInstruction>, qreg,
+                                  KernelArgs...)>(state_prep_ptr);
+    auto parent_composite =
+        qcor::__internal__::create_composite("adapt_composite");
+    state_prep_casted(parent_composite, q, initial_args...);
+    // parent_composite now has the circuit in it
+
+    auto accelerator = xacc::internal_compiler::get_qpu();
+
+    options.insert("initial-state", parent_composite);
+    options.insert("observable", &observable);
+    options.insert("optimizer", optimizer);
+    options.insert("accelerator", accelerator);
+
+    execute_adapt(q, std::move(options));
+
+    return q.results()->getInformation("opt-val").template as<double>();
+  }
+};
 
 void execute_qite(qreg q, const HeterogeneousMap &&m);
 // Next, QITE
