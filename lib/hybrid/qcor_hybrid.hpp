@@ -468,7 +468,6 @@ public:
   }
 }; // namespace qcor
 
-
 void execute_adapt(qreg q, const HeterogeneousMap &&m);
 
 template <typename... KernelArgs> class ADAPT {
@@ -483,10 +482,12 @@ protected:
 
 public:
   ADAPT(void (*state_prep_kernel)(std::shared_ptr<CompositeInstruction>, qreg,
-                                 KernelArgs...),
-       std::shared_ptr<Observable> obs, const int _ne, const std::string _pool, const std::string _subAlgo, std::shared_ptr<Optimizer> opt)
+                                  KernelArgs...),
+        std::shared_ptr<Observable> obs, const int _ne, const std::string _pool,
+        const std::string _subAlgo, std::shared_ptr<Optimizer> opt)
       : state_prep_ptr(reinterpret_cast<void *>(state_prep_kernel)),
-        observable(obs), nElectrons(_ne), pool(_pool), subAlgo(_subAlgo), optimizer(opt) {
+        observable(obs), nElectrons(_ne), pool(_pool), subAlgo(_subAlgo),
+        optimizer(opt) {
     q = qalloc(obs->nBits());
   }
 
@@ -501,17 +502,15 @@ public:
 
     auto accelerator = xacc::internal_compiler::get_qpu();
     execute_adapt(q, {{"n-electrons", nElectrons},
-                     {"pool", pool},
-                     {"initial-state", parent_composite},
-                     {"optimizer", optimizer},
-                     {"sub-algorithm", subAlgo},
-                     {"accelerator", accelerator},
-                     {"observable", observable}});
+                      {"pool", pool},
+                      {"initial-state", parent_composite},
+                      {"optimizer", optimizer},
+                      {"sub-algorithm", subAlgo},
+                      {"accelerator", accelerator},
+                      {"observable", observable}});
     return q.results()->getInformation("opt-val").template as<double>();
   }
 };
-
-
 
 void execute_qite(qreg q, const HeterogeneousMap &&m);
 // Next, QITE
