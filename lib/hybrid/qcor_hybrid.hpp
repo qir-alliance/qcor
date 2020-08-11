@@ -468,7 +468,50 @@ public:
   }
 }; // namespace qcor
 
-// Next, add Adapt
+
+void execute_adapt(qreg q, const HeterogeneousMap &&m);
+
+template <typename... KernelArgs> class ADAPT {
+protected:
+  std::shared_ptr<Observable> observable;
+  void *state_prep_ptr;
+  const std::string pool, subAlgo;
+  const int nElectrons;
+  std::shared_ptr<Optimizer> optimizer;
+  // Register of qubits to operate on
+  qreg q;
+
+public:
+  ADAPT(void (*state_prep_kernel)(std::shared_ptr<CompositeInstruction>, qreg,
+                                 KernelArgs...),
+       std::shared_ptr<Observable> obs, const int _ne, const std::string _pool, const std::string _subAlgo, std::shared_ptr<Optimizer> opt)
+      : state_prep_ptr(reinterpret_cast<void *>(state_prep_kernel)),
+        observable(obs), nElectrons(_ne), pool(_pool), subAlgo(_subAlgo), optimizer(opt) {
+    q = qalloc(obs->nBits());
+  }
+
+  double execute(KernelArgs... initial_args) {
+    auto state_prep_casted =
+        reinterpret_cast<void (*)(std::shared_ptr<CompositeInstruction>, qreg,
+                                  KernelArgs...)>(state_prep_ptr);
+    auto parent_composite =
+        qcor::__internal__::create_composite("adapt_composite");
+    state_prep_casted(parent_composite, q, initial_args...);
+    // parent_composite now has the circuit in it
+
+    auto accelerator = xacc::internal_compiler::get_qpu();
+    execute_adapt(q, {{"n-electrons", nElectrons},
+                     {"pool", pool},
+                     {"initial-state", parent_composite},
+                     {"optimizer", optimizer},
+                     {"sub-algorithm", subAlgo},
+                     {"accelerator", accelerator},
+                     {"observable", observable}});
+    return q.results()->getInformation("opt-val").template as<double>();
+  }
+};
+
+
 
 void execute_qite(qreg q, const HeterogeneousMap &&m);
 // Next, QITE
