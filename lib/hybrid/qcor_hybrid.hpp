@@ -472,7 +472,7 @@ void execute_adapt(qreg q, const HeterogeneousMap &&m);
 
 template <typename... KernelArgs> class ADAPT {
 protected:
-  std::shared_ptr<Observable> observable;
+  Observable &observable;
   void *state_prep_ptr;
   const std::string pool, subAlgo;
   const int nElectrons;
@@ -481,14 +481,15 @@ protected:
   qreg q;
 
 public:
+
   ADAPT(void (*state_prep_kernel)(std::shared_ptr<CompositeInstruction>, qreg,
                                   KernelArgs...),
-        std::shared_ptr<Observable> obs, const int _ne, const std::string _pool,
+        Observable &obs, const int _ne, const std::string _pool,
         const std::string _subAlgo, std::shared_ptr<Optimizer> opt)
       : state_prep_ptr(reinterpret_cast<void *>(state_prep_kernel)),
         observable(obs), nElectrons(_ne), pool(_pool), subAlgo(_subAlgo),
         optimizer(opt) {
-    q = qalloc(obs->nBits());
+    q = qalloc(obs.nBits());
   }
 
   double execute(KernelArgs... initial_args) {
@@ -507,7 +508,7 @@ public:
                       {"optimizer", optimizer},
                       {"sub-algorithm", subAlgo},
                       {"accelerator", accelerator},
-                      {"observable", observable}});
+                      {"observable", &observable}});
     return q.results()->getInformation("opt-val").template as<double>();
   }
 };
