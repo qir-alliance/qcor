@@ -105,8 +105,6 @@ void PassManager::applyPlacement(std::shared_ptr<xacc::CompositeInstruction> pro
     !xacc::internal_compiler::qpu->getConnectivity().empty()) {
     irt->apply(program, xacc::internal_compiler::qpu);
   }
-  // DEBUG:
-  std::cout << "HOWDY:\n" << program->toString() << "\n";
 }
 
 std::unordered_map<std::string, int> PassStat::countGates(
