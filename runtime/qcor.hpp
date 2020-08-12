@@ -32,6 +32,12 @@ public:
 #ifdef __internal__qcor__compile__opt__passes
     xacc::internal_compiler::__user_opt_passes = __internal__qcor__compile__opt__passes;
 #endif
+#ifdef __internal__qcor__compile__placement__name
+    xacc::internal_compiler::__placement_name = __internal__qcor__compile__placement__name;
+#endif
+#ifdef __internal__qcor__compile__qubit__map
+    xacc::internal_compiler::__qubit_map = xacc::internal_compiler::parse_qubit_map(__internal__qcor__compile__qubit__map);
+#endif
   }
 };
 internal_startup startup;

@@ -15,6 +15,8 @@ int __opt_level = 0;
 bool __print_opt_stats = false;
 std::vector<int> __controlledIdx = {};
 std::string __user_opt_passes = "";
+std::string __placement_name = "";
+std::vector<int> __qubit_map = {};
 
 void simplified_qrt_call_one_qbit(const char *gate_name,
                                   const char *buffer_name,
@@ -39,7 +41,7 @@ void simplified_qrt_call_two_qbits(const char *gate_name,
 }
 
 void execute_pass_manager() {
-  qcor::internal::PassManager passManager(__opt_level);
+  qcor::internal::PassManager passManager(__opt_level, __qubit_map, __placement_name);
   auto optData = passManager.optimize(::quantum::program);
   
   std::vector<std::string> user_passes;
@@ -64,11 +66,28 @@ void execute_pass_manager() {
       std::cout << passData.toString(false);
     }
   }
-  // Apply placement:
-  // TODO: add option to change the placement strategy.
-  qcor::internal::PassManager::applyPlacement(::quantum::program);
+
+  passManager.applyPlacement(::quantum::program);
 }
 
+std::vector<int> parse_qubit_map(const char *qubit_map_str) {
+  std::vector<int> qubitMap;
+  std::stringstream ss(qubit_map_str);
+  while (ss.good()) {
+    // Split by ',' delimiter
+    try {
+      std::string qubitId;
+      std::getline(ss, qubitId, ',');
+      qubitMap.emplace_back(std::stoi(qubitId));
+    }
+    catch (...)
+    {
+      // Cannot parse the integer.
+      return {};
+    }
+  }
+  return qubitMap;
+}
 
 } // namespace internal_compiler
 } // namespace xacc

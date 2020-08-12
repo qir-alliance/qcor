@@ -42,7 +42,9 @@ printGateCountComparison(const std::unordered_map<std::string, int> &before,
 
 namespace qcor {
 namespace internal {
-PassManager::PassManager(int level) : m_level(level) {}
+PassManager::PassManager(int level, const std::vector<int> &qubitMap,
+                         const std::string &placementName)
+  : m_level(level), m_qubitMap(qubitMap), m_placement(placementName) {}
 
 PassStat PassManager::runPass(const std::string &passName, std::shared_ptr<xacc::CompositeInstruction> program) {
   PassStat stat;
@@ -92,7 +94,18 @@ std::vector<PassStat> PassManager::optimize(
   return passData;
 }
 
-void PassManager::applyPlacement(std::shared_ptr<xacc::CompositeInstruction> program, const std::string &placementName) {
+void PassManager::applyPlacement(std::shared_ptr<xacc::CompositeInstruction> program) const {
+  const std::string placementName = [&]() -> std::string {
+    // If the qubit-map was provided, always use default-placement
+    if (!m_qubitMap.empty()) {
+      return "default-placement";
+    }
+    // Use the specified placement if any.
+    // Note: placement will only be activated if the accelerator
+    // has a connectivity graph.
+    return m_placement.empty() ? DEFAULT_PLACEMENT : m_placement;
+  }();
+  
   if (!xacc::hasService<xacc::IRTransformation>(placementName)
       && !xacc::hasContributedService<xacc::IRTransformation>(placementName)) {
     // Graciously ignores services which cannot be located.
@@ -103,7 +116,11 @@ void PassManager::applyPlacement(std::shared_ptr<xacc::CompositeInstruction> pro
   if (irt->type() == xacc::IRTransformationType::Placement &&
     xacc::internal_compiler::qpu &&
     !xacc::internal_compiler::qpu->getConnectivity().empty()) {
-    irt->apply(program, xacc::internal_compiler::qpu);
+    if (placementName == "default-placement") {
+      irt->apply(program, xacc::internal_compiler::qpu, {{"qubit-map", m_qubitMap}});
+    } else {
+      irt->apply(program, xacc::internal_compiler::qpu);
+    }
   }
 }
 
