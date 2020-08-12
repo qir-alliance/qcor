@@ -207,8 +207,8 @@ public:
     }
     OS << ");\n";
 
-    OS << "if (optimize_only) {\n";
     OS << "xacc::internal_compiler::execute_pass_manager();\n";
+    OS << "if (optimize_only) {\n";
     OS << "return;\n";
     OS << "}\n";
 

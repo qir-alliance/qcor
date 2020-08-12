@@ -1,13 +1,18 @@
 #include <qalloc>
 
-// Add a gate b/w q[0] and q[4] which do not connect directly
-// to verify the placement algorithm.
+// Creates a 4-qubit GHZ state |0000> + |1111>
+// which, on ibmq_ourense, will require mapping
+// to fit its connectivity graph  
 __qpu__ void test_xasm(qreg q) {
   using qcor::xasm;
   H(q[0]);
-  CX(q[0],q[4]);
+  CX(q[0],q[1]);
+  CX(q[0],q[2]);
+  CX(q[0],q[3]);
   Measure(q[0]);
-  Measure(q[4]);
+  Measure(q[1]);
+  Measure(q[2]);
+  Measure(q[3]);
 }
 
 // Example: using ibmq_ourense (5 qubits) which has 
@@ -27,10 +32,10 @@ __qpu__ void test_xasm(qreg q) {
 // url: https://quantumexperience.ng.bluemix.net
 
 int main() {
-  auto q = qalloc(5);
-  {
-    class test_xasm t(q);
-    t.optimize_only = true;
-  }
-  std::cout << "AFTER PLACEMENT: \n" << quantum::program->toString() << "\n";
+  // This circuit requires 4 qubits.
+  auto q = qalloc(4);
+  test_xasm(q);
+  // Expect: ~50-50 for "0000" and "1111"
+  // (plus some variations due to noise)
+  q.print();
 }
