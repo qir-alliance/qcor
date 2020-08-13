@@ -26,9 +26,14 @@ struct PassStat {
 
 class PassManager {
 public:
-  PassManager(int level);
+  PassManager(int level, const std::vector<int> &qubitMap = {}, const std::string &placementName = "");
   // Static helper to run an optimization pass
   static PassStat runPass(const std::string &passName, std::shared_ptr<xacc::CompositeInstruction> program);
+  // Default placement strategy
+  static constexpr const char *DEFAULT_PLACEMENT = "swap-shortest-path";
+  // Apply placement
+  void applyPlacement(std::shared_ptr<xacc::CompositeInstruction> program) const;
+
   // Optimizes the input program.
   // Returns the full statistics about all the passes that have been executed.
   std::vector<PassStat>
@@ -59,7 +64,11 @@ public:
     "circuit-optimizer",
   };
 private:
+  // Circuit optimization level
   int m_level;
+  // Placement config.
+  std::vector<int> m_qubitMap;
+  std::string m_placement;
 };
 } // namespace internal
 } // namespace qcor
