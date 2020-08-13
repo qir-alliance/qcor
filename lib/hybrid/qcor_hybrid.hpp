@@ -1,6 +1,7 @@
 #pragma once
 
 #include "AcceleratorBuffer.hpp"
+#include "objective_function.hpp"
 #include "qcor.hpp"
 #include "qcor_utils.hpp"
 #include "qrt.hpp"
@@ -70,14 +71,12 @@ protected:
   // Register of qubits to operate on
   qreg q;
 
-  // The GradientEvaluator to use if
-  // we are given an Optimizer that is gradient-based
-  GradientEvaluator grad_eval;
-
   // Any holding user-specified qcor::TranslationFunctor<qreg, Args...>
   // Using any here to keep us from having to
   // template VQE class any further.
   std::any translation_functor;
+
+  HeterogeneousMap options;
 
 public:
   // Typedef for describing the energy / params return type
@@ -90,19 +89,11 @@ public:
   // Constructor
   VQE(void (*quantum_kernel_functor)(std::shared_ptr<CompositeInstruction>,
                                      qreg, KernelArgs...),
-      Observable &obs)
+      Observable &obs, HeterogeneousMap opts = {})
       : ansatz_ptr(reinterpret_cast<void *>(quantum_kernel_functor)),
         observable(obs) {
     q = qalloc(obs.nBits());
-  }
-
-  // Constructor, with gradient evaluator specification
-  VQE(void (*quantum_kernel_functor)(std::shared_ptr<CompositeInstruction>,
-                                     qreg, KernelArgs...),
-      Observable &obs, GradientEvaluator &geval)
-      : ansatz_ptr(reinterpret_cast<void *>(quantum_kernel_functor)),
-        observable(obs), grad_eval(geval) {
-    q = qalloc(obs.nBits());
+    options = opts;
   }
 
   // Constructor, takes a TranslationFunctor as a general
@@ -111,22 +102,11 @@ public:
   template <typename TranslationFunctorT>
   VQE(void (*quantum_kernel_functor)(std::shared_ptr<CompositeInstruction>,
                                      qreg, KernelArgs...),
-      Observable &obs, TranslationFunctorT &&tfunc)
+      Observable &obs, TranslationFunctorT &&tfunc, HeterogeneousMap opts = {})
       : ansatz_ptr(reinterpret_cast<void *>(quantum_kernel_functor)),
         observable(obs), translation_functor(tfunc) {
     q = qalloc(obs.nBits());
-  }
-
-  // Constructor, takes a TranslationFunctor as a general
-  // template type that we store to the protected any member
-  // and cast later. Also takes gradient evaluator
-  template <typename TranslationFunctorT>
-  VQE(void (*quantum_kernel_functor)(std::shared_ptr<CompositeInstruction>,
-                                     qreg, KernelArgs...),
-      Observable &obs, GradientEvaluator &geval, TranslationFunctorT &&tfunc)
-      : ansatz_ptr(reinterpret_cast<void *>(quantum_kernel_functor)),
-        observable(obs), translation_functor(tfunc), grad_eval(geval) {
-    q = qalloc(obs.nBits());
+    options = opts;
   }
 
   // Execute the VQE task synchronously, assumes default optimizer
@@ -159,10 +139,7 @@ public:
         reinterpret_cast<void (*)(std::shared_ptr<CompositeInstruction>, qreg,
                                   KernelArgs...)>(ansatz_ptr);
 
-    // Get the VQE ObjectiveFunction and set the qreg
-    auto objective = qcor::createObjectiveFunction(OBJECTIVE_NAME,
-                                                   ansatz_casted, observable);
-    objective->set_qreg(q);
+    // objective->set_qreg(q);
 
     // Convert input args to a tuple
     auto init_args_tuple = std::make_tuple(initial_params...);
@@ -177,7 +154,6 @@ public:
     // Create the Arg Translator
     TranslationFunctor<qreg, KernelArgs...> arg_translator;
     if (translation_functor.has_value()) {
-      std::cout << "Using this arg translator\n";
       arg_translator = std::any_cast<TranslationFunctor<qreg, KernelArgs...>>(
           translation_functor);
     } else {
@@ -189,38 +165,21 @@ public:
     __internal__::CountRotationAngles count_params(n_params);
     __internal__::tuple_for_each(init_args_tuple, count_params);
 
-    if (optimizer->isGradientBased()) {
+    // Get the VQE ObjectiveFunction and set the qreg
+    auto objective = qcor::createObjectiveFunction(
+        ansatz_casted, observable,
+        std::make_shared<ArgsTranslator<qreg, KernelArgs...>>(arg_translator),
+        q, n_params);
 
-      if (!grad_eval) {
-        grad_eval = [&, arg_translator, objective](const std::vector<double> x,
-                                                   std::vector<double> &dx) {
-          for (int i = 0; i < dx.size(); i++) {
-            auto xplus = x[i] + pi / 2.;
-            auto xminus = x[i] - pi / 2.;
-            std::vector<double> tmpx_plus = x, tmpx_minus = x;
-            tmpx_plus[i] = xplus;
-            tmpx_minus[i] = xminus;
-
-            auto translated_tuple_xp = arg_translator(tmpx_plus);
-            auto translated_tuple_xm = arg_translator(tmpx_minus);
-
-            auto results1 =
-                qcor::__internal__::call(objective, translated_tuple_xp);
-            auto results2 =
-                qcor::__internal__::call(objective, translated_tuple_xm);
-
-            dx[i] = 0.5 * (results1 - results2);
-          }
-        };
-      }
-
-      return qcor::taskInitiate(objective, optimizer, grad_eval, arg_translator,
-                                n_params);
-
-    } else {
-      // Run TaskInitiate, kick of the VQE job asynchronously
-      return qcor::taskInitiate(objective, optimizer, arg_translator, n_params);
+    if (optimizer->isGradientBased() &&
+        !options.stringExists("gradient-strategy")) {
+      options.insert("gradient-strategy", "central");
     }
+    options.insert("observable", __internal__::qcor_as_shared(&observable));
+    objective->set_options(options);
+
+    // Run TaskInitiate, kick of the VQE job asynchronously
+    return qcor::taskInitiate(objective, optimizer);
   }
 
   // Sync up the results with the host thread
@@ -253,6 +212,96 @@ public:
   }
 };
 
+namespace __internal__ {
+void qaoa_ansatz(qreg q, int n_steps, std::vector<double> gamma,
+                 std::vector<double> beta, std::string cost_ham_str) {
+  void __internal_call_function_qaoa_ansatz(qreg, int, std::vector<double>,
+                                            std::vector<double>, std::string);
+  __internal_call_function_qaoa_ansatz(q, n_steps, gamma, beta, cost_ham_str);
+}
+class qaoa_ansatz
+    : public qcor::QuantumKernel<class qaoa_ansatz, qreg, int,
+                                 std::vector<double>, std::vector<double>,
+                                 std::string> {
+  friend class qcor::QuantumKernel<class qaoa_ansatz, qreg, int,
+                                   std::vector<double>, std::vector<double>,
+                                   std::string>;
+
+protected:
+  void operator()(qreg q, int n_steps, std::vector<double> gamma,
+                  std::vector<double> beta, std::string cost_ham_str) {
+    // quantum::set_backend("qpp");
+    if (!parent_kernel) {
+      parent_kernel = qcor::__internal__::create_composite(kernel_name);
+      q.setNameAndStore("qreg_dCRJkswbUA");
+    }
+    quantum::set_current_program(parent_kernel);
+    auto nQubits = q.size();
+    int gamma_counter = 0;
+    int beta_counter = 0;
+    for (int i = 0; i < nQubits; i++) {
+      quantum::h(q[0]);
+    }
+    auto cost_ham_ptr = createObservable(cost_ham_str);
+    auto &cost_ham = *cost_ham_ptr.get();
+    auto cost_terms = cost_ham.getNonIdentitySubTerms();
+    for (int step = 0; step < n_steps; step++) {
+      for (int i = 0; i < cost_terms.size(); i++) {
+        auto cost_term = cost_terms[i];
+        auto m_gamma = gamma[gamma_counter];
+        quantum::exp(q, m_gamma, cost_term);
+        gamma_counter++;
+      }
+      for (int i = 0; i < nQubits; i++) {
+        auto ref_ham_term = X(i);
+        auto m_beta = beta[beta_counter];
+        quantum::exp(q, m_beta, ref_ham_term);
+        beta_counter++;
+      }
+    }
+  }
+
+public:
+  inline static const std::string kernel_name = "qaoa_ansatz";
+  qaoa_ansatz(qreg q, int n_steps, std::vector<double> gamma,
+              std::vector<double> beta, std::string cost_ham_str)
+      : QuantumKernel<qaoa_ansatz, qreg, int, std::vector<double>,
+                      std::vector<double>, std::string>(q, n_steps, gamma, beta,
+                                                        cost_ham_str) {}
+  qaoa_ansatz(std::shared_ptr<qcor::CompositeInstruction> _parent, qreg q,
+              int n_steps, std::vector<double> gamma, std::vector<double> beta,
+              std::string cost_ham_str)
+      : QuantumKernel<qaoa_ansatz, qreg, int, std::vector<double>,
+                      std::vector<double>, std::string>(
+            _parent, q, n_steps, gamma, beta, cost_ham_str) {}
+  virtual ~qaoa_ansatz() {
+    if (disable_destructor) {
+      return;
+    }
+    auto [q, n_steps, gamma, beta, cost_ham_str] = args_tuple;
+    operator()(q, n_steps, gamma, beta, cost_ham_str);
+    if (optimize_only) {
+      xacc::internal_compiler::execute_pass_manager();
+      return;
+    }
+    if (is_callable) {
+      quantum::submit(q.results());
+    }
+  }
+};
+void qaoa_ansatz(std::shared_ptr<qcor::CompositeInstruction> parent, qreg q,
+                 int n_steps, std::vector<double> gamma,
+                 std::vector<double> beta, std::string cost_ham_str) {
+  class qaoa_ansatz k(parent, q, n_steps, gamma, beta, cost_ham_str);
+}
+void __internal_call_function_qaoa_ansatz(qreg q, int n_steps,
+                                          std::vector<double> gamma,
+                                          std::vector<double> beta,
+                                          std::string cost_ham_str) {
+  class qaoa_ansatz k(q, n_steps, gamma, beta, cost_ham_str);
+}
+} // namespace __internal__
+
 // QAOA provides a high-level data structure
 // for driving the qcor API in a way that affects the
 // typical QAOA algorithm. Users instantiate this class
@@ -264,10 +313,6 @@ protected:
   // The number of qaoa steps
   std::size_t nSteps = 1;
 
-  // The GradientEvaluator to use if
-  // we are given an Optimizer that is gradient-based
-  GradientEvaluator grad_eval;
-
   // The cost hamiltonian
   PauliOperator &cost;
 
@@ -277,21 +322,7 @@ protected:
   // The qubit register to run on
   qreg q;
 
-  // Scale factor for parameter shift gradient rule
-  double ps_scale_factor = 1.0;
-
-  // Internal helper function for creating
-  // the quantum kernel from an xasm string
-  void initial_compile_qaoa_code();
-
-  // Reference to the qaoa parameterized circuit
-  std::shared_ptr<CompositeInstruction> qaoa_circuit;
-
-  // XASM QAOA code for creating the qaoa circuit
-  inline static const std::string qaoa_xasm_code =
-      R"#(__qpu__ void qaoa_ansatz(qreg q, int n, std::vector<double> betas, std::vector<double> gammas, qcor::PauliOperator& costHamiltonian, qcor::PauliOperator& refHamiltonian) {
-  qaoa(q, n, betas, gammas, costHamiltonian, refHamiltonian);
-})#";
+  HeterogeneousMap options;
 
   // utility for delegating to xacc error call
   // implemented in qcor_hybrid.cpp to avoid
@@ -304,37 +335,20 @@ public:
 
   // The Constructionr, takes the cost hamiltonian and the number of steps.
   // will assume reference hamiltonian of an X pauli on all qubits
-  QAOA(PauliOperator &obs, const std::size_t _n_steps)
+  QAOA(PauliOperator &obs, const std::size_t _n_steps,
+       HeterogeneousMap opts = {})
       : cost(obs), nSteps(_n_steps), ref(PauliOperator()) {
     for (int i = 0; i < cost.nBits(); i++) {
       ref += qcor::X(i);
     }
-    initial_compile_qaoa_code();
+    options = opts;
   }
 
   // The constructor, takes cost and reference hamiltonian and number of steps
-  QAOA(PauliOperator &obs, PauliOperator &ref_ham, const std::size_t _n_steps)
+  QAOA(PauliOperator &obs, PauliOperator &ref_ham, const std::size_t _n_steps,
+       HeterogeneousMap opts = {})
       : cost(obs), nSteps(_n_steps), ref(ref_ham) {
-    initial_compile_qaoa_code();
-  }
-
-  // The Constructionr, takes the cost hamiltonian and the number of steps.
-  // will assume reference hamiltonian of an X pauli on all qubits
-  // also provide gradient evaluator
-  QAOA(PauliOperator &obs, GradientEvaluator &geval, const std::size_t _n_steps)
-      : cost(obs), nSteps(_n_steps), ref(PauliOperator()), grad_eval(geval) {
-    for (int i = 0; i < cost.nBits(); i++) {
-      ref += qcor::X(i);
-    }
-    initial_compile_qaoa_code();
-  }
-
-  // The constructor, takes cost and reference hamiltonian and number of steps
-  // Also provide gradient evaluator
-  QAOA(PauliOperator &obs, PauliOperator &ref_ham, GradientEvaluator &geval,
-       const std::size_t _n_steps)
-      : cost(obs), nSteps(_n_steps), ref(ref_ham), grad_eval(geval) {
-    initial_compile_qaoa_code();
+    options = opts;
   }
 
   // Return the number of gamma parameters
@@ -346,13 +360,6 @@ public:
   // Return the total number of parameters
   auto n_parameters() { return n_steps() * (n_gamma() + n_beta()); }
 
-  // Provide the scale factor for the parameter shift rule
-  void set_parameter_shift_scale_factor(const double scale) {
-    if (scale < 0.0) {
-      error("invalid parameter shift scale factor, must be greater than 0.0");
-    }
-    ps_scale_factor = scale;
-  }
   // Execute the algorithm synchronously, optionally provide the initial
   // parameters. Will fail if initial_parameters.size() != n_parameters()
   QAOAResultType execute(const std::vector<double> initial_parameters = {}) {
@@ -389,76 +396,33 @@ public:
       init_params = initial_parameters;
     }
 
-    auto objective = qcor::createObjectiveFunction("vqe", qaoa_circuit, cost);
-    objective->set_qreg(q);
+    auto args_translator =
+        std::make_shared<ArgsTranslator<qreg, int, std::vector<double>,
+                                        std::vector<double>, std::string>>(
+            [&](const std::vector<double> x) {
+              // split x into gamma and beta sets
+              int nGamma = cost.getNonIdentitySubTerms().size();
+              int nBeta = ref.getNonIdentitySubTerms().size();
+              std::vector<double> gamma(x.begin(), x.begin() + nSteps * nGamma),
+                  beta(x.begin() + nSteps * nGamma,
+                       x.begin() + nSteps * nGamma + nSteps * nBeta);
+              return std::make_tuple(q, nSteps, gamma, beta, cost.toString());
+            });
+
+    auto objective = qcor::createObjectiveFunction(
+        __internal__::qaoa_ansatz, cost, args_translator, q, n_params);
+
+    if (optimizer->isGradientBased() &&
+        !options.stringExists("gradient-strategy")) {
+      options.insert("gradient-strategy", "central");
+    }
+
+    Observable &obs = cost;
+    options.insert("observable", __internal__::qcor_as_shared(&obs));
+    objective->set_options(options);
     optimizer->appendOption("initial-parameters", init_params);
 
-    // See if we are using a gradient-based optimizer
-    const auto use_gradients = optimizer->isGradientBased();
-
-    return qcor::taskInitiate(
-        objective, optimizer,
-        [objective, use_gradients, this](const std::vector<double> x,
-                                         std::vector<double> &dx) {
-          // Set the size of the beta vector
-          const auto n_betas = nSteps * q.size();
-
-          // Utility to split x into beta and gamma vecs
-          auto create_betas_gammas = [n_betas](const std::vector<double> x) {
-            std::vector<double> betas;
-            std::vector<double> gammas;
-            for (int i = 0; i < n_betas; ++i) {
-              betas.emplace_back(x[i]);
-            }
-            for (int i = betas.size(); i < x.size(); ++i) {
-              gammas.emplace_back(x[i]);
-            }
-
-            return std::make_pair(betas, gammas);
-          };
-
-          // If we need gradients, evaluate them
-          // with our default parameter shift or the
-          // provide GradientEvaluator
-          if (use_gradients) {
-            if (!grad_eval) {
-              // Parameter shift rule...
-              for (int i = 0; i < dx.size(); i++) {
-                auto xplus = x[i] + ps_scale_factor * pi / 2.;
-                auto xminus = x[i] - ps_scale_factor * pi / 2.;
-                std::vector<double> tmpx_plus = x, tmpx_minus = x;
-                tmpx_plus[i] = xplus;
-                tmpx_minus[i] = xminus;
-
-                // Don't print the verbose output for gradients...
-                const auto cached_verbose = qcor::get_verbose();
-                qcor::set_verbose(false);
-
-                // evaluate at x[i] + scale * pi / 2
-                auto [betas_p, gammas_p] = create_betas_gammas(tmpx_plus);
-                auto results1 =
-                    (*objective)(q, q.size(), betas_p, gammas_p, cost, ref);
-
-                // evaluate at x[i] - scale * pi / 2
-                auto [betas_m, gammas_m] = create_betas_gammas(tmpx_minus);
-                auto results2 =
-                    (*objective)(q, q.size(), betas_m, gammas_m, cost, ref);
-                qcor::set_verbose(cached_verbose);
-
-                // set the gradient element
-                dx[i] = 0.5 * (results1 - results2);
-              }
-            } else {
-              // evaluate with the custom evaluator
-              grad_eval(x, dx);
-            }
-          }
-
-          // Evaluate at x and return
-          auto [betas, gammas] = create_betas_gammas(x);
-          return (*objective)(q, q.size(), betas, gammas, cost, ref);
-        },
-        n_params);
+    return qcor::taskInitiate(objective, optimizer);
   }
 
   // Sync up the results with the host thread
