@@ -28,4 +28,9 @@ void execute_qite(qreg q, const HeterogeneousMap &&m) {
   qite->execute(xacc::as_shared_ptr(q.results()));
 }
 
+void execute_adapt(qreg q, const HeterogeneousMap &&m) {
+  auto adapt = xacc::getAlgorithm("adapt", m);
+  adapt->execute(xacc::as_shared_ptr(q.results()));
+}
+
 } // namespace qcor
