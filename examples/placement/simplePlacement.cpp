@@ -11,14 +11,21 @@ __qpu__ void entangleQubits(qreg q) {
   }
 }
 
-// Example: using ibmq_ourense (5 qubits) which has 
+// Example: using ibmq_ourense or ibmqx2 (5 qubits) which has 
 // the following connectivity graph:
-// 0 -- 1 -- 2
-//      |
-//      3
-//      |
-//      4
+//                         1
+//                       / | 
+//                      /  |
+// 0 -- 1 -- 2         /   |
+//      |             /    |
+//      3            0 --  2  --  3
+//      |                  |     /
+//      4                  |    /
+//                         |   / 
+//                         |  /
+//                         4
 // Compile: qcor -qpu aer:ibmq_ourense simplePlacement.cpp 
+// Compile: qcor -qpu aer:ibmqx2 simplePlacement.cpp  
 // Make sure to have a valid ~/.ibm_config file.
 // Example: 
 // key: YOUR_API_KEY
