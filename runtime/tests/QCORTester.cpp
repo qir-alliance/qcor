@@ -3,10 +3,7 @@
 #include <gtest/gtest.h>
 
 using namespace xacc;
-void rucc(qreg q, double x) {
-  void __internal_call_function_rucc(qreg, double);
-  __internal_call_function_rucc(q, x);
-}
+using namespace qcor;
 
 class rucc : public qcor::QuantumKernel<class rucc, qreg, double> {
   friend class qcor::QuantumKernel<class rucc, qreg, double>;
@@ -46,10 +43,6 @@ void rucc(std::shared_ptr<qcor::CompositeInstruction> parent, qreg q,
 }
 void __internal_call_function_rucc(qreg q, double x) { class rucc k(q, x); }
 
-void rucc_vec(qreg q, std::vector<double> x) {
-  void __internal_call_function_rucc_vec(qreg, std::vector<double>);
-  __internal_call_function_rucc_vec(q, x);
-}
 class rucc_vec
     : public qcor::QuantumKernel<class rucc_vec, qreg, std::vector<double>> {
   friend class qcor::QuantumKernel<class rucc_vec, qreg, std::vector<double>>;
@@ -105,57 +98,14 @@ TEST(QCORTester, checkTaskInitiate) {
 
   // Create the ObjectiveFunction, here we want to run VQE
   // need to provide ansatz and the Observable
-  auto objective = qcor::createObjectiveFunction("vqe", rucc, observable);
-  objective->set_qreg(buffer);
+  auto objective = qcor::createObjectiveFunction(rucc, observable, buffer, 1);
 
-  auto args_translation =
-      qcor::TranslationFunctor<xacc::internal_compiler::qreg, double>(
-          [&](const std::vector<double> x) {
-            return std::make_tuple(buffer, x[0]);
-          });
-
-  auto handle = qcor::taskInitiate(objective, optimizer, args_translation, 1);
+  auto handle = qcor::taskInitiate(objective, optimizer);
   auto results = qcor::sync(handle);
   EXPECT_NEAR(-1.748865, results.opt_val, 1e-4);
 
-  handle = qcor::taskInitiate(
-      objective, optimizer,
-      [&](const std::vector<double> x, std::vector<double> &dx) {
-        return (*objective)(buffer, x[0]);
-      },
-      1);
-
-  auto results2 = qcor::sync(handle);
-  EXPECT_NEAR(-1.748865, results2.opt_val, 1e-4);
-
-  qcor::OptFunction ff(
-      [&](const std::vector<double> x, std::vector<double> &dx) {
-        return (*objective)(buffer, x[0]);
-      },
-      1);
-  handle = qcor::taskInitiate(objective, optimizer, ff);
-
-  auto results3 = qcor::sync(handle);
-  EXPECT_NEAR(-1.748865, results3.opt_val, 1e-4);
-
-  auto l = [&](const std::vector<double> x, std::vector<double> &dx) {
-    return (*objective)(buffer, x[0]);
-  };
-  handle = qcor::taskInitiate(objective, optimizer, l, 1);
-
-  auto results4 = qcor::sync(handle);
-  EXPECT_NEAR(-1.748865, results4.opt_val, 1e-4);
-
-  auto objective_vec = qcor::createObjectiveFunction("vqe", rucc_vec, observable);
-
-  objective->set_qreg(buffer);
-
-  auto args_translation_vec = qcor::TranslationFunctor<
-      xacc::internal_compiler::qreg, std::vector<double>>(
-      [&](const std::vector<double> x) { return std::make_tuple(buffer, x); });
-
-  auto handle2 =
-      qcor::taskInitiate(objective_vec, optimizer, args_translation_vec, 1);
+  auto objective_vec = qcor::createObjectiveFunction(rucc_vec, observable, buffer,  1);
+  auto handle2 = qcor::taskInitiate(objective_vec, optimizer);
   auto results5 = qcor::sync(handle2);
   EXPECT_NEAR(-1.748865, results5.opt_val, 1e-4);
 }

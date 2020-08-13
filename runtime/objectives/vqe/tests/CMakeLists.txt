@@ -1,5 +1,0 @@
-link_directories(${XACC_ROOT}/lib)
-add_executable(VQEObjTester VQETester.cpp)
-add_test(NAME qcor_VQEObjTester COMMAND VQEObjTester)
-target_include_directories(VQEObjTester PRIVATE ${XACC_ROOT}/include/gtest)
-target_link_libraries(VQEObjTester ${XACC_TEST_LIBRARIES} qcor)

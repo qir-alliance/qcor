@@ -466,7 +466,7 @@ public:
     auto accelerator = xacc::internal_compiler::get_qpu();
 
     options.insert("initial-state", parent_composite);
-    options.insert("observable", &observable);
+    options.insert("observable", __internal__::qcor_as_shared(&observable));
     options.insert("optimizer", optimizer);
     options.insert("accelerator", accelerator);
 

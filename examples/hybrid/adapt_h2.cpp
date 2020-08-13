@@ -1,4 +1,5 @@
 #include "qcor_hybrid.hpp"
+#include "qcor_utils.hpp"
 #include <iomanip>
 
 // Define the state preparation kernel
@@ -24,15 +25,11 @@ int main() {
 
   // Create ADAPT-VQE instance
   // Run H2 with the singlet-adapted-uccsd pool
-  int nElectrons = 2;
-  std::string pool = "singlet-adapted-uccsd";
-  std::string subAlgo = "vqe";
-  std::string gradStrategy = "central-difference-gradient";
-  qcor::ADAPT adapt(initial_state, H, optimizer,
-                    {{"sub-algorithm", subAlgo},
-                     {"pool", pool},
-                     {"n-electrons", nElectrons},
-                     {"gradient_strategy", gradStrategy}});
+  ADAPT adapt(initial_state, H, optimizer,
+                    {{"sub-algorithm", "vqe"},
+                     {"pool", "singlet-adapted-uccsd"},
+                     {"n-electrons", 2},
+                     {"gradient_strategy", "central"}});
 
   // Execute!
   auto energy = adapt.execute();
