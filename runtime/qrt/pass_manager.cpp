@@ -52,7 +52,7 @@ PassStat PassManager::runPass(const std::string &passName, std::shared_ptr<xacc:
   // Counts gate before:
   stat.gateCountBefore = PassStat::countGates(program);
   xacc::ScopeTimer timer(passName, false);
-  
+
   if (!xacc::hasService<xacc::IRTransformation>(passName)
       && !xacc::hasContributedService<xacc::IRTransformation>(passName)) {
     // Graciously ignores passes which cannot be located.
