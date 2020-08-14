@@ -20,19 +20,17 @@ TranslationFunctorAutoGenerator::operator()(
 }
 } // namespace __internal__
 
-void QAOA::initial_compile_qaoa_code() {
-  if (!xacc::isInitialized()) {
-    xacc::Initialize();
-  }
-  auto xasm = xacc::getService<xacc::Compiler>("xasm");
-  qaoa_circuit = xasm->compile(qaoa_xasm_code)->getComposites()[0];
-}
 void QAOA::error(const std::string &message) { xacc::error(message); }
 
 
 void execute_qite(qreg q, const HeterogeneousMap &&m) {
   auto qite = xacc::getAlgorithm("qite", m);
   qite->execute(xacc::as_shared_ptr(q.results()));
+}
+
+void execute_adapt(qreg q, const HeterogeneousMap &&m) {
+  auto adapt = xacc::getAlgorithm("adapt", m);
+  adapt->execute(xacc::as_shared_ptr(q.results()));
 }
 
 } // namespace qcor

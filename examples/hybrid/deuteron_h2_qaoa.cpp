@@ -27,11 +27,6 @@ int main() {
   // Create the QAOA instance
   QAOA qaoa(H, ref_ham, steps);
 
-  // we're using a gradient-based optimizer, 
-  // by default QAOA will use parameter-shift-rule, 
-  // here we set the scale factor. 
-  qaoa.set_parameter_shift_scale_factor(.1);
-
   // Execute synchronously and display
   const auto [energy, params] = qaoa.execute(lbfgs);
 

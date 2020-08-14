@@ -1,8 +1,7 @@
 #include <random>
 
 __qpu__ void qaoa_ansatz(qreg q, int n_steps, std::vector<double> gamma,
-                         std::vector<double> beta,
-                         qcor::PauliOperator& cost_ham) {
+                         std::vector<double> beta, std::string cost_ham_str) {
 
   // Local Declarations
   auto nQubits = q.size();
@@ -13,6 +12,9 @@ __qpu__ void qaoa_ansatz(qreg q, int n_steps, std::vector<double> gamma,
   for (int i = 0; i < nQubits; i++) {
     H(q[0]);
   }
+
+  auto cost_ham_ptr = createObservable(cost_ham_str);
+  auto& cost_ham = *cost_ham_ptr.get();
 
   // Get all non-identity hamiltonian terms
   // for the following exp(H_i) trotterization
@@ -38,7 +40,7 @@ __qpu__ void qaoa_ansatz(qreg q, int n_steps, std::vector<double> gamma,
 
     // Add the reference hamiltonian term
     for (int i = 0; i < nQubits; i++) {
-      auto ref_ham_term = qcor::X(i);
+      auto ref_ham_term = X(i);
       auto m_beta = beta[beta_counter];
       exp_i_theta(q, m_beta, ref_ham_term);
       beta_counter++;
@@ -58,51 +60,47 @@ int main(int argc, char **argv) {
   int total_params = nSteps * nParamsPerStep;
 
   // Generate a random initial parameter set
-  std::random_device rnd_device;
-  std::mt19937 mersenne_engine{rnd_device()}; // Generates random integers
-  std::uniform_real_distribution<double> dist{0, 1};
-  auto gen = [&dist, &mersenne_engine]() { return dist(mersenne_engine); };
-  std::vector<double> initial_params(total_params);
-  std::generate(initial_params.begin(), initial_params.end(), gen);
+  auto initial_params = random_vector(0., 1., total_params);
 
   // Construct the cost hamiltonian
-  auto cost_ham =
-      -5.0 - 0.5 * (qcor::Z(0) - qcor::Z(3) - qcor::Z(1) * qcor::Z(2)) -
-      qcor::Z(2) + 2 * qcor::Z(0) * qcor::Z(2) + 2.5 * qcor::Z(2) * qcor::Z(3);
+  auto cost_ham = -5.0 - 0.5 * (Z(0) - Z(3) - Z(1) * Z(2)) - Z(2) +
+                  2 * Z(0) * Z(2) + 2.5 * Z(2) * Z(3);
 
-  // Create the VQE ObjectiveFunction, giving it the
-  // ansatz and Observable (cost hamiltonian)
-  auto objective = qcor::createObjectiveFunction("vqe", qaoa_ansatz, cost_ham);
-
-  // Create the classical Optimizer
-  auto optimizer = qcor::createOptimizer(
-      "nlopt", {std::make_pair("initial-parameters", initial_params),
-                std::make_pair("nlopt-maxeval", 100)});
-
-  // Create mechanism for mapping Optimizer std::vector<double> parameters
-  // to the ObjectiveFunction variadic arguments corresponding to the above
-  // quantum kernel (qreg, int, vec<double>, vec<double>, PauliOperator)
-  auto args_translation =
-      qcor::TranslationFunctor<qreg, int, std::vector<double>,
-                               std::vector<double>, qcor::PauliOperator>(
+  // FIXME, currently with args translator and make_tuple we aren't able 
+  // to directly pass Observable&, so here we just map to a string and 
+  // read the string to an Observable in the kernel
+  auto args_translator =
+      std::make_shared<ArgsTranslator<qreg, int, std::vector<double>,
+                                      std::vector<double>, std::string>>(
           [&](const std::vector<double> x) {
             // split x into gamma and beta sets
             std::vector<double> gamma(x.begin(), x.begin() + nSteps * nGamma),
                 beta(x.begin() + nSteps * nGamma,
                      x.begin() + nSteps * nGamma + nSteps * nBeta);
-            return std::make_tuple(q, nSteps, gamma, beta, cost_ham);
+            return std::make_tuple(q, nSteps, gamma, beta, cost_ham.toString());
           });
-  qcor::set_verbose(true);
+
+  // Create the VQE ObjectiveFunction
+  auto objective = createObjectiveFunction(qaoa_ansatz, cost_ham,
+                                           args_translator, q, total_params);
+
+  // Create the classical Optimizer
+  auto optimizer = createOptimizer(
+      "nlopt", {std::make_pair("initial-parameters", initial_params),
+                std::make_pair("nlopt-maxeval", 100)});
+
+  
+  set_verbose(true);
+
   // Launch the job asynchronously
   auto handle =
-      qcor::taskInitiate(objective, optimizer, args_translation, total_params);
+      taskInitiate(objective, optimizer);
 
   // Go do other work... if you want
 
   // Query results when ready.
-  auto results = qcor::sync(handle);
+  auto results = sync(handle);
 
   // Print the optimal value.
   printf("Min QUBO value = %f\n", results.opt_val);
-
 }

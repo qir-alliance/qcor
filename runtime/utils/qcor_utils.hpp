@@ -17,6 +17,10 @@
 
 namespace qcor {
 
+namespace constants {
+    static constexpr double pi = 3.141592653589793238;
+}
+
 // Typedefs mapping xacc types to qcor types
 using CompositeInstruction = xacc::CompositeInstruction;
 using HeterogeneousMap = xacc::HeterogeneousMap;
@@ -42,24 +46,43 @@ using Handle = std::future<ResultsBuffer>;
 // Sync up a Handle
 ResultsBuffer sync(Handle &handle);
 
-// ArgTranslator takes a std function that maps a
-// vector<double> argument to a tuple corresponding to
-// the arguments for the quantum kernel in question
-//
-// FIXME provide example here
-template <typename... Args> class ArgTranslator {
-public:
-  std::function<std::tuple<Args...>(std::vector<double>)> t;
-  ArgTranslator(std::function<std::tuple<Args...>(std::vector<double> x)> &&ts)
-      : t(ts) {}
-
-  std::tuple<Args...> operator()(std::vector<double> x) { return t(x); }
-};
+template <typename T> std::vector<T> linspace(T a, T b, size_t N) {
+  T h = (b - a) / static_cast<T>(N - 1);
+  std::vector<T> xs(N);
+  typename std::vector<T>::iterator x;
+  T val;
+  for (x = xs.begin(), val = a; x != xs.end(); ++x, val += h)
+    *x = val;
+  return xs;
+}
 
 // The TranslationFunctor maps vector<double> to a tuple of Args...
 template <typename... Args>
 using TranslationFunctor =
-    std::function<std::tuple<Args...>(const std::vector<double>)>;
+    std::function<std::tuple<Args...>(const std::vector<double> &)>;
+
+// ArgsTranslator takes a std function that maps a
+// vector<double> argument to a tuple corresponding to
+// the arguments for the quantum kernel in question
+//
+// FIXME provide example here
+template <typename... Args> class ArgsTranslator {
+protected:
+  TranslationFunctor<Args...> functor;
+
+public:
+  ArgsTranslator(TranslationFunctor<Args...> ts) : functor(ts) {}
+
+  std::tuple<Args...> operator()(const std::vector<double> &x) {
+    return functor(x);
+  }
+};
+
+template <typename... Args>
+std::shared_ptr<ArgsTranslator<Args...>>
+createArgsTranslator(TranslationFunctor<Args...> functor) {
+  return std::make_shared<ArgsTranslator<Args...>>(functor);
+}
 
 // The GradientEvaluator is user-provided function that sets the
 // gradient dx for a given variational iteration at parameter set x
@@ -116,15 +139,35 @@ decompose_unitary(const std::string algorithm, UnitaryMatrix &mat,
 // Utility for calling a Functor via mapping a tuple of Args to
 // a sequence of Args...
 template <typename Function, typename Tuple, size_t... I>
-auto call(Function f, Tuple t, std::index_sequence<I...>) {
+auto evaluate_shared_ptr_fn_with_tuple_args(Function f, Tuple t,
+                                            std::index_sequence<I...>) {
   return f->operator()(std::get<I>(t)...);
 }
 
 // Utility for calling a Functor via mapping a tuple of Args to
 // a sequence of Args...
-template <typename Function, typename Tuple> auto call(Function f, Tuple t) {
+template <typename Function, typename Tuple>
+auto evaluate_shared_ptr_fn_with_tuple_args(Function f, Tuple t) {
   static constexpr auto size = std::tuple_size<Tuple>::value;
-  return call(f, t, std::make_index_sequence<size>{});
+  return evaluate_shared_ptr_fn_with_tuple_args(
+      f, t, std::make_index_sequence<size>{});
+}
+
+// Utility for calling a Functor via mapping a tuple of Args to
+// a sequence of Args...
+template <typename Function, typename Tuple, size_t... I>
+auto evaluate_function_with_tuple_args(Function f, Tuple t,
+                                       std::index_sequence<I...>) {
+  return f(std::get<I>(t)...);
+}
+
+// Utility for calling a Functor via mapping a tuple of Args to
+// a sequence of Args...
+template <typename Function, typename Tuple>
+auto evaluate_function_with_tuple_args(Function f, Tuple t) {
+  static constexpr auto size = std::tuple_size<Tuple>::value;
+  return evaluate_function_with_tuple_args(f, t,
+                                           std::make_index_sequence<size>{});
 }
 
 // This internal utility class enables the merging of all

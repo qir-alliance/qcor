@@ -106,7 +106,23 @@ def main(argv=None):
         sys.argv.remove(qrtOptPasses)
         sys.argv.remove('-opt-pass')
         sys.argv += ['-D__internal__qcor__compile__opt__passes=\"'+qrtOptPasses+'\"']
-
+    
+    # Parse qubit mapping:
+    if '-qubit-map' in sys.argv[1:]:
+        sidx = sys.argv.index('-qubit-map')
+        qubitMap = sys.argv[sidx+1]
+        sys.argv.remove(qubitMap)
+        sys.argv.remove('-qubit-map')
+        sys.argv += ['-D__internal__qcor__compile__qubit__map=\"'+qubitMap+'\"']
+    
+    # Parse placement name
+    if '-placement' in sys.argv[1:]:
+        sidx = sys.argv.index('-placement')
+        placementName = sys.argv[sidx+1]
+        sys.argv.remove(placementName)
+        sys.argv.remove('-placement')
+        sys.argv += ['-D__internal__qcor__compile__placement__name=\"'+placementName+'\"']
+    
     # Get the filename we are compiling or the object file
     filename = ''
     fileType = ''

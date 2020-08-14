@@ -124,6 +124,14 @@ extern bool __print_opt_stats;
 // User-customized passes to run
 extern std::string __user_opt_passes;
 
+// Placement strategy specified in the QCOR command line.
+extern std::string __placement_name;
+// Qubit map for DefaultPlacement transformation.
+// If provided in the command line (not empty),
+// we'll map qubits according to this.
+extern std::vector<int> __qubit_map;
+extern std::vector<int> parse_qubit_map(const char *qubit_map_str);
+
 void simplified_qrt_call_one_qbit(const char *gate_name,
                                   const char *buffer_name,
                                   const std::size_t idx);

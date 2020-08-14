@@ -7,27 +7,30 @@
 #include <memory>
 #include <set>
 
+#include "AlgorithmGradientStrategy.hpp"
 #include "xacc.hpp"
 #include "xacc_internal_compiler.hpp"
+#include "xacc_service.hpp"
 
 using namespace cppmicroservices;
 
 namespace qcor {
 
 class VQEObjective : public ObjectiveFunction {
-protected:
+public:
   std::shared_ptr<xacc::Algorithm> vqe;
-  double operator()() override {
+  double operator()(xacc::internal_compiler::qreg &qreg,
+                    std::vector<double> &dx) override {
     if (!vqe) {
       vqe = xacc::getAlgorithm("vqe");
     }
+    auto qpu = xacc::internal_compiler::get_qpu();
     auto success = vqe->initialize(
-        {std::make_pair("ansatz", kernel),
-         std::make_pair("accelerator", xacc::internal_compiler::get_qpu()),
-         std::make_pair("observable", observable)});
+        {{"ansatz", kernel}, {"accelerator", qpu}, {"observable", observable}});
 
     if (!success) {
-      xacc::error("QCOR VQE Error - could not initialize vqe algorithm.");
+      xacc::error(
+          "QCOR VQE Error - could not initialize internal xacc vqe algorithm.");
     }
 
     auto tmp_child = qalloc(qreg.size());
@@ -40,6 +43,27 @@ protected:
       child->addExtraInfo("qcor-params-energy", tmp);
     }
     qreg.addChild(tmp_child);
+
+    if (!dx.empty() && options.stringExists("gradient-strategy")) {
+      // Compute the gradient
+      auto gradient_strategy =
+          xacc::getService<xacc::AlgorithmGradientStrategy>(
+              options.getString("gradient-strategy"));
+
+      if (gradient_strategy->isNumerical()) {
+        gradient_strategy->setFunctionValue(
+            val - std::real(observable->getIdentitySubTerm()->coefficient()));
+      }
+
+      gradient_strategy->initialize(options);
+      auto grad_kernels = gradient_strategy->getGradientExecutions(
+          kernel, current_iterate_parameters);
+
+      auto tmp_grad = qalloc(qreg.size());
+      qpu->execute(xacc::as_shared_ptr(tmp_grad.results()), grad_kernels);
+      auto tmp_grad_children = tmp_grad.results()->getChildren();
+      gradient_strategy->compute(dx, tmp_grad_children);
+    }
     return val;
   }
 
