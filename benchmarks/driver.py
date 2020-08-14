@@ -12,15 +12,23 @@ qcorExe = str(pathlib.Path.home()) + "/.xacc/bin/qcor"
 
 # CSV result
 # Headers:
+# We collect two sets of data:
+# (1) Each pass (optimizer) runs *independently* using the same input circuit.
+# (2) Passes run in series.
+# Passes to run: Staq's rotation-folding, single-qubit-gate-merge, circuit-optimizer, voqc
+# Note: VOQC can only be executed if the corresponding XACC plugin is installed.
+# Please see https://github.com/tnguyen-ornl/SQIR for installation instructions.     
 headers = ["Test Case",
            # Independent passes
            "Staq-Walltime", "Staq-Before", "Staq-After",
            "Gate Merge-Walltime", "Gate Merge-Before", "Gate Merge-After",
            "Circuit Optimizer-Walltime", "Circuit Optimizer-Before", "Circuit Optimizer-After",
+           "VOQC-Walltime", "VOQC-Before", "VOQC-After",
            # Passes in sequence
            "Staq-Walltime", "Staq-Before", "Staq-After",
            "Gate Merge-Walltime", "Gate Merge-Before", "Gate Merge-After",
            "Circuit Optimizer-Walltime", "Circuit Optimizer-Before", "Circuit Optimizer-After",
+           "VOQC-Walltime", "VOQC-Before", "VOQC-After",
            ]
 
 # Extract data from log and append data to CSV
@@ -61,11 +69,19 @@ def analyzeLog(testCaseName, log):
     resultWriter.writerow(rowData)
 
 # Run a full benchmark suite (the folder in /resources directory)
+# Options: staq, qasm, chemistry
+# Notes:
+# staq suite source: https://github.com/tnguyen-ornl/qcor/tree/tnguyen/opt-data/benchmarks/resources/staq
+# qasm suite source: https://github.com/tnguyen-ornl/qcor/tree/tnguyen/opt-data/benchmarks/resources/qasm
+# chemistry suite source: https://github.com/tnguyen-ornl/qcor/tree/tnguyen/opt-data/benchmarks/resources/chemistry
 def runBenchmarkSuite(suiteName):
   # Run test cases
   dirPath = os.path.dirname(os.path.realpath(__file__))
   listOfSrcFiles = glob.glob(dirPath + "/resources/" + suiteName +"/*.qasm")
   listOfTestCases = []
+  # Note: Uncomment the followings if you have input QASM files 
+  # which contain scientific notation numbers.
+  # Test circuits have those formatting issues fixed, hence comment out this block.
   # Fixed Staq bug which cannot handle scientific form
   # for srcFile in listOfSrcFiles:
   #   with open(srcFile, 'r') as file:
@@ -93,34 +109,35 @@ def runBenchmarkSuite(suiteName):
 
     listOfTestCases.append(testCaseName)
     print("Run Benchmark: ", testCaseName)
-    # Single pass data:
-    compileProcess = subprocess.Popen([qcorExe, "-DTEST_SOURCE_FILE=\"" + srcFile + "\"", "-o", testCaseName, "circuit_opt_run_passes.cpp"],
-                                      stdout=subprocess.PIPE,
-                                      stderr=subprocess.PIPE)
-    stdout, stderr = compileProcess.communicate()
-    if len(stderr) > 1:
-      # raise Exception("Failed to compile test case " + testCaseName)
-      print("Failed to compile test case " + testCaseName)
-      continue
     resultLog = ""
     # Run single independent passes:
-    # Sequence: "rotation-folding", "gate merge", "circuit optimizer"
+    # Sequence: "rotation-folding", "gate merge", "circuit optimizer", "voqc"
     passesToRun = ["rotation-folding",
-                  "single-qubit-gate-merging", "circuit-optimizer"]
+                  "single-qubit-gate-merging", "circuit-optimizer", "voqc"]
     for passName in passesToRun:
+      # Single pass data:
+      compileProcess = subprocess.Popen([qcorExe, "-DTEST_SOURCE_FILE=\"" + srcFile + "\"", "-o", testCaseName, "-opt-pass", passName, "-print-opt-stats", "circuit_opt_benchmark.cpp"],
+                                      stdout=subprocess.PIPE,
+                                      stderr=subprocess.PIPE)
+      stdout, stderr = compileProcess.communicate()
+      if len(stderr) > 1:
+        # raise Exception("Failed to compile test case " + testCaseName)
+        print("Failed to compile test case " + testCaseName)
+        print(stderr.decode("utf-8"))
+        continue
       testExe = dirPath + "/" + testCaseName
       exeProcess = subprocess.Popen(
           [testExe, passName], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
       stdout, stderr = exeProcess.communicate()
       #print(stdout.decode("utf-8"))
       resultLog += stdout.decode("utf-8")
-    os.remove(testExe)
+      os.remove(testExe)
 
     # Run passes in sequence (opt-level = 1)
     # Configurations:
     # Optimization level to run:
     OPT_LEVEL = 1
-    compileProcess = subprocess.Popen([qcorExe, "-DTEST_SOURCE_FILE=\"" + srcFile + "\"", "-o", testCaseName, "-opt", str(OPT_LEVEL), "-print-opt-stats", "circuit_opt_benchmark.cpp"],
+    compileProcess = subprocess.Popen([qcorExe, "-DTEST_SOURCE_FILE=\"" + srcFile + "\"", "-o", testCaseName, "-opt", str(OPT_LEVEL), "-opt-pass", "voqc", "-print-opt-stats", "circuit_opt_benchmark.cpp"],
                                       stdout=subprocess.PIPE,
                                       stderr=subprocess.PIPE)
     stdout, stderr = compileProcess.communicate()
@@ -135,6 +152,5 @@ def runBenchmarkSuite(suiteName):
     # Now analyze the full log
     analyzeLog(testCaseName, resultLog)
 
-
 # Run the suite: e.g. qasm, chemistry, staq
-runBenchmarkSuite("chemistry")
+runBenchmarkSuite("staq")
