@@ -111,6 +111,9 @@ void StaqTokenCollector::collect(clang::Preprocessor &PP,
     if (current_token_str == "creg") {
 
       auto creg_name = PP.getSpelling(Toks[i + 1]);
+      if (Toks[i+2].isNot(clang::tok::l_square)) {
+          xacc::error("Must provide creg [ SIZE ].");
+      }
       auto creg_size = PP.getSpelling(Toks[i + 3]);
 
       creg_name_to_size.insert({creg_name, std::stoi(creg_size)});

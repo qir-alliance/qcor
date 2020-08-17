@@ -152,9 +152,10 @@ std::string run_token_collector(clang::Preprocessor &PP,
         token_collector->collect(PP, tmp_cache, bufferNames, code_ss);
 
       // advance past the r_paren and semi colon
-      i+=2;
+      i+=1;
       tmp_cache.clear();
       token_collector = last_tc;
+      continue;
     }
 
     tmp_cache.push_back(Toks[i]);

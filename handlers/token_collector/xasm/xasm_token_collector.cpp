@@ -98,6 +98,35 @@ void XasmTokenCollector::collect(clang::Preprocessor &PP,
       lines.push_back(for_line.str());
     } else if (current_token.is(clang::tok::kw_if)) {
       // fill out if stmt here
+      // slurp up the for loop to the end of the r_paren
+      std::stringstream if_line;
+      if_line << PP.getSpelling(current_token) << " ";
+      i++;
+      int l_paren_count = 0;
+      while (true) {
+        current_token = Toks[i];
+        if (current_token.is(clang::tok::l_paren)) {
+          l_paren_count++;
+          if_line << PP.getSpelling(current_token) << " ";
+        } else if (current_token.is(clang::tok::r_paren)) {
+          if_line << PP.getSpelling(current_token) << " ";
+          l_paren_count--;
+          if (l_paren_count == 0) {
+            // we reached the end, slurp up optional l_brace
+            if (Toks[i + 1].is(clang::tok::l_brace)) {
+              if_line << "{\n";
+              i++;
+            }
+
+            break;
+          }
+        } else {
+          if_line << PP.getSpelling(current_token) << " ";
+        }
+        i++;
+      }
+      lines.push_back(if_line.str());
+
     } else if (current_token.is(clang::tok::r_brace)) {
 
       lines.push_back("}\n");
@@ -145,7 +174,7 @@ void XasmTokenCollector::collect(clang::Preprocessor &PP,
 
     lexer.removeErrorListeners();
     parser.removeErrorListeners();
-    
+
     tree::ParseTree *tree = parser.line();
 
     visitor.visitChildren(tree);
