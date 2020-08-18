@@ -7,7 +7,7 @@
 // circuit_opt_benchmark.cpp
 
 #ifdef TEST_SOURCE_FILE
-__qpu__ void testKernel(qreg q) {
+__qpu__ void testKernel(qreg quVar) {
   using qcor::openqasm;
 #include TEST_SOURCE_FILE
 }
