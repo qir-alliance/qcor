@@ -51,6 +51,8 @@ std::unique_ptr<clang::CodeGenAction> emit_llvm_ir(const std::string src_code) {
                                      "-std=c++17",
                                      "-I@CMAKE_INSTALL_PREFIX@/include/xacc",
                                      "-I@CMAKE_INSTALL_PREFIX@/include/qcor",
+                                     "-I@CMAKE_INSTALL_PREFIX@/include/quantum/gate",
+                                     "-I@CMAKE_INSTALL_PREFIX@/include/eigen",
                                      "-c",
                                      "local_output.cpp"};
   const char **argv = &argv_vec[0];

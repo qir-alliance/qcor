@@ -38,3 +38,4 @@ endif()
 
 add_subdirectory(objectives)
 add_subdirectory(qrt)
+add_subdirectory(jit)

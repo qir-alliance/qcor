@@ -6,7 +6,7 @@ def main(argv=None):
     verbose=False
     baseLibs = ['-rdynamic', '-Wl,-rpath,@CMAKE_INSTALL_PREFIX@/lib',
                             '-L', '@CMAKE_INSTALL_PREFIX@/lib', '-lxacc',
-                            '-lqcor', '-lqrt', '-lqcor-hybrid', '-lCppMicroServices',
+                            '-lqcor', '-lqrt', '-lqcor-hybrid', '-lqcor-jit', '-lCppMicroServices',
                             '-lxacc-quantum-gate',
                             '-lxacc-pauli', '-lpthread']
     baseIncludes = ['-I', '@CMAKE_INSTALL_PREFIX@/include/xacc', '-I', '@CMAKE_INSTALL_PREFIX@/include/qcor', '-I', '@CMAKE_INSTALL_PREFIX@/include/quantum/gate', '-I', '@CMAKE_INSTALL_PREFIX@/include/eigen']
