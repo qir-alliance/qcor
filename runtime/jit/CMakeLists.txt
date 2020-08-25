@@ -1,17 +1,21 @@
 
+
+configure_file(qcor_jit.in.cpp
+               ${CMAKE_BINARY_DIR}/runtime/jit/qcor_jit.cpp)
+
 set(LIBRARY_NAME qcor-jit)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti")
 add_library(${LIBRARY_NAME}
             SHARED
-            qcor_jit.cpp)
+            ${CMAKE_BINARY_DIR}/runtime/jit/qcor_jit.cpp)
 
 target_include_directories(${LIBRARY_NAME}
-                           PUBLIC . ${XACC_ROOT}/include/xacc ${CMAKE_SOURCE_DIR}/handlers
+                           PUBLIC . ../qrt ${XACC_ROOT}/include/xacc ${CMAKE_SOURCE_DIR}/handlers
                                   ${CLANG_INCLUDE_DIRS}
                                   ${LLVM_INCLUDE_DIRS})
 
-target_link_libraries(${LIBRARY_NAME}
-                      PRIVATE qcor-syntax-handler ${CLANG_LIBS} ${LLVM_LIBS} qcor-clang-wrapper)
+target_link_libraries(${LIBRARY_NAME} 
+                      PRIVATE ${CLANG_LIBS} ${LLVM_LIBS} qcor-syntax-handler qcor-clang-wrapper)
 if(APPLE)
   set_target_properties(${LIBRARY_NAME}
                         PROPERTIES INSTALL_RPATH "@loader_path/../lib;${LLVM_INSTALL_PREFIX}/lib")

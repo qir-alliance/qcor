@@ -1,5 +1,9 @@
 #include "qcor_jit.hpp"
+#include "Utils.hpp"
 #include "qcor_syntax_handler.hpp"
+#include "qrt.hpp"
+
+#include "Accelerator.hpp"
 
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/DiagnosticOptions.h"
@@ -21,6 +25,8 @@
 #include <clang/CodeGen/CodeGenAction.h>
 
 #include "llvm/ADT/StringRef.h"
+#include "llvm/Bitcode/BitcodeReader.h"
+#include "llvm/Bitcode/BitcodeWriter.h"
 #include "llvm/ExecutionEngine/JITSymbol.h"
 #include "llvm/ExecutionEngine/Orc/CompileUtils.h"
 #include "llvm/ExecutionEngine/Orc/Core.h"
@@ -33,12 +39,16 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Mangler.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IRReader/IRReader.h"
 #include "llvm/Support/DynamicLibrary.h"
 #include "llvm/Support/Error.h"
+#include "llvm/Support/TargetSelect.h"
+#include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Support/raw_ostream.h"
-#include <cxxabi.h>
+#include <fstream>
 #include <memory>
 
+#include "json.hpp"
 #include "qcor_clang_wrapper.hpp"
 #include "xacc_internal_compiler.hpp"
 
@@ -195,6 +205,9 @@ QJIT::run_syntax_handler(const std::string &kernel_src) {
   llvm::raw_string_ostream ReplacementOS(Replacement);
 
   QCORSyntaxHandler handler;
+  qcor::qpu_name = xacc::internal_compiler::get_qpu()->name();
+  qcor::shots = quantum::get_shots();
+
   handler.GetReplacement(*PP.get(), kernel_name, arg_types, arg_vars,
                          bufferNames, cached, ReplacementOS);
   ReplacementOS.flush();
@@ -205,12 +218,10 @@ QJIT::run_syntax_handler(const std::string &kernel_src) {
     preamble += ", " + arg_types[j] + " " + arg_vars[j];
   }
 
-  return std::make_pair(
-      kernel_name,
-      preamble + ") {\n" + Replacement +
-          "\n// Fix for __dso_handle symbol not found\nint __dso_handle = 1;\n");
+  return std::make_pair(kernel_name, preamble + ") {\n" + Replacement +
+                                         "\n// Fix for __dso_handle symbol not "
+                                         "found\nint __dso_handle = 1;\n");
 }
-QJIT::~QJIT() {}
 
 class LLVMJIT {
 private:
@@ -225,12 +236,12 @@ private:
   JITDylib &MainJD;
 
 public:
-  LLVMJIT(JITTargetMachineBuilder JTMB, DataLayout DL)
+  LLVMJIT(JITTargetMachineBuilder JTMB, DataLayout DL,
+          std::unique_ptr<LLVMContext> ctx = std::make_unique<LLVMContext>())
       : ObjectLayer(ES,
                     []() { return std::make_unique<SectionMemoryManager>(); }),
         CompileLayer(ES, ObjectLayer, ConcurrentIRCompiler(std::move(JTMB))),
-        DL(std::move(DL)), Mangle(ES, this->DL),
-        Ctx(std::make_unique<LLVMContext>()),
+        DL(std::move(DL)), Mangle(ES, this->DL), Ctx(std::move(ctx)),
         MainJD(ES.createJITDylib("<main>")) {
     MainJD.addGenerator(
         cantFail(DynamicLibrarySearchGenerator::GetForCurrentProcess(
@@ -251,6 +262,20 @@ public:
     return std::make_unique<LLVMJIT>(std::move(*JTMB), std::move(*DL));
   }
 
+  static Expected<std::unique_ptr<LLVMJIT>>
+  Create(std::unique_ptr<LLVMContext> ctx) {
+    auto JTMB = JITTargetMachineBuilder::detectHost();
+
+    if (!JTMB)
+      return JTMB.takeError();
+
+    auto DL = JTMB->getDefaultDataLayoutForTarget();
+    if (!DL)
+      return DL.takeError();
+
+    return std::make_unique<LLVMJIT>(std::move(*JTMB), std::move(*DL),
+                                     std::move(ctx));
+  }
   const DataLayout &getDataLayout() const { return DL; }
 
   LLVMContext &getContext() { return *Ctx.getContext(); }
@@ -259,13 +284,14 @@ public:
 
     // FIXME hook up to cmake
     MainJD.addGenerator(cantFail(DynamicLibrarySearchGenerator::Load(
-        "/home/cades/.xacc/lib/libxacc.so", DL.getGlobalPrefix())));
+        "@CMAKE_INSTALL_PREFIX@/lib/libxacc.so", DL.getGlobalPrefix())));
     MainJD.addGenerator(cantFail(DynamicLibrarySearchGenerator::Load(
-        "/home/cades/.xacc/lib/libqrt.so", DL.getGlobalPrefix())));
+        "@CMAKE_INSTALL_PREFIX@/lib/libqrt.so", DL.getGlobalPrefix())));
     MainJD.addGenerator(cantFail(DynamicLibrarySearchGenerator::Load(
-        "/home/cades/.xacc/lib/libqcor.so", DL.getGlobalPrefix())));
+        "@CMAKE_INSTALL_PREFIX@/lib/libqcor.so", DL.getGlobalPrefix())));
     MainJD.addGenerator(cantFail(DynamicLibrarySearchGenerator::Load(
-        "/home/cades/.xacc/lib/libCppMicroServices.so", DL.getGlobalPrefix())));
+        "@CMAKE_INSTALL_PREFIX@/lib/libCppMicroServices.so",
+        DL.getGlobalPrefix())));
 
     return CompileLayer.add(MainJD, ThreadSafeModule(std::move(M), Ctx));
   }
@@ -275,41 +301,115 @@ public:
   }
 };
 
-QJIT::QJIT() {}
+QJIT::QJIT() {
+  std::string cache_file_loc = "@CMAKE_INSTALL_PREFIX@/tmp/qjit_cache.json";
+  if (!xacc::fileExists(cache_file_loc)) {
+    // if it doesn't exist, create it
+    std::ofstream cache(cache_file_loc);
+    cache.close();
+  } else {
+    std::ifstream cache_file(cache_file_loc);
+    std::string cache_file_contents(
+        (std::istreambuf_iterator<char>(cache_file)),
+        std::istreambuf_iterator<char>());
+    auto cache_json = nlohmann::json::parse(cache_file_contents);
+    auto jit_cache = cache_json["jit_cache"];
+    for (auto &element : jit_cache) {
+      auto key_val = element.get<std::pair<std::size_t, std::string>>();
+      cached_kernel_codes.insert(key_val);
+    }
+  }
+}
+
+QJIT::~QJIT() {
+  std::string cache_file_loc = "@CMAKE_INSTALL_PREFIX@/tmp/qjit_cache.json";
+  nlohmann::json j;
+  j["jit_cache"] = cached_kernel_codes;
+  auto str = j.dump();
+  std::ofstream cache(cache_file_loc);
+  cache << str;
+  cache.close();
+}
 
 void QJIT::jit_compile(const std::string &code) {
+
+  // Run the Syntax Handler to get the kernel name and
+  // the kernel code (the QuantumKernel subtype def + utility functions)
   auto [kernel_name, new_code] = run_syntax_handler(code);
 
-  // FIXME Hook up some form of caching...
-  auto act = qcor::emit_llvm_ir(new_code);
-  module = act->takeModule();
-  
-  auto demangle = [](const char *name) {
-    int status = -1;
-    std::unique_ptr<char, void (*)(void *)> res{
-        abi::__cxa_demangle(name, NULL, NULL, &status), std::free};
-    return (status == 0) ? res.get() : std::string(name);
-  };
+  // Hash the new code
+  std::hash<std::string> hasher;
+  auto hash = hasher(new_code);
 
-  // FIXME Get the kernel(composite, args...) function too
+  // We will use cached Modules if possible...
+
+  std::unique_ptr<CodeGenAction> act;
+  if (cached_kernel_codes.count(hash)) {
+
+    // If we have this hash in the cache, we will grab its
+    // correspoding Module bc file name and load it
+    auto module_bitcode_file_name = cached_kernel_codes[hash];
+    std::string full_path =
+        "@CMAKE_INSTALL_PREFIX@/tmp/" + module_bitcode_file_name;
+
+    // Load the bitcode file as Module
+    SMDiagnostic error;
+    auto ctx = std::make_unique<LLVMContext>();
+    module = llvm::parseIRFile(full_path, error, *ctx.get());
+    if (!jit) {
+      // Initialize the JIT Engine
+      llvm::InitializeNativeTarget();
+      llvm::InitializeNativeTargetAsmPrinter();
+      jit = cantFail(qcor::LLVMJIT::Create(std::move(ctx)));
+    }
+
+  } else {
+
+    // We have not seen this code before, so we
+    // need to map it to an LLVM Module
+    act = qcor::emit_llvm_ir(new_code);
+    module = act->takeModule();
+
+    // Persist the Module to a bitcode file
+    std::stringstream file_name_ss;
+    file_name_ss << "__qjit_m_" << module.get() << ".bc";
+    std::error_code ec;
+    ToolOutputFile result("@CMAKE_INSTALL_PREFIX@/tmp/" + file_name_ss.str(),
+                          ec, sys::fs::F_None);
+    WriteBitcodeToFile(*module, result.os());
+    result.keep();
+
+    // Add the file to the cache map, this gets persisted
+    // at QJIT Destruction
+    cached_kernel_codes.insert({hash, file_name_ss.str()});
+  }
+
+  // Loop over all Functions in the module
+  // and get the first one that has the kernel name
+  // in it as a substring. This is the corrent Function and
+  // now we have it as a mangled name
   std::string mangled_name = "";
   for (Function &f : *module) {
     auto name = f.getName().str();
     if (demangle(name.c_str()).find(kernel_name) != std::string::npos) {
+      // First one we see is the correct kernel call
       mangled_name = name;
       break;
     }
   }
 
+  // Create the JIT Engine if we haven't already
   if (!jit) {
-    jit = cantFail(qcor::LLVMJIT::Create());
+    jit = cantFail(qcor::LLVMJIT::Create(),
+                   "QJIT Error: Could not create the JIT Engine.");
   }
 
-  auto error = jit->addModule(std::move(module));
-  if (error) {
-    // errs() << "adding mod error\n";
-  }
+  // Add the Module to the JIT Engine
+  cantFail(jit->addModule(std::move(module)),
+           "QJIT Error: Could not add the Module to the JIT Engine.");
 
+  // Get the function pointer and associate it with
+  // the provided kernel name
   auto symbol = cantFail(jit->lookup(mangled_name));
   auto rawFPtr = symbol.getAddress();
   kernel_name_to_f_ptr.insert({kernel_name, rawFPtr});

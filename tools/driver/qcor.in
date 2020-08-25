@@ -4,7 +4,7 @@ import argparse, sys, os, subprocess, mimetypes, re
 def main(argv=None):
     compiler = '@CLANG_EXECUTABLE@'
     verbose=False
-    baseLibs = ['-rdynamic', '-Wl,-rpath,@CMAKE_INSTALL_PREFIX@/lib',
+    baseLibs = ['-rdynamic', '-Wl,-rpath,@CMAKE_INSTALL_PREFIX@/lib:@LLVM_INSTALL_PREFIX@/lib',
                             '-L', '@CMAKE_INSTALL_PREFIX@/lib', '-lxacc',
                             '-lqcor', '-lqrt', '-lqcor-hybrid', '-lqcor-jit', '-lCppMicroServices',
                             '-lxacc-quantum-gate',
@@ -67,6 +67,7 @@ def main(argv=None):
         shots = sys.argv[sidx+1]
         sys.argv.remove(shots)
         sys.argv.remove('-shots')
+        sys.argv += ['-D__internal__qcor__compile__shots=\"'+str(shots)+'\"']
         sHandlerArgs += ['-Xclang', '-plugin-arg-qcor-args', '-Xclang', '-shots', '-Xclang', '-plugin-arg-qcor-args', '-Xclang', shots]
 
     if verbose:

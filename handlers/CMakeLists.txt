@@ -23,7 +23,7 @@ if(APPLE)
                         PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
 else()
   set_target_properties(${LIBRARY_NAME}
-                        PROPERTIES INSTALL_RPATH "$ORIGIN/../lib")
+                        PROPERTIES INSTALL_RPATH "$ORIGIN/../lib:${LLVM_INSTALL_PREFIX}/lib")
   set_target_properties(${LIBRARY_NAME} PROPERTIES LINK_FLAGS "-shared")
 endif()
 

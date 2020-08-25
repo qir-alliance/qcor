@@ -41,9 +41,10 @@ void simplified_qrt_call_two_qbits(const char *gate_name,
 }
 
 void execute_pass_manager() {
-  qcor::internal::PassManager passManager(__opt_level, __qubit_map, __placement_name);
+  qcor::internal::PassManager passManager(__opt_level, __qubit_map,
+                                          __placement_name);
   auto optData = passManager.optimize(::quantum::program);
-  
+
   std::vector<std::string> user_passes;
   if (!__user_opt_passes.empty()) {
     std::stringstream ss(__user_opt_passes);
@@ -56,8 +57,9 @@ void execute_pass_manager() {
   }
 
   // Runs user-specified passes
-  for (const auto& user_pass: user_passes) {
-    optData.emplace_back(qcor::internal::PassManager::runPass(user_pass, ::quantum::program));
+  for (const auto &user_pass : user_passes) {
+    optData.emplace_back(
+        qcor::internal::PassManager::runPass(user_pass, ::quantum::program));
   }
 
   if (__print_opt_stats) {
@@ -79,9 +81,7 @@ std::vector<int> parse_qubit_map(const char *qubit_map_str) {
       std::string qubitId;
       std::getline(ss, qubitId, ',');
       qubitMap.emplace_back(std::stoi(qubitId));
-    }
-    catch (...)
-    {
+    } catch (...) {
       // Cannot parse the integer.
       return {};
     }
@@ -95,6 +95,7 @@ namespace quantum {
 std::shared_ptr<xacc::CompositeInstruction> program = nullptr;
 std::shared_ptr<xacc::IRProvider> provider = nullptr;
 std::vector<std::string> kernels_in_translation_unit = {};
+int current_shots = 0;
 
 // We only allow *single* quantum entry point,
 // i.e. a master quantum kernel which is invoked from classical code.
@@ -127,9 +128,12 @@ void set_backend(std::string accelerator_name) {
 }
 
 void set_shots(int shots) {
+  current_shots = shots;
   xacc::internal_compiler::get_qpu()->updateConfiguration(
       {std::make_pair("shots", shots)});
 }
+
+int get_shots() { return current_shots; }
 
 // Add a controlled instruction:
 void add_controlled_inst(xacc::InstPtr &inst, int ctrlIdx) {

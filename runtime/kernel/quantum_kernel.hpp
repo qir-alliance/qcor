@@ -45,10 +45,9 @@ protected:
   // Turn off destructor execution, useful for
   // qcor developers, not to be used by clients / programmers
   bool disable_destructor = false;
-  
-public:
 
-  // Flag to indicate we only want to 
+public:
+  // Flag to indicate we only want to
   // run the pass manager and not execute
   bool optimize_only = false;
 
@@ -155,6 +154,8 @@ public:
           ctrlKernel->getInstruction(instId)->clone());
     }
   }
+
   virtual ~QuantumKernel() {}
 };
+
 } // namespace qcor

@@ -5,6 +5,9 @@
 using namespace clang;
 
 namespace qcor {
+extern std::string qpu_name;
+extern int shots;
+
 class QCORSyntaxHandler : public SyntaxHandler {
 public:
   QCORSyntaxHandler() : SyntaxHandler("qcor") {}
