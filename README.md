@@ -29,7 +29,7 @@ Navigate to ``https://localhost:3000`` in your browser to open the IDE and get s
 Compiler (C++14): GNU 6.1+, Clang 3.4+
 CMake 3.9+ (for build)
 XACC: see https://xacc.readthedocs.io/en/latest/install.html#building-xacc
-LLVM/Clang [Syntax Handler Fork](https://github.com/ornl-qci/llvm-project-csp).
+LLVM/Clang [Syntax Handler Fork](https://github.com/hfinkel/llvm-project-csp).
 ```
 
 ## Linux Build Instructions
@@ -48,7 +48,7 @@ need to download the appropriate LLVM/Clang binaries (via `apt-get` for instance
 To build this fork of LLVM/Clang (be aware this step takes up a good amount of RAM):
 ```bash
 $ apt-get install ninja-build [if you dont have ninja]
-$ git clone https://github.com/ornl-qci/llvm-project-csp llvm
+$ git clone https://github.com/hfinkel/llvm-project-csp llvm
 $ cd llvm && mkdir build && cd build
 $ cmake -G Ninja ../llvm -DCMAKE_INSTALL_PREFIX=$HOME/.llvm -DBUILD_SHARED_LIBS=TRUE -DCMAKE_BUILD_TYPE=Release -DLLVM_TARGETS_TO_BUILD="X86" -DLLVM_ENABLE_DUMP=ON -DLLVM_ENABLE_PROJECTS=clang
 $ cmake --build . --target install

@@ -96,6 +96,13 @@ void QCORSyntaxHandler::GetReplacement(
     return str;
   };
 
+  // Rewrite the original function
+  OS << "void " << kernel_name << "(" << program_arg_types[0] << " "  << program_parameters[0];
+  for (int i = 1; i < program_arg_types.size(); i++) {
+    OS << ", " << program_arg_types[i] << " " << program_parameters[i];
+  }
+  OS << ") {\n";
+
   // First re-write, forward declare a function
   // we will implement further down
   OS << "void __internal_call_function_" << kernel_name << "("
