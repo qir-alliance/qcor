@@ -27,7 +27,7 @@ int main(int argc, char **argv) {
   // need to provide ansatz, Operator, and qreg
   auto objective = createObjectiveFunction(
       ansatz, H, q, n_variational_params,
-      {{"gradient-strategy", "parameter-shift-gradient"}});
+      {{"gradient-strategy", "parameter-shift"}});
 
   // Create the Optimizer.
   auto optimizer = createOptimizer("nlopt", {{"nlopt-optimizer", "l-bfgs"}});

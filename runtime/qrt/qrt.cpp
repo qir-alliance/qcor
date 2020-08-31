@@ -69,6 +69,8 @@ void execute_pass_manager() {
     }
   }
 
+//   std::cout << "PASS: " << ::quantum::program->nInstructions() << "\n";
+
   passManager.applyPlacement(::quantum::program);
 }
 
@@ -331,9 +333,17 @@ void exp(qreg q, const double theta, std::shared_ptr<xacc::Observable> H) {
 
     xasm_src = xasm_src + "\n" + basis_front.str() + cnot_front.str();
 
-    xasm_src = xasm_src + "Rz(q[" + std::to_string(qidxs[qidxs.size() - 1]) +
-               "], " + std::to_string(std::real(spinInst.coeff()) * theta) +
-               ");\n";
+    // FIXME, we assume real coefficients, if its zero, 
+    // check that the imag part is not zero and use it 
+    if (std::fabs(std::real(spinInst.coeff())) > 1e-12) {
+      xasm_src = xasm_src + "Rz(q[" + std::to_string(qidxs[qidxs.size() - 1]) +
+                 "], " + std::to_string(std::real(spinInst.coeff()) * theta) +
+                 ");\n";
+    } else if (std::fabs(std::imag(spinInst.coeff())) > 1e-12) {
+      xasm_src = xasm_src + "Rz(q[" + std::to_string(qidxs[qidxs.size() - 1]) +
+                 "], " + std::to_string(std::imag(spinInst.coeff()) * theta) +
+                 ");\n";
+    } 
 
     xasm_src = xasm_src + cnot_back.str() + basis_back.str();
   }
@@ -346,7 +356,7 @@ void exp(qreg q, const double theta, std::shared_ptr<xacc::Observable> H) {
 
   xasm_src = "__qpu__ void " + name + "(qbit q) {\n" + xasm_src + "}";
 
-  // std::cout << xasm_src << "\n";
+//   std::cout << "FROMQRT: " << theta << "\n" << xasm_src << "\n";
   auto xasm = xacc::getCompiler("xasm");
   auto tmp = xasm->compile(xasm_src)->getComposites()[0];
 

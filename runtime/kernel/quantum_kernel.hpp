@@ -67,6 +67,7 @@ public:
     Derived derived(args...);
     derived.disable_destructor = true;
     derived(args...);
+    xacc::internal_compiler::execute_pass_manager();
     os << derived.parent_kernel->toString() << "\n";
   }
 

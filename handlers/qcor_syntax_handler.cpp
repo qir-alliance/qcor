@@ -84,17 +84,17 @@ void QCORSyntaxHandler::GetReplacement(
 
   auto new_src = qcor::run_token_collector(PP, Toks, bufferNames);
 
-  auto random_string = [](size_t length) {
-    auto randchar = []() -> char {
-      const char charset[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-                             "abcdefghijklmnopqrstuvwxyz";
-      const size_t max_index = (sizeof(charset) - 1);
-      return charset[rand() % max_index];
-    };
-    std::string str(length, 0);
-    std::generate_n(str.begin(), length, randchar);
-    return str;
-  };
+//   auto random_string = [](size_t length) {
+//     auto randchar = []() -> char {
+//       const char charset[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+//                              "abcdefghijklmnopqrstuvwxyz";
+//       const size_t max_index = (sizeof(charset) - 1);
+//       return charset[rand() % max_index];
+//     };
+//     std::string str(length, 0);
+//     std::generate_n(str.begin(), length, randchar);
+//     return str;
+//   };
 
   // Rewrite the original function
   OS << "void " << kernel_name << "(" << program_arg_types[0] << " "  << program_parameters[0];
@@ -147,18 +147,9 @@ void QCORSyntaxHandler::GetReplacement(
     OS << ", " << program_arg_types[i] << " " << program_parameters[i];
   }
   OS << ") {\n";
-  if (shots > 0) {
-    OS << "quantum::set_backend(\"" << qpu_name << "\", " << shots << ");\n";
-  } else {
-    OS << "quantum::set_backend(\"" << qpu_name << "\");\n";
-  }
   OS << "if (!parent_kernel) {\n";
   OS << "parent_kernel = "
         "qcor::__internal__::create_composite(kernel_name);\n";
-  for (auto bname : bufferNames) {
-    auto random_buffer_name = "qreg_" + random_string(10);
-    OS << bname << ".setNameAndStore(\"" << random_buffer_name << "\");\n";
-  }
   OS << "}\n";
   OS << "quantum::set_current_program(parent_kernel);\n";
   OS << new_src << "\n";
