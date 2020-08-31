@@ -2,12 +2,17 @@
 #include "xacc.hpp"
 #include "xacc_service.hpp"
 
+using ObservablePtr = std::shared_ptr<Observable>;
+
+// Initial State is HF
 __qpu__ void initial_state(qreg q) {
   X(q[0]);
   X(q[2]);
 }
+
+// Adapt Ansatz, grows as the vector of input Observables grows
 __qpu__ void adapt_ansatz(qreg q, std::vector<double> x,
-                          std::vector<std::shared_ptr<Observable>> ops) {
+                          std::vector<ObservablePtr> ops) {
   initial_state(q);
   for (auto [i, op] : enumerate(ops)) {
     exp_i_theta(q, x[i], op);
@@ -25,13 +30,14 @@ int main() {
            0.165607 * Z(1) * Z(2) + 0.0454063 * X(0) * X(1) * Y(2) * Y(3) +
            0.0454063 * X(0) * X(1) * X(2) * X(3);
 
-  // Use XACC to generate the operator pool
+  // Use XACC to generate the operator pool Ai
   auto pool =
       xacc::getService<xacc::quantum::OperatorPool>("singlet-adapted-uccsd");
   pool->optionalParameters({{"n-electrons", 2}});
   auto ops = pool->generate(H.nBits());
 
-  std::vector<std::shared_ptr<Observable>> commutators(ops.size());
+  // Compute all [H, Ai] commutators
+  std::vector<ObservablePtr> commutators(ops.size());
   std::generate(commutators.begin(), commutators.end(),
                 [n = 0, &H, &ops]() mutable {
                   auto c = H.commutator(ops[n]);
@@ -39,62 +45,78 @@ int main() {
                   return c;
                 });
 
+  // Local Declarations
   double energy = 0.0;
-  std::vector<double> x; // these are the variational parameters
+  std::vector<double> x;
+  std::vector<ObservablePtr> all_ops;
 
-  std::vector<std::shared_ptr<Observable>> all_ops;
+  // Get the Optimizer
   auto optimizer = createOptimizer("nlopt");
+
+  // Allocate a qreg
+  auto q = qalloc(H.nBits());
+
+  // Create an ArgsTranslator to translate
+  // vec<double> x -> qreg, vec<double> vec<ObservablePtr
+  auto args_translator = std::make_shared<ArgsTranslator<
+      qreg, std::vector<double>, std::vector<std::shared_ptr<Observable>>>>(
+      [&](const std::vector<double> &xx) {
+        return std::make_tuple(q, xx, all_ops);
+      });
 
   // start ADAPT loop
   for (int iter = 0; iter < 100; iter++) {
-
     double max_grad = 0.0, grad_norm = 0.0;
-    int max_grad_idx = 0;
-    for (auto [idx, commutator] : enumerate(commutators)) {
-      auto q = qalloc(H.nBits());
-      auto args_translator = std::make_shared<ArgsTranslator<
-          qreg, std::vector<double>, std::vector<std::shared_ptr<Observable>>>>(
-          [&](const std::vector<double> &x) {
-            return std::make_tuple(q, x, all_ops);
-          });
-      auto obj = createObjectiveFunction(adapt_ansatz, commutator,
+    int max_grad_idx = 0, counter = 0;
+
+    // Compute the gradient vector dEi = <[H,Ai]>
+    std::vector<double> grad_vec(commutators.size());
+    std::generate(grad_vec.begin(), grad_vec.end(), [&]() {
+      // Create an ObjectiveFunction to compute <[H,Ai]>
+      auto obj = createObjectiveFunction(adapt_ansatz, commutators[counter],
                                          args_translator, q, x.size());
+      counter++;
+      // compute the grad element <[H,Ai]>
       auto grad = (*obj)(x);
-      if (grad > max_grad) {
-        max_grad = grad;
-        max_grad_idx = idx;
-      }
+      // set the gradient norm
       grad_norm += grad * grad;
-    }
+      return grad;
+    });
 
-    auto new_op = ops[max_grad_idx];
+    // grad_vec is filled, find the index of the max element
+    auto max_idx = std::distance(
+        grad_vec.begin(), std::max_element(grad_vec.begin(), grad_vec.end()));
 
-    all_ops.push_back(new_op);
+    // Grow the list of operators to build the ansatz
+    all_ops.push_back(ops[max_idx]);
 
+    // Check for convergence
     if (grad_norm < 1e-6) {
       std::cout << "Converged on gradient norm\n";
       break;
     }
 
-    // add to the new parameter
+    // Add a new parameter to the ansatz params
     x.push_back(0.0);
 
-    auto q = qalloc(H.nBits());
-
-    auto args_translator = std::make_shared<ArgsTranslator<
-        qreg, std::vector<double>, std::vector<std::shared_ptr<Observable>>>>(
-        [&](const std::vector<double> &xx) {
-          return std::make_tuple(q, xx, all_ops);
-        });
-
-    optimizer->appendOption("initial-parameters", x);
+    // Create another ObjectiveFunction to
+    // run the VQE min
     auto vqe =
         createObjectiveFunction(adapt_ansatz, H, args_translator, q, x.size());
+
+    // Set the initial parameters
+    optimizer->appendOption("initial-parameters", x);
+
+    // Run task initiate and sync
     auto handle = taskInitiate(vqe, optimizer);
     auto results = sync(handle);
-    auto e = results.opt_val;
+
+    // Get the energy
+    energy = results.opt_val;
+
+    // Get the current optimal params
     x = results.opt_params;
-    energy = e;
+
     std::cout << "Current Adapt Energy = " << energy << "\n";
   }
 
