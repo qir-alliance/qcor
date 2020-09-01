@@ -45,6 +45,9 @@ public:
         xacc::internal_compiler::parse_qubit_map(
             __internal__qcor__compile__qubit__map);
 #endif
+#ifdef __internal__qcor__compile__decorator__list
+  xacc::internal_compiler::apply_decorators(__internal__qcor__compile__decorator__list);
+#endif
   }
 };
 internal_startup startup;

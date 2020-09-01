@@ -130,6 +130,7 @@ extern std::string __placement_name;
 // we'll map qubits according to this.
 extern std::vector<int> __qubit_map;
 extern std::vector<int> parse_qubit_map(const char *qubit_map_str);
+extern void apply_decorators(const std::string& decorator_cmdline_string);
 
 void simplified_qrt_call_one_qbit(const char *gate_name,
                                   const char *buffer_name,

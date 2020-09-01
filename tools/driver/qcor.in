@@ -124,6 +124,13 @@ def main(argv=None):
         sys.argv.remove('-placement')
         sys.argv += ['-D__internal__qcor__compile__placement__name=\"'+placementName+'\"']
     
+    if '-em' in sys.argv[1:]:
+        sidx = sys.argv.index('-em')
+        decorator_name = sys.argv[sidx+1]
+        sys.argv.remove(decorator_name)
+        sys.argv.remove('-em')
+        sys.argv += ['-D__internal__qcor__compile__decorator__list=\"'+decorator_name+'\"']
+        
     # Get the filename we are compiling or the object file
     filename = ''
     fileType = ''

@@ -91,6 +91,10 @@ std::vector<int> parse_qubit_map(const char *qubit_map_str) {
   return qubitMap;
 }
 
+void apply_decorators(const std::string& decorator_cmdline_string) {
+    auto decorator = xacc::getAcceleratorDecorator(decorator_cmdline_string, get_qpu());
+    xacc::internal_compiler::qpu = decorator;
+}
 } // namespace internal_compiler
 } // namespace xacc
 namespace quantum {
