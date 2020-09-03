@@ -1,0 +1,7 @@
+{
+    "bundle.symbolic_name" : "qcor_ddcl_objective",
+    "bundle.activator" : true,
+    "bundle.name" : "DDCL Objective Function",
+    "bundle.description" : ""
+  }
+  
