@@ -56,7 +56,8 @@ public:
   }
 
   // Measure-Z
-  virtual void mz(const qubit &qidx) override { /* TODO */
+  virtual void mz(const qubit &qidx) override {
+    applyGate("Measure", {qidx.second});
   }
 
   // Common two-qubit gates.

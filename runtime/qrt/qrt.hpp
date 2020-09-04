@@ -180,7 +180,7 @@ extern std::string __placement_name;
 extern std::vector<int> __qubit_map;
 extern std::vector<int> parse_qubit_map(const char *qubit_map_str);
 extern void apply_decorators(const std::string& decorator_cmdline_string);
-
+extern std::string __qrt_env;
 void execute_pass_manager();
 
 } // namespace internal_compiler

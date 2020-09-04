@@ -16,6 +16,7 @@ bool __print_opt_stats = false;
 std::string __user_opt_passes = "";
 std::string __placement_name = "";
 std::vector<int> __qubit_map = {};
+std::string __qrt_env = "nisq";
 
 void execute_pass_manager() {
   qcor::internal::PassManager passManager(__opt_level, __qubit_map,
@@ -81,7 +82,7 @@ std::vector<std::string> kernels_in_translation_unit = {};
 void initialize(const std::string qpu_name, const std::string kernel_name) {
   xacc::internal_compiler::compiler_InitializeXACC(qpu_name.c_str());
 
-  qrt_impl = xacc::getService<QuantumRuntime>("nisq");
+  qrt_impl = xacc::getService<QuantumRuntime>(__qrt_env);
   qrt_impl->initialize(kernel_name);
 }
 

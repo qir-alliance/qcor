@@ -10,7 +10,7 @@
 # Contributors:
 #   Alexander J. McCaskey - initial API and implementation
 # *******************************************************************************/
-set(LIBRARY_NAME qcor-nisq-ftqc)
+set(LIBRARY_NAME qcor-ftqc-qrt)
 
 file(GLOB SRC *.cpp)
 
