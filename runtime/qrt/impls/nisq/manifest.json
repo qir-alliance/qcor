@@ -1,0 +1,6 @@
+{
+  "bundle.symbolic_name" : "qcor_nisq_qrt",
+  "bundle.activator" : true,
+  "bundle.name" : "NISQ QRT",
+  "bundle.description" : ""
+}
