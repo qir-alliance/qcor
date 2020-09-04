@@ -259,6 +259,11 @@ public:
     if (program && provider)
       program = provider->createComposite(program->name());
   }
+  
+  void set_current_buffer(xacc::AcceleratorBuffer* buffer) override {
+    // Nothing to do: the NISQ runtime doesn't keep track of runtime buffer info.
+  }
+
   const std::string name() const override { return "nisq"; }
   const std::string description() const override { return ""; }
 };

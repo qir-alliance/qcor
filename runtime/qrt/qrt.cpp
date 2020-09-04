@@ -179,4 +179,8 @@ void set_current_program(std::shared_ptr<xacc::CompositeInstruction> p) {
   qrt_impl->set_current_program(p);
 }
 
+void set_current_buffer(xacc::AcceleratorBuffer* buffer) {
+  qrt_impl->set_current_buffer(buffer);
+}
+
 } // namespace quantum

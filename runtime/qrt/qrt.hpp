@@ -68,6 +68,7 @@ virtual void submit(xacc::AcceleratorBuffer **buffers, const int nBuffers) = 0;
 // Some getters for the qcor runtime library. 
 virtual void set_current_program(std::shared_ptr<xacc::CompositeInstruction> p) = 0;
 virtual std::shared_ptr<xacc::CompositeInstruction> get_current_program() = 0;
+virtual void set_current_buffer(xacc::AcceleratorBuffer* buffer) = 0;
 };
 // This represents the public API for the xacc-enabled
 // qcor quantum runtime library. The goal here is to provide
@@ -144,6 +145,8 @@ void submit(xacc::AcceleratorBuffer **buffers, const int nBuffers);
 // Some getters for the qcor runtime library. 
 void set_current_program(std::shared_ptr<xacc::CompositeInstruction> p);
 
+// Set the *runtime* buffer
+void set_current_buffer(xacc::AcceleratorBuffer* buffer);
 // std::shared_ptr<xacc::CompositeInstruction> getProgram();
 // xacc::CompositeInstruction *program_raw_pointer();
 

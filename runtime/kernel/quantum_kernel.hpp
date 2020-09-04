@@ -50,7 +50,8 @@ public:
   // Flag to indicate we only want to
   // run the pass manager and not execute
   bool optimize_only = false;
-
+  enum class QrtType { NISQ, FTQC };
+  QrtType runtime_env = QrtType::NISQ;
   // Default constructor, takes quantum kernel function arguments
   QuantumKernel(Args... args) : args_tuple(std::forward_as_tuple(args...)) {}
 
