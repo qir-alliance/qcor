@@ -1,5 +1,6 @@
 #include <qalloc>
 // Compile with: qcor -qpu qpp -qrt ftqc simple-demo.cpp
+// or with noise: qcor -qpu aer[noise-model:noise_model.json] -qrt ftqc simple-demo.cpp
 // Execute: ./a.out
 // We should get the print out conditioned by the measurement.
 // If not using the "ftqc" QRT, this will cause errors since the Measure results

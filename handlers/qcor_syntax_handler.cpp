@@ -213,13 +213,17 @@ void QCORSyntaxHandler::GetReplacement(
     OS << ", " << program_parameters[i];
   }
   OS << ");\n";
+  // If this is a FTQC kernel, skip runtime optimization passes and submit.
+  OS << "if (runtime_env == QrtType::FTQC) {\n";
+  OS << "return;\n";
+  OS << "}\n";
 
   OS << "xacc::internal_compiler::execute_pass_manager();\n";
   OS << "if (optimize_only) {\n";
   OS << "return;\n";
   OS << "}\n";
 
-  OS << "if (is_callable && (runtime_env == QrtType::NISQ)) {\n";
+  OS << "if (is_callable) {\n";
   if (bufferNames.size() > 1) {
     OS << "xacc::AcceleratorBuffer * buffers[" << bufferNames.size() << "] = {";
     OS << bufferNames[0] << ".results()";
