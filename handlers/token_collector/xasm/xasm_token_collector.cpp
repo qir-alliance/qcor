@@ -186,12 +186,8 @@ void XasmTokenCollector::collect(clang::Preprocessor &PP,
       ss << qrt_visitor.get_new_src();
 
     } else {
-      // this was a classical code string;
-      // hence, append the original source line.
-      // IMPORTANT: the ANTLR tokenized string may be different,
-      // e.g. it may parse '&&' as two tokens hence adding a space
-      // which will mess up the C++ code.
-      ss << line;
+      // this was a classical code string
+      ss << visitor.result.first;
     }
   }
 }
