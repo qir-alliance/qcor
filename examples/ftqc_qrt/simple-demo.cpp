@@ -12,7 +12,7 @@ __qpu__ void bell(qreg q, int nbRuns) {
     CX(q[0], q[1]);
     Measure(q[0]);
     Measure(q[1]);
-    if (q.cReg(0) && q.cReg(1)) {
+    if (q.cReg(0) == q.cReg(1)) {
       std::cout << "Iter " << i << ": Matched!\n";
     } else {
       // Should only happen if using a real (noisy) backend.
