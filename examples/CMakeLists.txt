@@ -11,3 +11,6 @@ add_test(NAME qrt_kernel_include COMMAND ${CMAKE_BINARY_DIR}/qcor -c -I${CMAKE_C
 add_test(NAME qrt_period_finding COMMAND ${CMAKE_BINARY_DIR}/qcor -c -I${CMAKE_CURRENT_SOURCE_DIR}/shared ${CMAKE_CURRENT_SOURCE_DIR}/simple/period_finding.cpp)
 add_test(NAME qrt_grover COMMAND ${CMAKE_BINARY_DIR}/qcor -c ${CMAKE_CURRENT_SOURCE_DIR}/grover/grover.cpp)
 add_test(NAME qrt_adapt COMMAND ${CMAKE_BINARY_DIR}/qcor -c ${CMAKE_CURRENT_SOURCE_DIR}/hybrid/adapt_h2.cpp)
+add_test(NAME qrt_ftqc_simple COMMAND ${CMAKE_BINARY_DIR}/qcor -c -qrt ftqc ${CMAKE_CURRENT_SOURCE_DIR}/ftqc_qrt/simple-demo.cpp)
+add_test(NAME qrt_ftqc_rus COMMAND ${CMAKE_BINARY_DIR}/qcor -c -qrt ftqc ${CMAKE_CURRENT_SOURCE_DIR}/ftqc_qrt/repeat-until-success.cpp)
+add_test(NAME qrt_ftqc_qec COMMAND ${CMAKE_BINARY_DIR}/qcor -c -qrt ftqc ${CMAKE_CURRENT_SOURCE_DIR}/ftqc_qrt/bit-flip-code.cpp)
