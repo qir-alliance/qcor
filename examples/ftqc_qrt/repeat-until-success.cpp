@@ -21,7 +21,7 @@ __qpu__ void PrepareStateUsingRUS(qreg q, int maxIter) {
     // In order to measure in the PauliX basis, changes the basis.
     H(q[1]);
     Measure(q[1]);
-    bool outcome = q.cReg(1);
+    bool outcome = q.creg[1];
     if (!outcome) {
       // Success (until (outcome == Zero))
       std::cout << "Success after " << i + 1 << " iterations.\n";
