@@ -5,7 +5,6 @@
 // If not using the "ftqc" QRT, this will cause errors since the Measure results
 // are not available yet.
 
-void setVar(int &var, int val) { var = val; }
 // Using Repeat-Until-Success pattern to prepare a quantum state.
 // https://docs.microsoft.com/en-us/quantum/user-guide/using-qsharp/control-flow#rus-to-prepare-a-quantum-state
 __qpu__ void PrepareStateUsingRUS(qreg q, int maxIter) {
@@ -23,13 +22,10 @@ __qpu__ void PrepareStateUsingRUS(qreg q, int maxIter) {
     H(q[1]);
     Measure(q[1]);
     bool outcome = q.cReg(1);
-    if (outcome == false) {
+    if (!outcome) {
       // Success (until (outcome == Zero))
       std::cout << "Success after " << i + 1 << " iterations.\n";
-      // Hack to implement break:
-      // the 'break' keywork seems to be eaten by the XASM token collector.
-      // break;
-      setVar(i, maxIter);
+      break;
     }
     // Fix up: Bring the auxiliary and target qubits back to |+> state.
     if (outcome) {

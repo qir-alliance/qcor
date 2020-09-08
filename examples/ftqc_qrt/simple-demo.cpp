@@ -13,6 +13,8 @@ __qpu__ void bell(qreg q, int nbRuns) {
     Measure(q[1]);
     if (q.cReg(0) == q.cReg(1)) {
       std::cout << "Iter " << i << ": Matched!\n";
+    } else {
+      std::cout << "Iter " << i << ": NOT Matched!\n";
     }
     // Reset qubits
     if (q.cReg(0)) {
