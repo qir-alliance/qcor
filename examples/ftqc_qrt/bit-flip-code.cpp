@@ -45,18 +45,16 @@ __qpu__ void correctLogicalQubit(qreg q, int logicalIdx, int ancIdx) {
   // Assume that we only has 1 ancilla qubit
   CX(q[physicalIdx], q[ancIdx]);
   CX(q[physicalIdx + 1], q[ancIdx]);
-  Measure(q[ancIdx]);
-  const bool parity01 = q.creg[ancIdx];
-  if (q.creg[ancIdx]) {
+  const bool parity01 = Measure(q[ancIdx]);
+  if (parity01) {
     // Reset anc qubit for reuse
     X(q[ancIdx]);
   }
 
   CX(q[physicalIdx + 1], q[ancIdx]);
   CX(q[physicalIdx + 2], q[ancIdx]);
-  Measure(q[ancIdx]);
-  const bool parity12 = q.creg[ancIdx];
-  if (q.creg[ancIdx]) {
+  const bool parity12 = Measure(q[ancIdx]);
+  if (parity12) {
     // Reset anc qubit
     X(q[ancIdx]);
   }
@@ -86,8 +84,7 @@ __qpu__ void runQecCycle(qreg q) {
 __qpu__ void resetAll(qreg q) {
   for (int i = 0; i < q.size(); ++i) {
     // Reset qubits by measure + correct.
-    Measure(q[i]);
-    if (q.creg[i]) {
+    if (Measure(q[i])) {
       X(q[i]);
     }
   }

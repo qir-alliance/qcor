@@ -10,18 +10,18 @@ __qpu__ void bell(qreg q, int nbRuns) {
   for (int i = 0; i < nbRuns; ++i) {
     H(q[0]);
     CX(q[0], q[1]);
-    Measure(q[0]);
-    Measure(q[1]);
-    if (q.creg[0] == q.creg[1]) {
+    const bool q0Result = Measure(q[0]);
+    const bool q1Result = Measure(q[1]);
+    if (q0Result == q1Result) {
       std::cout << "Iter " << i << ": Matched!\n";
     } else {
       std::cout << "Iter " << i << ": NOT Matched!\n";
     }
     // Reset qubits
-    if (q.creg[0]) {
+    if (q0Result) {
       X(q[0]);
     }
-    if (q.creg[1]) {
+    if (q1Result) {
       X(q[1]);
     }
   }

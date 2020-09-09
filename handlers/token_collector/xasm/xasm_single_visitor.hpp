@@ -181,6 +181,28 @@ public:
           ss << c->getText() << " ";
         }
       }
+    } else if (context->getText().find("Measure") != std::string::npos) {
+      // Found measure in a classical instruction.
+      // std::cout << "FOUND MEAS: " << context->getText() << "\n";
+      // To be extra careful, we use search and replace to handle edge case
+      // whereby `!Measure` is considered as 1 token.
+      const auto replaceAll = [](std::string &s, const std::string &search,
+                                 const std::string &replace) {
+        for (size_t pos = 0;; pos += replace.length()) {
+          pos = s.find(search, pos);
+          if (pos == std::string::npos) {
+            break;
+          }
+
+          s.erase(pos, search.length());
+          s.insert(pos, replace);
+        }
+      };
+      for (auto c : context->children) {
+        auto origText = c->getText();
+        replaceAll(origText, "Measure", " quantum::mz");
+        ss << origText << " ";
+      }
     } else {
       for (auto c : context->children) {
         ss << c->getText() << " ";

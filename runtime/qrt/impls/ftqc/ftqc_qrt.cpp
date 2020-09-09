@@ -56,8 +56,10 @@ public:
   }
 
   // Measure-Z
-  virtual void mz(const qubit &qidx) override {
+  virtual bool mz(const qubit &qidx) override {
     applyGate("Measure", {qidx.second});
+    // Return the measure result stored in the q reg.
+    return (*qReg)[qidx.second];
   }
 
   // Common two-qubit gates.

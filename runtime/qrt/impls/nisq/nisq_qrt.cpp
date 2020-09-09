@@ -90,7 +90,10 @@ public:
     one_qubit_inst("U", qidx, {theta, phi, lambda});
   }
 
-  void mz(const qubit &qidx) override { one_qubit_inst("Measure", qidx); }
+  bool mz(const qubit &qidx) override {
+    one_qubit_inst("Measure", qidx);
+    return false;
+  }
 
   void cnot(const qubit &src_idx, const qubit &tgt_idx) override {
     two_qubit_inst("CNOT", src_idx, tgt_idx);

@@ -42,7 +42,7 @@ virtual void u3(const qubit &qidx, const double theta, const double phi,
         const double lambda) = 0;
 
 // Measure-Z
-virtual void mz(const qubit &qidx) = 0;
+virtual bool mz(const qubit &qidx) = 0;
 
 // Common two-qubit gates.
 virtual void cnot(const qubit &src_idx, const qubit &tgt_idx) = 0;
@@ -119,7 +119,7 @@ void u3(const qubit &qidx, const double theta, const double phi,
         const double lambda);
 
 // Measure-Z
-void mz(const qubit &qidx);
+bool mz(const qubit &qidx);
 
 // Common two-qubit gates.
 void cnot(const qubit &src_idx, const qubit &tgt_idx);

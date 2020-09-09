@@ -128,7 +128,7 @@ void u3(const qubit &qidx, const double theta, const double phi,
   qrt_impl->u3(qidx, theta, phi, lambda);
 }
 
-void mz(const qubit &qidx) { qrt_impl->mz(qidx); }
+bool mz(const qubit &qidx) { return qrt_impl->mz(qidx); }
 
 void cnot(const qubit &src_idx, const qubit &tgt_idx) {
   qrt_impl->cnot(src_idx, tgt_idx);
