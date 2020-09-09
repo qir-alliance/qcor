@@ -11,3 +11,4 @@
 #   Alexander J. McCaskey - initial API and implementation
 # *******************************************************************************/
 add_subdirectory(nisq)
+add_subdirectory(ftqc)

@@ -29,7 +29,10 @@ cinst
    | '}'
    | exp '(' explist ')' ';'
    | 'if' '(' explist ')' '{'?
+   | 'else' '(' explist ')' '{'?
    | 'const'? type_name=cpp_type var_name=exp '=' '(' exp '==' exp ')' '?' exp ':' exp ';'
+   | 'break' ';'
+   | 'return' ';'
    ;
 
 cpp_type 
@@ -65,6 +68,9 @@ exp
    | real
    | INT
    | 'pi'
+   | exp '&&' exp
+   | exp '||' exp
+   | '!' exp
    ;
 
 unaryop

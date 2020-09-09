@@ -42,7 +42,7 @@ virtual void u3(const qubit &qidx, const double theta, const double phi,
         const double lambda) = 0;
 
 // Measure-Z
-virtual void mz(const qubit &qidx) = 0;
+virtual bool mz(const qubit &qidx) = 0;
 
 // Common two-qubit gates.
 virtual void cnot(const qubit &src_idx, const qubit &tgt_idx) = 0;
@@ -68,6 +68,7 @@ virtual void submit(xacc::AcceleratorBuffer **buffers, const int nBuffers) = 0;
 // Some getters for the qcor runtime library. 
 virtual void set_current_program(std::shared_ptr<xacc::CompositeInstruction> p) = 0;
 virtual std::shared_ptr<xacc::CompositeInstruction> get_current_program() = 0;
+virtual void set_current_buffer(xacc::AcceleratorBuffer* buffer) = 0;
 };
 // This represents the public API for the xacc-enabled
 // qcor quantum runtime library. The goal here is to provide
@@ -118,7 +119,7 @@ void u3(const qubit &qidx, const double theta, const double phi,
         const double lambda);
 
 // Measure-Z
-void mz(const qubit &qidx);
+bool mz(const qubit &qidx);
 
 // Common two-qubit gates.
 void cnot(const qubit &src_idx, const qubit &tgt_idx);
@@ -144,6 +145,8 @@ void submit(xacc::AcceleratorBuffer **buffers, const int nBuffers);
 // Some getters for the qcor runtime library. 
 void set_current_program(std::shared_ptr<xacc::CompositeInstruction> p);
 
+// Set the *runtime* buffer
+void set_current_buffer(xacc::AcceleratorBuffer* buffer);
 // std::shared_ptr<xacc::CompositeInstruction> getProgram();
 // xacc::CompositeInstruction *program_raw_pointer();
 
@@ -177,7 +180,7 @@ extern std::string __placement_name;
 extern std::vector<int> __qubit_map;
 extern std::vector<int> parse_qubit_map(const char *qubit_map_str);
 extern void apply_decorators(const std::string& decorator_cmdline_string);
-
+extern std::string __qrt_env;
 void execute_pass_manager();
 
 } // namespace internal_compiler

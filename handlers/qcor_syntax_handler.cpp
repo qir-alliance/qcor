@@ -152,6 +152,12 @@ void QCORSyntaxHandler::GetReplacement(
         "qcor::__internal__::create_composite(kernel_name);\n";
   OS << "}\n";
   OS << "quantum::set_current_program(parent_kernel);\n";
+  // Set the buffer in FTQC mode so that following QRT calls (in new_src) are
+  // executed on that buffer.
+  OS << "if (runtime_env == QrtType::FTQC) {\n";
+  // We only support one buffer in FTQC mode atm.
+  OS << "quantum::set_current_buffer(" << bufferNames[0] << ".results());\n";
+  OS << "}\n";
   OS << new_src << "\n";
   OS << "}\n";
 
@@ -207,6 +213,10 @@ void QCORSyntaxHandler::GetReplacement(
     OS << ", " << program_parameters[i];
   }
   OS << ");\n";
+  // If this is a FTQC kernel, skip runtime optimization passes and submit.
+  OS << "if (runtime_env == QrtType::FTQC) {\n";
+  OS << "return;\n";
+  OS << "}\n";
 
   OS << "xacc::internal_compiler::execute_pass_manager();\n";
   OS << "if (optimize_only) {\n";

@@ -1,6 +1,6 @@
 {
-  "bundle.symbolic_name" : "qcor_vqe_objective",
+  "bundle.symbolic_name" : "qcor_ftqc_qrt",
   "bundle.activator" : true,
-  "bundle.name" : "VQE Objective Function",
+  "bundle.name" : "FTQC QRT",
   "bundle.description" : ""
 }

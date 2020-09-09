@@ -10,7 +10,7 @@
 # Contributors:
 #   Alexander J. McCaskey - initial API and implementation
 # *******************************************************************************/
-set(LIBRARY_NAME qcor-vqe-objective)
+set(LIBRARY_NAME qcor-ftqc-qrt)
 
 file(GLOB SRC *.cpp)
 
@@ -25,7 +25,7 @@ target_include_directories(
 
 target_link_libraries(${LIBRARY_NAME} PUBLIC qcor CppMicroServices::CppMicroServices)
 
-set(_bundle_name qcor_vqe_objective)
+set(_bundle_name qcor_ftqc_qrt)
 set_target_properties(${LIBRARY_NAME}
                       PROPERTIES COMPILE_DEFINITIONS
                                  US_BUNDLE_NAME=${_bundle_name}

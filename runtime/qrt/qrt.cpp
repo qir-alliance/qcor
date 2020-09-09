@@ -16,6 +16,7 @@ bool __print_opt_stats = false;
 std::string __user_opt_passes = "";
 std::string __placement_name = "";
 std::vector<int> __qubit_map = {};
+std::string __qrt_env = "nisq";
 
 void execute_pass_manager() {
   qcor::internal::PassManager passManager(__opt_level, __qubit_map,
@@ -81,7 +82,7 @@ std::vector<std::string> kernels_in_translation_unit = {};
 void initialize(const std::string qpu_name, const std::string kernel_name) {
   xacc::internal_compiler::compiler_InitializeXACC(qpu_name.c_str());
 
-  qrt_impl = xacc::getService<QuantumRuntime>("nisq");
+  qrt_impl = xacc::getService<QuantumRuntime>(__qrt_env);
   qrt_impl->initialize(kernel_name);
 }
 
@@ -127,7 +128,7 @@ void u3(const qubit &qidx, const double theta, const double phi,
   qrt_impl->u3(qidx, theta, phi, lambda);
 }
 
-void mz(const qubit &qidx) { qrt_impl->mz(qidx); }
+bool mz(const qubit &qidx) { return qrt_impl->mz(qidx); }
 
 void cnot(const qubit &src_idx, const qubit &tgt_idx) {
   qrt_impl->cnot(src_idx, tgt_idx);
@@ -177,6 +178,10 @@ void submit(xacc::AcceleratorBuffer **buffers, const int nBuffers) {
 
 void set_current_program(std::shared_ptr<xacc::CompositeInstruction> p) {
   qrt_impl->set_current_program(p);
+}
+
+void set_current_buffer(xacc::AcceleratorBuffer* buffer) {
+  qrt_impl->set_current_buffer(buffer);
 }
 
 } // namespace quantum
