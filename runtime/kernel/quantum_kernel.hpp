@@ -159,8 +159,40 @@ public:
       parent_kernel->addInstruction(
           ctrlKernel->getInstruction(instId)->clone());
     }
+    // Need to reset and point current program to the parent
+    quantum::set_current_program(parent_kernel);
   }
 
+  // Create the controlled version of this quantum kernel
+  static void ctrl(std::shared_ptr<CompositeInstruction> parent_kernel,
+                   qubit ctrl_qbit, Args... args) {
+
+    int ctrl_bit = (int)ctrl_qbit.second;
+
+    // instantiate and don't let it call the destructor
+    Derived derived(args...);
+    derived.disable_destructor = true;
+
+    // run the operator()(args...) call to get the the functor
+    // as a CompositeInstruction (derived.parent_kernel)
+    derived(args...);
+
+    // Use the controlled gate module of XACC to transform
+    auto tempKernel = qcor::__internal__::create_composite("temp_control");
+    tempKernel->addInstruction(derived.parent_kernel);
+
+    auto ctrlKernel = qcor::__internal__::create_ctrl_u();
+    ctrlKernel->expand({{"U", tempKernel},
+                        {"control-idx", ctrl_bit},
+                        {"control-buffer", ctrl_qbit.first}});
+
+    for (int instId = 0; instId < ctrlKernel->nInstructions(); ++instId) {
+      parent_kernel->addInstruction(
+          ctrlKernel->getInstruction(instId)->clone());
+    }
+    // Need to reset and point current program to the parent
+    quantum::set_current_program(parent_kernel);
+  }
   virtual ~QuantumKernel() {}
 };
 

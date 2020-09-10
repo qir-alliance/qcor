@@ -6,6 +6,22 @@
 
 namespace qcor {
 
+PauliOperator operator+(double coeff, PauliOperator &op) {
+  return PauliOperator(coeff) + op;
+}
+PauliOperator operator+(PauliOperator &op, double coeff) {
+  return PauliOperator(coeff) + op;
+}
+
+PauliOperator operator-(double coeff, PauliOperator &op) {
+  return -1.0 * coeff + op;
+}
+
+PauliOperator operator-(PauliOperator &op, double coeff) {
+  return -1.0 * coeff + op;
+}
+
+
 PauliOperator X(int idx) { return PauliOperator({{idx, "X"}}); }
 
 PauliOperator Y(int idx) { return PauliOperator({{idx, "Y"}}); }

@@ -33,6 +33,7 @@ cinst
    | 'const'? type_name=cpp_type var_name=exp '=' '(' exp '==' exp ')' '?' exp ':' exp ';'
    | 'break' ';'
    | 'return' ';'
+   | exp '=' exp ';'
    ;
 
 cpp_type 
