@@ -1,0 +1,6 @@
+{
+  "bundle.symbolic_name" : "qcor_ftqc_qrt",
+  "bundle.activator" : true,
+  "bundle.name" : "FTQC QRT",
+  "bundle.description" : ""
+}

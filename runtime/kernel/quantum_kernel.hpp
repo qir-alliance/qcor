@@ -4,6 +4,7 @@
 #include "qrt.hpp"
 
 namespace qcor {
+enum class QrtType { NISQ, FTQC };
 
 // The QuantumKernel represents the super-class of all qcor
 // quantum kernel functors. Subclasses of this are auto-generated
@@ -50,9 +51,11 @@ public:
   // Flag to indicate we only want to
   // run the pass manager and not execute
   bool optimize_only = false;
-
+  QrtType runtime_env = QrtType::NISQ;
   // Default constructor, takes quantum kernel function arguments
-  QuantumKernel(Args... args) : args_tuple(std::forward_as_tuple(args...)) {}
+  QuantumKernel(Args... args) : args_tuple(std::forward_as_tuple(args...)) {
+    runtime_env = (__qrt_env == "ftqc") ? QrtType::FTQC : QrtType::NISQ;
+  }
 
   // Internal constructor, provide parent kernel, this
   // kernel now represents a nested kernel call and
@@ -60,7 +63,9 @@ public:
   QuantumKernel(std::shared_ptr<qcor::CompositeInstruction> _parent_kernel,
                 Args... args)
       : args_tuple(std::forward_as_tuple(args...)),
-        parent_kernel(_parent_kernel), is_callable(false) {}
+        parent_kernel(_parent_kernel), is_callable(false) {
+    runtime_env = (__qrt_env == "ftqc") ? QrtType::FTQC : QrtType::NISQ;
+  }
 
   // Static method for printing this kernel as a flat qasm string
   static void print_kernel(std::ostream &os, Args... args) {
@@ -154,8 +159,40 @@ public:
       parent_kernel->addInstruction(
           ctrlKernel->getInstruction(instId)->clone());
     }
+    // Need to reset and point current program to the parent
+    quantum::set_current_program(parent_kernel);
   }
 
+  // Create the controlled version of this quantum kernel
+  static void ctrl(std::shared_ptr<CompositeInstruction> parent_kernel,
+                   qubit ctrl_qbit, Args... args) {
+
+    int ctrl_bit = (int)ctrl_qbit.second;
+
+    // instantiate and don't let it call the destructor
+    Derived derived(args...);
+    derived.disable_destructor = true;
+
+    // run the operator()(args...) call to get the the functor
+    // as a CompositeInstruction (derived.parent_kernel)
+    derived(args...);
+
+    // Use the controlled gate module of XACC to transform
+    auto tempKernel = qcor::__internal__::create_composite("temp_control");
+    tempKernel->addInstruction(derived.parent_kernel);
+
+    auto ctrlKernel = qcor::__internal__::create_ctrl_u();
+    ctrlKernel->expand({{"U", tempKernel},
+                        {"control-idx", ctrl_bit},
+                        {"control-buffer", ctrl_qbit.first}});
+
+    for (int instId = 0; instId < ctrlKernel->nInstructions(); ++instId) {
+      parent_kernel->addInstruction(
+          ctrlKernel->getInstruction(instId)->clone());
+    }
+    // Need to reset and point current program to the parent
+    quantum::set_current_program(parent_kernel);
+  }
   virtual ~QuantumKernel() {}
 };
 

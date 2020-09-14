@@ -20,20 +20,10 @@ PauliOperator SM(int idx);
 PauliOperator allZs(const int nQubits);
 
 // Expose extra algebra needed for pauli operators
-template <typename T> PauliOperator operator+(T coeff, PauliOperator &op) {
-  return PauliOperator(coeff) + op;
-}
-template <typename T> PauliOperator operator+(PauliOperator &op, T coeff) {
-  return PauliOperator(coeff) + op;
-}
-
-template <typename T> PauliOperator operator-(T coeff, PauliOperator &op) {
-  return -1.0 * coeff + op;
-}
-
-template <typename T> PauliOperator operator-(PauliOperator &op, T coeff) {
-  return -1.0 * coeff + op;
-}
+PauliOperator operator+(double coeff, PauliOperator &op);
+PauliOperator operator+(PauliOperator &op, double coeff);
+PauliOperator operator-(double coeff, PauliOperator &op);
+PauliOperator operator-(PauliOperator &op, double coeff);
 
 // Public observe function, returns expected value of Observable
 template <typename... Args>

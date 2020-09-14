@@ -13,3 +13,5 @@ xacc_configure_library_rpath(${LIBRARY_NAME})
 file(GLOB HEADERS qrt.hpp)
 install(FILES ${HEADERS} DESTINATION include/qcor)
 install(TARGETS ${LIBRARY_NAME} DESTINATION lib)
+
+add_subdirectory(impls)

@@ -3,6 +3,7 @@
 #include "cppmicroservices/BundleActivator.h"
 #include "cppmicroservices/BundleContext.h"
 #include "cppmicroservices/ServiceProperties.h"
+using namespace cppmicroservices;
 
 #include <memory>
 #include <set>
@@ -12,7 +13,6 @@
 #include "xacc_internal_compiler.hpp"
 #include "xacc_service.hpp"
 
-using namespace cppmicroservices;
 
 namespace qcor {
 

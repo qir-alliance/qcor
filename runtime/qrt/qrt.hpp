@@ -2,7 +2,8 @@
 #define RUNTIME_QCOR_QRT_HPP_
 
 #include "qalloc.hpp"
-#include <CompositeInstruction.hpp>
+#include "CompositeInstruction.hpp"
+#include "Identifiable.hpp"
 #include <memory>
 
 using namespace xacc::internal_compiler;
@@ -16,6 +17,59 @@ class Observable;
 
 namespace quantum {
 
+class QuantumRuntime : public xacc::Identifiable {
+
+public:
+
+virtual void initialize(const std::string kernel_name) = 0;
+
+virtual void h(const qubit &qidx) = 0;
+virtual void x(const qubit &qidx) = 0;
+virtual void y(const qubit &qidx) = 0;
+virtual void z(const qubit &qidx) = 0;
+virtual void t(const qubit &qidx) = 0;
+virtual void tdg(const qubit &qidx) = 0;
+virtual void s(const qubit &qidx) = 0;
+virtual void sdg(const qubit &qidx) = 0;
+
+// Common single-qubit, parameterized instructions
+virtual void rx(const qubit &qidx, const double theta) = 0;
+virtual void ry(const qubit &qidx, const double theta) = 0;
+virtual void rz(const qubit &qidx, const double theta) = 0;
+// U1(theta) gate
+virtual void u1(const qubit &qidx, const double theta) = 0;
+virtual void u3(const qubit &qidx, const double theta, const double phi,
+        const double lambda) = 0;
+
+// Measure-Z
+virtual bool mz(const qubit &qidx) = 0;
+
+// Common two-qubit gates.
+virtual void cnot(const qubit &src_idx, const qubit &tgt_idx) = 0;
+virtual void cy(const qubit &src_idx, const qubit &tgt_idx) = 0;
+virtual void cz(const qubit &src_idx, const qubit &tgt_idx) = 0;
+virtual void ch(const qubit &src_idx, const qubit &tgt_idx) = 0;
+virtual void swap(const qubit &src_idx, const qubit &tgt_idx) = 0;
+
+// Common parameterized 2 qubit gates.
+virtual void cphase(const qubit &src_idx, const qubit &tgt_idx, const double theta) = 0;
+virtual void crz(const qubit &src_idx, const qubit &tgt_idx, const double theta) = 0;
+
+// exponential of i * theta * H, where H is an Observable pointer
+virtual void exp(qreg q, const double theta, xacc::Observable &H) = 0;
+virtual void exp(qreg q, const double theta, xacc::Observable *H) = 0;
+virtual void exp(qreg q, const double theta, std::shared_ptr<xacc::Observable> H) = 0;
+
+// Submission API. Submit the constructed CompositeInstruction operating
+// on the provided AcceleratorBuffer(s) (note qreg wraps an AcceleratorBuffer)
+virtual void submit(xacc::AcceleratorBuffer *buffer) = 0;
+virtual void submit(xacc::AcceleratorBuffer **buffers, const int nBuffers) = 0;
+
+// Some getters for the qcor runtime library. 
+virtual void set_current_program(std::shared_ptr<xacc::CompositeInstruction> p) = 0;
+virtual std::shared_ptr<xacc::CompositeInstruction> get_current_program() = 0;
+virtual void set_current_buffer(xacc::AcceleratorBuffer* buffer) = 0;
+};
 // This represents the public API for the xacc-enabled
 // qcor quantum runtime library. The goal here is to provide
 // and API that compilers can translate high-level
@@ -35,20 +89,15 @@ namespace quantum {
 // the variable name of the qubit register the qubit belongs to, and the
 // size_t represents the qubit index in that register.
 
-extern std::shared_ptr<xacc::CompositeInstruction> program;
-extern std::shared_ptr<xacc::IRProvider> provider;
-extern std::vector<std::string> kernels_in_translation_unit;
 extern int current_shots;
+extern std::shared_ptr<QuantumRuntime> qrt_impl;
+extern std::vector<std::string> kernels_in_translation_unit;
 
 void initialize(const std::string qpu_name, const std::string kernel_name);
 void set_shots(int shots);
 int get_shots();
 void set_backend(std::string accelerator_name);
 void set_backend(std::string accelerator_name, const int shots);
-void one_qubit_inst(const std::string &name, const qubit &qidx,
-                    std::vector<double> parameters = {});
-void two_qubit_inst(const std::string &name, const qubit &qidx1,
-                    const qubit &qidx2, std::vector<double> parameters = {});
 
 // Common single-qubit gates.
 void h(const qubit &qidx);
@@ -70,7 +119,7 @@ void u3(const qubit &qidx, const double theta, const double phi,
         const double lambda);
 
 // Measure-Z
-void mz(const qubit &qidx);
+bool mz(const qubit &qidx);
 
 // Common two-qubit gates.
 void cnot(const qubit &src_idx, const qubit &tgt_idx);
@@ -96,20 +145,20 @@ void submit(xacc::AcceleratorBuffer **buffers, const int nBuffers);
 // Some getters for the qcor runtime library. 
 void set_current_program(std::shared_ptr<xacc::CompositeInstruction> p);
 
-std::shared_ptr<xacc::CompositeInstruction> getProgram();
-xacc::CompositeInstruction *program_raw_pointer();
+// Set the *runtime* buffer
+void set_current_buffer(xacc::AcceleratorBuffer* buffer);
+// std::shared_ptr<xacc::CompositeInstruction> getProgram();
+// xacc::CompositeInstruction *program_raw_pointer();
 
-// Clear the current program
-void clearProgram();
+// // Clear the current program
+// void clearProgram();
 
 } // namespace quantum
 
 namespace xacc {
 
 namespace internal_compiler {
-// Current runtime controlled bit indices
-// (if the current kernel is wrapped in a Controlled block)
-extern std::vector<int> __controlledIdx;
+
 // Optimization level: parsed from command line input.
 // Convention:
 // 0 : no optimization
@@ -131,19 +180,7 @@ extern std::string __placement_name;
 extern std::vector<int> __qubit_map;
 extern std::vector<int> parse_qubit_map(const char *qubit_map_str);
 extern void apply_decorators(const std::string& decorator_cmdline_string);
-
-void simplified_qrt_call_one_qbit(const char *gate_name,
-                                  const char *buffer_name,
-                                  const std::size_t idx);
-void simplified_qrt_call_one_qbit_one_param(const char *gate_name,
-                                            const char *buffer_name,
-                                            const std::size_t idx,
-                                            const double parameter);
-void simplified_qrt_call_two_qbits(const char *gate_name,
-                                   const char *buffer_name_1,
-                                   const char *buffer_name_2,
-                                   const std::size_t src_idx,
-                                   const std::size_t tgt_idx);
+extern std::string __qrt_env;
 void execute_pass_manager();
 
 } // namespace internal_compiler

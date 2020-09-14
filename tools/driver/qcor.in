@@ -130,7 +130,15 @@ def main(argv=None):
         sys.argv.remove(decorator_name)
         sys.argv.remove('-em')
         sys.argv += ['-D__internal__qcor__compile__decorator__list=\"'+decorator_name+'\"']
-        
+    
+    # Define the QRT, e.g. "nisq" or "ftqc"
+    if '-qrt' in sys.argv[1:]:
+        sidx = sys.argv.index('-qrt')
+        qrtName = sys.argv[sidx+1]
+        sys.argv.remove(qrtName)
+        sys.argv.remove('-qrt')
+        sys.argv += ['-D__internal__qcor__compile__qrt__mode=\"'+qrtName+'\"']   
+
     # Get the filename we are compiling or the object file
     filename = ''
     fileType = ''

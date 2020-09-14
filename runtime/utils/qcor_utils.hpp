@@ -91,24 +91,6 @@ using GradientEvaluator =
 
 namespace __internal__ {
 
-// Given a quantum kernel functor / function pointer, create the xacc
-// CompositeInstruction representation of it
-//
-// FIXME May not need this anymore
-template <typename QuantumKernel, typename... Args>
-std::shared_ptr<CompositeInstruction>
-kernel_as_composite_instruction(QuantumKernel &k, Args... args) {
-  quantum::clearProgram();
-  // turn off execution
-  const auto cached_exec = xacc::internal_compiler::__execute;
-  xacc::internal_compiler::__execute = false;
-  // Execute to compile, this will store and we can get it
-  k(args...);
-  // turn execution on
-  xacc::internal_compiler::__execute = cached_exec;
-  return quantum::getProgram();
-}
-
 // Internal function for creating a CompositeInstruction, this lets us
 // keep XACC out of the include headers here and put it in the cpp.
 std::shared_ptr<qcor::CompositeInstruction> create_composite(std::string name);

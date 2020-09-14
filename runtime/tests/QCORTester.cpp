@@ -88,7 +88,7 @@ void __internal_call_function_rucc_vec(qreg q, std::vector<double> x) {
 
 TEST(QCORTester, checkTaskInitiate) {
 
-  xacc::internal_compiler::compiler_InitializeXACC("qpp");
+  ::quantum::initialize("qpp", "empty");
 
   auto buffer = qalloc(4);
 

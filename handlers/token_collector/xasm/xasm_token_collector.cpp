@@ -131,7 +131,14 @@ void XasmTokenCollector::collect(clang::Preprocessor &PP,
 
       lines.push_back("}\n");
 
-    } else {
+    } else if (current_token.is(clang::tok::kw_else)) { 
+      auto tokenStr = PP.getSpelling(current_token);
+      if (Toks[i + 1].is(clang::tok::l_brace)) {
+        tokenStr += " { ";
+      }
+      lines.push_back(tokenStr);
+    }
+    else {
 
       // here we have some general statement, so
       // search til the semi colon
