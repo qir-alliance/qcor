@@ -184,4 +184,10 @@ void set_current_buffer(xacc::AcceleratorBuffer* buffer) {
   qrt_impl->set_current_buffer(buffer);
 }
 
+void persistBitstring(xacc::AcceleratorBuffer *buffer) {
+  const auto bitstring = buffer->single_measurements_to_bitstring();
+  if (!bitstring.empty()) {
+    buffer->appendMeasurement(bitstring);
+  }
+}
 } // namespace quantum
