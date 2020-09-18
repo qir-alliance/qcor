@@ -2,41 +2,10 @@
 
 #include <vector>
 #include "qcor_observable.hpp"
+#include <qcor_common>
 
-// Util to reset all qubits in FTQC mode:
-// TODO: we can add this as a *native* method so that the
-// simulator can just do a wavefunction reset.
-__qpu__ void ResetAll(qreg q) {
-  for (int i = 0; i < q.size(); ++i) {
-    if (Measure(q[i])) {
-      X(q[i]);
-    }
-  }
-}
-
-// Measure tensor product of Paulis operators.
-// Note: the bases must be elementary (I, X, Y, Z) Pauli ops
-__qpu__ void MeasureP(qreg q, std::vector<qcor::PauliOperator> bases, int& out_parity) {
-  int oneCount = 0;
-  for (int i = 0; i < bases.size(); ++i) {
-    auto pauliOp = bases[i];
-    const std::string pauliStr = pauliOp.toString().substr(6);
-    const auto bitIdx = std::stoi(pauliStr.substr(1));
-    // TODO: fix XASM compiler to handle char literal
-    if (pauliStr.rfind("X", 0) == 0) {
-      H(q[bitIdx]);
-    }
-    
-    if (pauliStr.rfind("Y", 0) == 0) {
-      Rx(q[bitIdx], M_PI_2);
-    }
-    if (Measure(q[bitIdx])) {
-      oneCount++;
-    }
-  }
-  out_parity = oneCount - 2 * (oneCount / 2);
-}
-
+// TODO: investigate why `ftqc::MeasureP` is corrupted during codegen.
+using namespace ftqc;
 __qpu__ void EstimateTermExpectation(qreg q, const std::function<void(qreg)>& statePrep, std::vector<qcor::PauliOperator> bases, int nSamples, double& out_energy) {
   double sum = 0.0;
   for (int i = 0; i < nSamples; ++i) {
