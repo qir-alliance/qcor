@@ -60,14 +60,7 @@ int main() {
   // Now do the same for the vector double ansatz, but
   // also demonstrate the async interface
   VQE vqe_vec(ansatz_vec, H);
-  auto handle = vqe_vec.execute_async(std::vector<double>{0.0});
-
-  // Can go do other work, quantum execution is happening on
-  // separate thread
-
-  // Get the energy, this call will kick off a wait if needed
-  const auto [energy_vec, params_vec] = vqe_vec.sync(handle);
-
+  const auto [energy_vec, params_vec] = vqe_vec.execute(std::vector<double>{0.0});
   std::cout << "<H>(" << params_vec[0] << ") = " << energy_vec << "\n";
 
   // Now run with the mixed language kernel,

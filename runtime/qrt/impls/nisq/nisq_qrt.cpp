@@ -53,6 +53,7 @@ protected:
   }
 
 public:
+  
   void initialize(const std::string kernel_name) override {
     provider = xacc::getIRProvider("quantum");
     program = provider->createComposite(kernel_name);
@@ -144,6 +145,7 @@ public:
     auto gateRegistry = xacc::getIRProvider("quantum");
     std::string xasm_src = "";
 
+    auto q_name = q.name();
     for (auto inst : terms) {
 
       auto spinInst = inst.second;
@@ -172,12 +174,12 @@ public:
 
         if (pop == "X") {
 
-          basis_front << "H(q[" << qid << "]);\n";
-          basis_back << "H(q[" << qid << "]);\n";
+          basis_front << "H(" << q_name << "[" << qid << "]);\n";
+          basis_back << "H(" << q_name << "[" << qid << "]);\n";
 
         } else if (pop == "Y") {
-          basis_front << "Rx(q[" << qid << "], " << 1.57079362679 << ");\n";
-          basis_back << "Rx(q[" << qid << "], " << -1.57079362679 << ");\n";
+          basis_front << "Rx(" << q_name << "[" << qid << "], " << 1.57079362679 << ");\n";
+          basis_back << "Rx(" << q_name << "[" << qid << "], " << -1.57079362679 << ");\n";
         }
       }
 
@@ -197,14 +199,14 @@ public:
         Eigen::VectorXi pairs = cnot_pairs.col(i);
         auto c = pairs(0);
         auto t = pairs(1);
-        cnot_front << "CNOT(q[" << c << "], q[" << t << "]);\n";
+        cnot_front << "CNOT(" << q_name << "[" << c << "], " << q_name << "[" << t << "]);\n";
       }
 
       for (int i = qidxs.size() - 2; i >= 0; i--) {
         Eigen::VectorXi pairs = cnot_pairs.col(i);
         auto c = pairs(0);
         auto t = pairs(1);
-        cnot_back << "CNOT(q[" << c << "], q[" << t << "]);\n";
+        cnot_back << "CNOT(" << q_name << "[" << c << "], " << q_name << "[" << t << "]);\n";
       }
 
       xasm_src = xasm_src + "\n" + basis_front.str() + cnot_front.str();
@@ -212,11 +214,11 @@ public:
       // FIXME, we assume real coefficients, if its zero,
       // check that the imag part is not zero and use it
       if (std::fabs(std::real(spinInst.coeff())) > 1e-12) {
-        xasm_src = xasm_src + "Rz(q[" +
+        xasm_src = xasm_src + "Rz(" + q_name + "[" +
                    std::to_string(qidxs[qidxs.size() - 1]) + "], " +
                    std::to_string(std::real(spinInst.coeff()) * theta) + ");\n";
       } else if (std::fabs(std::imag(spinInst.coeff())) > 1e-12) {
-        xasm_src = xasm_src + "Rz(q[" +
+        xasm_src = xasm_src + "Rz(" + q_name + "[" +
                    std::to_string(qidxs[qidxs.size() - 1]) + "], " +
                    std::to_string(std::imag(spinInst.coeff()) * theta) + ");\n";
       }
@@ -230,7 +232,7 @@ public:
       name += std::to_string(name_counter);
     }
 
-    xasm_src = "__qpu__ void " + name + "(qbit q) {\n" + xasm_src + "}";
+    xasm_src = "__qpu__ void " + name + "(qbit " + q_name + ") {\n" + xasm_src + "}";
 
     //   std::cout << "FROMQRT: " << theta << "\n" << xasm_src << "\n";
     auto xasm = xacc::getCompiler("xasm");
@@ -262,9 +264,10 @@ public:
     if (program && provider)
       program = provider->createComposite(program->name());
   }
-  
-  void set_current_buffer(xacc::AcceleratorBuffer* buffer) override {
-    // Nothing to do: the NISQ runtime doesn't keep track of runtime buffer info.
+
+  void set_current_buffer(xacc::AcceleratorBuffer *buffer) override {
+    // Nothing to do: the NISQ runtime doesn't keep track of runtime buffer
+    // info.
   }
 
   const std::string name() const override { return "nisq"; }

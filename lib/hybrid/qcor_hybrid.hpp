@@ -112,29 +112,13 @@ public:
   // Execute the VQE task synchronously, assumes default optimizer
   VQEResultType execute(KernelArgs... initial_params) {
     auto optimizer = qcor::createOptimizer(DEFAULT_OPTIMIZER);
-    auto handle = execute_async(optimizer, initial_params...);
-    return this->sync(handle);
-  }
-
-  // Execute the VQE task asynchronously, default optimizer
-  Handle execute_async(KernelArgs... initial_params) {
-    auto optimizer = qcor::createOptimizer(DEFAULT_OPTIMIZER);
-    return execute_async(optimizer, initial_params...);
+    return execute(optimizer, initial_params...);
   }
 
   // Execute the VQE task synchronously, use provided Optimizer
   //   template <typename... Args>
   VQEResultType execute(std::shared_ptr<Optimizer> optimizer,
                         KernelArgs... initial_params) {
-    auto handle = execute_async(optimizer, initial_params...);
-    return this->sync(handle);
-  }
-
-  // Execute the VQE task asynchronously, use provided Optimizer
-  //   template <typename... Args>
-  Handle execute_async(std::shared_ptr<Optimizer> optimizer,
-                       KernelArgs... initial_params) {
-
     auto ansatz_casted =
         reinterpret_cast<void (*)(std::shared_ptr<CompositeInstruction>, qreg,
                                   KernelArgs...)>(ansatz_ptr);
@@ -177,15 +161,34 @@ public:
     }
     options.insert("observable", __internal__::qcor_as_shared(&observable));
     objective->set_options(options);
-
-    // Run TaskInitiate, kick of the VQE job asynchronously
-    return qcor::taskInitiate(objective, optimizer);
+    return optimizer->optimize(*objective.get());
   }
 
-  // Sync up the results with the host thread
-  VQEResultType sync(Handle &h) {
-    auto results = qcor::sync(h);
-    return std::make_pair(results.opt_val, results.opt_params);
+  double operator()(const std::vector<double> x) {
+    auto ansatz_casted =
+        reinterpret_cast<void (*)(std::shared_ptr<CompositeInstruction>, qreg,
+                                  KernelArgs...)>(ansatz_ptr);
+
+    // Create the Arg Translator
+    TranslationFunctor<qreg, KernelArgs...> arg_translator;
+    if (translation_functor.has_value()) {
+      arg_translator = std::any_cast<TranslationFunctor<qreg, KernelArgs...>>(
+          translation_functor);
+    } else {
+      __internal__::TranslationFunctorAutoGenerator auto_gen;
+      arg_translator = auto_gen(q, std::tuple<KernelArgs...>());
+    }
+
+    // Get the VQE ObjectiveFunction and set the qreg
+    auto objective = qcor::createObjectiveFunction(
+        ansatz_casted, observable,
+        std::make_shared<ArgsTranslator<qreg, KernelArgs...>>(arg_translator),
+        q, x.size());
+
+    options.insert("observable", __internal__::qcor_as_shared(&observable));
+    objective->set_options(options);
+
+    return (*objective)(x);
   }
 
   // Return all unique parameter sets this VQE run used
@@ -210,6 +213,11 @@ public:
     }
     return ret;
   }
+
+  void persist_data(const std::string& filename) {
+      q.write_file(filename);
+  }
+
 };
 
 namespace __internal__ {
@@ -370,15 +378,6 @@ public:
   // Execute the algorithm synchronously, provding an Optimizer and optionally
   // initial parameters Will fail if initial_parameters.size() != n_parameters()
   QAOAResultType execute(std::shared_ptr<Optimizer> optimizer,
-                         const std::vector<double> initial_parameters = {}) {
-    auto handle = execute_async(optimizer, initial_parameters);
-    auto results = this->sync(handle);
-    return std::make_pair(results.first, results.second);
-  }
-
-  // Execute the algorithm asynchronously, provding an Optimizer and optionally
-  // initial parameters Will fail if initial_parameters.size() != n_parameters()
-  Handle execute_async(std::shared_ptr<Optimizer> optimizer,
                        const std::vector<double> initial_parameters = {}) {
 
     q = qalloc(cost.nBits());
@@ -422,14 +421,9 @@ public:
     objective->set_options(options);
     optimizer->appendOption("initial-parameters", init_params);
 
-    return qcor::taskInitiate(objective, optimizer);
+    return optimizer->optimize(*objective.get());// qcor::taskInitiate(objective, optimizer);
   }
 
-  // Sync up the results with the host thread
-  QAOAResultType sync(Handle &h) {
-    auto results = qcor::sync(h);
-    return std::make_pair(results.opt_val, results.opt_params);
-  }
 }; // namespace qcor
 
 void execute_adapt(qreg q, const HeterogeneousMap &&m);

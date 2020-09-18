@@ -32,15 +32,4 @@ int main() {
 
   std::cout << "<H> = " << energy << "\n";
 
-  // note you could also call execute_async() -> Handle and
-  // manually qcor::sync(handle)
-
-  // or you could call execute(initial_params:vector<double>)
-  // or you could call execute_async(initial_params:vector<double>)
-  // or you could call execute(optimizer, initial_params:vector<double>)
-  // or you could call execute(optimizer)
-
-  // If you wanted to provide initial-parameters, you can
-  // query the size of vector you need with
-  // qaoa.n_parameters() (also have n_gamma(), n_beta(), and n_steps())
 }
