@@ -146,8 +146,9 @@ def main(argv=None):
         if os.path.isfile(arg) and mimetypes.guess_type(arg)[0] is not None:
             filename = arg
             fileType = mimetypes.guess_type(filename)[0]
-            break
-
+            if fileType == 'text/x-c++src':
+                break
+                
     # If it is a C++ file
     if fileType == 'text/x-c++src':
         fileIdx = sys.argv[1:].index(filename)

@@ -1,9 +1,9 @@
 #ifndef RUNTIME_QCOR_QRT_HPP_
 #define RUNTIME_QCOR_QRT_HPP_
 
-#include "qalloc.hpp"
 #include "CompositeInstruction.hpp"
 #include "Identifiable.hpp"
+#include "qalloc.hpp"
 #include <memory>
 
 using namespace xacc::internal_compiler;
@@ -20,55 +20,59 @@ namespace quantum {
 class QuantumRuntime : public xacc::Identifiable {
 
 public:
+  virtual void initialize(const std::string kernel_name) = 0;
 
-virtual void initialize(const std::string kernel_name) = 0;
+  virtual void h(const qubit &qidx) = 0;
+  virtual void x(const qubit &qidx) = 0;
+  virtual void y(const qubit &qidx) = 0;
+  virtual void z(const qubit &qidx) = 0;
+  virtual void t(const qubit &qidx) = 0;
+  virtual void tdg(const qubit &qidx) = 0;
+  virtual void s(const qubit &qidx) = 0;
+  virtual void sdg(const qubit &qidx) = 0;
 
-virtual void h(const qubit &qidx) = 0;
-virtual void x(const qubit &qidx) = 0;
-virtual void y(const qubit &qidx) = 0;
-virtual void z(const qubit &qidx) = 0;
-virtual void t(const qubit &qidx) = 0;
-virtual void tdg(const qubit &qidx) = 0;
-virtual void s(const qubit &qidx) = 0;
-virtual void sdg(const qubit &qidx) = 0;
+  // Common single-qubit, parameterized instructions
+  virtual void rx(const qubit &qidx, const double theta) = 0;
+  virtual void ry(const qubit &qidx, const double theta) = 0;
+  virtual void rz(const qubit &qidx, const double theta) = 0;
+  // U1(theta) gate
+  virtual void u1(const qubit &qidx, const double theta) = 0;
+  virtual void u3(const qubit &qidx, const double theta, const double phi,
+                  const double lambda) = 0;
 
-// Common single-qubit, parameterized instructions
-virtual void rx(const qubit &qidx, const double theta) = 0;
-virtual void ry(const qubit &qidx, const double theta) = 0;
-virtual void rz(const qubit &qidx, const double theta) = 0;
-// U1(theta) gate
-virtual void u1(const qubit &qidx, const double theta) = 0;
-virtual void u3(const qubit &qidx, const double theta, const double phi,
-        const double lambda) = 0;
+  // Measure-Z
+  virtual bool mz(const qubit &qidx) = 0;
 
-// Measure-Z
-virtual bool mz(const qubit &qidx) = 0;
+  // Common two-qubit gates.
+  virtual void cnot(const qubit &src_idx, const qubit &tgt_idx) = 0;
+  virtual void cy(const qubit &src_idx, const qubit &tgt_idx) = 0;
+  virtual void cz(const qubit &src_idx, const qubit &tgt_idx) = 0;
+  virtual void ch(const qubit &src_idx, const qubit &tgt_idx) = 0;
+  virtual void swap(const qubit &src_idx, const qubit &tgt_idx) = 0;
 
-// Common two-qubit gates.
-virtual void cnot(const qubit &src_idx, const qubit &tgt_idx) = 0;
-virtual void cy(const qubit &src_idx, const qubit &tgt_idx) = 0;
-virtual void cz(const qubit &src_idx, const qubit &tgt_idx) = 0;
-virtual void ch(const qubit &src_idx, const qubit &tgt_idx) = 0;
-virtual void swap(const qubit &src_idx, const qubit &tgt_idx) = 0;
+  // Common parameterized 2 qubit gates.
+  virtual void cphase(const qubit &src_idx, const qubit &tgt_idx,
+                      const double theta) = 0;
+  virtual void crz(const qubit &src_idx, const qubit &tgt_idx,
+                   const double theta) = 0;
 
-// Common parameterized 2 qubit gates.
-virtual void cphase(const qubit &src_idx, const qubit &tgt_idx, const double theta) = 0;
-virtual void crz(const qubit &src_idx, const qubit &tgt_idx, const double theta) = 0;
+  // exponential of i * theta * H, where H is an Observable pointer
+  virtual void exp(qreg q, const double theta, xacc::Observable &H) = 0;
+  virtual void exp(qreg q, const double theta, xacc::Observable *H) = 0;
+  virtual void exp(qreg q, const double theta,
+                   std::shared_ptr<xacc::Observable> H) = 0;
 
-// exponential of i * theta * H, where H is an Observable pointer
-virtual void exp(qreg q, const double theta, xacc::Observable &H) = 0;
-virtual void exp(qreg q, const double theta, xacc::Observable *H) = 0;
-virtual void exp(qreg q, const double theta, std::shared_ptr<xacc::Observable> H) = 0;
+  // Submission API. Submit the constructed CompositeInstruction operating
+  // on the provided AcceleratorBuffer(s) (note qreg wraps an AcceleratorBuffer)
+  virtual void submit(xacc::AcceleratorBuffer *buffer) = 0;
+  virtual void submit(xacc::AcceleratorBuffer **buffers,
+                      const int nBuffers) = 0;
 
-// Submission API. Submit the constructed CompositeInstruction operating
-// on the provided AcceleratorBuffer(s) (note qreg wraps an AcceleratorBuffer)
-virtual void submit(xacc::AcceleratorBuffer *buffer) = 0;
-virtual void submit(xacc::AcceleratorBuffer **buffers, const int nBuffers) = 0;
-
-// Some getters for the qcor runtime library. 
-virtual void set_current_program(std::shared_ptr<xacc::CompositeInstruction> p) = 0;
-virtual std::shared_ptr<xacc::CompositeInstruction> get_current_program() = 0;
-virtual void set_current_buffer(xacc::AcceleratorBuffer* buffer) = 0;
+  // Some getters for the qcor runtime library.
+  virtual void
+  set_current_program(std::shared_ptr<xacc::CompositeInstruction> p) = 0;
+  virtual std::shared_ptr<xacc::CompositeInstruction> get_current_program() = 0;
+  virtual void set_current_buffer(xacc::AcceleratorBuffer *buffer) = 0;
 };
 // This represents the public API for the xacc-enabled
 // qcor quantum runtime library. The goal here is to provide
@@ -142,11 +146,11 @@ void exp(qreg q, const double theta, std::shared_ptr<xacc::Observable> H);
 void submit(xacc::AcceleratorBuffer *buffer);
 void submit(xacc::AcceleratorBuffer **buffers, const int nBuffers);
 
-// Some getters for the qcor runtime library. 
+// Some getters for the qcor runtime library.
 void set_current_program(std::shared_ptr<xacc::CompositeInstruction> p);
 
 // Set the *runtime* buffer
-void set_current_buffer(xacc::AcceleratorBuffer* buffer);
+void set_current_buffer(xacc::AcceleratorBuffer *buffer);
 // std::shared_ptr<xacc::CompositeInstruction> getProgram();
 // xacc::CompositeInstruction *program_raw_pointer();
 
@@ -181,7 +185,7 @@ extern std::string __placement_name;
 // we'll map qubits according to this.
 extern std::vector<int> __qubit_map;
 extern std::vector<int> parse_qubit_map(const char *qubit_map_str);
-extern void apply_decorators(const std::string& decorator_cmdline_string);
+extern void apply_decorators(const std::string &decorator_cmdline_string);
 extern std::string __qrt_env;
 void execute_pass_manager();
 

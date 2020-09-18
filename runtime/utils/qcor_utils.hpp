@@ -38,6 +38,7 @@ public:
   xacc::internal_compiler::qreg q_buffer;
   double opt_val;
   std::vector<double> opt_params;
+  double value;
 };
 
 // A Handle is just a future on ResultsBuffer
