@@ -1,4 +1,3 @@
-#include <qalloc>
 // Compile with: qcor -qpu qpp -qrt ftqc -shots 1024 run-with-shots.cpp
 
 // Define sub-kernel to print out FTQC execution
@@ -12,7 +11,6 @@ __qpu__ void cx_gate(qreg q) {
 }
 
 __qpu__ void bell(qreg q) {
-  using qcor::xasm;
   h_gate(q);
   cx_gate(q);
   const bool q0Result = Measure(q[0]);
