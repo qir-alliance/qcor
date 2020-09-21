@@ -1,4 +1,4 @@
-#include "arithmetic.hpp"
+#include <qcor_arithmetic>
 
 // Compile:
 int main(int argc, char **argv) {

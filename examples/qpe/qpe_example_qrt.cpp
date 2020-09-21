@@ -1,5 +1,5 @@
 // Use the pre-defined IQFT kernel
-#include "qft.hpp"
+#include <qcor_qft>
 
 // using namespace qcor;
 

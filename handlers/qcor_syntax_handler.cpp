@@ -215,6 +215,19 @@ void QCORSyntaxHandler::GetReplacement(
   OS << ");\n";
   // If this is a FTQC kernel, skip runtime optimization passes and submit.
   OS << "if (runtime_env == QrtType::FTQC) {\n";
+  OS << "if (is_callable) {\n";
+  // If this is the top-level kernel, during DTor we persit the bit value to Buffer.
+  OS << "quantum::persistBitstring(" << bufferNames[0] << ".results());\n";
+  // Loop the function calls (at the top level only) if there are multiple shots requested.
+  OS << "for (size_t shotCount = 1; shotCount < quantum::get_shots(); ++shotCount) {\n";
+  OS << "operator()(" << program_parameters[0];
+  for (int i = 1; i < program_parameters.size(); i++) {
+    OS << ", " << program_parameters[i];
+  }
+  OS << ");\n";
+  OS << "quantum::persistBitstring(" << bufferNames[0] << ".results());\n";
+  OS << "}\n";
+  OS << "}\n";
   OS << "return;\n";
   OS << "}\n";
 

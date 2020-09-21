@@ -1,5 +1,5 @@
 // The header file which contains QFT kernel def
-#include "qft.hpp"
+#include <qcor_qft>
 
 // Entry point kernel
 __qpu__ void f(qreg q) {

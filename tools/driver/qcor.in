@@ -138,7 +138,8 @@ def main(argv=None):
         sys.argv.remove(qrtName)
         sys.argv.remove('-qrt')
         sys.argv += ['-D__internal__qcor__compile__qrt__mode=\"'+qrtName+'\"']   
-
+        if qrtName == 'ftqc': 
+            sys.argv += ['-D_QCOR_FTQC_RUNTIME']
     # Get the filename we are compiling or the object file
     filename = ''
     fileType = ''

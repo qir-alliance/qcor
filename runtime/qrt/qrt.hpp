@@ -157,6 +157,8 @@ void set_current_buffer(xacc::AcceleratorBuffer *buffer);
 // // Clear the current program
 // void clearProgram();
 
+// Persist bit-string result from single-bit measurements (if any)
+void persistBitstring(xacc::AcceleratorBuffer *buffer);
 } // namespace quantum
 
 namespace xacc {

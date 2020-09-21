@@ -1,7 +1,7 @@
 #pragma once
 
 #include "qcor.hpp"
-#include "qft.hpp"
+#include <qcor_qft>
 // Note: We cannot put this in a namespace yet
 // because we *do* want the XASM to recognize this as
 // a quantum kernel hence invoking the token collector
