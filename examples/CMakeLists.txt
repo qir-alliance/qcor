@@ -14,3 +14,4 @@ add_test(NAME qrt_adapt COMMAND ${CMAKE_BINARY_DIR}/qcor -c ${CMAKE_CURRENT_SOUR
 add_test(NAME qrt_ftqc_simple COMMAND ${CMAKE_BINARY_DIR}/qcor -c -qrt ftqc ${CMAKE_CURRENT_SOURCE_DIR}/ftqc_qrt/simple-demo.cpp)
 add_test(NAME qrt_ftqc_rus COMMAND ${CMAKE_BINARY_DIR}/qcor -c -qrt ftqc ${CMAKE_CURRENT_SOURCE_DIR}/ftqc_qrt/repeat-until-success.cpp)
 add_test(NAME qrt_ftqc_qec COMMAND ${CMAKE_BINARY_DIR}/qcor -c -qrt ftqc ${CMAKE_CURRENT_SOURCE_DIR}/ftqc_qrt/bit-flip-code.cpp)
+add_test(NAME qrt_ftqc_deuteron COMMAND ${CMAKE_BINARY_DIR}/qcor -c -qrt ftqc ${CMAKE_CURRENT_SOURCE_DIR}/ftqc_qrt/deuteron.cpp)
