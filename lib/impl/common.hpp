@@ -5,7 +5,7 @@
 
 #ifdef _QCOR_FTQC_RUNTIME 
 namespace ftqc {
-__qpu__ void ResetAll(qreg q) {
+__qpu__ void reset_all(qreg q) {
   for (int i = 0; i < q.size(); ++i) {
     if (Measure(q[i])) {
       X(q[i]);
@@ -14,7 +14,7 @@ __qpu__ void ResetAll(qreg q) {
 }
 
 // FTQC "sync" Pauli measurement: returns the parity output
-__qpu__ void MeasureP(qreg q, std::vector<qcor::PauliOperator> bases,
+__qpu__ void measure_basis(qreg q, std::vector<qcor::PauliOperator> bases,
                       int &out_parity) {
   int oneCount = 0;
   for (int i = 0; i < bases.size(); ++i) {

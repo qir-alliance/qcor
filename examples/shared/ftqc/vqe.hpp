@@ -9,13 +9,13 @@ __qpu__ void EstimateTermExpectation(qreg q, const std::function<void(qreg)>& st
   for (int i = 0; i < nSamples; ++i) {
     statePrep(q);
     int parity = 0;
-    ftqc::MeasureP(q, bases, parity);
+    ftqc::measure_basis(q, bases, parity);
     if (parity == 1) {
       sum = sum - 1.0;
     } else {
       sum = sum + 1.0;
     }
-    ftqc::ResetAll(q);
+    ftqc::reset_all(q);
   }
   out_energy = sum / nSamples;
 }
