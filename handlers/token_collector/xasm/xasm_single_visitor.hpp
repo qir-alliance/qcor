@@ -193,7 +193,14 @@ public:
           if (pos == std::string::npos) {
             break;
           }
-
+          if ((s.size() > pos + search.size()) &&
+              // If "Measure" is not followed by a space or '(',
+              // i.e. not having a function call signature,
+              // we don't replace.
+              (!isspace(s[pos + search.length()]) ||
+               (s[pos + search.length()] != '('))) {
+            continue;
+          }
           s.erase(pos, search.length());
           s.insert(pos, replace);
         }

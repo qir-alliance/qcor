@@ -4,20 +4,18 @@
 #include "qcor_observable.hpp"
 #include <qcor_common>
 
-// TODO: investigate why `ftqc::MeasureP` is corrupted during codegen.
-using namespace ftqc;
 __qpu__ void EstimateTermExpectation(qreg q, const std::function<void(qreg)>& statePrep, std::vector<qcor::PauliOperator> bases, int nSamples, double& out_energy) {
   double sum = 0.0;
   for (int i = 0; i < nSamples; ++i) {
     statePrep(q);
     int parity = 0;
-    MeasureP(q, bases, parity);
+    ftqc::MeasureP(q, bases, parity);
     if (parity == 1) {
       sum = sum - 1.0;
     } else {
       sum = sum + 1.0;
     }
-    ResetAll(q);
+    ftqc::ResetAll(q);
   }
   out_energy = sum / nSamples;
 }
