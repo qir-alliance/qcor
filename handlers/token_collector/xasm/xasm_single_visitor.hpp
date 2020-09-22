@@ -172,7 +172,6 @@ public:
         }
       }
     } else if (context->getText().find("::ctrl") != std::string::npos) {
-      std::cout << "FOUND CTRL: " << context->getText() << "\n";
       for (auto c : context->children) {
         if (c->getText() == "(") {
           ss << c->getText() << "parent_kernel, ";
