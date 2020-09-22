@@ -1,2 +1,3 @@
 #pragma once
-#include "impl/bit_flip_code.hpp"
+#include "impl/qec_utils.hpp"
+#include "impl/qec_factory.hpp"
