@@ -3,6 +3,7 @@
 #include <functional>
 #include "bit_flip_code.hpp"
 #include "five_qubit_code.hpp"
+#include "seven_qubit_steane_code.hpp"
 
 // Encode a physical qubit into a logical qubit using given scratch qubits.
 // Inputs:
@@ -26,7 +27,7 @@ using QecCode = std::tuple<stabilizerGroups, encodeFn, recoverFn>;
 // Code name:
 // - "bit-flip"
 // - "five-qubit"
-// - "seven-qubit"
+// - "steane" (7 qubits)
 // - "surface-code",
 // etc.
 QecCode getQecCode(const std::string &in_codeName) {
@@ -52,6 +53,18 @@ QecCode getQecCode(const std::string &in_codeName) {
         });
     return std::make_tuple(five_qubit_code_stabilizers(), encoder, recover);
   }
+  if (in_codeName == "steane") {
+    encodeFn encoder(
+        [](qreg q, int dataQubitIdx, std::vector<int> scratchQubitIdx) {
+          seven_qubit_code_encoder(q, dataQubitIdx, scratchQubitIdx);
+        });
+    recoverFn recover(
+        [](qreg q, std::vector<int> logicalReg, std::vector<int> syndromes) {
+          seven_qubit_code_recover(q, logicalReg, syndromes);
+        });
+    return std::make_tuple(seven_qubit_code_stabilizers(), encoder, recover);
+  }
+  
   throw std::runtime_error("Error: '" + in_codeName +
                            "' is not a valid QEC code.");
 }
