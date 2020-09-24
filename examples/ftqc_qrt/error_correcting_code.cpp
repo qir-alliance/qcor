@@ -12,7 +12,7 @@ int main() {
   // Retrieve "bit-flip" code:
   auto [stabilizers, encodeFunc, recoverFunc] = getQecCode("bit_flip");
   encodeFunc(q, 0, {1, 2});  
-  // If using a perfec simulator, apply a random X error to observe syndrome changes.
+  // If using a perfect simulator, apply a random X error to observe syndrome changes.
   applyError(q, 0);
   
   std::vector<int> syndromes;

@@ -17,7 +17,6 @@ __qpu__ void measure_stabilizer_generators(
     std::vector<int> &out_syndromes) {
   for (auto &stabilizer : stabilizerGroup) {
     for (auto &op : stabilizer) {
-      // TODO: generalize for all codes
       std::map<int, int> bitMap;
       for (int i = 0; i < logicalReg.size(); ++i) {
         bitMap[i] = logicalReg[i];

@@ -37,7 +37,7 @@ int main() {
   // Test all possible *single-qubit* error
   for (int opId = 1; opId <= 3; ++opId) {
     for (int qId = 0; qId < 7; ++qId) {
-      // If using a perfec simulator, apply a random error to observe syndrome
+      // If using a perfect simulator, apply a random error to observe syndrome
       // changes.
       applyError(q, qId, opId);
       std::vector<int> syndromes;
