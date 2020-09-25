@@ -1,5 +1,3 @@
-#include <qalloc>
-
 // Example demonstrates a simple 3-qubit bit-flip code.
 // Compile:
 // qcor -qpu aer[noise-model:<noise.json>] -qrt ftqc bit-flip-code.cpp 
@@ -93,7 +91,6 @@ __qpu__ void resetAll(qreg q) {
 // Error corrected Bell example:
 // Note: the 3-q bit-flip code can only protect against X errors.
 __qpu__ void bellQEC(qreg q, int nbRuns) {
-  using qcor::xasm;
   int ancQbId = 6;
   for (int i = 0; i < nbRuns; ++i) {
     // Apply H before encoding.

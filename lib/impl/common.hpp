@@ -35,5 +35,37 @@ __qpu__ void measure_basis(qreg q, std::vector<qcor::PauliOperator> bases,
   }
   out_parity = oneCount - 2 * (oneCount / 2);
 }
+
+// Measure the given Pauli operator using an explicit scratch qubit to perform the measurement.
+__qpu__ void measure_basis_with_scratch(qreg q, int scratchQubit,
+                                        std::vector<qcor::PauliOperator> bases,
+                                        int &out_result) {
+  H(q[scratchQubit]);
+  for (int i = 0; i < bases.size(); ++i) {
+    auto pauliOp = bases[i];
+    const std::string pauliStr = pauliOp.toString().substr(6);
+    const auto bitIdx = std::stoi(pauliStr.substr(1));
+    // Pauli-X
+    if (pauliStr.rfind("X", 0) == 0) {
+      CX(q[scratchQubit], q[bitIdx]);
+    }
+    // Pauli-Y
+    if (pauliStr.rfind("Y", 0) == 0) {
+      CY(q[scratchQubit], q[bitIdx]);
+    }
+    // Pauli-Z
+    if (pauliStr.rfind("Z", 0) == 0) {
+      CZ(q[scratchQubit], q[bitIdx]);
+    }
+  }
+  H(q[scratchQubit]);
+  if (Measure(q[scratchQubit])) {
+    out_result = 1;
+    // Reset scratchQubit as well
+    X(q[scratchQubit]);
+  } else {
+    out_result = 0;
+  }
 }
+} // namespace ftqc
 #endif
