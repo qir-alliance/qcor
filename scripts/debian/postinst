@@ -1,0 +1,5 @@
+#!/bin/bash
+
+set +x 
+
+ln -s /usr/local/xacc/bin/qcor /usr/bin/
