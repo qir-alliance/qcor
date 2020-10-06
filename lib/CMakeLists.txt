@@ -1,4 +1,5 @@
 add_subdirectory(hybrid)
+add_subdirectory(qsim)
 
 # Install QCOR standard library header
 file(GLOB LIB_HEADERS qcor_*)
