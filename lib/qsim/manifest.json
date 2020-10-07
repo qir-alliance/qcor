@@ -1,0 +1,6 @@
+{
+  "bundle.symbolic_name" : "qcor_qsim",
+  "bundle.activator" : true,
+  "bundle.name" : "Quantum Chemistry Simulation",
+  "bundle.description" : ""
+}

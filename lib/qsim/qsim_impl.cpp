@@ -53,13 +53,6 @@ double CostFunctionEvaluator::evaluate(
   return 0.0;
 }
 
-QsimWorkflow *TimeDependentWorkflow::getInstance() {
-  if (!instance) {
-    instance = new TimeDependentWorkflow();
-  }
-  return instance;
-}
-
 QsimModel ModelBuilder::createModel(Observable *obs, TdObservable td_ham,
                                     const HeterogeneousMap &params) {
   QsimModel model;
@@ -135,15 +128,33 @@ QsimResult TimeDependentWorkflow::execute(const QsimModel &model) {
   return result;
 }
 
-QsimWorkflow *getWorkflow(WorkFlow type, const HeterogeneousMap &init_params) {
-  // == TEMP-CODE
-  // TODO: set-up service registry for workflow
-  auto qsim_workflow = TimeDependentWorkflow::getInstance();
-  if (qsim_workflow->initialize(init_params)) {
+std::shared_ptr<QsimWorkflow> getWorkflow(const std::string &name, const HeterogeneousMap &init_params) {
+  auto qsim_workflow = xacc::getService<QsimWorkflow>(name);
+  if (qsim_workflow && qsim_workflow->initialize(init_params)) {
     return qsim_workflow;
   }
-
+  // ERROR: unknown workflow or invalid initialization options.
   return nullptr;
 }
-
 } // namespace qcor
+
+#include "cppmicroservices/BundleActivator.h"
+#include "cppmicroservices/BundleContext.h"
+#include "cppmicroservices/ServiceProperties.h"
+namespace {
+using namespace cppmicroservices;
+class US_ABI_LOCAL QsimActivator : public BundleActivator {
+
+public:
+  QsimActivator() {}
+
+  void Start(BundleContext context) {
+    context.RegisterService<qcor::QsimWorkflow>(
+        std::make_shared<qcor::TimeDependentWorkflow>());
+  }
+
+  void Stop(BundleContext) {}
+};
+} // namespace
+
+CPPMICROSERVICES_EXPORT_BUNDLE_ACTIVATOR(QsimActivator)

@@ -24,7 +24,7 @@ int main(int argc, char **argv) {
   // https://journals.aps.org/prb/pdf/10.1103/PhysRevB.101.184305
   auto problemModel = ModelBuilder::createModel(&observable, H);
   auto workflow = qcor::getWorkflow(
-      WorkFlow::TD, {{"method", "trotter"}, {"dt", 3.0}, {"steps", 100}});
+      "td-evolution", {{"method", "trotter"}, {"dt", 3.0}, {"steps", 100}});
 
   // Result should contain the observable expectation value along Trotter steps.
   auto result = workflow->execute(problemModel);

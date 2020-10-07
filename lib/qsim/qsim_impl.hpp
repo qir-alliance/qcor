@@ -44,8 +44,6 @@ class TimeDependentWorkflow : public QsimWorkflow {
 public:
   virtual bool initialize(const HeterogeneousMap &params) override;
   virtual QsimResult execute(const QsimModel &model) override;
-
-  static QsimWorkflow *getInstance();
   virtual const std::string name() const override { return "td-evolution"; }
   virtual const std::string description() const override { return ""; }
 private:

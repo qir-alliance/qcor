@@ -63,10 +63,10 @@ using TdObservable = std::function<PauliOperator(double)>;
 struct QsimModel {
   // Model name.
   std::string name;
-  
-  // The Observable operator that needs to be measured/minimized. 
+
+  // The Observable operator that needs to be measured/minimized.
   Observable *observable;
-  
+
   // The system Hamiltonian which can be static or dynamic (time-dependent).
   // This can be the same or different from the observable operator.
   TdObservable hamiltonian;
@@ -80,18 +80,19 @@ public:
   // Strongly-typed parameters/argument.
   // Build a simple Hamiltonian-based model: static Hamiltonian which is also
   // the observable of interest.
-  static QsimModel createModel(Observable *obs, const HeterogeneousMap &params = {});
+  static QsimModel createModel(Observable *obs,
+                               const HeterogeneousMap &params = {});
   // Build a time-dependent problem model:
   //  -  obs: observable operator to measure.
   //  -  td_ham: time-dependent Hamiltonian to evolve the system.
   //     e.g. a function to map from time to Hamiltonian operator.
-  static QsimModel createModel(Observable* obs, TdObservable td_ham,const HeterogeneousMap &params = {});
+  static QsimModel createModel(Observable *obs, TdObservable td_ham,
+                               const HeterogeneousMap &params = {});
 
   // ========  High-level model builder ==============
-  // The idea here is to have contributed modules to translate problem descriptions
-  // in various formats, e.g. PyScf, Psi4, broombridge, etc. 
-  // into QCOR's Observable type.
-  // Inputs:
+  // The idea here is to have contributed modules to translate problem
+  // descriptions in various formats, e.g. PyScf, Psi4, broombridge, etc. into
+  // QCOR's Observable type. Inputs:
   //  - format: key to look up module/plugin to digest the input data.
   //  - data: model descriptions in plain-text format, e.g. load from file.
   static QsimModel createModel(const std::string &format,
@@ -105,7 +106,7 @@ public:
 // Result is stored in a HetMap
 using QsimResult = HeterogeneousMap;
 // Abstract workflow:
-class QsimWorkflow : Identifiable {
+class QsimWorkflow : public Identifiable {
 public:
   virtual bool initialize(const HeterogeneousMap &params) = 0;
   virtual QsimResult execute(const QsimModel &model) = 0;
@@ -114,10 +115,7 @@ protected:
   CostFunctionEvaluator *evaluator;
 };
 
-// Supported Workflow: to be defined and implemented
-enum class WorkFlow { VQE, TD, PE };
-
-// TODO: create a service registry for these.
-QsimWorkflow* getWorkflow(WorkFlow type, const HeterogeneousMap &init_params); 
-
+// Get workflow by name:
+std::shared_ptr<QsimWorkflow> getWorkflow(const std::string &name,
+                                          const HeterogeneousMap &init_params);
 } // namespace qcor
