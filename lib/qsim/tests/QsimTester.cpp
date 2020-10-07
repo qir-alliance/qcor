@@ -1,5 +1,5 @@
-#include "qcor_qsim.hpp"
-
+#include "qsim_interfaces.hpp"
+// TODO: fix so that this can be build w/ the QCOR compiler.
 using namespace qcor;
 
 // High-level usage of Model Builder
@@ -20,19 +20,14 @@ int main(int argc, char **argv) {
   // Observable = average magnetization
   auto observable = (1.0 / 3.0) * (Z(0) + Z(1) + Z(2));
 
-  // Example: build model for Fig. 2 of
+  // Example: build model and TD workflow for Fig. 2 of
   // https://journals.aps.org/prb/pdf/10.1103/PhysRevB.101.184305
-  auto problemModel = ModelBuilder::createModel({{"protocol", "time-evolution"},
-                                                 {"method", "trotter"},
-                                                 {"dt", 3.0},
-                                                 {"steps", 100},
-                                                 {"hamiltonian", H},
-                                                 {"observable", observable}});
-
-  auto workflow = problemModel.get_workflow();
+  auto problemModel = ModelBuilder::createModel(&observable, H);
+  auto workflow = qcor::getWorkflow(
+      WorkFlow::TD, {{"method", "trotter"}, {"dt", 3.0}, {"steps", 100}});
 
   // Result should contain the observable expectation value along Trotter steps.
-  auto result = workflow->execute();
+  auto result = workflow->execute(problemModel);
 
   return 0;
 }

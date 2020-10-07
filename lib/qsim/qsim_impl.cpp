@@ -1,5 +1,4 @@
-#include "qcor_qsim.hpp"
-#include "Circuit.hpp"
+#include "qsim_impl.hpp"
 #include "xacc_service.hpp"
 
 namespace qcor {
@@ -24,12 +23,9 @@ Ansatz TrotterEvolution::create_ansatz(Observable *obs,
   return result;
 }
 
-bool CostFunctionEvaluator::initialize(const HeterogeneousMap &params) {
-  target_operator = nullptr;
-  if (params.pointerLikeExists<Observable>("observable")) {
-    target_operator = params.getPointerLike<Observable>("observable");
-  }
-
+bool CostFunctionEvaluator::initialize(Observable *observable,
+                                       const HeterogeneousMap &params) {
+  target_operator = observable;
   // TODO: use qcor data
   quantum_backend = nullptr;
   if (params.pointerLikeExists<Accelerator>("accelerator")) {
@@ -47,9 +43,9 @@ CostFunctionEvaluator *CostFunctionEvaluator::getInstance() {
   return instance;
 }
 
-double
-CostFunctionEvaluator::evaluate(std::shared_ptr<CompositeInstruction> state_prep) {
-  
+double CostFunctionEvaluator::evaluate(
+    std::shared_ptr<CompositeInstruction> state_prep) {
+
   // Measure the observables:
   // TODO: Port the existing VQE impl. as the default.
 
@@ -64,67 +60,26 @@ QsimWorkflow *TimeDependentWorkflow::getInstance() {
   return instance;
 }
 
-bool QsimModel::initialize(WorkFlow workflow_type,
-                           const HeterogeneousMap &params) {
-  type = workflow_type;
-  qsim_workflow = nullptr;
-  switch (workflow_type) {
-  case (WorkFlow::PE):
-    // TODO
-    break;
-  case (WorkFlow::TD):
-    qsim_workflow = TimeDependentWorkflow::getInstance();
-    break;
-  case (WorkFlow::VQE):
-    // TODO:
-    break;
-  }
-
-  if (qsim_workflow) {
-    const bool workflowInit = qsim_workflow->initialize(params);
-    if (!workflowInit) {
-      return false;
-    }
-
-    return true;
-  }
-
-  return false;
+QsimModel ModelBuilder::createModel(Observable *obs, TdObservable td_ham,
+                                    const HeterogeneousMap &params) {
+  QsimModel model;
+  model.observable = obs;
+  model.hamiltonian = td_ham;
+  return model;
 }
 
-QsimModel ModelBuilder::createModel(const HeterogeneousMap &params) {
-  // TODO: we need to formalize the input here, e.g.
-  // (1) Problem descriptions
-  // (2) Workflow + method
+QsimModel ModelBuilder::createModel(Observable *obs,
+                                    const HeterogeneousMap &params) {
   QsimModel model;
-
-  // ==== TEMP CODE ====
-  // We need to support problem decomposition as well.
-  // i.e. from high-level problem descriptions.
-  const std::string protocol = params.getString("protocol");
-  const std::string method = params.getString("method");
-  // Only have this currently:
-  if (protocol == "time-evolution") 
-  {
-    if (method == "trotter") {
-      model.initialize(WorkFlow::TD, params);
-    }
-  }
-  // ==== TEMP CODE ====
-  
+  model.observable = obs;
+  model.hamiltonian = [&](double t) {
+    return *(static_cast<PauliOperator *>(obs));
+  };
   return model;
 }
 
 bool TimeDependentWorkflow::initialize(const HeterogeneousMap &params) {
-  if (params.keyExists<TdObservable>("hamiltonian")) {
-    ham_func = params.get<TdObservable>("hamiltonian");
-  }
-
-  // TODO: support multiple evaluator
-  evaluator = CostFunctionEvaluator::getInstance();
-  evaluator->initialize(params);
-
-  // Get parameters (specific to TD workflow):
+  // Get workflow parameters (specific to TD workflow):
   t_0 = 0.0;
   dt = 0.1;
   if (params.keyExists<double>("dt")) {
@@ -139,8 +94,13 @@ bool TimeDependentWorkflow::initialize(const HeterogeneousMap &params) {
   return true;
 }
 
-QsimResult TimeDependentWorkflow::execute() {
+QsimResult TimeDependentWorkflow::execute(const QsimModel &model) {
   QsimResult result;
+
+  // TODO: support multiple evaluator
+  evaluator = CostFunctionEvaluator::getInstance();
+  evaluator->initialize(model.observable);
+  auto ham_func = model.hamiltonian;
   // A TD workflow: stepping through Trotter steps,
   // compute expectations at each step.
   double currentTime = t_0;
@@ -149,16 +109,14 @@ QsimResult TimeDependentWorkflow::execute() {
   // Just support Trotter for now
   // TODO: support different methods:
   TrotterEvolution method;
-  for (;;)
-  {
+  for (;;) {
     // Evaluate the time-dependent Hamiltonian:
     auto ham_t = ham_func(currentTime);
     auto stepAnsatz = method.create_ansatz(&ham_t, {{"dt", dt}});
     // First step:
     if (!totalCirc) {
       totalCirc = stepAnsatz.circuit;
-    }
-    else {
+    } else {
       // Append Trotter steps
       totalCirc->addInstructions(stepAnsatz.circuit->getInstructions());
     }
@@ -166,7 +124,7 @@ QsimResult TimeDependentWorkflow::execute() {
     // Evaluate the expectation after these Trotter steps:
     const double ham_expect = evaluator->evaluate(totalCirc);
     resultExpectationValues.emplace_back(ham_expect);
-    
+
     currentTime += dt;
     if (currentTime > t_final) {
       break;
@@ -175,6 +133,17 @@ QsimResult TimeDependentWorkflow::execute() {
 
   result.insert("exp-vals", resultExpectationValues);
   return result;
+}
+
+QsimWorkflow *getWorkflow(WorkFlow type, const HeterogeneousMap &init_params) {
+  // == TEMP-CODE
+  // TODO: set-up service registry for workflow
+  auto qsim_workflow = TimeDependentWorkflow::getInstance();
+  if (qsim_workflow->initialize(init_params)) {
+    return qsim_workflow;
+  }
+
+  return nullptr;
 }
 
 } // namespace qcor
