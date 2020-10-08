@@ -50,7 +50,7 @@ public:
   virtual const std::string name() const override { return "vqe"; }
   virtual const std::string description() const override { return ""; }
 private:
-  Optimizer *optimizer;
+  std::shared_ptr<Optimizer> optimizer;
 };
 
 

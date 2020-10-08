@@ -2,11 +2,13 @@
 #include "Accelerator.hpp"
 #include "AcceleratorBuffer.hpp"
 #include "Circuit.hpp"
+#include "kernel_evaluator.hpp"
 #include "qcor.hpp"
 #include "qcor_utils.hpp"
 #include "qrt.hpp"
 #include <memory>
 #include <xacc_internal_compiler.hpp>
+
 using CompositeInstruction = xacc::CompositeInstruction;
 using Accelerator = xacc::Accelerator;
 using Identifiable = xacc::Identifiable;
@@ -61,7 +63,9 @@ using TdObservable = std::function<PauliOperator(double)>;
 
 // Capture a quantum chemistry problem.
 // TODO: generalize this to capture all potential use cases.
+
 struct QuatumSimulationModel {
+  QuatumSimulationModel() : observable(nullptr) {}
   // Model name.
   std::string name;
 
@@ -71,9 +75,9 @@ struct QuatumSimulationModel {
   // The system Hamiltonian which can be static or dynamic (time-dependent).
   // This can be the same or different from the observable operator.
   TdObservable hamiltonian;
-  
+
   // QuatumSimulationModel also support a user-defined (fixed) ansatz.
-  std::shared_ptr<CompositeInstruction> user_defined_ansatz;
+  std::shared_ptr<KernelFunctor> user_defined_ansatz;
 };
 
 // Generic model builder (factory)
@@ -85,13 +89,13 @@ public:
   // Build a simple Hamiltonian-based model: static Hamiltonian which is also
   // the observable of interest.
   static QuatumSimulationModel createModel(Observable *obs,
-                               const HeterogeneousMap &params = {});
+                                           const HeterogeneousMap &params = {});
   // Build a time-dependent problem model:
   //  -  obs: observable operator to measure.
   //  -  td_ham: time-dependent Hamiltonian to evolve the system.
   //     e.g. a function to map from time to Hamiltonian operator.
   static QuatumSimulationModel createModel(Observable *obs, TdObservable td_ham,
-                               const HeterogeneousMap &params = {});
+                                           const HeterogeneousMap &params = {});
 
   // ========  High-level model builder ==============
   // The idea here is to have contributed modules to translate problem
@@ -100,10 +104,11 @@ public:
   //  - format: key to look up module/plugin to digest the input data.
   //  - data: model descriptions in plain-text format, e.g. load from file.
   //  - params: extra parameters to pass to the parser/generator,
-  //            e.g. any transformations required in order to generate the Observable.
+  //            e.g. any transformations required in order to generate the
+  //            Observable.
   static QuatumSimulationModel createModel(const std::string &format,
-                               const std::string &data,
-                               const HeterogeneousMap &params = {});
+                                           const std::string &data,
+                                           const HeterogeneousMap &params = {});
 
   // ========== QuatumSimulationModel with a fixed (pre-defined) ansatz ========
   // The ansatz is provided as a QCOR kernel.
@@ -111,9 +116,13 @@ public:
   static inline QuatumSimulationModel createModel(
       void (*quantum_kernel_functor)(std::shared_ptr<CompositeInstruction>,
                                      Args...),
-      Observable *obs) {
+      Observable *obs, size_t nbQubits, size_t nbParams) {
+    auto kernel_functor =
+        createKernelFunctor(quantum_kernel_functor, nbQubits, nbParams);
+
     QuatumSimulationModel model;
-    std::cout << "HOWDY\n";
+    model.observable = obs;
+    model.user_defined_ansatz = kernel_functor;
     return model;
   }
 };
@@ -127,13 +136,14 @@ using QuatumSimulationResult = HeterogeneousMap;
 class QuatumSimulationWorkflow : public Identifiable {
 public:
   virtual bool initialize(const HeterogeneousMap &params) = 0;
-  virtual QuatumSimulationResult execute(const QuatumSimulationModel &model) = 0;
+  virtual QuatumSimulationResult
+  execute(const QuatumSimulationModel &model) = 0;
 
 protected:
   CostFunctionEvaluator *evaluator;
 };
 
 // Get workflow by name:
-std::shared_ptr<QuatumSimulationWorkflow> getWorkflow(const std::string &name,
-                                          const HeterogeneousMap &init_params);
+std::shared_ptr<QuatumSimulationWorkflow>
+getWorkflow(const std::string &name, const HeterogeneousMap &init_params);
 } // namespace qcor

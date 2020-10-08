@@ -14,7 +14,7 @@ int main(int argc, char **argv) {
   auto H = createObservable(
       "5.907 - 2.1433 X0X1 - 2.1433 Y0Y1 + .21829 Z0 - 6.125 Z1");
 
-  auto problemModel = ModelBuilder::createModel(ansatz, H.get());
+  auto problemModel = ModelBuilder::createModel(ansatz, H.get(), q.size(), 1);
   auto optimizer = createOptimizer("nlopt");
 
   auto workflow = qcor::getWorkflow("vqe", {{"optimizer", optimizer}});
