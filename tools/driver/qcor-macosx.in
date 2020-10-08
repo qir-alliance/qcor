@@ -10,7 +10,7 @@ def main(argv=None):
                             '-lxacc-quantum-gate',
                             '-lxacc-pauli', '-lpthread']
     baseIncludes = ['-I', '@XACC_ROOT@/include/xacc', '-I', '@CMAKE_INSTALL_PREFIX@/include/qcor', '-I', '@XACC_ROOT@/include/quantum/gate', '-I', '@XACC_ROOT@/include/eigen']
-    extra_headers = '@QCOR_EXTRA_HEADERS@'
+    extra_headers = '@QCOR_EXTRA_HEADERS@'.replace('"','')
     for path in extra_headers.split(';'):
         baseIncludes += ['-I', path]
 
