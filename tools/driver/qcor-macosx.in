@@ -1,0 +1,221 @@
+#!/usr/bin/env python3
+import argparse, sys, os, subprocess, mimetypes, re
+
+def main(argv=None):
+    compiler = '@CLANG_EXECUTABLE@'
+    verbose=False
+    baseLibs = ['-rdynamic', '-Wl,-rpath,@XACC_ROOT@/lib', '-Wl,-rpath,@LLVM_INSTALL_PREFIX@/lib', '-Wl,-rpath,@CMAKE_INSTALL_PREFIX@/clang-plugins',
+                            '-L', '@GCC_STDCXX_PATH@','-lstdc++', '-stdlib=libstdc++', '-L', '@CMAKE_INSTALL_PREFIX@/lib', '-lxacc',
+                            '-lqcor', '-lqrt', '-lqcor-hybrid', '-lqcor-jit', '-lCppMicroServices',
+                            '-lxacc-quantum-gate',
+                            '-lxacc-pauli', '-lpthread']
+    baseIncludes = ['-I', '@XACC_ROOT@/include/xacc', '-I', '@CMAKE_INSTALL_PREFIX@/include/qcor', '-I', '@XACC_ROOT@/include/quantum/gate', '-I', '@XACC_ROOT@/include/eigen']
+    extra_headers = '@QCOR_EXTRA_HEADERS@'
+    for path in extra_headers.split(';'):
+        baseIncludes += ['-I', path]
+
+    print('@QCOR_EXTRA_HEADERS@')
+    defaultFlags = ['-std=c++17', '-fplugin=@CMAKE_INSTALL_PREFIX@/clang-plugins/libqcor-syntax-handler@CMAKE_SHARED_LIBRARY_SUFFIX@', '-Wno-stdlibcxx-not-found']
+
+    # This flag is primarily for our testers to point to the 
+    # qcor syntax handler before make install is called
+    if '-internal-syntax-handler-plugin-path' in sys.argv[1:]:
+        idx = sys.argv.index('-internal-syntax-handler-plugin-path')
+        pth = sys.argv[idx+1]
+        sys.argv.remove(pth)
+        sys.argv.remove('-internal-syntax-handler-plugin-path')
+        defaultFlags = ['-std=c++17', '-fplugin='+pth+'/libqcor-syntax-handler@CMAKE_SHARED_LIBRARY_SUFFIX@']
+
+    # Need to know if this is compile-only
+    compileOnly = '-c' in sys.argv[1:]
+
+    if '-h' in sys.argv[1:] or '--help' in sys.argv[1:]:
+        import argparse
+        parser = argparse.ArgumentParser(description="qcor: the quantum-classical C++ compiler",
+                                     formatter_class=argparse.RawTextHelpFormatter,
+                                     fromfile_prefix_chars='@')
+        parser.add_argument('-v', metavar='',
+                        help='turn on qcor verbose mode - prints actual clang calls plus extra info while compiling.')
+        parser.add_argument('-qpu', metavar=('name[:backend]'), help='specify quantum backend name. this corresponds to the name of an xacc accelerator (plus optional backend name).\nExamples include qcs:Aspen-4-2Q-H, ibm:ibmq_valencia, tnqvm, etc.')
+        parser.add_argument('-shots', metavar=('n_shots'), nargs=1,help='provide the number of shots to execute on shot-enabled backend.')
+        parser.add_argument('-c', metavar=('file.cpp'), help='specify compile-only, no library linking.\n$ qcor -c src.cpp [outputs src.o for future linking]\n')
+        parser.add_argument('-o', metavar=('object.o'), help='provide the name of the object file (if compile only) or executable (if compile and link or just link).\n$ qcor -o out.o -c src.cpp\n$ qcor -o out.exe src.cpp\n')
+        parser.add_argument('file', help='you must specify the c++ source file name to compile.')
+        parser.add_argument('-I',action='append',nargs=1, metavar=('header_file.hpp'),help='specify additional headers to add to the include search path.')
+        parser.add_argument('-L',action='append',nargs=1,metavar=('/path/to/libs'),help='specifiy additional linker search paths.')
+        parser.add_argument('-l',action='append',nargs=1,metavar=('lib_name'),help='specifiy additional libraries to link.')
+        args = parser.parse_args(sys.argv)
+
+
+    if '--verbose' in sys.argv[1:]:
+        verbose=True
+        sys.argv.remove('--verbose')
+    if '-v' in sys.argv[1:]:
+        verbose=True
+        sys.argv.remove('-v')
+
+    sHandlerArgs = []
+    # Get the QPU Backend
+    accName = ''
+    if '-qpu' in sys.argv[1:]:
+        accidx = sys.argv.index('-qpu')
+        accName = sys.argv[accidx+1]
+        sys.argv.remove(accName)
+        sys.argv.remove('-qpu')
+        sys.argv += ['-D__internal__qcor__compile__backend=\"'+accName+'\"']
+        sHandlerArgs = ['-Xclang', '-plugin-arg-qcor-args', '-Xclang', '-qpu', '-Xclang', '-plugin-arg-qcor-args', '-Xclang', accName]
+
+    # Get the shots if necessary
+    shots = 0
+    if '-shots' in sys.argv[1:]:
+        sidx = sys.argv.index('-shots')
+        shots = sys.argv[sidx+1]
+        sys.argv.remove(shots)
+        sys.argv.remove('-shots')
+        sys.argv += ['-D__internal__qcor__compile__shots=\"'+str(shots)+'\"']
+        sHandlerArgs += ['-Xclang', '-plugin-arg-qcor-args', '-Xclang', '-shots', '-Xclang', '-plugin-arg-qcor-args', '-Xclang', shots]
+
+    if verbose:
+        sHandlerArgs += ['-Xclang', '-plugin-arg-qcor-args', '-Xclang', '-qcor-verbose']
+
+    if '-print-qir' in sys.argv[1:]:
+        sys.argv.remove('-print-qir')
+        sHandlerArgs += ['-Xclang', '-load', '-Xclang', '@CMAKE_INSTALL_PREFIX@/qopt-plugins/libprint_llvm_qir.so']
+
+    # Optimization level for flattened (runtime) kernel
+    # Default: 0 (no optimization)
+    qrtOptLevel = 0
+    if '-opt' in sys.argv[1:]:
+        sidx = sys.argv.index('-opt')
+        qrtOptLevel = sys.argv[sidx+1]
+        sys.argv.remove(qrtOptLevel)
+        sys.argv.remove('-opt')
+        sys.argv += ['-D__internal__qcor__compile__opt__level='+qrtOptLevel]
+
+    # Enable runtime kernel optimization stats print-out:
+    # i.e. passes that are executed and their info (walltime, gate count reduction, etc.)
+    if '-print-opt-stats' in sys.argv[1:]:
+        sys.argv.remove('-print-opt-stats')
+        sys.argv += ['-D__internal__qcor__compile__opt__print__stats']
+
+    # Specify optimization passes to run *in addition* to the default passes at an optimization level.
+    # Syntax: -opt-pass pass1[,pass2] 
+    # i.e. a comma-separated list of passes.
+    # Rationale:
+    # - This option can be used to run an independent pass by using level 0 (no optimization)
+    # and then specify which pass to be executed.
+    # - It can also be used to add passes to pre-defined list of passes for an optimization level.
+    # e.g., those XACC passes that are contributed externally. 
+    if '-opt-pass' in sys.argv[1:]:
+        sidx = sys.argv.index('-opt-pass')
+        qrtOptPasses = sys.argv[sidx+1]
+        sys.argv.remove(qrtOptPasses)
+        sys.argv.remove('-opt-pass')
+        sys.argv += ['-D__internal__qcor__compile__opt__passes=\\"'+qrtOptPasses+'\\"']
+    
+    # Parse qubit mapping:
+    if '-qubit-map' in sys.argv[1:]:
+        sidx = sys.argv.index('-qubit-map')
+        qubitMap = sys.argv[sidx+1]
+        sys.argv.remove(qubitMap)
+        sys.argv.remove('-qubit-map')
+        sys.argv += ['-D__internal__qcor__compile__qubit__map=\\"'+qubitMap+'\\"']
+    
+    # Parse placement name
+    if '-placement' in sys.argv[1:]:
+        sidx = sys.argv.index('-placement')
+        placementName = sys.argv[sidx+1]
+        sys.argv.remove(placementName)
+        sys.argv.remove('-placement')
+        sys.argv += ['-D__internal__qcor__compile__placement__name=\"'+placementName+'\"']
+    
+    if '-em' in sys.argv[1:]:
+        sidx = sys.argv.index('-em')
+        decorator_name = sys.argv[sidx+1]
+        sys.argv.remove(decorator_name)
+        sys.argv.remove('-em')
+        sys.argv += ['-D__internal__qcor__compile__decorator__list=\"'+decorator_name+'\"']
+    
+    # Define the QRT, e.g. "nisq" or "ftqc"
+    if '-qrt' in sys.argv[1:]:
+        sidx = sys.argv.index('-qrt')
+        qrtName = sys.argv[sidx+1]
+        sys.argv.remove(qrtName)
+        sys.argv.remove('-qrt')
+        sys.argv += ['-D__internal__qcor__compile__qrt__mode=\"'+qrtName+'\"']   
+        if qrtName == 'ftqc': 
+            sys.argv += ['-D_QCOR_FTQC_RUNTIME']
+    # Get the filename we are compiling or the object file
+    filename = ''
+    fileType = ''
+    for arg in sys.argv[1:]:
+        if os.path.isfile(arg) and mimetypes.guess_type(arg)[0] is not None:
+            filename = arg
+            fileType = mimetypes.guess_type(filename)[0]
+            if fileType == 'text/x-c':
+                break
+                
+    # If it is a C++ file
+    if fileType == 'text/x-c':
+        fileIdx = sys.argv[1:].index(filename)
+        tmpFileName = os.path.basename(filename)
+
+        # Move tmpFileName to end of list
+        sys.argv.remove(filename)
+        sys.argv.append(filename)
+
+        sys.argv[0] = compiler
+        commands = [compiler] + defaultFlags + sHandlerArgs + baseIncludes
+        if compileOnly:
+            commands += sys.argv[1:]
+        else:
+            commands += baseLibs + sys.argv[1:]
+
+
+        if verbose:
+            print('[qcor-exec]: ', ' '.join([c for c in commands]))
+
+        try:
+            result = subprocess.run(commands, check=True)
+        except subprocess.CalledProcessError as e:
+            print(e.output)
+            print(e.returncode)
+            return e.returncode
+    elif fileType == '' and filename == '':
+        if '-x' in sys.argv[1:] and 'c++' in sys.argv[1:]:
+            sys.argv[0] = compiler
+            commands = [compiler] + defaultFlags + sHandlerArgs + baseIncludes 
+            if compileOnly:
+                commands += sys.argv[1:]
+            else:
+                commands += baseLibs + sys.argv[1:]
+
+
+            if verbose:
+                print('[qcor-exec]: ', ' '.join([c for c in commands]))
+
+            try:
+                result = subprocess.run(commands, check=True)
+            except subprocess.CalledProcessError as e:
+                print(e.output)
+                print(e.returncode)
+                return e.returncode
+        else:
+            print('invalid command line arguments for qcor')
+            exit(1)
+    else:
+        # This is a .o file, so execute the link phase
+        commands = [compiler] + baseLibs + sys.argv[1:]
+        if verbose:
+            print('[qcor-exec]: ', ' '.join([c for c in commands]))
+        try:
+            result = subprocess.run(commands, check=True)
+        except subprocess.CalledProcessError as e:
+            print(e.output)
+            print(e.returncode)
+            return e.returncode
+
+    return 0
+
+if __name__ == "__main__":
+    sys.exit(main())
