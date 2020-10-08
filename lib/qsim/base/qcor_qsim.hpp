@@ -39,21 +39,16 @@ public:
 // CostFunctionEvaluator take an unknown quantum state (the circuit that
 // prepares the unknown state) and a target operator (e.g. Hamiltonian
 // Observable) as input and produce a estimation as output.
-class CostFunctionEvaluator {
+class CostFunctionEvaluator : public Identifiable {
 public:
   // Evaluate the cost
-  virtual double evaluate(std::shared_ptr<CompositeInstruction> state_prep);
+  virtual double evaluate(std::shared_ptr<CompositeInstruction> state_prep) = 0;
   virtual bool initialize(Observable *observable,
                           const HeterogeneousMap &params = {});
-  static CostFunctionEvaluator *getInstance();
 
 protected:
   Observable *target_operator;
-  Accelerator *quantum_backend;
   HeterogeneousMap hyperParams;
-
-private:
-  static inline CostFunctionEvaluator *instance = nullptr;
 };
 
 // Trotter time-dependent simulation workflow
@@ -140,10 +135,15 @@ public:
   execute(const QuatumSimulationModel &model) = 0;
 
 protected:
-  CostFunctionEvaluator *evaluator;
+  std::shared_ptr<CostFunctionEvaluator> evaluator;
 };
 
 // Get workflow by name:
 std::shared_ptr<QuatumSimulationWorkflow>
 getWorkflow(const std::string &name, const HeterogeneousMap &init_params);
+
+// Get the Obj (cost) function evaluator:
+std::shared_ptr<CostFunctionEvaluator>
+getObjEvaluator(Observable *observable, const std::string &name = "default",
+                const HeterogeneousMap &init_params = {});
 } // namespace qcor

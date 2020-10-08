@@ -43,10 +43,7 @@ bool TimeDependentWorkflow::initialize(const HeterogeneousMap &params) {
 QuatumSimulationResult
 TimeDependentWorkflow::execute(const QuatumSimulationModel &model) {
   QuatumSimulationResult result;
-
-  // TODO: support multiple evaluator
-  evaluator = CostFunctionEvaluator::getInstance();
-  evaluator->initialize(model.observable);
+  evaluator = getObjEvaluator(model.observable);
   auto ham_func = model.hamiltonian;
   // A TD workflow: stepping through Trotter steps,
   // compute expectations at each step.
@@ -70,6 +67,7 @@ TimeDependentWorkflow::execute(const QuatumSimulationModel &model) {
 
     // Evaluate the expectation after these Trotter steps:
     const double ham_expect = evaluator->evaluate(totalCirc);
+    std::cout << "<Ham> = " << ham_expect << "\n";
     resultExpectationValues.emplace_back(ham_expect);
 
     currentTime += dt;
@@ -100,23 +98,13 @@ VqeWorkflow::execute(const QuatumSimulationModel &model) {
   // If the model includes a concrete variational ansatz:
   if (model.user_defined_ansatz) {
     auto nParams = model.user_defined_ansatz->nParams();
-    auto vqe = xacc::getAlgorithm("vqe");
+    evaluator = getObjEvaluator(model.observable);
     auto qpu = xacc::internal_compiler::get_qpu();
 
     OptFunction f(
         [&](const std::vector<double> &x, std::vector<double> &dx) {
           auto kernel = model.user_defined_ansatz->evaluate_kernel(x);
-          // std::cout << "Kernel:\n" << kernel->toString() << "\n";
-          auto success = vqe->initialize({{"ansatz", kernel},
-                                          {"accelerator", qpu},
-                                          {"observable", model.observable}});
-          if (!success) {
-            xacc::error("QCOR VQE Workflow Error - could not initialize "
-                        "internal xacc vqe algorithm.");
-          }
-          auto tmp_child = qalloc(model.user_defined_ansatz->getQreg().size());
-          auto energy =
-              vqe->execute(xacc::as_shared_ptr(tmp_child.results()), {})[0];
+          auto energy = evaluator->evaluate(kernel);
           return energy;
         },
         nParams);
@@ -139,6 +127,19 @@ getWorkflow(const std::string &name, const HeterogeneousMap &init_params) {
   // ERROR: unknown workflow or invalid initialization options.
   return nullptr;
 }
+
+double
+DefaultObjFuncEval::evaluate(std::shared_ptr<CompositeInstruction> state_prep) {
+  // Reuse existing VQE util to evaluate the expectation value:
+  auto vqe = xacc::getAlgorithm("vqe");
+  auto qpu = xacc::internal_compiler::get_qpu();
+  vqe->initialize({{"ansatz", state_prep},
+                   {"accelerator", qpu},
+                   {"observable", target_operator}});
+  auto tmp_child = qalloc(state_prep->nPhysicalBits());
+  auto energy = vqe->execute(xacc::as_shared_ptr(tmp_child.results()), {})[0];
+  return energy;
+}
 } // namespace qcor
 
 #include "cppmicroservices/BundleActivator.h"
@@ -156,6 +157,8 @@ public:
         std::make_shared<qcor::TimeDependentWorkflow>());
     context.RegisterService<qcor::QuatumSimulationWorkflow>(
         std::make_shared<qcor::VqeWorkflow>());
+    context.RegisterService<qcor::CostFunctionEvaluator>(
+        std::make_shared<qcor::DefaultObjFuncEval>());
   }
 
   void Stop(BundleContext) {}

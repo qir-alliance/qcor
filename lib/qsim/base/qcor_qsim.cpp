@@ -5,31 +5,8 @@ namespace qcor {
 bool CostFunctionEvaluator::initialize(Observable *observable,
                                        const HeterogeneousMap &params) {
   target_operator = observable;
-  // TODO: use qcor data
-  quantum_backend = nullptr;
-  if (params.pointerLikeExists<Accelerator>("accelerator")) {
-    quantum_backend = params.getPointerLike<Accelerator>("accelerator");
-  }
-
   hyperParams = params;
-  return target_operator && quantum_backend;
-}
-
-CostFunctionEvaluator *CostFunctionEvaluator::getInstance() {
-  if (!instance) {
-    instance = new CostFunctionEvaluator();
-  }
-  return instance;
-}
-
-double CostFunctionEvaluator::evaluate(
-    std::shared_ptr<CompositeInstruction> state_prep) {
-
-  // Measure the observables:
-  // TODO: Port the existing VQE impl. as the default.
-
-  // TODO:
-  return 0.0;
+  return target_operator != nullptr;
 }
 
 QuatumSimulationModel
@@ -66,6 +43,17 @@ getWorkflow(const std::string &name, const HeterogeneousMap &init_params) {
     return qsim_workflow;
   }
   // ERROR: unknown workflow or invalid initialization options.
+  return nullptr;
+}
+
+std::shared_ptr<CostFunctionEvaluator>
+getObjEvaluator(Observable *observable, const std::string &name,
+                const HeterogeneousMap &init_params) {
+  auto evaluator = xacc::getService<CostFunctionEvaluator>(name);
+  if (evaluator && evaluator->initialize(observable, init_params)) {
+    return evaluator;
+  }
+  // ERROR: unknown CostFunctionEvaluator or invalid initialization options.
   return nullptr;
 }
 } // namespace qcor

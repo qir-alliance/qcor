@@ -1,6 +1,4 @@
-#include "base/qcor_qsim.hpp"
-// TODO: fix so that this can be build w/ the QCOR compiler.
-using namespace qcor;
+#include "qcor_qsim.hpp"
 
 // High-level usage of Model Builder
 int main(int argc, char **argv) {
