@@ -1,14 +1,31 @@
 #pragma once
-#include "qsim_interfaces.hpp"
+#include "qcor_qsim.hpp"
 
 namespace qcor {
 // ========== Prototype Impl. ========================
 // Example implementation:
+
+// 1st-order Trotterization 
 class TrotterEvolution : public AnsatzGenerator {
 public:
   Ansatz create_ansatz(Observable *obs,
                        const HeterogeneousMap &params) override;
+  virtual const std::string name() const override { return "trotter"; }
+  virtual const std::string description() const override { return ""; }
 };
+
+// Unitary Coupled-Cluster Style ansatz construction
+// TODO: not yet implemeneted.
+class Ucc : public AnsatzGenerator {
+public:
+  Ansatz create_ansatz(Observable *obs,
+                       const HeterogeneousMap &params) override;
+  virtual const std::string name() const override { return "ucc"; }
+  virtual const std::string description() const override { return ""; }
+};
+
+// other methods.
+
 
 // Estimate the cost function based on bitstring distribution,
 // e.g. actual quantum hardware.
@@ -25,10 +42,10 @@ private:
 };
 
 // VQE-type workflow which involves an optimization loop, i.e. an Optimizer.
-class VqeWorkflow : public QsimWorkflow {
+class VqeWorkflow : public QuatumSimulationWorkflow {
 public:
   virtual bool initialize(const HeterogeneousMap &params) override;
-  virtual QsimResult execute(const QsimModel &model) override;
+  virtual QuatumSimulationResult execute(const QuatumSimulationModel &model) override;
 
   virtual const std::string name() const override { return "vqe"; }
   virtual const std::string description() const override { return ""; }
@@ -40,10 +57,10 @@ private:
 
 // Time-dependent evolution workflow which can handle
 // time-dependent Hamiltonian operator.
-class TimeDependentWorkflow : public QsimWorkflow {
+class TimeDependentWorkflow : public QuatumSimulationWorkflow {
 public:
   virtual bool initialize(const HeterogeneousMap &params) override;
-  virtual QsimResult execute(const QsimModel &model) override;
+  virtual QuatumSimulationResult execute(const QuatumSimulationModel &model) override;
   virtual const std::string name() const override { return "td-evolution"; }
   virtual const std::string description() const override { return ""; }
 private:

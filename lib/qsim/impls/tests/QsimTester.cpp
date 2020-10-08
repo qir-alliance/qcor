@@ -1,4 +1,4 @@
-#include "qsim_interfaces.hpp"
+#include "base/qcor_qsim.hpp"
 // TODO: fix so that this can be build w/ the QCOR compiler.
 using namespace qcor;
 
