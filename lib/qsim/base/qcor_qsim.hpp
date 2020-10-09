@@ -91,6 +91,12 @@ public:
   //     e.g. a function to map from time to Hamiltonian operator.
   static QuatumSimulationModel createModel(Observable *obs, TdObservable td_ham,
                                            const HeterogeneousMap &params = {});
+  // Pauli operator overload:
+  static QuatumSimulationModel
+  createModel(PauliOperator &obs, TdObservable td_ham,
+              const HeterogeneousMap &params = {}) {
+    return createModel(&obs, td_ham, params);
+  }
 
   // ========  High-level model builder ==============
   // The idea here is to have contributed modules to translate problem
@@ -119,6 +125,14 @@ public:
     model.observable = obs;
     model.user_defined_ansatz = kernel_functor;
     return model;
+  }
+
+  template <typename... Args>
+  static inline QuatumSimulationModel createModel(
+      void (*quantum_kernel_functor)(std::shared_ptr<CompositeInstruction>,
+                                     Args...),
+      PauliOperator &obs, size_t nbQubits, size_t nbParams) {
+    return createModel(quantum_kernel_functor, &obs, nbQubits, nbParams);
   }
 };
 
