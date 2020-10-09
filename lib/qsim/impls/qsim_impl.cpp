@@ -1,8 +1,9 @@
 #include "qsim_impl.hpp"
-#include "xacc_service.hpp"
 #include "xacc.hpp"
+#include "xacc_service.hpp"
 
 namespace qcor {
+namespace qsim {
 Ansatz TrotterEvolution::create_ansatz(Observable *obs,
                                        const HeterogeneousMap &params) {
   Ansatz result;
@@ -141,6 +142,7 @@ DefaultObjFuncEval::evaluate(std::shared_ptr<CompositeInstruction> state_prep) {
   auto energy = vqe->execute(xacc::as_shared_ptr(tmp_child.results()), {})[0];
   return energy;
 }
+} // namespace qsim
 } // namespace qcor
 
 #include "cppmicroservices/BundleActivator.h"
@@ -154,12 +156,13 @@ public:
   QuatumSimulationActivator() {}
 
   void Start(BundleContext context) {
-    context.RegisterService<qcor::QuatumSimulationWorkflow>(
-        std::make_shared<qcor::TimeDependentWorkflow>());
-    context.RegisterService<qcor::QuatumSimulationWorkflow>(
-        std::make_shared<qcor::VqeWorkflow>());
-    context.RegisterService<qcor::CostFunctionEvaluator>(
-        std::make_shared<qcor::DefaultObjFuncEval>());
+    using namespace qcor;
+    context.RegisterService<qsim::QuatumSimulationWorkflow>(
+        std::make_shared<qsim::TimeDependentWorkflow>());
+    context.RegisterService<qsim::QuatumSimulationWorkflow>(
+        std::make_shared<qsim::VqeWorkflow>());
+    context.RegisterService<qsim::CostFunctionEvaluator>(
+        std::make_shared<qsim::DefaultObjFuncEval>());
   }
 
   void Stop(BundleContext) {}

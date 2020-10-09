@@ -10,7 +10,7 @@
 int main(int argc, char **argv) {
   // Define the time-dependent Hamiltonian and observable operator using the
   // QCOR API Time-dependent Hamiltonian
-  TdObservable H = [](double t) {
+  qsim::TdObservable H = [](double t) {
     // Parameters:
     const double Jz = 2 * M_PI * 2.86265 * 1e-3;
     const double epsilon = Jz; // Values: 0.2Jz, 0.5Jz, Jz, 5Jz
@@ -24,9 +24,9 @@ int main(int argc, char **argv) {
 
   // Example: build model and TD workflow for Fig. 2 of
   // https://journals.aps.org/prb/pdf/10.1103/PhysRevB.101.184305
-  auto problemModel = ModelBuilder::createModel(observable, H);
+  auto problemModel = qsim::ModelBuilder::createModel(observable, H);
   // Trotter step = 3fs, number of steps = 100 -> end time = 300fs
-  auto workflow = qcor::getWorkflow(
+  auto workflow = qsim::getWorkflow(
       "td-evolution", {{"method", "trotter"}, {"dt", 3.0}, {"steps", 100}});
 
   // Result should contain the observable expectation value along Trotter steps.

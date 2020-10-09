@@ -14,6 +14,7 @@ using Accelerator = xacc::Accelerator;
 using Identifiable = xacc::Identifiable;
 
 namespace qcor {
+namespace qsim {
 // Struct captures a state-preparation circuit.
 struct Ansatz {
   std::shared_ptr<CompositeInstruction> circuit;
@@ -160,4 +161,5 @@ getWorkflow(const std::string &name, const HeterogeneousMap &init_params);
 std::shared_ptr<CostFunctionEvaluator>
 getObjEvaluator(Observable *observable, const std::string &name = "default",
                 const HeterogeneousMap &init_params = {});
+} // namespace qsim
 } // namespace qcor

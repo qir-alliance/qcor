@@ -2,6 +2,7 @@
 #include "xacc_service.hpp"
 
 namespace qcor {
+namespace qsim {
 bool CostFunctionEvaluator::initialize(Observable *observable,
                                        const HeterogeneousMap &params) {
   target_operator = observable;
@@ -56,4 +57,5 @@ getObjEvaluator(Observable *observable, const std::string &name,
   // ERROR: unknown CostFunctionEvaluator or invalid initialization options.
   return nullptr;
 }
+} // namespace qsim
 } // namespace qcor
