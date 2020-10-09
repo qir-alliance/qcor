@@ -1,5 +1,2 @@
-file(GLOB SRC *.cpp)
-
-add_executable(test-qsim ${SRC})
-target_include_directories(test-qsim PUBLIC ../..)
-target_link_libraries(test-qsim PUBLIC qcor qcor-qsim)
+add_test(NAME qsim_vqe COMMAND ${CMAKE_BINARY_DIR}/qcor ${CMAKE_CURRENT_SOURCE_DIR}/VqeWithAnsatzCircuit.cpp)
+add_test(NAME qsim_trotter COMMAND ${CMAKE_BINARY_DIR}/qcor ${CMAKE_CURRENT_SOURCE_DIR}/TrotterTdWorkflow.cpp)

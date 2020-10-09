@@ -1,5 +1,12 @@
 #include "qcor_qsim.hpp"
 
+// High-level usage of Model Builder for typical VQE problem.
+
+// Compile and run with:
+/// $ qcor -qpu qpp VqeWithAnsatzCircuit.cpp 
+/// $ ./a.out
+
+// Define a fixed ansatz as a QCOR kernel
 __qpu__ void ansatz(qreg q, double theta) {
   X(q[0]);
   auto exponent_op = X(0) * Y(1) - Y(0) * X(1);
@@ -16,11 +23,13 @@ int main(int argc, char **argv) {
 
   auto problemModel = ModelBuilder::createModel(ansatz, H.get(), q.size(), 1);
   auto optimizer = createOptimizer("nlopt");
-
+  // Instantiate a VQE workflow with the nlopt optimizer
   auto workflow = qcor::getWorkflow("vqe", {{"optimizer", optimizer}});
 
   // Result should contain the observable expectation value along Trotter steps.
   auto result = workflow->execute(problemModel);
 
+  const auto energy = result.get<double>("energy");
+  std::cout << "Ground-state energy = " << energy << "\n";
   return 0;
 }

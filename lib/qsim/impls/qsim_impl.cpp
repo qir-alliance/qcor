@@ -57,6 +57,8 @@ TimeDependentWorkflow::execute(const QuatumSimulationModel &model) {
     // Evaluate the time-dependent Hamiltonian:
     auto ham_t = ham_func(currentTime);
     auto stepAnsatz = method.create_ansatz(&ham_t, {{"dt", dt}});
+    // std::cout << "t = " << currentTime << "\n";
+    // std::cout << stepAnsatz.circuit->toString() << "\n";
     // First step:
     if (!totalCirc) {
       totalCirc = stepAnsatz.circuit;
@@ -64,10 +66,9 @@ TimeDependentWorkflow::execute(const QuatumSimulationModel &model) {
       // Append Trotter steps
       totalCirc->addInstructions(stepAnsatz.circuit->getInstructions());
     }
-
+    // std::cout << totalCirc->toString() << "\n";
     // Evaluate the expectation after these Trotter steps:
     const double ham_expect = evaluator->evaluate(totalCirc);
-    std::cout << "<Ham> = " << ham_expect << "\n";
     resultExpectationValues.emplace_back(ham_expect);
 
     currentTime += dt;
@@ -110,7 +111,7 @@ VqeWorkflow::execute(const QuatumSimulationModel &model) {
         nParams);
 
     auto result = optimizer->optimize(f);
-    std::cout << "Min energy = " << result.first << "\n";
+    // std::cout << "Min energy = " << result.first << "\n";
     return {{"energy", result.first}, {"opt-params", result.second}};
   }
 
