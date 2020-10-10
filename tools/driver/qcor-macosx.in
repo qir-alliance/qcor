@@ -145,6 +145,11 @@ def main(argv=None):
         sys.argv += ['-D__internal__qcor__compile__qrt__mode=\"'+qrtName+'\"']   
         if qrtName == 'ftqc': 
             sys.argv += ['-D_QCOR_FTQC_RUNTIME']
+    
+       # if not empty
+    if '@QCOR_APPEND_PLUGIN_PATH@':
+        sys.argv += ['-D__internal__qcor__compile__plugin__path=\"@QCOR_APPEND_PLUGIN_PATH@\"']
+        
     # Get the filename we are compiling or the object file
     filename = ''
     fileType = ''
