@@ -5,7 +5,7 @@ add_library(${LIBRARY_NAME}
             token_collector_util.cpp)
 
 target_include_directories(${LIBRARY_NAME}
-                           PUBLIC . 
+                           PUBLIC . ${CMAKE_BINARY_DIR}
                                   ${CLANG_INCLUDE_DIRS}
                                   ${LLVM_INCLUDE_DIRS})
 
@@ -14,12 +14,12 @@ target_link_libraries(${LIBRARY_NAME}
 
 if(APPLE)
   set_target_properties(${LIBRARY_NAME}
-                        PROPERTIES INSTALL_RPATH "@loader_path/../lib")
+                        PROPERTIES INSTALL_RPATH "${XACC_ROOT}/lib;@loader_path")
   set_target_properties(${LIBRARY_NAME}
                         PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
 else()
   set_target_properties(${LIBRARY_NAME}
-                        PROPERTIES INSTALL_RPATH "$ORIGIN/../lib")
+                        PROPERTIES INSTALL_RPATH "${XACC_ROOT}/lib:$ORIGIN")
   set_target_properties(${LIBRARY_NAME} PROPERTIES LINK_FLAGS "-shared")
 endif()
 

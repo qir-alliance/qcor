@@ -18,7 +18,16 @@ target_include_directories(${LIBRARY_NAME} PUBLIC . qrt
 
 target_link_libraries(${LIBRARY_NAME} PUBLIC xacc::xacc xacc::quantum_gate qrt xacc::pauli)
 
-xacc_configure_library_rpath(${LIBRARY_NAME})
+if(APPLE)
+  set_target_properties(${LIBRARY_NAME}
+                        PROPERTIES INSTALL_RPATH "${XACC_ROOT}/lib")
+  set_target_properties(${LIBRARY_NAME}
+                        PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
+else()
+  set_target_properties(${LIBRARY_NAME}
+                        PROPERTIES INSTALL_RPATH "${XACC_ROOT}/lib")
+  set_target_properties(${LIBRARY_NAME} PROPERTIES LINK_FLAGS "-shared")
+endif()
 
 file(GLOB HEADERS qcor.hpp 
                   observable/qcor_observable.hpp 

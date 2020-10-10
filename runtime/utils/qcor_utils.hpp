@@ -92,6 +92,8 @@ using GradientEvaluator =
 
 namespace __internal__ {
 
+void append_plugin_path(const std::string path);
+
 // Internal function for creating a CompositeInstruction, this lets us
 // keep XACC out of the include headers here and put it in the cpp.
 std::shared_ptr<qcor::CompositeInstruction> create_composite(std::string name);
