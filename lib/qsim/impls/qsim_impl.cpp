@@ -120,6 +120,21 @@ VqeWorkflow::execute(const QuatumSimulationModel &model) {
   return {};
 }
 
+bool IterativeQpeWorkflow::initialize(const HeterogeneousMap &params) {
+  // TODO:
+  std::cout << "Howdy: initialize\n";
+  return true;
+}
+
+QuatumSimulationResult
+IterativeQpeWorkflow::execute(const QuatumSimulationModel &model) {
+  // TODO:
+  std::cout << "Howdy: execute\n";
+
+  return {};
+}
+
+
 std::shared_ptr<QuatumSimulationWorkflow>
 getWorkflow(const std::string &name, const HeterogeneousMap &init_params) {
   auto qsim_workflow = xacc::getService<QuatumSimulationWorkflow>(name);
@@ -161,6 +176,8 @@ public:
         std::make_shared<qsim::TimeDependentWorkflow>());
     context.RegisterService<qsim::QuatumSimulationWorkflow>(
         std::make_shared<qsim::VqeWorkflow>());
+    context.RegisterService<qsim::QuatumSimulationWorkflow>(
+        std::make_shared<qsim::IterativeQpeWorkflow>());
     context.RegisterService<qsim::CostFunctionEvaluator>(
         std::make_shared<qsim::DefaultObjFuncEval>());
   }

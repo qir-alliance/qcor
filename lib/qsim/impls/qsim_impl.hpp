@@ -66,11 +66,26 @@ public:
   virtual const std::string description() const override { return ""; }
 
 private:
-  static inline TimeDependentWorkflow *instance = nullptr;
   double t_0;
   double t_final;
   double dt;
   TdObservable ham_func;
+};
+
+// Iterative QPE workflow to estimate the energy of a Hamiltonian operator.
+class IterativeQpeWorkflow : public QuatumSimulationWorkflow {
+public:
+  virtual bool initialize(const HeterogeneousMap &params) override;
+  virtual QuatumSimulationResult
+  execute(const QuatumSimulationModel &model) override;
+  virtual const std::string name() const override { return "iqpe"; }
+  virtual const std::string description() const override { return ""; }
+
+private:
+  // Number of time slices (>=1)
+  int num_steps;
+  // Number of iterations (>=1)
+  int num_iters;
 };
 
 class DefaultObjFuncEval : public CostFunctionEvaluator {
