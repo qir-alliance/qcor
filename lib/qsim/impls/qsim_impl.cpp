@@ -101,7 +101,6 @@ VqeWorkflow::execute(const QuatumSimulationModel &model) {
   if (model.user_defined_ansatz) {
     auto nParams = model.user_defined_ansatz->nParams();
     evaluator = getObjEvaluator(model.observable);
-    auto qpu = xacc::internal_compiler::get_qpu();
 
     OptFunction f(
         [&](const std::vector<double> &x, std::vector<double> &dx) {
@@ -135,13 +134,112 @@ bool IterativeQpeWorkflow::initialize(const HeterogeneousMap &params) {
   return (num_steps >= 1) && (num_iters >= 1);
 }
 
-QuatumSimulationResult
-IterativeQpeWorkflow::execute(const QuatumSimulationModel &model) {
-  // 
+std::shared_ptr<CompositeInstruction>
+IterativeQpeWorkflow::constructQpeCircuit(const QuatumSimulationModel &model,
+                                          int k, double omega,
+                                          bool measure) const {
+  auto provider = xacc::getIRProvider("quantum");
 
-  return {};
+  auto kernel = provider->createComposite("__TEMP__QPE__LOOP__");
+  
+  const auto nbQubits = model.observable->nBits();
+  const size_t ancBit = nbQubits;
+  // Hadamard on ancilla qubit
+  kernel->addInstruction(provider->createInstruction("H", ancBit));
+
+  // Using Trotter evolution method to generate U:
+  // TODO: support other methods (e.g. Suzuki)
+  TrotterEvolution method;
+  const double trotterStepSize = -2 * M_PI / num_steps;
+  auto trotterCir =
+      method.create_ansatz(model.observable, {{"dt", trotterStepSize}}).circuit;
+  // std::cout << "Trotter circ:\n" << trotterCir->toString() << "\n";
+  // Controlled-U
+  auto ctrlKernel = std::dynamic_pointer_cast<CompositeInstruction>(
+      xacc::getService<xacc::Instruction>("C-U"));
+  ctrlKernel->expand({
+      std::make_pair("U", trotterCir),
+      std::make_pair("control-idx", static_cast<int>(ancBit)),
+  });
+
+  // Apply C-U^n
+  int power = 1 << (k - 1);
+  for (int i = 0; i < power; ++i) {
+    for (int instId = 0; instId < ctrlKernel->nInstructions(); ++instId) {
+      // We need to clone the instruction since it'll be repeated.
+      kernel->addInstruction(ctrlKernel->getInstruction(instId)->clone());
+    }
+  }
+
+  // Rz on ancilla qubit
+  kernel->addInstruction(provider->createInstruction("Rz", {ancBit}, {omega}));
+
+  // Hadamard on ancilla qubit
+  kernel->addInstruction(provider->createInstruction("H", ancBit));
+
+  if (measure) {
+    kernel->addInstruction(provider->createInstruction("Measure", ancBit));
+  }
+
+  return kernel;
 }
 
+QuatumSimulationResult
+IterativeQpeWorkflow::execute(const QuatumSimulationModel &model) {
+  auto provider = xacc::getIRProvider("quantum");
+  // Iterative Quantum Phase Estimation:
+  // We're using XACC IR construction API here, since using QCOR kernels here
+  // seems to be complicated.
+  double omega_coef = 0.0;
+  // Iterates over the num_iters
+  // k runs from the number of iterations back to 1
+  for (int iterIdx = 0; iterIdx < num_iters; ++iterIdx) {
+    // State prep: evolves the qubit register to the initial quantum state, i.e.
+    // the eigenvector state to estimate the eigenvalue.
+    auto kernel = provider->createComposite("__TEMP__ITER_QPE__");
+    if (model.user_defined_ansatz) {
+      kernel->addInstruction(model.user_defined_ansatz->evaluate_kernel({}));
+    }
+    omega_coef = omega_coef/2.0;
+    // Construct the QPE circuit and append to the kernel:
+    auto k = num_iters - iterIdx;
+    auto iterQpe = constructQpeCircuit(model, k, -2 * M_PI * omega_coef);
+    kernel->addInstruction(iterQpe);
+    // Executes the iterative QPE algorithm:
+    auto qpu = xacc::internal_compiler::get_qpu();
+    auto temp_buffer = xacc::qalloc(model.observable->nBits() + 1);
+    // std::cout << "Kernel: \n" << kernel->toString() << "\n";
+
+    qpu->execute(temp_buffer, kernel);
+    // temp_buffer->print();
+    const bool bitResult = [&temp_buffer](){
+      if (!temp_buffer->getMeasurementCounts().empty()) {
+        if (xacc::container::contains(temp_buffer->getMeasurements(), "0")) {
+          if  (xacc::container::contains(temp_buffer->getMeasurements(), "1")) {
+            return temp_buffer->computeMeasurementProbability("1") > temp_buffer->computeMeasurementProbability("0");
+          }
+          else {
+            return false;
+          }
+        }
+        else {
+          assert(xacc::container::contains(temp_buffer->getMeasurements(), "1"));
+          return true;
+        }
+      }
+      else {
+        return temp_buffer->getExpectationValueZ() < 0.0;
+      }
+    }();
+    
+    std::cout << "Iter " << iterIdx << ": Result = " << bitResult << "\n";
+    if (bitResult) {
+      omega_coef = omega_coef + 0.5;
+    }
+  }
+  std::cout << "Final phase = " << omega_coef << "\n";
+  return { {"phase", omega_coef}};
+}
 
 std::shared_ptr<QuatumSimulationWorkflow>
 getWorkflow(const std::string &name, const HeterogeneousMap &init_params) {

@@ -73,6 +73,8 @@ private:
 };
 
 // Iterative QPE workflow to estimate the energy of a Hamiltonian operator.
+// For the first pass, we implement this as a workflow.
+// This can be integrated as a CostFuncEvaluator if needed.
 class IterativeQpeWorkflow : public QuatumSimulationWorkflow {
 public:
   virtual bool initialize(const HeterogeneousMap &params) override;
@@ -80,6 +82,11 @@ public:
   execute(const QuatumSimulationModel &model) override;
   virtual const std::string name() const override { return "iqpe"; }
   virtual const std::string description() const override { return ""; }
+
+private:
+  std::shared_ptr<CompositeInstruction>
+  constructQpeCircuit(const QuatumSimulationModel &model, int k, double omega,
+                      bool measure = true) const;
 
 private:
   // Number of time slices (>=1)

@@ -26,7 +26,7 @@ __qpu__ void pauli_power_trotter_evolution(qreg q,
 /// omega: the feedback angle.
 /// pauli_ham: hamiltonian
 /// num_time_slices: number of trotter steps
-/// measure: if true, add measure gate on ancilla qubit.
+/// measure: if true (!= 0), add measure gate on ancilla qubit.
 __qpu__ void pauli_qpe_iter(qreg q, int k, double omega,
                             qcor::PauliOperator pauli_ham, int num_time_slices,
                             int measure) {
