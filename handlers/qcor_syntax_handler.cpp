@@ -265,7 +265,7 @@ void QCORSyntaxHandler::GetReplacement(
     OS << ", " << program_arg_types[i] << " " << program_parameters[i];
   }
   OS << ") {\n";
-  OS << "class " << kernel_name << " k(parent, " << program_parameters[0];
+  OS << "class " << kernel_name << " __ker__temp__(parent, " << program_parameters[0];
   for (int i = 1; i < program_parameters.size(); i++) {
     OS << ", " << program_parameters[i];
   }
@@ -279,7 +279,7 @@ void QCORSyntaxHandler::GetReplacement(
     OS << ", " << program_arg_types[i] << " " << program_parameters[i];
   }
   OS << ") {\n";
-  OS << "class " << kernel_name << " k(" << program_parameters[0];
+  OS << "class " << kernel_name << " __ker__temp__(" << program_parameters[0];
   for (int i = 1; i < program_parameters.size(); i++) {
     OS << ", " << program_parameters[i];
   }

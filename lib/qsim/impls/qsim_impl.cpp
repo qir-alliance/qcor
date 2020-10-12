@@ -121,15 +121,23 @@ VqeWorkflow::execute(const QuatumSimulationModel &model) {
 }
 
 bool IterativeQpeWorkflow::initialize(const HeterogeneousMap &params) {
-  // TODO:
-  std::cout << "Howdy: initialize\n";
-  return true;
+  // Default params:
+  num_steps = 1;
+  num_iters = 1;
+  if (params.keyExists<int>("time-steps")) {
+    num_steps = params.get<int>("time-steps");
+  }
+
+  if (params.keyExists<int>("iterations")) {
+    num_iters = params.get<int>("iterations");
+  }
+
+  return (num_steps >= 1) && (num_iters >= 1);
 }
 
 QuatumSimulationResult
 IterativeQpeWorkflow::execute(const QuatumSimulationModel &model) {
-  // TODO:
-  std::cout << "Howdy: execute\n";
+  // 
 
   return {};
 }
