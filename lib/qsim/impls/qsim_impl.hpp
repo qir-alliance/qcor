@@ -42,11 +42,11 @@ private:
 };
 
 // VQE-type workflow which involves an optimization loop, i.e. an Optimizer.
-class VqeWorkflow : public QuatumSimulationWorkflow {
+class VqeWorkflow : public QuantumSimulationWorkflow {
 public:
   virtual bool initialize(const HeterogeneousMap &params) override;
-  virtual QuatumSimulationResult
-  execute(const QuatumSimulationModel &model) override;
+  virtual QuantumSimulationResult
+  execute(const QuantumSimulationModel &model) override;
 
   virtual const std::string name() const override { return "vqe"; }
   virtual const std::string description() const override { return ""; }
@@ -57,11 +57,11 @@ private:
 
 // Time-dependent evolution workflow which can handle
 // time-dependent Hamiltonian operator.
-class TimeDependentWorkflow : public QuatumSimulationWorkflow {
+class TimeDependentWorkflow : public QuantumSimulationWorkflow {
 public:
   virtual bool initialize(const HeterogeneousMap &params) override;
-  virtual QuatumSimulationResult
-  execute(const QuatumSimulationModel &model) override;
+  virtual QuantumSimulationResult
+  execute(const QuantumSimulationModel &model) override;
   virtual const std::string name() const override { return "td-evolution"; }
   virtual const std::string description() const override { return ""; }
 
@@ -75,17 +75,17 @@ private:
 // Iterative QPE workflow to estimate the energy of a Hamiltonian operator.
 // For the first pass, we implement this as a workflow.
 // This can be integrated as a CostFuncEvaluator if needed.
-class IterativeQpeWorkflow : public QuatumSimulationWorkflow {
+class IterativeQpeWorkflow : public QuantumSimulationWorkflow {
 public:
   virtual bool initialize(const HeterogeneousMap &params) override;
-  virtual QuatumSimulationResult
-  execute(const QuatumSimulationModel &model) override;
+  virtual QuantumSimulationResult
+  execute(const QuantumSimulationModel &model) override;
   virtual const std::string name() const override { return "iqpe"; }
   virtual const std::string description() const override { return ""; }
 
 private:
   std::shared_ptr<CompositeInstruction>
-  constructQpeCircuit(const QuatumSimulationModel &model, int k, double omega,
+  constructQpeCircuit(const QuantumSimulationModel &model, int k, double omega,
                       bool measure = true) const;
 
 private:

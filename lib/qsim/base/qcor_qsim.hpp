@@ -60,8 +60,8 @@ using TdObservable = std::function<PauliOperator(double)>;
 // Capture a quantum chemistry problem.
 // TODO: generalize this to capture all potential use cases.
 
-struct QuatumSimulationModel {
-  QuatumSimulationModel() : observable(nullptr) {}
+struct QuantumSimulationModel {
+  QuantumSimulationModel() : observable(nullptr) {}
   // Model name.
   std::string name;
 
@@ -72,7 +72,7 @@ struct QuatumSimulationModel {
   // This can be the same or different from the observable operator.
   TdObservable hamiltonian;
 
-  // QuatumSimulationModel also support a user-defined (fixed) ansatz.
+  // QuantumSimulationModel also support a user-defined (fixed) ansatz.
   std::shared_ptr<KernelFunctor> user_defined_ansatz;
 };
 
@@ -84,16 +84,16 @@ public:
   // Strongly-typed parameters/argument.
   // Build a simple Hamiltonian-based model: static Hamiltonian which is also
   // the observable of interest.
-  static QuatumSimulationModel createModel(Observable *obs,
+  static QuantumSimulationModel createModel(Observable *obs,
                                            const HeterogeneousMap &params = {});
   // Build a time-dependent problem model:
   //  -  obs: observable operator to measure.
   //  -  td_ham: time-dependent Hamiltonian to evolve the system.
   //     e.g. a function to map from time to Hamiltonian operator.
-  static QuatumSimulationModel createModel(Observable *obs, TdObservable td_ham,
+  static QuantumSimulationModel createModel(Observable *obs, TdObservable td_ham,
                                            const HeterogeneousMap &params = {});
   // Pauli operator overload:
-  static QuatumSimulationModel
+  static QuantumSimulationModel
   createModel(PauliOperator &obs, TdObservable td_ham,
               const HeterogeneousMap &params = {}) {
     return createModel(&obs, td_ham, params);
@@ -108,28 +108,28 @@ public:
   //  - params: extra parameters to pass to the parser/generator,
   //            e.g. any transformations required in order to generate the
   //            Observable.
-  static QuatumSimulationModel createModel(const std::string &format,
+  static QuantumSimulationModel createModel(const std::string &format,
                                            const std::string &data,
                                            const HeterogeneousMap &params = {});
 
-  // ========== QuatumSimulationModel with a fixed (pre-defined) ansatz ========
+  // ========== QuantumSimulationModel with a fixed (pre-defined) ansatz ========
   // The ansatz is provided as a QCOR kernel.
   template <typename... Args>
-  static inline QuatumSimulationModel createModel(
+  static inline QuantumSimulationModel createModel(
       void (*quantum_kernel_functor)(std::shared_ptr<CompositeInstruction>,
                                      Args...),
       Observable *obs, size_t nbQubits, size_t nbParams) {
     auto kernel_functor =
         createKernelFunctor(quantum_kernel_functor, nbQubits, nbParams);
 
-    QuatumSimulationModel model;
+    QuantumSimulationModel model;
     model.observable = obs;
     model.user_defined_ansatz = kernel_functor;
     return model;
   }
 
   template <typename... Args>
-  static inline QuatumSimulationModel createModel(
+  static inline QuantumSimulationModel createModel(
       void (*quantum_kernel_functor)(std::shared_ptr<CompositeInstruction>,
                                      Args...),
       PauliOperator &obs, size_t nbQubits, size_t nbParams) {
@@ -141,20 +141,20 @@ public:
 // This can handle both variational workflow (optimization loop)
 // as well as simple Trotter evolution workflow.
 // Result is stored in a HetMap
-using QuatumSimulationResult = HeterogeneousMap;
+using QuantumSimulationResult = HeterogeneousMap;
 // Abstract workflow:
-class QuatumSimulationWorkflow : public Identifiable {
+class QuantumSimulationWorkflow : public Identifiable {
 public:
   virtual bool initialize(const HeterogeneousMap &params) = 0;
-  virtual QuatumSimulationResult
-  execute(const QuatumSimulationModel &model) = 0;
+  virtual QuantumSimulationResult
+  execute(const QuantumSimulationModel &model) = 0;
 
 protected:
   std::shared_ptr<CostFunctionEvaluator> evaluator;
 };
 
 // Get workflow by name:
-std::shared_ptr<QuatumSimulationWorkflow>
+std::shared_ptr<QuantumSimulationWorkflow>
 getWorkflow(const std::string &name, const HeterogeneousMap &init_params);
 
 // Get the Obj (cost) function evaluator:

@@ -41,9 +41,9 @@ bool TimeDependentWorkflow::initialize(const HeterogeneousMap &params) {
   return true;
 }
 
-QuatumSimulationResult
-TimeDependentWorkflow::execute(const QuatumSimulationModel &model) {
-  QuatumSimulationResult result;
+QuantumSimulationResult
+TimeDependentWorkflow::execute(const QuantumSimulationModel &model) {
+  QuantumSimulationResult result;
   evaluator = getObjEvaluator(model.observable);
   auto ham_func = model.hamiltonian;
   // A TD workflow: stepping through Trotter steps,
@@ -95,8 +95,8 @@ bool VqeWorkflow::initialize(const HeterogeneousMap &params) {
   return (optimizer != nullptr);
 }
 
-QuatumSimulationResult
-VqeWorkflow::execute(const QuatumSimulationModel &model) {
+QuantumSimulationResult
+VqeWorkflow::execute(const QuantumSimulationModel &model) {
   // If the model includes a concrete variational ansatz:
   if (model.user_defined_ansatz) {
     auto nParams = model.user_defined_ansatz->nParams();
@@ -135,7 +135,7 @@ bool IterativeQpeWorkflow::initialize(const HeterogeneousMap &params) {
 }
 
 std::shared_ptr<CompositeInstruction>
-IterativeQpeWorkflow::constructQpeCircuit(const QuatumSimulationModel &model,
+IterativeQpeWorkflow::constructQpeCircuit(const QuantumSimulationModel &model,
                                           int k, double omega,
                                           bool measure) const {
   auto provider = xacc::getIRProvider("quantum");
@@ -184,8 +184,8 @@ IterativeQpeWorkflow::constructQpeCircuit(const QuatumSimulationModel &model,
   return kernel;
 }
 
-QuatumSimulationResult
-IterativeQpeWorkflow::execute(const QuatumSimulationModel &model) {
+QuantumSimulationResult
+IterativeQpeWorkflow::execute(const QuantumSimulationModel &model) {
   auto provider = xacc::getIRProvider("quantum");
   // Iterative Quantum Phase Estimation:
   // We're using XACC IR construction API here, since using QCOR kernels here
@@ -241,9 +241,9 @@ IterativeQpeWorkflow::execute(const QuatumSimulationModel &model) {
   return { {"phase", omega_coef}};
 }
 
-std::shared_ptr<QuatumSimulationWorkflow>
+std::shared_ptr<QuantumSimulationWorkflow>
 getWorkflow(const std::string &name, const HeterogeneousMap &init_params) {
-  auto qsim_workflow = xacc::getService<QuatumSimulationWorkflow>(name);
+  auto qsim_workflow = xacc::getService<QuantumSimulationWorkflow>(name);
   if (qsim_workflow && qsim_workflow->initialize(init_params)) {
     return qsim_workflow;
   }
@@ -271,18 +271,18 @@ DefaultObjFuncEval::evaluate(std::shared_ptr<CompositeInstruction> state_prep) {
 #include "cppmicroservices/ServiceProperties.h"
 namespace {
 using namespace cppmicroservices;
-class US_ABI_LOCAL QuatumSimulationActivator : public BundleActivator {
+class US_ABI_LOCAL QuantumSimulationActivator : public BundleActivator {
 
 public:
-  QuatumSimulationActivator() {}
+  QuantumSimulationActivator() {}
 
   void Start(BundleContext context) {
     using namespace qcor;
-    context.RegisterService<qsim::QuatumSimulationWorkflow>(
+    context.RegisterService<qsim::QuantumSimulationWorkflow>(
         std::make_shared<qsim::TimeDependentWorkflow>());
-    context.RegisterService<qsim::QuatumSimulationWorkflow>(
+    context.RegisterService<qsim::QuantumSimulationWorkflow>(
         std::make_shared<qsim::VqeWorkflow>());
-    context.RegisterService<qsim::QuatumSimulationWorkflow>(
+    context.RegisterService<qsim::QuantumSimulationWorkflow>(
         std::make_shared<qsim::IterativeQpeWorkflow>());
     context.RegisterService<qsim::CostFunctionEvaluator>(
         std::make_shared<qsim::DefaultObjFuncEval>());
@@ -292,4 +292,4 @@ public:
 };
 } // namespace
 
-CPPMICROSERVICES_EXPORT_BUNDLE_ACTIVATOR(QuatumSimulationActivator)
+CPPMICROSERVICES_EXPORT_BUNDLE_ACTIVATOR(QuantumSimulationActivator)

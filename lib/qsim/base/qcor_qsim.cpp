@@ -10,18 +10,18 @@ bool CostFunctionEvaluator::initialize(Observable *observable,
   return target_operator != nullptr;
 }
 
-QuatumSimulationModel
+QuantumSimulationModel
 ModelBuilder::createModel(Observable *obs, TdObservable td_ham,
                           const HeterogeneousMap &params) {
-  QuatumSimulationModel model;
+  QuantumSimulationModel model;
   model.observable = obs;
   model.hamiltonian = td_ham;
   return model;
 }
 
-QuatumSimulationModel
+QuantumSimulationModel
 ModelBuilder::createModel(Observable *obs, const HeterogeneousMap &params) {
-  QuatumSimulationModel model;
+  QuantumSimulationModel model;
   model.observable = obs;
   model.hamiltonian = [&](double t) {
     return *(static_cast<PauliOperator *>(obs));
@@ -29,17 +29,17 @@ ModelBuilder::createModel(Observable *obs, const HeterogeneousMap &params) {
   return model;
 }
 
-QuatumSimulationModel
+QuantumSimulationModel
 ModelBuilder::createModel(const std::string &format, const std::string &data,
                           const HeterogeneousMap &params) {
-  QuatumSimulationModel model;
+  QuantumSimulationModel model;
   // TODO:
   return model;
 }
 
-std::shared_ptr<QuatumSimulationWorkflow>
+std::shared_ptr<QuantumSimulationWorkflow>
 getWorkflow(const std::string &name, const HeterogeneousMap &init_params) {
-  auto qsim_workflow = xacc::getService<QuatumSimulationWorkflow>(name);
+  auto qsim_workflow = xacc::getService<QuantumSimulationWorkflow>(name);
   if (qsim_workflow && qsim_workflow->initialize(init_params)) {
     return qsim_workflow;
   }
