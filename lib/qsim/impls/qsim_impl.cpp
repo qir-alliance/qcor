@@ -13,7 +13,6 @@ Ansatz TrotterEvolution::create_ansatz(Observable *obs,
   if (params.keyExists<double>("dt")) {
     dt = params.get<double>("dt");
   }
-
   // Just use exp_i_theta for now
   // TODO: formalize a standard library kernel for this.
   auto expCirc = std::dynamic_pointer_cast<xacc::quantum::Circuit>(
@@ -130,7 +129,6 @@ bool IterativeQpeWorkflow::initialize(const HeterogeneousMap &params) {
   if (params.keyExists<int>("iterations")) {
     num_iters = params.get<int>("iterations");
   }
-
   return (num_steps >= 1) && (num_iters >= 1);
 }
 
@@ -164,14 +162,27 @@ IterativeQpeWorkflow::constructQpeCircuit(const QuantumSimulationModel &model,
 
   // Apply C-U^n
   int power = 1 << (k - 1);
+  // std::cout << "Power = " << power << "\n"; 
   for (int i = 0; i < power; ++i) {
-    for (int instId = 0; instId < ctrlKernel->nInstructions(); ++instId) {
-      // We need to clone the instruction since it'll be repeated.
-      kernel->addInstruction(ctrlKernel->getInstruction(instId)->clone());
+    for (int j = 0; j < num_steps; ++j) {
+      for (int instId = 0; instId < ctrlKernel->nInstructions(); ++instId) {
+        // We need to clone the instruction since it'll be repeated.
+        kernel->addInstruction(ctrlKernel->getInstruction(instId)->clone());
+      }
     }
   }
 
   // Rz on ancilla qubit
+  // Global phase due to identity pauli
+  if (model.observable->getIdentitySubTerm()) {
+    const double idCoeff =
+        model.observable->getIdentitySubTerm()->coefficient().real();
+    const double globalPhase = 2 * M_PI * idCoeff * power;
+    // std::cout << "Global phase = " << globalPhase << "\n";
+    kernel->addInstruction(
+        provider->createInstruction("Rz", {ancBit}, {globalPhase}));
+  }
+
   kernel->addInstruction(provider->createInstruction("Rz", {ancBit}, {omega}));
 
   // Hadamard on ancilla qubit
@@ -232,12 +243,13 @@ IterativeQpeWorkflow::execute(const QuantumSimulationModel &model) {
       }
     }();
     
-    std::cout << "Iter " << iterIdx << ": Result = " << bitResult << "\n";
     if (bitResult) {
       omega_coef = omega_coef + 0.5;
     }
+    // std::cout << "Iter " << iterIdx << ": Result = " << bitResult << "; omega_coef = " << omega_coef << "\n";
+
   }
-  std::cout << "Final phase = " << omega_coef << "\n";
+  // std::cout << "Final phase = " << omega_coef << "\n";
   return { {"phase", omega_coef}};
 }
 
