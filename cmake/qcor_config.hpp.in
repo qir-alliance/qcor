@@ -1,0 +1,4 @@
+#pragma once
+
+#define QCOR_INSTALL_DIR "${CMAKE_INSTALL_PREFIX}"
+#define XACC_ROOT "${XACC_ROOT}"

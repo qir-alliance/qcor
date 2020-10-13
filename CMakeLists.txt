@@ -22,6 +22,10 @@ option(QCOR_BUILD_TESTS "Build qcor tests" OFF)
 find_package(Clang 10.0.0 REQUIRED)
 find_package(XACC REQUIRED)
 
+configure_file("${CMAKE_SOURCE_DIR}/cmake/qcor_config.hpp.in"
+               "${CMAKE_BINARY_DIR}/qcor_config.hpp")
+install (FILES ${CMAKE_BINARY_DIR}/qcor_config.hpp DESTINATION include/qcor)
+
 add_subdirectory(handlers)
 add_subdirectory(runtime)
 add_subdirectory(tools)

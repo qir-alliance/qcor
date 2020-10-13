@@ -19,6 +19,9 @@ namespace __internal__ {
 class internal_startup {
 public:
   internal_startup() {
+#ifdef __internal__qcor__compile__plugin__path
+  qcor::__internal__::append_plugin_path(__internal__qcor__compile__plugin__path);
+#endif
 // IMPORTANT: This needs to be set before quantum::initialize
 #ifdef __internal__qcor__compile__qrt__mode
     xacc::internal_compiler::__qrt_env = __internal__qcor__compile__qrt__mode;
@@ -52,6 +55,7 @@ public:
 #ifdef __internal__qcor__compile__decorator__list
   xacc::internal_compiler::apply_decorators(__internal__qcor__compile__decorator__list);
 #endif
+
   }
 };
 internal_startup startup;

@@ -41,12 +41,12 @@ usfunctionembedresources(TARGET
 
 if(APPLE)
   set_target_properties(${LIBRARY_NAME}
-                        PROPERTIES INSTALL_RPATH "@loader_path/../lib;${LLVM_INSTALL_PREFIX}/lib")
+                        PROPERTIES INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib;${XACC_ROOT}/lib;${LLVM_INSTALL_PREFIX}/lib")
   set_target_properties(${LIBRARY_NAME}
                         PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
 else()
   set_target_properties(${LIBRARY_NAME}
-                        PROPERTIES INSTALL_RPATH "$ORIGIN/../lib:${LLVM_INSTALL_PREFIX}/lib")
+                        PROPERTIES INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib:${XACC_ROOT}/lib:${LLVM_INSTALL_PREFIX}/lib")
   set_target_properties(${LIBRARY_NAME} PROPERTIES LINK_FLAGS "-shared")
 endif()
 

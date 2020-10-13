@@ -18,13 +18,14 @@ target_link_libraries(${LIBRARY_NAME}
 
 if(APPLE)
   set_target_properties(${LIBRARY_NAME}
-                        PROPERTIES INSTALL_RPATH "@loader_path/../lib")
+                        PROPERTIES INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib;${XACC_ROOT}/lib;${LLVM_INSTALL_PREFIX}/lib")
   set_target_properties(${LIBRARY_NAME}
                         PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
 else()
   set_target_properties(${LIBRARY_NAME}
-                        PROPERTIES INSTALL_RPATH "$ORIGIN/../lib:${LLVM_INSTALL_PREFIX}/lib")
+                        PROPERTIES INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib:${XACC_ROOT}/lib:${LLVM_INSTALL_PREFIX}/lib")
   set_target_properties(${LIBRARY_NAME} PROPERTIES LINK_FLAGS "-shared")
 endif()
+
 
 install(TARGETS ${LIBRARY_NAME} DESTINATION clang-plugins)

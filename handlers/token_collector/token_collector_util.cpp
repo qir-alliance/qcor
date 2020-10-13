@@ -13,6 +13,8 @@
 #include "clang/Lex/Token.h"
 #include "clang/Sema/DeclSpec.h"
 
+#include "qcor_config.hpp"
+
 namespace qcor {
 void append_kernel(const std::string name) {
   ::quantum::kernels_in_translation_unit.push_back(name);
@@ -26,6 +28,9 @@ std::string run_token_collector(clang::Preprocessor &PP,
                                 std::vector<std::string> bufferNames) {
 
   if (!xacc::isInitialized()) {
+    if (std::string(XACC_ROOT) != std::string(QCOR_INSTALL_DIR)) {
+       xacc::addPluginSearchPath(std::string(QCOR_INSTALL_DIR)+std::string("/plugins"));
+    }
     xacc::Initialize();
   }
 

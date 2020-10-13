@@ -20,6 +20,11 @@ std::shared_ptr<xacc::CompositeInstruction> compile(const std::string &src) {
 }
 
 namespace __internal__ {
+
+void append_plugin_path(const std::string path) {
+    xacc::addPluginSearchPath(path);
+}
+
 std::shared_ptr<qcor::CompositeInstruction> create_composite(std::string name) {
   return xacc::getIRProvider("quantum")->createComposite(name);
 }
