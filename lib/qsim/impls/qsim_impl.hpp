@@ -77,6 +77,15 @@ private:
 // This can be integrated as a CostFuncEvaluator if needed.
 class IterativeQpeWorkflow : public QuantumSimulationWorkflow {
 public:
+  // Translate/stretch the Hamiltonian operator for QPE.
+  struct HamOpConverter {
+    double translation;
+    double stretch;
+    void fromObservable(Observable *obs);
+    std::shared_ptr<Observable> stretchObservable(Observable *obs) const;
+    double computeEnergy(double phaseVal) const;
+  };
+
   virtual bool initialize(const HeterogeneousMap &params) override;
   virtual QuantumSimulationResult
   execute(const QuantumSimulationModel &model) override;
@@ -85,7 +94,7 @@ public:
 
 private:
   std::shared_ptr<CompositeInstruction>
-  constructQpeCircuit(const QuantumSimulationModel &model, int k, double omega,
+  constructQpeCircuit(std::shared_ptr<Observable> obs, int k, double omega,
                       bool measure = true) const;
 
 private:
@@ -93,6 +102,7 @@ private:
   int num_steps;
   // Number of iterations (>=1)
   int num_iters;
+  HamOpConverter ham_converter;
 };
 
 class DefaultObjFuncEval : public CostFunctionEvaluator {

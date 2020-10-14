@@ -9,14 +9,13 @@
 // Ansatz to bring the state into an eigenvector state of the Hamiltonian.
 __qpu__ void eigen_state_prep(qreg q) {
   using qcor::openqasm;
-  u3(pi / 4, 0, 0) q[0];
+  u3(0.95531662,0,0) q[0];
+  u1(pi/4) q[0];
 }
 
 int main(int argc, char **argv) {
   // Create Hamiltonian:
-  // Important: this must be a weighted pauli operator list.
-  // TODO: add function to convert arbitrary Hamiltonian to the weighted form.
-  auto H = 0.5 + 0.25 * X(0) + 0.25 * Z(0);
+  auto H = 1.0 + X(0) + Y(0) +  Z(0);
   auto problemModel =
       qsim::ModelBuilder::createModel(eigen_state_prep, H, 1, 0);
 
@@ -26,6 +25,10 @@ int main(int argc, char **argv) {
 
   auto result = workflow->execute(problemModel);
   const double phaseValue = result.get<double>("phase");
+  const double energy = result.get<double>("energy");
+
   std::cout << "Final phase = " << phaseValue << "\n";
+  std::cout << "Energy = " << energy << "\n";
+
   return 0;
 }

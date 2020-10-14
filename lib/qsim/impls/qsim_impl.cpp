@@ -132,15 +132,12 @@ bool IterativeQpeWorkflow::initialize(const HeterogeneousMap &params) {
   return (num_steps >= 1) && (num_iters >= 1);
 }
 
-std::shared_ptr<CompositeInstruction>
-IterativeQpeWorkflow::constructQpeCircuit(const QuantumSimulationModel &model,
-                                          int k, double omega,
-                                          bool measure) const {
+std::shared_ptr<CompositeInstruction> IterativeQpeWorkflow::constructQpeCircuit(
+    std::shared_ptr<Observable> obs, int k, double omega, bool measure) const {
   auto provider = xacc::getIRProvider("quantum");
 
   auto kernel = provider->createComposite("__TEMP__QPE__LOOP__");
-  
-  const auto nbQubits = model.observable->nBits();
+  const auto nbQubits = obs->nBits();
   const size_t ancBit = nbQubits;
   // Hadamard on ancilla qubit
   kernel->addInstruction(provider->createInstruction("H", ancBit));
@@ -150,7 +147,7 @@ IterativeQpeWorkflow::constructQpeCircuit(const QuantumSimulationModel &model,
   TrotterEvolution method;
   const double trotterStepSize = -2 * M_PI / num_steps;
   auto trotterCir =
-      method.create_ansatz(model.observable, {{"dt", trotterStepSize}}).circuit;
+      method.create_ansatz(obs.get(), {{"dt", trotterStepSize}}).circuit;
   // std::cout << "Trotter circ:\n" << trotterCir->toString() << "\n";
   // Controlled-U
   auto ctrlKernel = std::dynamic_pointer_cast<CompositeInstruction>(
@@ -162,7 +159,7 @@ IterativeQpeWorkflow::constructQpeCircuit(const QuantumSimulationModel &model,
 
   // Apply C-U^n
   int power = 1 << (k - 1);
-  // std::cout << "Power = " << power << "\n"; 
+  // std::cout << "Power = " << power << "\n";
   for (int i = 0; i < power; ++i) {
     for (int j = 0; j < num_steps; ++j) {
       for (int instId = 0; instId < ctrlKernel->nInstructions(); ++instId) {
@@ -174,9 +171,8 @@ IterativeQpeWorkflow::constructQpeCircuit(const QuantumSimulationModel &model,
 
   // Rz on ancilla qubit
   // Global phase due to identity pauli
-  if (model.observable->getIdentitySubTerm()) {
-    const double idCoeff =
-        model.observable->getIdentitySubTerm()->coefficient().real();
+  if (obs->getIdentitySubTerm()) {
+    const double idCoeff = obs->getIdentitySubTerm()->coefficient().real();
     const double globalPhase = 2 * M_PI * idCoeff * power;
     // std::cout << "Global phase = " << globalPhase << "\n";
     kernel->addInstruction(
@@ -195,8 +191,38 @@ IterativeQpeWorkflow::constructQpeCircuit(const QuantumSimulationModel &model,
   return kernel;
 }
 
+void IterativeQpeWorkflow::HamOpConverter::fromObservable(Observable *obs) {
+  translation = 0.0;
+
+  for (auto &term : obs->getSubTerms()) {
+    translation += std::abs(term->coefficient());
+  }
+  
+  stretch = 0.5 / translation;
+}
+
+std::shared_ptr<Observable>
+IterativeQpeWorkflow::HamOpConverter::stretchObservable(Observable *obs) const {
+  PauliOperator *pauliCast = static_cast<PauliOperator *>(obs);
+  if (pauliCast) {
+    auto result = std::make_shared<PauliOperator>(translation);
+    result->operator+=(*pauliCast);
+    result->operator*=(stretch);
+    return result;
+  } else {
+    return nullptr;
+  }
+}
+
+double
+IterativeQpeWorkflow::HamOpConverter::computeEnergy(double phaseVal) const {
+  return phaseVal / stretch - translation;
+}
+
 QuantumSimulationResult
 IterativeQpeWorkflow::execute(const QuantumSimulationModel &model) {
+  ham_converter.fromObservable(model.observable);
+  auto stretchedObs = ham_converter.stretchObservable(model.observable);
   auto provider = xacc::getIRProvider("quantum");
   // Iterative Quantum Phase Estimation:
   // We're using XACC IR construction API here, since using QCOR kernels here
@@ -214,11 +240,12 @@ IterativeQpeWorkflow::execute(const QuantumSimulationModel &model) {
     omega_coef = omega_coef/2.0;
     // Construct the QPE circuit and append to the kernel:
     auto k = num_iters - iterIdx;
-    auto iterQpe = constructQpeCircuit(model, k, -2 * M_PI * omega_coef);
+    
+    auto iterQpe = constructQpeCircuit(stretchedObs, k, -2 * M_PI * omega_coef);
     kernel->addInstruction(iterQpe);
     // Executes the iterative QPE algorithm:
     auto qpu = xacc::internal_compiler::get_qpu();
-    auto temp_buffer = xacc::qalloc(model.observable->nBits() + 1);
+    auto temp_buffer = xacc::qalloc(stretchedObs->nBits() + 1);
     // std::cout << "Kernel: \n" << kernel->toString() << "\n";
 
     qpu->execute(temp_buffer, kernel);
@@ -249,8 +276,8 @@ IterativeQpeWorkflow::execute(const QuantumSimulationModel &model) {
     // std::cout << "Iter " << iterIdx << ": Result = " << bitResult << "; omega_coef = " << omega_coef << "\n";
 
   }
-  // std::cout << "Final phase = " << omega_coef << "\n";
-  return { {"phase", omega_coef}};
+  
+  return { {"phase", omega_coef}, {"energy", ham_converter.computeEnergy(omega_coef)}};
 }
 
 std::shared_ptr<QuantumSimulationWorkflow>
