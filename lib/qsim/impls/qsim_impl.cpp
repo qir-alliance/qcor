@@ -223,6 +223,7 @@ QuantumSimulationResult
 IterativeQpeWorkflow::execute(const QuantumSimulationModel &model) {
   ham_converter.fromObservable(model.observable);
   auto stretchedObs = ham_converter.stretchObservable(model.observable);
+  // std::cout << "Stretched Obs: " << stretchedObs->toString() << "\n";
   auto provider = xacc::getIRProvider("quantum");
   // Iterative Quantum Phase Estimation:
   // We're using XACC IR construction API here, since using QCOR kernels here
