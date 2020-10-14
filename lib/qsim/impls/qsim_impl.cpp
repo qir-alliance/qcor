@@ -135,10 +135,11 @@ bool IterativeQpeWorkflow::initialize(const HeterogeneousMap &params) {
 std::shared_ptr<CompositeInstruction> IterativeQpeWorkflow::constructQpeCircuit(
     std::shared_ptr<Observable> obs, int k, double omega, bool measure) const {
   auto provider = xacc::getIRProvider("quantum");
-
   auto kernel = provider->createComposite("__TEMP__QPE__LOOP__");
   const auto nbQubits = obs->nBits();
+  // Ancilla qubit is the last one in the register.
   const size_t ancBit = nbQubits;
+
   // Hadamard on ancilla qubit
   kernel->addInstruction(provider->createInstruction("H", ancBit));
 
@@ -149,6 +150,7 @@ std::shared_ptr<CompositeInstruction> IterativeQpeWorkflow::constructQpeCircuit(
   auto trotterCir =
       method.create_ansatz(obs.get(), {{"dt", trotterStepSize}}).circuit;
   // std::cout << "Trotter circ:\n" << trotterCir->toString() << "\n";
+
   // Controlled-U
   auto ctrlKernel = std::dynamic_pointer_cast<CompositeInstruction>(
       xacc::getService<xacc::Instruction>("C-U"));
@@ -159,13 +161,10 @@ std::shared_ptr<CompositeInstruction> IterativeQpeWorkflow::constructQpeCircuit(
 
   // Apply C-U^n
   int power = 1 << (k - 1);
-  // std::cout << "Power = " << power << "\n";
-  for (int i = 0; i < power; ++i) {
-    for (int j = 0; j < num_steps; ++j) {
-      for (int instId = 0; instId < ctrlKernel->nInstructions(); ++instId) {
-        // We need to clone the instruction since it'll be repeated.
-        kernel->addInstruction(ctrlKernel->getInstruction(instId)->clone());
-      }
+  for (int i = 0; i < power * num_steps; ++i) {
+    for (int instId = 0; instId < ctrlKernel->nInstructions(); ++instId) {
+      // We need to clone the instruction since it'll be repeated.
+      kernel->addInstruction(ctrlKernel->getInstruction(instId)->clone());
     }
   }
 
@@ -193,11 +192,9 @@ std::shared_ptr<CompositeInstruction> IterativeQpeWorkflow::constructQpeCircuit(
 
 void IterativeQpeWorkflow::HamOpConverter::fromObservable(Observable *obs) {
   translation = 0.0;
-
   for (auto &term : obs->getSubTerms()) {
     translation += std::abs(term->coefficient());
   }
-  
   stretch = 0.5 / translation;
 }
 
@@ -238,10 +235,10 @@ IterativeQpeWorkflow::execute(const QuantumSimulationModel &model) {
     if (model.user_defined_ansatz) {
       kernel->addInstruction(model.user_defined_ansatz->evaluate_kernel({}));
     }
-    omega_coef = omega_coef/2.0;
+    omega_coef = omega_coef / 2.0;
     // Construct the QPE circuit and append to the kernel:
     auto k = num_iters - iterIdx;
-    
+
     auto iterQpe = constructQpeCircuit(stretchedObs, k, -2 * M_PI * omega_coef);
     kernel->addInstruction(iterQpe);
     // Executes the iterative QPE algorithm:
@@ -251,34 +248,39 @@ IterativeQpeWorkflow::execute(const QuantumSimulationModel &model) {
 
     qpu->execute(temp_buffer, kernel);
     // temp_buffer->print();
-    const bool bitResult = [&temp_buffer](){
+
+    // Estimate the phase value's bit at this iteration,
+    // i.e. get the most-probable measure bit.
+    const bool bitResult = [&temp_buffer]() {
       if (!temp_buffer->getMeasurementCounts().empty()) {
+        // If the QPU returns bitstrings:
         if (xacc::container::contains(temp_buffer->getMeasurements(), "0")) {
-          if  (xacc::container::contains(temp_buffer->getMeasurements(), "1")) {
-            return temp_buffer->computeMeasurementProbability("1") > temp_buffer->computeMeasurementProbability("0");
-          }
-          else {
+          if (xacc::container::contains(temp_buffer->getMeasurements(), "1")) {
+            return temp_buffer->computeMeasurementProbability("1") >
+                   temp_buffer->computeMeasurementProbability("0");
+          } else {
             return false;
           }
-        }
-        else {
-          assert(xacc::container::contains(temp_buffer->getMeasurements(), "1"));
+        } else {
+          assert(
+              xacc::container::contains(temp_buffer->getMeasurements(), "1"));
           return true;
         }
-      }
-      else {
+      } else {
+        // If the QPU returns *expected* Z value:
         return temp_buffer->getExpectationValueZ() < 0.0;
       }
     }();
-    
+
     if (bitResult) {
       omega_coef = omega_coef + 0.5;
     }
-    // std::cout << "Iter " << iterIdx << ": Result = " << bitResult << "; omega_coef = " << omega_coef << "\n";
-
+    // std::cout << "Iter " << iterIdx << ": Result = " << bitResult << ";
+    // omega_coef = " << omega_coef << "\n";
   }
-  
-  return { {"phase", omega_coef}, {"energy", ham_converter.computeEnergy(omega_coef)}};
+
+  return {{"phase", omega_coef},
+          {"energy", ham_converter.computeEnergy(omega_coef)}};
 }
 
 std::shared_ptr<QuantumSimulationWorkflow>
