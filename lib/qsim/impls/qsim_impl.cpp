@@ -328,6 +328,8 @@ public:
         std::make_shared<qsim::IterativeQpeWorkflow>());
     context.RegisterService<qsim::CostFunctionEvaluator>(
         std::make_shared<qsim::DefaultObjFuncEval>());
+    context.RegisterService<qsim::CostFunctionEvaluator>(
+        std::make_shared<qsim::PhaseEstimationObjFuncEval>());
   }
 
   void Stop(BundleContext) {}

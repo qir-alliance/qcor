@@ -1,5 +1,5 @@
 set(LIBRARY_NAME qcor-quantum-simulation)
-file(GLOB SRC *.cpp)
+file(GLOB SRC *.cpp modules/*.cpp)
 file(GLOB HEADERS *.hpp)
 
 usfunctiongetresourcesource(TARGET ${LIBRARY_NAME} OUT SRC)
@@ -9,7 +9,7 @@ set(_bundle_name qcor_qsim)
 add_library(${LIBRARY_NAME} SHARED ${SRC})
 
 target_link_libraries(${LIBRARY_NAME} PUBLIC qcor qcor-qsim)
-target_include_directories(${LIBRARY_NAME} PUBLIC ../base)
+target_include_directories(${LIBRARY_NAME} PUBLIC . ../base)
 xacc_configure_library_rpath(${LIBRARY_NAME})
 
 set_target_properties(${LIBRARY_NAME}
@@ -40,5 +40,6 @@ install(TARGETS ${LIBRARY_NAME} DESTINATION ${CMAKE_INSTALL_PREFIX}/plugins)
 install(FILES ${HEADERS} DESTINATION include/qcor)
 
 if (QCOR_BUILD_TESTS)
-	add_subdirectory(tests)
+  add_subdirectory(tests)
+  add_subdirectory(modules/tests)
 endif()

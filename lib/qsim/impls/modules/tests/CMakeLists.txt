@@ -1,0 +1,5 @@
+add_executable(TimeSeriesQpeTester TimeSeriesQpeTester.cpp)
+add_test(NAME qcor_TimeSeriesQpeTester COMMAND TimeSeriesQpeTester)
+target_include_directories(TimeSeriesQpeTester PRIVATE ${XACC_ROOT}/include/gtest)
+link_directories(${XACC_ROOT}/lib)
+target_link_libraries(TimeSeriesQpeTester ${XACC_ROOT}/lib/libgtest.so ${XACC_ROOT}/lib/libgtest_main.so)
