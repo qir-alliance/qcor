@@ -132,8 +132,9 @@ bool IterativeQpeWorkflow::initialize(const HeterogeneousMap &params) {
   return (num_steps >= 1) && (num_iters >= 1);
 }
 
-std::shared_ptr<CompositeInstruction> IterativeQpeWorkflow::constructQpeCircuit(
-    std::shared_ptr<Observable> obs, int k, double omega, bool measure) const {
+std::shared_ptr<CompositeInstruction>
+constructQpeTrotterCircuit(std::shared_ptr<Observable> obs, double trotter_step,
+                           int steps, int k, double omega) {
   auto provider = xacc::getIRProvider("quantum");
   auto kernel = provider->createComposite("__TEMP__QPE__LOOP__");
   const auto nbQubits = obs->nBits();
@@ -146,9 +147,8 @@ std::shared_ptr<CompositeInstruction> IterativeQpeWorkflow::constructQpeCircuit(
   // Using Trotter evolution method to generate U:
   // TODO: support other methods (e.g. Suzuki)
   TrotterEvolution method;
-  const double trotterStepSize = -2 * M_PI / num_steps;
   auto trotterCir =
-      method.create_ansatz(obs.get(), {{"dt", trotterStepSize}}).circuit;
+      method.create_ansatz(obs.get(), {{"dt", trotter_step}}).circuit;
   // std::cout << "Trotter circ:\n" << trotterCir->toString() << "\n";
 
   // Controlled-U
@@ -161,7 +161,7 @@ std::shared_ptr<CompositeInstruction> IterativeQpeWorkflow::constructQpeCircuit(
 
   // Apply C-U^n
   int power = 1 << (k - 1);
-  for (int i = 0; i < power * num_steps; ++i) {
+  for (int i = 0; i < power * steps; ++i) {
     for (int instId = 0; instId < ctrlKernel->nInstructions(); ++instId) {
       // We need to clone the instruction since it'll be repeated.
       kernel->addInstruction(ctrlKernel->getInstruction(instId)->clone());
@@ -179,8 +179,19 @@ std::shared_ptr<CompositeInstruction> IterativeQpeWorkflow::constructQpeCircuit(
   }
 
   kernel->addInstruction(provider->createInstruction("Rz", {ancBit}, {omega}));
+  return kernel;
+}
 
-  // Hadamard on ancilla qubit
+std::shared_ptr<CompositeInstruction> IterativeQpeWorkflow::constructQpeCircuit(
+    std::shared_ptr<Observable> obs, int k, double omega, bool measure) const {
+  auto provider = xacc::getIRProvider("quantum");
+  const double trotterStepSize = -2 * M_PI / num_steps;
+  auto kernel = constructQpeTrotterCircuit(obs, trotterStepSize, num_steps, k, omega);
+  const auto nbQubits = obs->nBits();
+  
+  // Ancilla qubit is the last one in the register
+  const size_t ancBit = nbQubits;
+  // Hadamard on ancilla qubit (measure in X basis for regular IQPE)
   kernel->addInstruction(provider->createInstruction("H", ancBit));
 
   if (measure) {
