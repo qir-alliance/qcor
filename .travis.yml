@@ -1,0 +1,13 @@
+sudo: required
+language: cpp
+jobs:
+  include:
+    - os: osx
+      dist: xcode11.3
+      script: 
+        - echo "Running Mojave Brew Bottle Build"
+        - git clone https://github.com/aide-qc/homebrew-deploy
+        - brew update
+
+#    - os: osx
+#      osx_image: xcode12.2
