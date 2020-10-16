@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import argparse, sys, os, subprocess, mimetypes, re
+import sys, os, subprocess, mimetypes, re
 
 def main(argv=None):
     compiler = '@CLANG_EXECUTABLE@'
@@ -14,7 +14,6 @@ def main(argv=None):
     for path in extra_headers.split(';'):
         baseIncludes += ['-I', path]
 
-    print('@QCOR_EXTRA_HEADERS@')
     defaultFlags = ['-std=c++17', '-fplugin=@CMAKE_INSTALL_PREFIX@/clang-plugins/libqcor-syntax-handler@CMAKE_SHARED_LIBRARY_SUFFIX@', '-Wno-stdlibcxx-not-found']
 
     # This flag is primarily for our testers to point to the 
@@ -45,7 +44,6 @@ def main(argv=None):
         parser.add_argument('-L',action='append',nargs=1,metavar=('/path/to/libs'),help='specifiy additional linker search paths.')
         parser.add_argument('-l',action='append',nargs=1,metavar=('lib_name'),help='specifiy additional libraries to link.')
         args = parser.parse_args(sys.argv)
-
 
     if '--verbose' in sys.argv[1:]:
         verbose=True
