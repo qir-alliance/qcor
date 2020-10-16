@@ -1,13 +1,17 @@
 #pragma once
 #include <Eigen/Dense>
 #include <Eigen/Eigenvalues>
+#include <Eigen/QR>
 #include <cassert>
 #include <complex>
+#include <iostream>
 #include <vector>
 // Implements Prony method for IQPE signal fitting.
 // i.e. fit g(t) = sum a_i * exp(i * omega_i * t)
 // Returns the vector of amplitude {a_i} and freq. {omega_i}
 
+namespace qcor {
+namespace utils {
 // Returns a vector of <Ampl, Freq> pair
 using PronyResult =
     std::vector<std::pair<std::complex<double>, std::complex<double>>>;
@@ -53,17 +57,21 @@ PronyResult pronyFit(const std::vector<std::complex<double>> &in_signal) {
                            vectorSlice(in_signal, num_freqs - 1, -1));
   auto hankel1 = hankelMat(vectorSlice(in_signal, 1, num_freqs + 1),
                            vectorSlice(in_signal, num_freqs, 0));
+  // std::cout << "Hankel Matrix 0: \n" << hankel0 << "\n";
+  // std::cout << "Hankel Matrix 1: \n" << hankel1 << "\n";
+
   hankel0.transposeInPlace();
   hankel1.transposeInPlace();
   Eigen::MatrixXcd shift_matrix =
       Eigen::MatrixXcd::Zero(hankel0.cols(), hankel1.cols());
 
   for (size_t i = 0; i < hankel1.cols(); ++i) {
-    auto shift_matrix_col =
-        hankel0.bdcSvd(Eigen::ComputeThinU | Eigen::ComputeThinV)
-            .solve(hankel1.col(i));
+    Eigen::VectorXcd shift_matrix_col =
+        hankel0.fullPivHouseholderQr().solve(hankel1.col(i));
     shift_matrix.col(i) = shift_matrix_col;
   }
+  // std::cout << "Shift matrix: \n" << shift_matrix << "\n";
+
   shift_matrix.transposeInPlace();
   Eigen::ComplexEigenSolver<Eigen::MatrixXcd> s(shift_matrix);
   auto phases = s.eigenvalues();
@@ -78,14 +86,23 @@ PronyResult pronyFit(const std::vector<std::complex<double>> &in_signal) {
   auto signalData = in_signal;
   Eigen::VectorXcd signal =
       Eigen::Map<Eigen::VectorXcd>(signalData.data(), signalData.size());
-  auto amplitudes =
-      generation_matrix.bdcSvd(Eigen::ComputeThinU | Eigen::ComputeThinV)
-          .solve(signal);
+  Eigen::VectorXcd amplitudes =
+      generation_matrix.fullPivHouseholderQr().solve(signal);
   assert(phases.size() == amplitudes.size());
+  // std::cout << "Amplitude:\n" << amplitudes << "\n";
+  // std::cout << "Phases:\n" << phases << "\n";
   PronyResult finalResult;
   for (size_t i = 0; i < phases.size(); ++i) {
     finalResult.emplace_back(std::make_pair(amplitudes(i), phases(i)));
   }
 
+  // Sort by amplitude:
+  std::sort(finalResult.begin(), finalResult.end(),
+            [](const auto &a, const auto &b) {
+              return std::abs(a.first) < std::abs(b.first);
+            });
+
   return finalResult;
 }
+} // namespace utils
+} // namespace qcor
