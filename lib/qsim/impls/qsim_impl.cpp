@@ -133,8 +133,9 @@ bool IterativeQpeWorkflow::initialize(const HeterogeneousMap &params) {
 }
 
 std::shared_ptr<CompositeInstruction>
-constructQpeTrotterCircuit(std::shared_ptr<Observable> obs, double trotter_step,
-                           int steps, int k, double omega) {
+IterativeQpeWorkflow::constructQpeTrotterCircuit(
+    std::shared_ptr<Observable> obs, double trotter_step, int steps, int k,
+    double omega) {
   auto provider = xacc::getIRProvider("quantum");
   auto kernel = provider->createComposite("__TEMP__QPE__LOOP__");
   const auto nbQubits = obs->nBits();
