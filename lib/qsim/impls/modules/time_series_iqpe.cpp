@@ -1,4 +1,5 @@
 #include "qsim_impl.hpp"
+#include "utils/prony_method.hpp"
 #include "xacc.hpp"
 #include "xacc_service.hpp"
 

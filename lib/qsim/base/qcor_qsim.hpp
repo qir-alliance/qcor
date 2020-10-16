@@ -3,10 +3,15 @@
 #include "AcceleratorBuffer.hpp"
 #include "Circuit.hpp"
 #include "kernel_evaluator.hpp"
-#include "qcor.hpp"
+#include "objective_function.hpp"
+#include "qcor_observable.hpp"
+#include "qcor_optimizer.hpp"
 #include "qcor_utils.hpp"
 #include "qrt.hpp"
+#include "quantum_kernel.hpp"
+#include "taskInitiate.hpp"
 #include <memory>
+#include <qalloc>
 #include <xacc_internal_compiler.hpp>
 
 using CompositeInstruction = xacc::CompositeInstruction;

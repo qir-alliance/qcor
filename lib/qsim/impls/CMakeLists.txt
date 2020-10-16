@@ -9,7 +9,7 @@ set(_bundle_name qcor_qsim)
 add_library(${LIBRARY_NAME} SHARED ${SRC})
 
 target_link_libraries(${LIBRARY_NAME} PUBLIC qcor qcor-qsim)
-target_include_directories(${LIBRARY_NAME} PUBLIC . ../base)
+target_include_directories(${LIBRARY_NAME} PUBLIC . ../base ${XACC_ROOT}/include/eigen)
 xacc_configure_library_rpath(${LIBRARY_NAME})
 
 set_target_properties(${LIBRARY_NAME}
