@@ -136,11 +136,51 @@ double PhaseEstimationObjFuncEval::evaluate(
   // Assemble execution data into a fast look-up map
   ExecutionData exeResult;
 
-  /// TODO: handle rejection sampling if need verification/noise mitigation.
+  /// Handle rejection sampling if need verification/noise mitigation.
   // i.e. cannot rely on the default getExpectationValueZ but must manually
   // compute the expectation.
+  const auto mitigateMeasurementResult =
+      [&](const std::map<std::string, int> &in_rawResult) {
+        std::map<std::string, int> result{{"0", 0}, {"1", 0}};
+        const size_t bitIdx =
+            (qpu->getBitOrder() == Accelerator::BitOrder::MSB) ? 0 : nbQubits;
+        const std::string CORRECT_VERIFIED_BITSTRING(nbQubits, '0');
+        for (const auto &[bitString, count] : in_rawResult) {
+          assert(bitString.size() == nbQubits + 1);
+          const std::string bitVal = bitString.substr(bitIdx, 1);
+          std::string verifiedBitString = bitString;
+          verifiedBitString.erase(verifiedBitString.begin() + bitIdx);
+          if (verifiedBitString == CORRECT_VERIFIED_BITSTRING) {
+            result[bitVal] += count;
+          }
+        }
+
+        return result;
+      };
+  // Mitigate/verify the result if in the 'verified' mode:
   for (auto &childBuffer : temp_buffer->getChildren()) {
-    exeResult.emplace(childBuffer->name(), childBuffer->getExpectationValueZ());
+    if (verifyMode && !childBuffer->getMeasurementCounts().empty()) {
+      auto mitigatedResult =
+          mitigateMeasurementResult(childBuffer->getMeasurementCounts());
+      assert(mitigatedResult.size() == 2);
+      const int m0_verified = mitigatedResult["0"];
+      const int m1_verified = mitigatedResult["1"];
+      const int totalVerified = m0_verified + m1_verified;
+      if (totalVerified == 0) {
+        xacc::error("Failed to mitigate QPE results: no valid bit string after "
+                    "verification.");
+      } else {
+        // See Eq. 4 (https://arxiv.org/pdf/2010.02538.pdf)
+        const double verifiedExp =
+            static_cast<double>(m0_verified - m1_verified) / totalVerified;
+        std::cout << "m0 = " << m0_verified << ", m1 = " << m1_verified
+                  << "; Exp = " << verifiedExp << "\n";
+        exeResult.emplace(childBuffer->name(), verifiedExp);
+      }
+    } else {
+      exeResult.emplace(childBuffer->name(),
+                        childBuffer->getExpectationValueZ());
+    }
   }
 
   std::complex<double> expVal =
