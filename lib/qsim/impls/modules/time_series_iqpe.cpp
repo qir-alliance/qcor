@@ -24,22 +24,23 @@ double PhaseEstimationObjFuncEval::evaluate(
   }
 
   const auto tList = xacc::linspace(0.0, 2 * M_PI, nbSteps);
-  std::complex<double> expVal =
-      target_operator->getIdentitySubTerm()
-          ? target_operator->getIdentitySubTerm()->coefficient()
-          : 0.0;
   const auto nbQubits = target_operator->nBits();
   const size_t ancBit = nbQubits;
-  // TODO: combine sub-circuits for all terms into a vector of
-  // CompositeInstructions.
+
+  std::vector<std::shared_ptr<CompositeInstruction>> fsToExec;
+  // Time series data for a term: list of X and Y kernels (different times)
+  using TimeSeriesData = std::vector<std::pair<std::string, std::string>>;
+  using TermEvalData =
+      std::vector<std::pair<std::complex<double>, TimeSeriesData>>;
+  // Map from kernel name to result (expectation Z value)
+  using ExecutionData = std::unordered_map<std::string, double>;
+
+  TermEvalData obsTermTracking;
   for (auto &term : target_operator->getNonIdentitySubTerms()) {
+    TimeSeriesData termData;
     // std::cout << "Evaluate: " << term->toString() << "\n";
     const auto termCoeff = term->coefficient();
     auto model = ModelBuilder::createModel(term.get());
-
-    // g(t) function
-    std::vector<std::complex<double>> gFuncList;
-    constexpr std::complex<double> I(0.0, 1.0);
     // High-level algorithm:
     // (I) For each time t:
     for (const auto &t : tList) {
@@ -67,21 +68,47 @@ double PhaseEstimationObjFuncEval::evaluate(
           provider->createInstruction("Rx", {ancBit}, {M_PI_2}));
       yKernel->addInstruction(provider->createInstruction("Measure", ancBit));
 
-      // std::cout << "X Kernel:\n" << xKernel->toString() << "\n";
-      // std::cout << "Y Kernel:\n" << yKernel->toString() << "\n";
+      fsToExec.emplace_back(xKernel);
+      fsToExec.emplace_back(yKernel);
+      termData.emplace_back(std::make_pair(xKernel->name(), yKernel->name()));
+    }
+    obsTermTracking.emplace_back(std::make_pair(termCoeff, termData));
+  }
 
-      auto qpu = xacc::internal_compiler::get_qpu();
-      auto temp_buffer1 = xacc::qalloc(nbQubits + 1);
-      qpu->execute(temp_buffer1, xKernel);
-      auto temp_buffer2 = xacc::qalloc(nbQubits + 1);
-      qpu->execute(temp_buffer2, yKernel);
-      auto exp_x_val = temp_buffer1->getExpectationValueZ();
-      auto exp_y_val = temp_buffer2->getExpectationValueZ();
+  auto qpu = xacc::internal_compiler::get_qpu();
+  auto temp_buffer = xacc::qalloc(nbQubits + 1);
+  // Execute all sub-kernels
+  qpu->execute(temp_buffer, fsToExec);
+
+  // Assemble execution data into a fast look-up map
+  ExecutionData exeResult;
+  for (auto &childBuffer : temp_buffer->getChildren()) {
+    exeResult.emplace(childBuffer->name(), childBuffer->getExpectationValueZ());
+  }
+
+  std::complex<double> expVal =
+      target_operator->getIdentitySubTerm()
+          ? target_operator->getIdentitySubTerm()->coefficient()
+          : 0.0;
+
+  for (const auto &[coeff, listKernels] : obsTermTracking) {
+    // g(t) function (for each term)
+    std::vector<std::complex<double>> gFuncList;
+    constexpr std::complex<double> I(0.0, 1.0);
+
+    for (const auto &[xKernel, yKernel] : listKernels) {
+      // Look-up the X and Y expectation for each time step.
+      auto xIter = exeResult.find(xKernel);
+      auto yIter = exeResult.find(yKernel);
+      assert(xIter != exeResult.end());
+      assert(yIter != exeResult.end());
+
+      const double exp_x_val = xIter->second;
+      const double exp_y_val = yIter->second;
 
       // Add the g(t) value from IQPE
       gFuncList.emplace_back(exp_x_val + I * exp_y_val);
     }
-
     assert(gFuncList.size() == tList.size());
     /// (II) Fit g(t) to determine A0 and A1
     /// DEBUG:
@@ -117,7 +144,7 @@ double PhaseEstimationObjFuncEval::evaluate(
     /// (III) Estimate <H> = (A0 - A1)/(A0 + A1)
     const double expValTerm = (A0.value_or(0.0) - A1.value_or(0.0)) /
                               (A0.value_or(0.0) + A1.value_or(0.0));
-    expVal += (expValTerm * termCoeff);
+    expVal += (expValTerm * coeff);
   }
 
   return expVal.real();
