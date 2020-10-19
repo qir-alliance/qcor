@@ -77,10 +77,12 @@ TEST(TimeSeriesQpeTester, checkVerifiedProtocolNoiseless) {
   using namespace qcor;
   const auto angles = xacc::linspace(0.0, M_PI, 12);
   auto observable = Z(0);
+  // Run the QPE with verification.
   auto evaluator =
       qsim::getObjEvaluator(&observable, "qpe", {{"verified", true}});
   auto provider = xacc::getIRProvider("quantum");
-  xacc::internal_compiler::qpu = xacc::getAccelerator("qpp", {{"shots", 4096}});
+  // Run the test with shots:
+  xacc::internal_compiler::qpu = xacc::getAccelerator("qpp", {{"shots", 8192}});
 
   for (const auto &angle : angles) {
     auto kernel = provider->createComposite("test");
@@ -89,7 +91,8 @@ TEST(TimeSeriesQpeTester, checkVerifiedProtocolNoiseless) {
     const auto theoreticalExp = 1.0 - 2.0 * std::pow(std::sin(angle / 2.0), 2);
     std::cout << "Angle = " << angle << ": Exp val = " << expVal << " vs. "
               << theoreticalExp << "\n";
-    // EXPECT_NEAR(expVal, theoreticalExp, 1e-3);
+    // Since there is sampling error, we need to relax the limit.
+    EXPECT_NEAR(expVal, theoreticalExp, 0.05);
   }
 }
 

@@ -20,7 +20,9 @@ namespace qsim {
 double PhaseEstimationObjFuncEval::evaluate(
     std::shared_ptr<CompositeInstruction> state_prep) {
   // Default number of time steps to fit g(t)
-  int nbSteps = 11;
+  // Note: for Pauli operators, we expect that there are 2 eigenvalues for each
+  // term, hence use a minimal number of steps, which is 5.
+  int nbSteps = 5;
   if (hyperParams.keyExists<int>("steps")) {
     nbSteps = hyperParams.get<int>("steps");
   }
@@ -160,7 +162,9 @@ double PhaseEstimationObjFuncEval::evaluate(
         const size_t bitIdx =
             (qpu->getBitOrder() == Accelerator::BitOrder::MSB) ? 0 : nbQubits;
         const std::string CORRECT_VERIFIED_BITSTRING(nbQubits, '0');
+        size_t totalCount = 0;
         for (const auto &[bitString, count] : in_rawResult) {
+          totalCount += count;
           assert(bitString.size() == nbQubits + 1);
           const std::string bitVal = bitString.substr(bitIdx, 1);
           std::string verifiedBitString = bitString;
@@ -170,12 +174,12 @@ double PhaseEstimationObjFuncEval::evaluate(
           }
         }
 
-        return result;
+        return std::make_pair(totalCount, result);
       };
   // Mitigate/verify the result if in the 'verified' mode:
   for (auto &childBuffer : temp_buffer->getChildren()) {
     if (verifyMode && !childBuffer->getMeasurementCounts().empty()) {
-      auto mitigatedResult =
+      auto [totalCount, mitigatedResult] =
           mitigateMeasurementResult(childBuffer->getMeasurementCounts());
       assert(mitigatedResult.size() == 2);
       const int m0_verified = mitigatedResult["0"];
@@ -187,8 +191,10 @@ double PhaseEstimationObjFuncEval::evaluate(
         return 0.0;
       } else {
         // See Eq. 4 (https://arxiv.org/pdf/2010.02538.pdf)
+        // Note: the denominator is the total count, not the sum of verified
+        // count, i.e. not strictly post-selection
         const double verifiedExp =
-            static_cast<double>(m0_verified - m1_verified) / totalVerified;
+            static_cast<double>(m0_verified - m1_verified) / totalCount;
         // std::cout << "m0 = " << m0_verified << ", m1 = " << m1_verified
         //           << "; Exp = " << verifiedExp << "\n";
         exeResult.emplace(childBuffer->name(), verifiedExp);
