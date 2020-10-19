@@ -1,0 +1,20 @@
+sudo: required
+language: cpp
+jobs:
+  include:
+    - os: osx
+      osx_image: xcode11.3
+      script: 
+        - echo "Running Mojave Brew Bottle Build"
+        - git clone https://github.com/aide-qc/homebrew-deploy
+        - brew update
+        - cd homebrew-deploy/scripts/mojave/qcor
+        - bash build.sh $AIDEQC_ACCESS_TOKEN $JFROG_API_KEY
+#    - os: osx
+#      osx_image: xcode12.2
+#      script:
+#        - echo "Running Catalina Brew Bottle Build"
+#        - git clone https://github.com/aide-qc/homebrew-deploy
+#        - brew update
+#        - cd homebrew-deploy/scripts/catalina/qcor
+#        - bash build.sh $AIDEQC_ACCESS_TOKEN $JFROG_API_KEY
