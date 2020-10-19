@@ -20,7 +20,7 @@ namespace qsim {
 double PhaseEstimationObjFuncEval::evaluate(
     std::shared_ptr<CompositeInstruction> state_prep) {
   // Default number of time steps to fit g(t)
-  int nbSteps = 10;
+  int nbSteps = 11;
   if (hyperParams.keyExists<int>("steps")) {
     nbSteps = hyperParams.get<int>("steps");
   }
@@ -30,8 +30,15 @@ double PhaseEstimationObjFuncEval::evaluate(
   if (hyperParams.keyExists<bool>("verified")) {
     verifyMode = hyperParams.get<bool>("verified");
   }
+  // Minimum: 2 freqs (eigenvalues) -> 5 data points.
+  if (nbSteps < 5) {
+    xacc::error("Not enough time-series data samples for frequency/eigenvalue "
+                "estimation.");
+    return 0.0;
+  }
 
   const auto tList = xacc::linspace(0.0, 2 * M_PI, nbSteps);
+  const double SAMPLING_FREQ = (nbSteps - 1) / (2 * M_PI);
   const auto nbQubits = target_operator->nBits();
   const size_t ancBit = nbQubits;
 
@@ -80,7 +87,15 @@ double PhaseEstimationObjFuncEval::evaluate(
     TimeSeriesData termData;
     // std::cout << "Evaluate: " << term->toString() << "\n";
     const auto termCoeff = term->coefficient();
-    auto model = ModelBuilder::createModel(term.get());
+    // Normalize the term so that the signal processing works as expected.
+    auto pauliCast = std::static_pointer_cast<PauliOperator>(term);
+    if (pauliCast) {
+      pauliCast->operator*=(1.0 / termCoeff);
+    } else {
+      xacc::error("Only fast-forwardable operators (Pauli) are supported.");
+      return 0.0;
+    }
+
     // High-level algorithm:
     // (I) For each time t:
     for (const auto &t : tList) {
@@ -90,8 +105,8 @@ double PhaseEstimationObjFuncEval::evaluate(
                                               std::to_string(count++));
       kernel->addInstruction(state_prep);
       ///    (2) Estimate the <X> and <Y> for this time step
-      auto qpeKernel =
-          IterativeQpeWorkflow::constructQpeTrotterCircuit(term, t, nbQubits);
+      auto qpeKernel = IterativeQpeWorkflow::constructQpeTrotterCircuit(
+          pauliCast, t, nbQubits);
       kernel->addInstruction(qpeKernel);
       ///    (3) Add g(t) = <X> + i <Y>
       auto xKernel = provider->createComposite("__TEMP__QPE__KERNEL__X__" +
@@ -169,12 +184,13 @@ double PhaseEstimationObjFuncEval::evaluate(
       if (totalVerified == 0) {
         xacc::error("Failed to mitigate QPE results: no valid bit string after "
                     "verification.");
+        return 0.0;
       } else {
         // See Eq. 4 (https://arxiv.org/pdf/2010.02538.pdf)
         const double verifiedExp =
             static_cast<double>(m0_verified - m1_verified) / totalVerified;
-        std::cout << "m0 = " << m0_verified << ", m1 = " << m1_verified
-                  << "; Exp = " << verifiedExp << "\n";
+        // std::cout << "m0 = " << m0_verified << ", m1 = " << m1_verified
+        //           << "; Exp = " << verifiedExp << "\n";
         exeResult.emplace(childBuffer->name(), verifiedExp);
       }
     } else {
@@ -213,34 +229,16 @@ double PhaseEstimationObjFuncEval::evaluate(
     //   std::cout << "t = " << tList[i] << ": " << gFuncList[i] << "\n";
     // }
     auto pronyFit = qcor::utils::pronyFit(gFuncList);
-    std::optional<double> A0, A1;
-    std::optional<double> f0, f1;
+    double expValTerm = 0.0;
     for (const auto &[ampl, phase] : pronyFit) {
-      const double freq = std::arg(phase);
+      const double freq = -std::arg(phase) * SAMPLING_FREQ;
       const double amplitude = std::abs(ampl);
       // std::cout << "A = " << amplitude << "; "
       //           << "Freq = " << freq << "\n";
-      constexpr double EPS = 1e-2;
-      if (freq < 0 && std::abs(amplitude) > EPS) {
-        assert(!A0.has_value());
-        A0 = amplitude;
-        f0 = freq;
-      }
-      if (freq > 0 && std::abs(amplitude) > EPS) {
-        assert(!A1.has_value());
-        A1 = amplitude;
-        f1 = freq;
-      }
-    }
-    assert(A0.has_value() || A1.has_value());
-    if (A0.has_value() && A1.has_value()) {
-      // Frequency values must be opposite.
-      assert(std::abs(f0.value() + f1.value()) < 1e-6);
+      // Generic expectation value estimation (Eq. 22)
+      expValTerm += (freq * amplitude);
     }
 
-    /// (III) Estimate <H> = (A0 - A1)/(A0 + A1)
-    const double expValTerm = (A0.value_or(0.0) - A1.value_or(0.0)) /
-                              (A0.value_or(0.0) + A1.value_or(0.0));
     expVal += (expValTerm * coeff);
   }
 

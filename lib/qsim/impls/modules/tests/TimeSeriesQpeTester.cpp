@@ -73,6 +73,26 @@ TEST(TimeSeriesQpeTester, checkMultipleTerms) {
   }
 }
 
+TEST(TimeSeriesQpeTester, checkVerifiedProtocolNoiseless) {
+  using namespace qcor;
+  const auto angles = xacc::linspace(0.0, M_PI, 12);
+  auto observable = Z(0);
+  auto evaluator =
+      qsim::getObjEvaluator(&observable, "qpe", {{"verified", true}});
+  auto provider = xacc::getIRProvider("quantum");
+  xacc::internal_compiler::qpu = xacc::getAccelerator("qpp", {{"shots", 4096}});
+
+  for (const auto &angle : angles) {
+    auto kernel = provider->createComposite("test");
+    kernel->addInstruction(provider->createInstruction("Rx", {0}, {angle}));
+    const auto expVal = evaluator->evaluate(kernel);
+    const auto theoreticalExp = 1.0 - 2.0 * std::pow(std::sin(angle / 2.0), 2);
+    std::cout << "Angle = " << angle << ": Exp val = " << expVal << " vs. "
+              << theoreticalExp << "\n";
+    // EXPECT_NEAR(expVal, theoreticalExp, 1e-3);
+  }
+}
+
 int main(int argc, char **argv) {
   xacc::Initialize();
   ::testing::InitGoogleTest(&argc, argv);
