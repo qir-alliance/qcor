@@ -90,6 +90,7 @@ bool VqeWorkflow::initialize(const HeterogeneousMap &params) {
   } else {
     optimizer = createOptimizer(DEFAULT_OPTIMIZER);
   }
+  config_params = params;
   // VQE workflow requires an optimizer
   return (optimizer != nullptr);
 }
@@ -99,7 +100,12 @@ VqeWorkflow::execute(const QuantumSimulationModel &model) {
   // If the model includes a concrete variational ansatz:
   if (model.user_defined_ansatz) {
     auto nParams = model.user_defined_ansatz->nParams();
-    evaluator = getObjEvaluator(model.observable);
+    if (config_params.pointerLikeExists<CostFunctionEvaluator>("evaluator")) {
+      evaluator = xacc::as_shared_ptr(
+          config_params.getPointerLike<CostFunctionEvaluator>("evaluator"));
+    } else {
+      evaluator = getObjEvaluator(model.observable);
+    }
 
     OptFunction f(
         [&](const std::vector<double> &x, std::vector<double> &dx) {

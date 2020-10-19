@@ -166,5 +166,10 @@ getWorkflow(const std::string &name, const HeterogeneousMap &init_params);
 std::shared_ptr<CostFunctionEvaluator>
 getObjEvaluator(Observable *observable, const std::string &name = "default",
                 const HeterogeneousMap &init_params = {});
+inline std::shared_ptr<CostFunctionEvaluator>
+getObjEvaluator(PauliOperator &obs, const std::string &name = "default",
+                const HeterogeneousMap &init_params = {}) {
+  return getObjEvaluator(&obs, name, init_params);
+}
 } // namespace qsim
 } // namespace qcor

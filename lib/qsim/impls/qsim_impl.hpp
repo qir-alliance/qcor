@@ -53,6 +53,7 @@ public:
 
 private:
   std::shared_ptr<Optimizer> optimizer;
+  HeterogeneousMap config_params;
 };
 
 // Time-dependent evolution workflow which can handle
