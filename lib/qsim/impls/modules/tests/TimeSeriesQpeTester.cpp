@@ -49,6 +49,25 @@ TEST(TimeSeriesQpeTester, checkSimple) {
   }
 }
 
+TEST(TimeSeriesQpeTester, checkMultipleTerms) {
+  using namespace qcor;
+  const auto angles = xacc::linspace(0.0, 2.0 * M_PI, 10);
+  auto observable = 5.907 - 2.1433 * X(0) * X(1) - 2.1433 * Y(0) * Y(1) +
+                    .21829 * Z(0) - 6.125 * Z(1);
+  auto evaluator = qsim::getObjEvaluator(&observable, "qpe");
+  auto provider = xacc::getIRProvider("quantum");
+  xacc::internal_compiler::qpu = xacc::getAccelerator("qpp");
+
+  for (const auto &angle : angles) {
+    auto kernel = provider->createComposite("test");
+    kernel->addInstruction(provider->createInstruction("X", {0}));
+    kernel->addInstruction(provider->createInstruction("Ry", {0}, {angle}));
+    kernel->addInstruction(provider->createInstruction("CNOT", {1, 0}));
+    const auto expVal = evaluator->evaluate(kernel);
+    std::cout << "Angle = " << angle << ": Exp val = " << expVal << "\n";
+  }
+}
+
 int main(int argc, char **argv) {
   xacc::Initialize();
   ::testing::InitGoogleTest(&argc, argv);

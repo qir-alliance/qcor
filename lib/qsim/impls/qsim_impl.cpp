@@ -134,11 +134,10 @@ bool IterativeQpeWorkflow::initialize(const HeterogeneousMap &params) {
 
 std::shared_ptr<CompositeInstruction>
 IterativeQpeWorkflow::constructQpeTrotterCircuit(
-    std::shared_ptr<Observable> obs, double trotter_step, int steps, int k,
-    double omega) {
+    std::shared_ptr<Observable> obs, double trotter_step, size_t nbQubits,
+    int steps, int k, double omega) {
   auto provider = xacc::getIRProvider("quantum");
   auto kernel = provider->createComposite("__TEMP__QPE__LOOP__");
-  const auto nbQubits = obs->nBits();
   // Ancilla qubit is the last one in the register.
   const size_t ancBit = nbQubits;
 
@@ -187,7 +186,8 @@ std::shared_ptr<CompositeInstruction> IterativeQpeWorkflow::constructQpeCircuit(
     std::shared_ptr<Observable> obs, int k, double omega, bool measure) const {
   auto provider = xacc::getIRProvider("quantum");
   const double trotterStepSize = -2 * M_PI / num_steps;
-  auto kernel = constructQpeTrotterCircuit(obs, trotterStepSize, num_steps, k, omega);
+  auto kernel = constructQpeTrotterCircuit(obs, trotterStepSize, obs->nBits(),
+                                           num_steps, k, omega);
   const auto nbQubits = obs->nBits();
   
   // Ancilla qubit is the last one in the register

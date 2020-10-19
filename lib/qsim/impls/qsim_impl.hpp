@@ -94,8 +94,8 @@ public:
 
   static std::shared_ptr<CompositeInstruction>
   constructQpeTrotterCircuit(std::shared_ptr<Observable> obs,
-                             double trotter_step, int steps = 1, int k = 1,
-                             double omega = 0);
+                             double trotter_step, size_t nbQubits,
+                             int steps = 1, int k = 1, double omega = 0);
 
 private:
   std::shared_ptr<CompositeInstruction>

@@ -30,7 +30,10 @@ double PhaseEstimationObjFuncEval::evaluate(
           : 0.0;
   const auto nbQubits = target_operator->nBits();
   const size_t ancBit = nbQubits;
+  // TODO: combine sub-circuits for all terms into a vector of
+  // CompositeInstructions.
   for (auto &term : target_operator->getNonIdentitySubTerms()) {
+    // std::cout << "Evaluate: " << term->toString() << "\n";
     const auto termCoeff = term->coefficient();
     auto model = ModelBuilder::createModel(term.get());
 
@@ -46,10 +49,9 @@ double PhaseEstimationObjFuncEval::evaluate(
       auto kernel = provider->createComposite("__TEMP__QPE__KERNEL__" +
                                               std::to_string(count++));
       kernel->addInstruction(state_prep);
-
       ///    (2) Estimate the <X> and <Y> for this time step
       auto qpeKernel =
-          IterativeQpeWorkflow::constructQpeTrotterCircuit(term, t);
+          IterativeQpeWorkflow::constructQpeTrotterCircuit(term, t, nbQubits);
       kernel->addInstruction(qpeKernel);
       ///    (3) Add g(t) = <X> + i <Y>
       auto xKernel = provider->createComposite("__TEMP__QPE__KERNEL__X__" +
@@ -83,17 +85,17 @@ double PhaseEstimationObjFuncEval::evaluate(
     assert(gFuncList.size() == tList.size());
     /// (II) Fit g(t) to determine A0 and A1
     /// DEBUG:
-    for (size_t i = 0; i < gFuncList.size(); ++i) {
-      std::cout << "t = " << tList[i] << ": " << gFuncList[i] << "\n";
-    }
+    // for (size_t i = 0; i < gFuncList.size(); ++i) {
+    //   std::cout << "t = " << tList[i] << ": " << gFuncList[i] << "\n";
+    // }
     auto pronyFit = qcor::utils::pronyFit(gFuncList);
     std::optional<double> A0, A1;
     std::optional<double> f0, f1;
     for (const auto &[ampl, phase] : pronyFit) {
       const double freq = std::arg(phase);
       const double amplitude = std::abs(ampl);
-      std::cout << "A = " << amplitude << "; "
-                << "Freq = " << freq << "\n";
+      // std::cout << "A = " << amplitude << "; "
+      //           << "Freq = " << freq << "\n";
       constexpr double EPS = 1e-2;
       if (freq < 0 && std::abs(amplitude) > EPS) {
         assert(!A0.has_value());
