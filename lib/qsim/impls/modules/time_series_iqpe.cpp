@@ -1,3 +1,5 @@
+#include "Instruction.hpp"
+#include "InstructionIterator.hpp"
 #include "qsim_impl.hpp"
 #include "utils/prony_method.hpp"
 #include "xacc.hpp"
@@ -23,9 +25,47 @@ double PhaseEstimationObjFuncEval::evaluate(
     nbSteps = hyperParams.get<int>("steps");
   }
 
+  // If we run verify mode, (noisy simulator/hardware)
+  bool verifyMode = false;
+  if (hyperParams.keyExists<bool>("verified")) {
+    verifyMode = hyperParams.get<bool>("verified");
+  }
+
   const auto tList = xacc::linspace(0.0, 2 * M_PI, nbSteps);
   const auto nbQubits = target_operator->nBits();
   const size_t ancBit = nbQubits;
+
+  auto provider = xacc::getIRProvider("quantum");
+  auto state_prep_adjoint =
+      provider->createComposite(state_prep->name() + "_adj");
+  if (verifyMode) {
+    std::vector<std::shared_ptr<xacc::Instruction>> gate_list;
+    xacc::InstructionIterator it(state_prep);
+    while (it.hasNext()) {
+      auto nextInst = it.next();
+      if (nextInst->isEnabled() && !nextInst->isComposite()) {
+        gate_list.emplace_back(nextInst->clone());
+      }
+    }
+    /// TODO: refactor this to be a common helper for QCOR
+    /// to prevent code duplication.
+    std::reverse(gate_list.begin(), gate_list.end());
+    for (size_t i = 0; i < gate_list.size(); ++i) {
+      auto &inst = gate_list[i];
+      if (inst->name() == "Rx" || inst->name() == "Ry" ||
+          inst->name() == "Rz" || inst->name() == "CPHASE" ||
+          inst->name() == "U1" || inst->name() == "CRZ") {
+        inst->setParameter(0, -inst->getParameter(0).template as<double>());
+      } else if (inst->name() == "T") {
+        auto tdg = provider->createInstruction("Tdg", inst->bits());
+        std::swap(inst, tdg);
+      } else if (inst->name() == "S") {
+        auto sdg = provider->createInstruction("Sdg", inst->bits());
+        std::swap(inst, sdg);
+      }
+    }
+    state_prep_adjoint->addInstructions(gate_list);
+  }
 
   std::vector<std::shared_ptr<CompositeInstruction>> fsToExec;
   // Time series data for a term: list of X and Y kernels (different times)
@@ -45,7 +85,6 @@ double PhaseEstimationObjFuncEval::evaluate(
     // (I) For each time t:
     for (const auto &t : tList) {
       ///    (1) Apply the state_prep on the main qubit register
-      auto provider = xacc::getIRProvider("quantum");
       static int count = 0;
       auto kernel = provider->createComposite("__TEMP__QPE__KERNEL__" +
                                               std::to_string(count++));
@@ -59,6 +98,14 @@ double PhaseEstimationObjFuncEval::evaluate(
                                                std::to_string(count++));
       xKernel->addInstruction(kernel);
       xKernel->addInstruction(provider->createInstruction("H", ancBit));
+      if (verifyMode) {
+        // Add adjoint circuit.
+        xKernel->addInstruction(state_prep_adjoint);
+        // Measure the base register (for rejection sampling)
+        for (size_t i = 0; i < nbQubits; ++i) {
+          xKernel->addInstruction(provider->createInstruction("Measure", i));
+        }
+      }
       xKernel->addInstruction(provider->createInstruction("Measure", ancBit));
 
       auto yKernel = provider->createComposite("__TEMP__QPE__KERNEL__Y__" +
@@ -66,6 +113,12 @@ double PhaseEstimationObjFuncEval::evaluate(
       yKernel->addInstruction(kernel);
       yKernel->addInstruction(
           provider->createInstruction("Rx", {ancBit}, {M_PI_2}));
+      if (verifyMode) {
+        yKernel->addInstruction(state_prep_adjoint);
+        for (size_t i = 0; i < nbQubits; ++i) {
+          yKernel->addInstruction(provider->createInstruction("Measure", i));
+        }
+      }
       yKernel->addInstruction(provider->createInstruction("Measure", ancBit));
 
       fsToExec.emplace_back(xKernel);
@@ -82,6 +135,10 @@ double PhaseEstimationObjFuncEval::evaluate(
 
   // Assemble execution data into a fast look-up map
   ExecutionData exeResult;
+
+  /// TODO: handle rejection sampling if need verification/noise mitigation.
+  // i.e. cannot rely on the default getExpectationValueZ but must manually
+  // compute the expectation.
   for (auto &childBuffer : temp_buffer->getChildren()) {
     exeResult.emplace(childBuffer->name(), childBuffer->getExpectationValueZ());
   }
