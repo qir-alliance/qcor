@@ -22,6 +22,11 @@ double PhaseEstimationObjFuncEval::evaluate(
   // Default number of time steps to fit g(t)
   // Note: for Pauli operators, we expect that there are 2 eigenvalues for each
   // term, hence use a minimal number of steps, which is 5.
+  // Notes:
+  // Numerically, the bias due to sampling noise scales:
+  // ~ sqrt((nbSteps - 2)/nbShots)
+  // i.e. we don't want so many steps, and the number of shots needs to be
+  // sufficient.
   int nbSteps = 5;
   if (hyperParams.keyExists<int>("steps")) {
     nbSteps = hyperParams.get<int>("steps");
@@ -193,7 +198,10 @@ double PhaseEstimationObjFuncEval::evaluate(
       auto [totalCount, mitigatedResult] =
           mitigateMeasurementResult(childBuffer->getMeasurementCounts());
       assert(mitigatedResult.size() == 2);
-      factor = 1.0 / (1.0 + std::sqrt(nbSteps - 2) / std::sqrt(totalCount));
+      // This factor is numerically determined.
+      // Hence, we probably need to do it ourselves (with our Prony impl).
+      // factor = 1.0 / (1.0 + std::sqrt(nbSteps - 2) / std::sqrt(totalCount));
+
       const int m0_verified = mitigatedResult["0"];
       const int m1_verified = mitigatedResult["1"];
       const int totalVerified = m0_verified + m1_verified;
@@ -249,13 +257,21 @@ double PhaseEstimationObjFuncEval::evaluate(
     // for (size_t i = 0; i < gFuncList.size(); ++i) {
     //   std::cout << "t = " << tList[i] << ": " << gFuncList[i] << "\n";
     // }
-    auto pronyFit = qcor::utils::pronyFit(gFuncList);
+    const auto pronyFit = qcor::utils::pronyFit(gFuncList);
     double expValTerm = 0.0;
+    // Normalize Amplitude (Eq. 28 and 29)
+    const double sumA =
+        std::accumulate(pronyFit.begin(), pronyFit.end(), 0.0,
+                        [](double accum, const auto &amplPhase) {
+                          return std::abs(amplPhase.first) + accum;
+                        });
+    xacc::info("Norm: " + std::to_string(sumA));
     for (const auto &[ampl, phase] : pronyFit) {
       const double freq = -std::arg(phase) * SAMPLING_FREQ;
-      const double amplitude = std::abs(ampl);
-      // std::cout << "A = " << amplitude << "; "
-      //           << "Freq = " << freq << "\n";
+      // Normalize
+      const double amplitude = std::abs(ampl) / sumA;
+      xacc::info("A = " + std::to_string(amplitude) +
+                 "; Freq = " + std::to_string(freq));
       // Generic expectation value estimation (Eq. 22)
       expValTerm += (freq * amplitude);
     }
