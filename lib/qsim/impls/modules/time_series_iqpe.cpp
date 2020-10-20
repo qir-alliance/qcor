@@ -112,8 +112,10 @@ double PhaseEstimationObjFuncEval::evaluate(
                                               std::to_string(count++));
       kernel->addInstruction(state_prep);
       ///    (2) Estimate the <X> and <Y> for this time step
+      // Note: we add a Pi/4 Z rotation for noise mitigation on the control
+      // qubit as described in the first paragraph on Page 8.
       auto qpeKernel = IterativeQpeWorkflow::constructQpeTrotterCircuit(
-          pauliCast, t, nbQubits);
+          pauliCast, t, nbQubits, M_PI_4);
       kernel->addInstruction(qpeKernel);
       ///    (3) Add g(t) = <X> + i <Y>
       auto xKernel = provider->createComposite("__TEMP__QPE__KERNEL__X__" +
@@ -198,6 +200,14 @@ double PhaseEstimationObjFuncEval::evaluate(
       auto [totalCount, mitigatedResult] =
           mitigateMeasurementResult(childBuffer->getMeasurementCounts());
       assert(mitigatedResult.size() == 2);
+      /// IMPORTANT NOTE: VQPE has a pretty-high cost in terms of number of
+      /// sampling shots: the required number of shots scale by (Eq. 40):
+      /// ~1/((1-p)^(depth))
+      //  Rule of thumbs: (1-p) ~ 0.01 and the depth increases by ~ 3x
+      //  hence, the number of shots must scale by ~ 100^2 ~ 10^4 over the
+      //  normal shots (other schemes)
+      //  => shots should be in the range of > 10^7 for reasonable accuracy.
+
       // This factor is numerically determined.
       // Hence, we probably need to do it ourselves (with our Prony impl).
       // factor = 1.0 / (1.0 + std::sqrt(nbSteps - 2) / std::sqrt(totalCount));
@@ -257,7 +267,17 @@ double PhaseEstimationObjFuncEval::evaluate(
     // for (size_t i = 0; i < gFuncList.size(); ++i) {
     //   std::cout << "t = " << tList[i] << ": " << gFuncList[i] << "\n";
     // }
-    const auto pronyFit = qcor::utils::pronyFit(gFuncList);
+    const auto pronyRaw = qcor::utils::pronyFit(gFuncList);
+    utils::PronyResult pronyFit;
+    // Filter the frequency around the 1-circle:
+    // Some noise channels on the control qubit will introduce spurious
+    // zero-frequency signals, hence just filter them.
+    std::copy_if(pronyRaw.begin(), pronyRaw.end(), std::back_inserter(pronyFit),
+                 [&](const auto &amplPhase) {
+                   const double absFreq =
+                       std::abs(std::arg(amplPhase.second) * SAMPLING_FREQ);
+                   return absFreq > 0.1 && absFreq < 10.0;
+                 });
     double expValTerm = 0.0;
     // Normalize Amplitude (Eq. 28 and 29)
     const double sumA =
@@ -275,6 +295,8 @@ double PhaseEstimationObjFuncEval::evaluate(
       // Generic expectation value estimation (Eq. 22)
       expValTerm += (freq * amplitude);
     }
+    std::cout << "Term coeff: " << coeff << "; exp-val = " << expValTerm
+              << "\n";
     // Compensate for sampling noise (factor)
     expVal += (factor * expValTerm * coeff);
   }

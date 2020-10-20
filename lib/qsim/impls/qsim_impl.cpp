@@ -141,7 +141,7 @@ bool IterativeQpeWorkflow::initialize(const HeterogeneousMap &params) {
 std::shared_ptr<CompositeInstruction>
 IterativeQpeWorkflow::constructQpeTrotterCircuit(
     std::shared_ptr<Observable> obs, double trotter_step, size_t nbQubits,
-    int steps, int k, double omega) {
+    double compensatedAncRot, int steps, int k, double omega) {
   auto provider = xacc::getIRProvider("quantum");
   auto kernel = provider->createComposite("__TEMP__QPE__LOOP__");
   // Ancilla qubit is the last one in the register.
@@ -149,7 +149,11 @@ IterativeQpeWorkflow::constructQpeTrotterCircuit(
 
   // Hadamard on ancilla qubit
   kernel->addInstruction(provider->createInstruction("H", ancBit));
-
+  // Add a pre-compensated angle (for noise mitigation)
+  if (std::abs(compensatedAncRot) > 1e-12) {
+    kernel->addInstruction(
+        provider->createInstruction("Rz", {ancBit}, {compensatedAncRot}));
+  }
   // Using Trotter evolution method to generate U:
   // TODO: support other methods (e.g. Suzuki)
   TrotterEvolution method;
@@ -185,6 +189,11 @@ IterativeQpeWorkflow::constructQpeTrotterCircuit(
   }
 
   kernel->addInstruction(provider->createInstruction("Rz", {ancBit}, {omega}));
+  // Cancel the noise-mitigation angle:
+  if (std::abs(compensatedAncRot) > 1e-12) {
+    kernel->addInstruction(
+        provider->createInstruction("Rz", {ancBit}, {-compensatedAncRot}));
+  }
   return kernel;
 }
 
@@ -193,7 +202,7 @@ std::shared_ptr<CompositeInstruction> IterativeQpeWorkflow::constructQpeCircuit(
   auto provider = xacc::getIRProvider("quantum");
   const double trotterStepSize = -2 * M_PI / num_steps;
   auto kernel = constructQpeTrotterCircuit(obs, trotterStepSize, obs->nBits(),
-                                           num_steps, k, omega);
+                                           0.0, num_steps, k, omega);
   const auto nbQubits = obs->nBits();
   
   // Ancilla qubit is the last one in the register

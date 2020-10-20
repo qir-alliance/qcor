@@ -93,10 +93,9 @@ public:
   virtual const std::string name() const override { return "iqpe"; }
   virtual const std::string description() const override { return ""; }
 
-  static std::shared_ptr<CompositeInstruction>
-  constructQpeTrotterCircuit(std::shared_ptr<Observable> obs,
-                             double trotter_step, size_t nbQubits,
-                             int steps = 1, int k = 1, double omega = 0);
+  static std::shared_ptr<CompositeInstruction> constructQpeTrotterCircuit(
+      std::shared_ptr<Observable> obs, double trotter_step, size_t nbQubits,
+      double compensatedAncRot = 0, int steps = 1, int k = 1, double omega = 0);
 
 private:
   std::shared_ptr<CompositeInstruction>
