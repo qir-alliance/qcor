@@ -138,6 +138,12 @@ double PhaseEstimationObjFuncEval::evaluate(
       }
       yKernel->addInstruction(provider->createInstruction("Measure", ancBit));
 
+      static bool printedOnce = false;
+      if (!printedOnce) {
+        xacc::info("X-basis kernel: \n" + xKernel->toString());
+        xacc::info("Y-basis kernel: \n" + yKernel->toString());
+        printedOnce = true;
+      }
       fsToExec.emplace_back(xKernel);
       fsToExec.emplace_back(yKernel);
       termData.emplace_back(std::make_pair(xKernel->name(), yKernel->name()));
@@ -176,12 +182,18 @@ double PhaseEstimationObjFuncEval::evaluate(
 
         return std::make_pair(totalCount, result);
       };
+
+  // Compensation for spurious eigenvalues due to sampling noise.
+  // See Appendix C (https://arxiv.org/pdf/2010.02538.pdf)
+  double factor = 1.0;
+
   // Mitigate/verify the result if in the 'verified' mode:
   for (auto &childBuffer : temp_buffer->getChildren()) {
     if (verifyMode && !childBuffer->getMeasurementCounts().empty()) {
       auto [totalCount, mitigatedResult] =
           mitigateMeasurementResult(childBuffer->getMeasurementCounts());
       assert(mitigatedResult.size() == 2);
+      factor = 1.0 / (1.0 + std::sqrt(nbSteps - 2) / std::sqrt(totalCount));
       const int m0_verified = mitigatedResult["0"];
       const int m1_verified = mitigatedResult["1"];
       const int totalVerified = m0_verified + m1_verified;
@@ -190,6 +202,9 @@ double PhaseEstimationObjFuncEval::evaluate(
                     "verification.");
         return 0.0;
       } else {
+        xacc::info("Buffer '" + childBuffer->name() +
+                   "': verified count = " + std::to_string(totalVerified));
+
         // See Eq. 4 (https://arxiv.org/pdf/2010.02538.pdf)
         // Note: the denominator is the total count, not the sum of verified
         // count, i.e. not strictly post-selection
@@ -244,8 +259,8 @@ double PhaseEstimationObjFuncEval::evaluate(
       // Generic expectation value estimation (Eq. 22)
       expValTerm += (freq * amplitude);
     }
-
-    expVal += (expValTerm * coeff);
+    // Compensate for sampling noise (factor)
+    expVal += (factor * expValTerm * coeff);
   }
 
   return expVal.real();
