@@ -82,7 +82,8 @@ TEST(TimeSeriesQpeTester, checkVerifiedProtocolNoiseless) {
       qsim::getObjEvaluator(&observable, "qpe", {{"verified", true}});
   auto provider = xacc::getIRProvider("quantum");
   // Run the test with shots:
-  xacc::internal_compiler::qpu = xacc::getAccelerator("qpp", {{"shots", 8192}});
+  xacc::internal_compiler::qpu =
+      xacc::getAccelerator("qpp", {{"shots", 100000}});
 
   for (const auto &angle : angles) {
     auto kernel = provider->createComposite("test");
