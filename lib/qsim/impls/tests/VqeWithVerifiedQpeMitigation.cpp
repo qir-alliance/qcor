@@ -20,13 +20,25 @@ int main(int argc, char **argv) {
            6.125 * Z(1);
   const auto num_qubits = 2;
   const auto num_params = 1;
-  auto qpeEvaluator = qsim::getObjEvaluator(H, "qpe", {{"verified", true}});
+  // QPE with verification
+  auto costEvaluator = qsim::getObjEvaluator(H, "qpe", {{"verified", true}});
+
+  // QPE no verification
+  // auto costEvaluator = qsim::getObjEvaluator(H, "qpe");
+
+  // Default (tomography-based)
+  // auto costEvaluator = qsim::getObjEvaluator(H);
+
   auto problemModel =
       qsim::ModelBuilder::createModel(ansatz, H, num_qubits, num_params);
-  auto optimizer = createOptimizer("nlopt");
+
+  // Initial parameters: we evaluate the error at single data points.
+  const std::vector<double> init_params{0.297113};
+  auto optimizer = createOptimizer(
+      "nlopt", {{"nlopt-maxeval", 1}, {"initial-parameters", init_params}});
   // Instantiate a VQE workflow with the nlopt optimizer
   auto workflow = qsim::getWorkflow(
-      "vqe", {{"optimizer", optimizer}, {"evaluator", qpeEvaluator}});
+      "vqe", {{"optimizer", optimizer}, {"evaluator", costEvaluator}});
 
   // Result should contain the observable expectation value along Trotter steps.
   auto result = workflow->execute(problemModel);
