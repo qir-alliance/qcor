@@ -9,6 +9,7 @@ endif(APPLE)
 file(GLOB SRC *.cpp)
 add_library(${LIBRARY_NAME} SHARED ${SRC})
 target_include_directories(${LIBRARY_NAME} PUBLIC .
+                                          ${CMAKE_SOURCE_DIR}/lib/qsim
                                           ${Python_INCLUDE_DIRS}
                                           ${XACC_ROOT}/include/pybind11/include)
 set_target_properties(${LIBRARY_NAME} PROPERTIES PREFIX "")
