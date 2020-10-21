@@ -56,7 +56,8 @@ TEST(TimeSeriesQpeNoiseTester, checkDeuteron) {
 
   using namespace qcor;
   const auto angles = xacc::linspace(0.0, M_PI, 10);
-  auto observable = X(0) * X(1);
+  auto observable = 5.907 - 2.1433 * X(0) * X(1) - 2.143 * Y(0) * Y(1) +
+                    0.21829 * Z(0) - 6.125 * Z(1);
   // Run the QPE with verification.
   auto evaluator =
       qsim::getObjEvaluator(&observable, "qpe", {{"verified", true}});
