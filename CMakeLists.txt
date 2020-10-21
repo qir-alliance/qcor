@@ -35,6 +35,18 @@ if (QCOR_BUILD_TESTS)
   add_subdirectory(examples)
 endif()
 
+# Compile and install Python binding if Python found:
+find_package(Python COMPONENTS Interpreter Development)
+if(Python_FOUND)
+ if(${Python_VERSION} VERSION_GREATER_EQUAL 3.0.0)
+   message(STATUS "Found Python version ${Python_VERSION}. Building QCOR Python API with ${Python_INCLUDE_DIRS}")
+   add_subdirectory(python)
+ else()
+  message(STATUS "Found Python version ${Python_VERSION}. Version must be greater than 3.0.0, skipping Python API build.")
+ endif()
+else()
+  message(STATUS "Python interpreter or development headers not found. Skipping Python API build.")
+endif()
 
 if (QCOR_CPACK_DEB_PLATFORM)
 message(STATUS "CPack DEB Build Enabled.") 
