@@ -295,8 +295,8 @@ double PhaseEstimationObjFuncEval::evaluate(
       // Generic expectation value estimation (Eq. 22)
       expValTerm += (freq * amplitude);
     }
-    std::cout << "Term coeff: " << coeff << "; exp-val = " << expValTerm
-              << "\n";
+    // std::cout << "Term coeff: " << coeff << "; exp-val = " << expValTerm
+    //           << "\n";
     // Compensate for sampling noise (factor)
     expVal += (factor * expValTerm * coeff);
   }
