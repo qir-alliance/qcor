@@ -88,7 +88,17 @@ TEST(TimeSeriesQpeNoiseTester, checkDeuteron) {
 #ifdef TEST_ISING
 TEST(TimeSeriesQpeNoiseTester, checkIsingModel) {
   const int nbShots = 1024 * 1024;
-  auto accelerator = xacc::getAccelerator("aer", {{"shots", nbShots}});
+  /// NOTE: this is a *synthetic* noise model which has a constant depolarizing
+  /// noise moment of 1e-2 (0.01) on all gates.
+  const std::string NOISE_MODEL_JSON_FILE =
+      std::string(RESOURCE_DIR) + "/ibm_depol_1e-2_noise_model.json";
+  std::ifstream noiseModelFile;
+  noiseModelFile.open(NOISE_MODEL_JSON_FILE);
+  std::stringstream noiseStrStream;
+  noiseStrStream << noiseModelFile.rdbuf();
+  const std::string noiseJsonStr = noiseStrStream.str();
+  auto accelerator = xacc::getAccelerator(
+      "aer", {{"noise-model", noiseJsonStr}, {"shots", nbShots}});
   using namespace qcor;
   const int nbQubits = 4;
   const double Jz = 1.0;
