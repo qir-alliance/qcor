@@ -8,7 +8,7 @@ run cd /home/dev && apt-get update && apt-get install -y uuid-dev pkg-config \
     && cd ../.. \
     && git clone https://github.com/zeromq/cppzmq \
     && cd cppzmq/ && mkdir build && cd build/ \
-    && cmake .. -DCMAKE_INSTALL_PREFIX=~/.zmq -DCMAKE_PREFIX_PATH=~/.zmq \
+    && cmake .. -DCMAKE_INSTALL_PREFIX=~/.zmq -DCMAKE_PREFIX_PATH=~/.zmq -DCPPZMQ_BUILD_TESTS=OFF \
     && make -j$(nproc) install \
     && cd ../.. \
     && git clone -b c_master https://github.com/msgpack/msgpack-c/ \
