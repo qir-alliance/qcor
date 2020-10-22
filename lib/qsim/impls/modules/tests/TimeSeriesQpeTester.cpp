@@ -32,7 +32,7 @@ TEST(TimeSeriesQpeTester, checkPronyMethod) {
 
 TEST(TimeSeriesQpeTester, checkSimple) {
   using namespace qcor;
-  const auto angles = xacc::linspace(0.0, M_PI, 12);
+  const auto angles = xacc::linspace(0.0, M_PI, 8);
   auto observable = Z(0);
   auto evaluator = qsim::getObjEvaluator(&observable, "qpe");
   auto provider = xacc::getIRProvider("quantum");
@@ -51,7 +51,7 @@ TEST(TimeSeriesQpeTester, checkSimple) {
 
 TEST(TimeSeriesQpeTester, checkMultipleTerms) {
   using namespace qcor;
-  const auto angles = xacc::linspace(0.0, M_PI, 10);
+  const auto angles = xacc::linspace(0.0, M_PI, 3);
   auto observable = 5.907 - 2.1433 * X(0) * X(1) - 2.1433 * Y(0) * Y(1) +
                     .21829 * Z(0) - 6.125 * Z(1);
   auto evaluator = qsim::getObjEvaluator(&observable, "qpe");
@@ -75,7 +75,7 @@ TEST(TimeSeriesQpeTester, checkMultipleTerms) {
 
 TEST(TimeSeriesQpeTester, checkVerifiedProtocolNoiseless) {
   using namespace qcor;
-  const auto angles = xacc::linspace(0.0, M_PI, 12);
+  const auto angles = xacc::linspace(0.0, M_PI, 3);
   auto observable = Z(0);
   // Run the QPE with verification.
   auto evaluator =
@@ -83,7 +83,7 @@ TEST(TimeSeriesQpeTester, checkVerifiedProtocolNoiseless) {
   auto provider = xacc::getIRProvider("quantum");
   // Run the test with shots:
   xacc::internal_compiler::qpu =
-      xacc::getAccelerator("qpp", {{"shots", 100000}});
+      xacc::getAccelerator("aer", {{"shots", 10000}});
 
   for (const auto &angle : angles) {
     auto kernel = provider->createComposite("test");
@@ -93,7 +93,7 @@ TEST(TimeSeriesQpeTester, checkVerifiedProtocolNoiseless) {
     std::cout << "Angle = " << angle << ": Exp val = " << expVal << " vs. "
               << theoreticalExp << "\n";
     // Since there is sampling error, we need to relax the limit.
-    EXPECT_NEAR(expVal, theoreticalExp, 0.05);
+    EXPECT_NEAR(expVal, theoreticalExp, 0.1);
   }
 }
 

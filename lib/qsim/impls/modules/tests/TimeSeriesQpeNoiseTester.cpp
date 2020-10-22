@@ -5,9 +5,10 @@
 #include <gtest/gtest.h>
 
 // These tests take quite some time, hence just run one at a time...
-//#define TEST_SIMPLE
+// Default for CI: only run the simple test
+#define TEST_SIMPLE
 //#define TEST_DEUTERON
-#define TEST_ISING
+//#define TEST_ISING
 
 #ifdef TEST_SIMPLE
 TEST(TimeSeriesQpeNoiseTester, checkSimple) {
