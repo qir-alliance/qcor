@@ -1,15 +1,61 @@
 #include "base/qcor_qsim.hpp"
 #include "py_costFunctionEvaluator.hpp"
 #include "py_qsimWorkflow.hpp"
+#include "xacc.hpp"
 #include <pybind11/functional.h>
 #include <pybind11/pybind11.h>
-#include "xacc.hpp"
 namespace py = pybind11;
+
+namespace pybind11 {
+namespace detail {
+template <typename... Ts>
+struct type_caster<xacc::Variant<Ts...>>
+    : variant_caster<xacc::Variant<Ts...>> {};
+
+template <> struct visit_helper<xacc::Variant> {
+  template <typename... Args>
+  static auto call(Args &&... args) -> decltype(mpark::visit(args...)) {
+    return mpark::visit(args...);
+  }
+};
+
+template <typename... Ts>
+struct type_caster<mpark::variant<Ts...>>
+    : variant_caster<mpark::variant<Ts...>> {};
+
+template <> struct visit_helper<mpark::variant> {
+  template <typename... Args>
+  static auto call(Args &&... args) -> decltype(mpark::visit(args...)) {
+    return mpark::visit(args...);
+  }
+};
+} // namespace detail
+} // namespace pybind11
+
+namespace {
+// Add type name to this list to support receiving from Python.
+using PyHeterogeneousMapTypes = xacc::Variant<bool, int, double, std::string>;
+
+using PyHeterogeneousMap = std::map<std::string, PyHeterogeneousMapTypes>;
+
+// Helper to convert a Python *dict* (as a map of variants) into a native
+// HetMap.
+xacc::HeterogeneousMap
+heterogeneousMapConvert(const PyHeterogeneousMap &in_pyMap) {
+  xacc::HeterogeneousMap result;
+  for (auto &item : in_pyMap) {
+    auto visitor = [&](const auto &value) { result.insert(item.first, value); };
+    mpark::visit(visitor, item.second);
+  }
+
+  return result;
+}
+} // namespace
 
 PYBIND11_MODULE(_pyqcor, m) {
   m.doc() = "Python bindings for QCOR.";
   // Handle QCOR CLI arguments:
-  // when using via Python, we use this to set those runtime parameters. 
+  // when using via Python, we use this to set those runtime parameters.
   m.def(
       "Initialize",
       [](py::kwargs kwargs) {
@@ -30,18 +76,10 @@ PYBIND11_MODULE(_pyqcor, m) {
   // Expose QCOR API functions
   m.def(
       "createOptimizer",
-      [](const std::string &name, py::dict p = {}) {
-        xacc::HeterogeneousMap params;
-        std::cout << "HOWDY: " << name << "\n";
-        /// TODO: reuse XACC PyHetMap here
-        for (auto item : p) {
-          std::cout << "key=" << std::string(py::str(item.first)) << ", "
-                    << "value=" << std::string(py::str(item.second)) << "\n";
-        }
-
-        return qcor::createOptimizer(name, std::move(params));
+      [](const std::string &name, PyHeterogeneousMap p = {}) {
+        return qcor::createOptimizer(name, heterogeneousMapConvert(p));
       },
-      py::arg("name"), py::arg("p") = py::dict(),
+      py::arg("name"), py::arg("p") = PyHeterogeneousMap(),
       py::return_value_policy::reference,
       "Return the Optimizer with given name.");
 
@@ -116,10 +154,11 @@ PYBIND11_MODULE(_pyqcor, m) {
             "Execute the workflow for the input problem model.");
     qsim.def(
         "getWorkflow",
-        [](const std::string &name, py::dict p = {}) {
-          return qcor::qsim::getWorkflow(name, {});
+        [](const std::string &name, PyHeterogeneousMap p = {}) {
+          auto nativeHetMap = heterogeneousMapConvert(p);
+          return qcor::qsim::getWorkflow(name, nativeHetMap);
         },
-        py::arg("name"), py::arg("p") = py::dict(),
+        py::arg("name"), py::arg("p") = PyHeterogeneousMap(),
         py::return_value_policy::reference,
         "Return the quantum simulation workflow.");
   }
