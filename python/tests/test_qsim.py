@@ -28,6 +28,4 @@ class TestWorkflows(unittest.TestCase):
       self.assertAlmostEqual(result["exp-vals"][nbSteps], 0.5, places=1)
 
 if __name__ == '__main__':
-  # Set up QCOR runtime
-  Initialize(qpu="qpp")
   unittest.main()

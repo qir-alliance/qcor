@@ -1,6 +1,7 @@
 #include "base/qcor_qsim.hpp"
 #include "py_costFunctionEvaluator.hpp"
 #include "py_qsimWorkflow.hpp"
+#include "qrt.hpp"
 #include "xacc.hpp"
 #include <pybind11/functional.h>
 #include <pybind11/pybind11.h>
@@ -65,7 +66,7 @@ PYBIND11_MODULE(_pyqcor, m) {
             const auto value = std::string(py::str(arg.second));
             // Handle "qpu" key
             if (key == "qpu") {
-              xacc::internal_compiler::qpu = xacc::getAccelerator(value);
+              quantum::initialize(value, "empty");
             }
             /// TODO: handle other CLI parameters.
           }

@@ -6,9 +6,6 @@ from qcor import *
 import numpy as np
 import matplotlib.pyplot as plt
 
-# Set up QCOR runtime
-Initialize(qpu="qpp")
-
 # Time-dependent Hamiltonian: 
 # Returns the Pauli operators at a time point.
 def td_hamiltonian(t):
