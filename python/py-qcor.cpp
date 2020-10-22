@@ -1,4 +1,5 @@
 #include "base/qcor_qsim.hpp"
+#include "py_costFunctionEvaluator.hpp"
 #include <pybind11/functional.h>
 #include <pybind11/pybind11.h>
 namespace py = pybind11;
@@ -46,5 +47,34 @@ PYBIND11_MODULE(_pyqcor, m) {
               return qcor::qsim::ModelBuilder::createModel(obs, ham_func);
             },
             "Return the Model for a time-dependent problem.");
+
+    // CostFunctionEvaluator bindings
+    py::class_<qcor::qsim::CostFunctionEvaluator,
+               std::shared_ptr<qcor::qsim::CostFunctionEvaluator>,
+               qcor::qsim::PyCostFunctionEvaluator>(
+        qsim, "CostFunctionEvaluator",
+        "The CostFunctionEvaluator interface provides methods to "
+        "evaluate the observable operator expectation value on quantum "
+        "backends.")
+        .def(py::init<>())
+        .def(
+            "initialize",
+            [](qcor::qsim::CostFunctionEvaluator &self,
+               qcor::PauliOperator &obs) { return self.initialize(&obs); },
+            "Initialize the evaluator")
+        .def(
+            "evaluate",
+            [](qcor::qsim::CostFunctionEvaluator &self,
+               std::shared_ptr<CompositeInstruction> state_prep) -> double {
+              return self.evaluate(state_prep);
+            },
+            "Initialize the evaluator");
+    qsim.def(
+        "getObjEvaluator",
+        [](qcor::PauliOperator &obs, const std::string &name = "default",
+           py::dict p = {}) { return qcor::qsim::getObjEvaluator(obs, name); },
+        py::arg("obs"), py::arg("name") = "default", py::arg("p") = py::dict(),
+        py::return_value_policy::reference,
+        "Return the CostFunctionEvaluator.");
   }
 }
