@@ -55,7 +55,7 @@ class qjit(object):
 
         # Run JIT, this will reused cached JIT LLVM Modules
         _qjit = QJIT()
-        _qjit.jit_compile(fbody_src)
+        _qjit.internal_python_jit_compile(fbody_src)
 
         # Create a dictionary for the function arguments
         args_dict = {}

@@ -153,7 +153,7 @@ void trim(std::string &s) {
 }
 
 const std::pair<std::string, std::string> QJIT::run_syntax_handler(
-    const std::string &kernel_src) {
+    const std::string &kernel_src, const bool add_het_map_kernel_ctor) {
   bool has_qpu_function_proto = kernel_src.find("__qpu__") != std::string::npos;
 
   // first do some analysis on the string to pick out
@@ -211,7 +211,8 @@ const std::pair<std::string, std::string> QJIT::run_syntax_handler(
   qcor::shots = quantum::get_shots();
 
   handler.GetReplacement(*PP.get(), kernel_name, arg_types, arg_vars,
-                         bufferNames, cached, ReplacementOS);
+                         bufferNames, cached, ReplacementOS,
+                         add_het_map_kernel_ctor);
   ReplacementOS.flush();
 
   std::string preamble =
@@ -301,7 +302,6 @@ class LLVMJIT {
 };
 
 QJIT::QJIT() {
-
   // FIXME if tmp directory doesnt exist create it
   std::string cache_file_loc = "@CMAKE_INSTALL_PREFIX@/tmp/qjit_cache.json";
   if (!xacc::fileExists(cache_file_loc)) {
@@ -332,10 +332,12 @@ QJIT::~QJIT() {
   cache.close();
 }
 
-void QJIT::jit_compile(const std::string &code) {
+void QJIT::jit_compile(const std::string &code,
+                       const bool add_het_map_kernel_ctor) {
   // Run the Syntax Handler to get the kernel name and
   // the kernel code (the QuantumKernel subtype def + utility functions)
-  auto [kernel_name, new_code] = run_syntax_handler(code);
+  auto [kernel_name, new_code] =
+      run_syntax_handler(code, add_het_map_kernel_ctor);
 
   // Hash the new code
   std::hash<std::string> hasher;
@@ -429,10 +431,11 @@ void QJIT::jit_compile(const std::string &code) {
   return;
 }
 
-void QJIT::invoke_with_hetmap(const std::string &kernel_name, xacc::HeterogeneousMap& args) {
+void QJIT::invoke_with_hetmap(const std::string &kernel_name,
+                              xacc::HeterogeneousMap &args) {
   auto f_ptr = kernel_name_to_f_ptr_hetmap[kernel_name];
-  void (*kernel_functor)(xacc::HeterogeneousMap&) =
-      (void (*)(xacc::HeterogeneousMap&))f_ptr;
+  void (*kernel_functor)(xacc::HeterogeneousMap &) =
+      (void (*)(xacc::HeterogeneousMap &))f_ptr;
   kernel_functor(args);
 }
 }  // namespace qcor

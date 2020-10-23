@@ -60,7 +60,7 @@ void QCORSyntaxHandler::GetReplacement(
     std::vector<std::string> program_arg_types,
     std::vector<std::string> program_parameters,
     std::vector<std::string> bufferNames, CachedTokens &Toks,
-    llvm::raw_string_ostream &OS) {
+    llvm::raw_string_ostream &OS, bool add_het_map_ctor) {
   // Get the Diagnostics engine and create a few custom
   // error messgaes
   auto &diagnostics = PP.getDiagnostics();
@@ -200,19 +200,24 @@ void QCORSyntaxHandler::GetReplacement(
   }
   OS << ") {}\n";
 
-  // Third constructor, give us a way to provide a HeterogeneousMap of
-  // arguments, this is used for Pythonic QJIT...
-  // KERNEL_NAME(HeterogeneousMap args);
-  OS << kernel_name << "(HeterogeneousMap& args): QuantumKernel<" << kernel_name
-     << ", " << program_arg_types[0];
-  for (int i = 1; i < program_arg_types.size(); i++) {
-    OS << ", " << program_arg_types[i];
+  if (add_het_map_ctor) {
+    // Third constructor, give us a way to provide a HeterogeneousMap of
+    // arguments, this is used for Pythonic QJIT...
+    // KERNEL_NAME(HeterogeneousMap args);
+    OS << kernel_name << "(HeterogeneousMap& args): QuantumKernel<"
+       << kernel_name << ", " << program_arg_types[0];
+    for (int i = 1; i < program_arg_types.size(); i++) {
+      OS << ", " << program_arg_types[i];
+    }
+    OS << "> (args.get<" << program_arg_types[0] << ">(\""
+       << program_parameters[0] << "\")";
+    for (int i = 1; i < program_parameters.size(); i++) {
+      OS << ", "
+         << "args.get<" << program_arg_types[i] << ">(\""
+         << program_parameters[i] << "\")";
+    }
+    OS << ") {}\n";
   }
-  OS << "> (args.get<" << program_arg_types[0] << ">(\"" << program_parameters[0] << "\")";
-  for (int i = 1; i < program_parameters.size(); i++) {
-    OS << ", " << "args.get<" << program_arg_types[0] << ">(\"" << program_parameters[i] << "\"";
-  }
-  OS << ") {}\n";
 
   // Destructor definition
   OS << "virtual ~" << kernel_name << "() {\n";
@@ -305,11 +310,13 @@ void QCORSyntaxHandler::GetReplacement(
   OS << ");\n";
   OS << "}\n";
 
-  // Add the HeterogeneousMap args function overload
-  OS << "void " << kernel_name << "__with_hetmap_args(HeterogeneousMap& args) {\n";
-  OS << "class " << kernel_name << " __ker__temp__(args);\n";
-  OS << "}\n";
-
+  if (add_het_map_ctor) {
+    // Add the HeterogeneousMap args function overload
+    OS << "void " << kernel_name
+       << "__with_hetmap_args(HeterogeneousMap& args) {\n";
+    OS << "class " << kernel_name << " __ker__temp__(args);\n";
+    OS << "}\n";
+  }
   auto s = OS.str();
   qcor::info("[qcor syntax-handler] Rewriting " + kernel_name + " to\n\n" + s);
 }

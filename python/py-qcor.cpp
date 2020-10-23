@@ -134,19 +134,30 @@ PYBIND11_MODULE(_pyqcor, m) {
 
   m.def(
       "set_qpu",
-      [](const std::string &name) {
-        xacc::internal_compiler::qpu = xacc::getAccelerator(name);
+      [](const std::string &name, PyHeterogeneousMap p = {}) {
+        xacc::internal_compiler::qpu =
+            xacc::getAccelerator(name, heterogeneousMapConvert(p));
       },
+      py::arg("name"), py::arg("p") = PyHeterogeneousMap(),
       "Set the QPU backend.");
 
   m.def("qalloc", &::qalloc, py::return_value_policy::reference, "");
   py::class_<xacc::internal_compiler::qreg>(m, "qreg", "")
       .def("size", &xacc::internal_compiler::qreg::size, "")
-      .def("print", &xacc::internal_compiler::qreg::print, "");
+      .def("print", &xacc::internal_compiler::qreg::print, "")
+      .def("counts", &xacc::internal_compiler::qreg::counts, "")
+      .def("exp_val_z", &xacc::internal_compiler::qreg::exp_val_z, "");
 
   py::class_<qcor::QJIT, std::shared_ptr<qcor::QJIT>>(m, "QJIT", "")
       .def(py::init<>(), "")
       .def("jit_compile", &qcor::QJIT::jit_compile, "")
+      .def(
+          "internal_python_jit_compile",
+          [](qcor::QJIT &qjit, const std::string src) {
+            bool turn_on_hetmap_kernel_ctor = true;
+            qjit.jit_compile(src, turn_on_hetmap_kernel_ctor);
+          },
+          "")
       .def("run_syntax_handler", &qcor::QJIT::run_syntax_handler, "")
       .def(
           "invoke",
