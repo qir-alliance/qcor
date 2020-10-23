@@ -90,6 +90,7 @@ bool VqeWorkflow::initialize(const HeterogeneousMap &params) {
   } else {
     optimizer = createOptimizer(DEFAULT_OPTIMIZER);
   }
+  config_params = params;
   // VQE workflow requires an optimizer
   return (optimizer != nullptr);
 }
@@ -99,7 +100,12 @@ VqeWorkflow::execute(const QuantumSimulationModel &model) {
   // If the model includes a concrete variational ansatz:
   if (model.user_defined_ansatz) {
     auto nParams = model.user_defined_ansatz->nParams();
-    evaluator = getObjEvaluator(model.observable);
+    if (config_params.pointerLikeExists<CostFunctionEvaluator>("evaluator")) {
+      evaluator = xacc::as_shared_ptr(
+          config_params.getPointerLike<CostFunctionEvaluator>("evaluator"));
+    } else {
+      evaluator = getObjEvaluator(model.observable);
+    }
 
     OptFunction f(
         [&](const std::vector<double> &x, std::vector<double> &dx) {
@@ -132,23 +138,27 @@ bool IterativeQpeWorkflow::initialize(const HeterogeneousMap &params) {
   return (num_steps >= 1) && (num_iters >= 1);
 }
 
-std::shared_ptr<CompositeInstruction> IterativeQpeWorkflow::constructQpeCircuit(
-    std::shared_ptr<Observable> obs, int k, double omega, bool measure) const {
+std::shared_ptr<CompositeInstruction>
+IterativeQpeWorkflow::constructQpeTrotterCircuit(
+    std::shared_ptr<Observable> obs, double trotter_step, size_t nbQubits,
+    double compensatedAncRot, int steps, int k, double omega) {
   auto provider = xacc::getIRProvider("quantum");
   auto kernel = provider->createComposite("__TEMP__QPE__LOOP__");
-  const auto nbQubits = obs->nBits();
   // Ancilla qubit is the last one in the register.
   const size_t ancBit = nbQubits;
 
   // Hadamard on ancilla qubit
   kernel->addInstruction(provider->createInstruction("H", ancBit));
-
+  // Add a pre-compensated angle (for noise mitigation)
+  if (std::abs(compensatedAncRot) > 1e-12) {
+    kernel->addInstruction(
+        provider->createInstruction("Rz", {ancBit}, {compensatedAncRot}));
+  }
   // Using Trotter evolution method to generate U:
   // TODO: support other methods (e.g. Suzuki)
   TrotterEvolution method;
-  const double trotterStepSize = -2 * M_PI / num_steps;
   auto trotterCir =
-      method.create_ansatz(obs.get(), {{"dt", trotterStepSize}}).circuit;
+      method.create_ansatz(obs.get(), {{"dt", trotter_step}}).circuit;
   // std::cout << "Trotter circ:\n" << trotterCir->toString() << "\n";
 
   // Controlled-U
@@ -161,7 +171,7 @@ std::shared_ptr<CompositeInstruction> IterativeQpeWorkflow::constructQpeCircuit(
 
   // Apply C-U^n
   int power = 1 << (k - 1);
-  for (int i = 0; i < power * num_steps; ++i) {
+  for (int i = 0; i < power * steps; ++i) {
     for (int instId = 0; instId < ctrlKernel->nInstructions(); ++instId) {
       // We need to clone the instruction since it'll be repeated.
       kernel->addInstruction(ctrlKernel->getInstruction(instId)->clone());
@@ -179,8 +189,25 @@ std::shared_ptr<CompositeInstruction> IterativeQpeWorkflow::constructQpeCircuit(
   }
 
   kernel->addInstruction(provider->createInstruction("Rz", {ancBit}, {omega}));
+  // Cancel the noise-mitigation angle:
+  if (std::abs(compensatedAncRot) > 1e-12) {
+    kernel->addInstruction(
+        provider->createInstruction("Rz", {ancBit}, {-compensatedAncRot}));
+  }
+  return kernel;
+}
 
-  // Hadamard on ancilla qubit
+std::shared_ptr<CompositeInstruction> IterativeQpeWorkflow::constructQpeCircuit(
+    std::shared_ptr<Observable> obs, int k, double omega, bool measure) const {
+  auto provider = xacc::getIRProvider("quantum");
+  const double trotterStepSize = -2 * M_PI / num_steps;
+  auto kernel = constructQpeTrotterCircuit(obs, trotterStepSize, obs->nBits(),
+                                           0.0, num_steps, k, omega);
+  const auto nbQubits = obs->nBits();
+  
+  // Ancilla qubit is the last one in the register
+  const size_t ancBit = nbQubits;
+  // Hadamard on ancilla qubit (measure in X basis for regular IQPE)
   kernel->addInstruction(provider->createInstruction("H", ancBit));
 
   if (measure) {
@@ -328,6 +355,8 @@ public:
         std::make_shared<qsim::IterativeQpeWorkflow>());
     context.RegisterService<qsim::CostFunctionEvaluator>(
         std::make_shared<qsim::DefaultObjFuncEval>());
+    context.RegisterService<qsim::CostFunctionEvaluator>(
+        std::make_shared<qsim::PhaseEstimationObjFuncEval>());
   }
 
   void Stop(BundleContext) {}

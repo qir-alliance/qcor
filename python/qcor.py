@@ -11,3 +11,8 @@ def Y(idx):
 def Z(idx):
   return xacc.quantum.PauliOperator({idx: 'Z'}, 1.0) 
 
+# Implements internal_startup initialization:
+# i.e. set up qrt, backends, shots, etc.
+# TODO: only set Accelerator for now.
+default_qpu = 'qpp'
+Initialize(qpu=default_qpu)

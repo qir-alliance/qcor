@@ -3,10 +3,15 @@
 #include "AcceleratorBuffer.hpp"
 #include "Circuit.hpp"
 #include "kernel_evaluator.hpp"
-#include "qcor.hpp"
+#include "objective_function.hpp"
+#include "qcor_observable.hpp"
+#include "qcor_optimizer.hpp"
 #include "qcor_utils.hpp"
 #include "qrt.hpp"
+#include "quantum_kernel.hpp"
+#include "taskInitiate.hpp"
 #include <memory>
+#include <qalloc>
 #include <xacc_internal_compiler.hpp>
 
 using CompositeInstruction = xacc::CompositeInstruction;
@@ -161,5 +166,10 @@ getWorkflow(const std::string &name, const HeterogeneousMap &init_params);
 std::shared_ptr<CostFunctionEvaluator>
 getObjEvaluator(Observable *observable, const std::string &name = "default",
                 const HeterogeneousMap &init_params = {});
+inline std::shared_ptr<CostFunctionEvaluator>
+getObjEvaluator(PauliOperator &obs, const std::string &name = "default",
+                const HeterogeneousMap &init_params = {}) {
+  return getObjEvaluator(&obs, name, init_params);
+}
 } // namespace qsim
 } // namespace qcor
