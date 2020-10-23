@@ -1,5 +1,5 @@
 #include "qcor_syntax_handler.hpp"
-#include "token_collector_util.hpp"
+
 #include <iostream>
 #include <regex>
 #include <sstream>
@@ -8,6 +8,7 @@
 #include "clang/AST/Type.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Frontend/FrontendPluginRegistry.h"
+#include "token_collector_util.hpp"
 
 using namespace clang;
 
@@ -59,8 +60,7 @@ void QCORSyntaxHandler::GetReplacement(
     std::vector<std::string> program_arg_types,
     std::vector<std::string> program_parameters,
     std::vector<std::string> bufferNames, CachedTokens &Toks,
-    llvm::raw_string_ostream &OS) {
-
+    llvm::raw_string_ostream &OS, bool add_het_map_ctor) {
   // Get the Diagnostics engine and create a few custom
   // error messgaes
   auto &diagnostics = PP.getDiagnostics();
@@ -84,20 +84,21 @@ void QCORSyntaxHandler::GetReplacement(
 
   auto new_src = qcor::run_token_collector(PP, Toks, bufferNames);
 
-//   auto random_string = [](size_t length) {
-//     auto randchar = []() -> char {
-//       const char charset[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-//                              "abcdefghijklmnopqrstuvwxyz";
-//       const size_t max_index = (sizeof(charset) - 1);
-//       return charset[rand() % max_index];
-//     };
-//     std::string str(length, 0);
-//     std::generate_n(str.begin(), length, randchar);
-//     return str;
-//   };
+  //   auto random_string = [](size_t length) {
+  //     auto randchar = []() -> char {
+  //       const char charset[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+  //                              "abcdefghijklmnopqrstuvwxyz";
+  //       const size_t max_index = (sizeof(charset) - 1);
+  //       return charset[rand() % max_index];
+  //     };
+  //     std::string str(length, 0);
+  //     std::generate_n(str.begin(), length, randchar);
+  //     return str;
+  //   };
 
   // Rewrite the original function
-  OS << "void " << kernel_name << "(" << program_arg_types[0] << " "  << program_parameters[0];
+  OS << "void " << kernel_name << "(" << program_arg_types[0] << " "
+     << program_parameters[0];
   for (int i = 1; i < program_arg_types.size(); i++) {
     OS << ", " << program_arg_types[i] << " " << program_parameters[i];
   }
@@ -199,6 +200,25 @@ void QCORSyntaxHandler::GetReplacement(
   }
   OS << ") {}\n";
 
+  if (add_het_map_ctor) {
+    // Third constructor, give us a way to provide a HeterogeneousMap of
+    // arguments, this is used for Pythonic QJIT...
+    // KERNEL_NAME(HeterogeneousMap args);
+    OS << kernel_name << "(HeterogeneousMap& args): QuantumKernel<"
+       << kernel_name << ", " << program_arg_types[0];
+    for (int i = 1; i < program_arg_types.size(); i++) {
+      OS << ", " << program_arg_types[i];
+    }
+    OS << "> (args.get<" << program_arg_types[0] << ">(\""
+       << program_parameters[0] << "\")";
+    for (int i = 1; i < program_parameters.size(); i++) {
+      OS << ", "
+         << "args.get<" << program_arg_types[i] << ">(\""
+         << program_parameters[i] << "\")";
+    }
+    OS << ") {}\n";
+  }
+
   // Destructor definition
   OS << "virtual ~" << kernel_name << "() {\n";
   OS << "if (disable_destructor) {return;}\n";
@@ -216,10 +236,13 @@ void QCORSyntaxHandler::GetReplacement(
   // If this is a FTQC kernel, skip runtime optimization passes and submit.
   OS << "if (runtime_env == QrtType::FTQC) {\n";
   OS << "if (is_callable) {\n";
-  // If this is the top-level kernel, during DTor we persit the bit value to Buffer.
+  // If this is the top-level kernel, during DTor we persit the bit value to
+  // Buffer.
   OS << "quantum::persistBitstring(" << bufferNames[0] << ".results());\n";
-  // Loop the function calls (at the top level only) if there are multiple shots requested.
-  OS << "for (size_t shotCount = 1; shotCount < quantum::get_shots(); ++shotCount) {\n";
+  // Loop the function calls (at the top level only) if there are multiple shots
+  // requested.
+  OS << "for (size_t shotCount = 1; shotCount < quantum::get_shots(); "
+        "++shotCount) {\n";
   OS << "operator()(" << program_parameters[0];
   for (int i = 1; i < program_parameters.size(); i++) {
     OS << ", " << program_parameters[i];
@@ -265,7 +288,8 @@ void QCORSyntaxHandler::GetReplacement(
     OS << ", " << program_arg_types[i] << " " << program_parameters[i];
   }
   OS << ") {\n";
-  OS << "class " << kernel_name << " __ker__temp__(parent, " << program_parameters[0];
+  OS << "class " << kernel_name << " __ker__temp__(parent, "
+     << program_parameters[0];
   for (int i = 1; i < program_parameters.size(); i++) {
     OS << ", " << program_parameters[i];
   }
@@ -286,6 +310,13 @@ void QCORSyntaxHandler::GetReplacement(
   OS << ");\n";
   OS << "}\n";
 
+  if (add_het_map_ctor) {
+    // Add the HeterogeneousMap args function overload
+    OS << "void " << kernel_name
+       << "__with_hetmap_args(HeterogeneousMap& args) {\n";
+    OS << "class " << kernel_name << " __ker__temp__(args);\n";
+    OS << "}\n";
+  }
   auto s = OS.str();
   qcor::info("[qcor syntax-handler] Rewriting " + kernel_name + " to\n\n" + s);
 }
@@ -297,12 +328,12 @@ void QCORSyntaxHandler::AddToPredefines(llvm::raw_string_ostream &OS) {
 }
 
 class DoNothingConsumer : public ASTConsumer {
-public:
+ public:
   bool HandleTopLevelDecl(DeclGroupRef DG) override { return true; }
 };
 
 class QCORArgs : public PluginASTAction {
-public:
+ public:
   std::unique_ptr<ASTConsumer> CreateASTConsumer(CompilerInstance &CI,
                                                  llvm::StringRef) override {
     return std::make_unique<DoNothingConsumer>();
@@ -344,9 +375,9 @@ public:
   }
 };
 
-} // namespace qcor
+}  // namespace qcor
 
-static SyntaxHandlerRegistry::Add<qcor::QCORSyntaxHandler>
-    X("qcor", "qcor quantum kernel syntax handler");
+static SyntaxHandlerRegistry::Add<qcor::QCORSyntaxHandler> X(
+    "qcor", "qcor quantum kernel syntax handler");
 
 static FrontendPluginRegistry::Add<qcor::QCORArgs> XX("qcor-args", "");

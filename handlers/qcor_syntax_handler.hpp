@@ -19,7 +19,7 @@ public:
                       std::vector<std::string> program_arg_types,
                       std::vector<std::string> program_parameters,
                       std::vector<std::string> bufferNames, CachedTokens &Toks,
-                      llvm::raw_string_ostream &OS);
+                      llvm::raw_string_ostream &OS, bool add_het_map_ctor = false);
 
   void AddToPredefines(llvm::raw_string_ostream &OS) override;
 };

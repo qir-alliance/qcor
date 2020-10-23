@@ -1,0 +1,6 @@
+{
+  "bundle.symbolic_name" : "qcor_pyxasm_token",
+  "bundle.activator" : true,
+  "bundle.name" : "PyXasm Token Collector",
+  "bundle.description" : ""
+}

@@ -1,7 +1,3 @@
-import sys, os
-from pathlib import Path
-sys.path.insert(1, str(Path.home()) + "/.xacc")
-
 import unittest
 from qcor import *
 import numpy as np

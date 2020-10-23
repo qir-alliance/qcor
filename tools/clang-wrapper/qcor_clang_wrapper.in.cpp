@@ -59,7 +59,7 @@ std::unique_ptr<clang::CodeGenAction> emit_llvm_ir(const std::string src_code) {
   int argc = argv_vec.size();
   void *MainAddr = (void *)(intptr_t)GetExecutablePath;
   std::string Path =
-      "/home/cades/.llvm/bin/clang++"; // GetExecutablePath(argv[0], MainAddr);
+      "@LLVM_ROOT@/bin/clang++"; // GetExecutablePath(argv[0], MainAddr);
   IntrusiveRefCntPtr<DiagnosticOptions> DiagOpts = new DiagnosticOptions();
   TextDiagnosticPrinter *DiagClient =
       new TextDiagnosticPrinter(llvm::errs(), &*DiagOpts);

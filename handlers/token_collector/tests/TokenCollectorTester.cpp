@@ -134,6 +134,36 @@ quantum::mz(r[i]);
 } 
 )#", results);
 }
+
+TEST(TokenCollectorTester, checkPyXasm) {
+  LexerHelper helper;
+
+ auto [tokens, PP] = helper.Lex(R"(using qcor::pyxasm;
+    H(qb[0])
+    CX(qb[0],qb[1])
+    for i in range(qb.size()):
+        X(qb[i])
+        X(qb[i])
+        Measure(qb[i])
+)");
+
+  clang::CachedTokens cached;
+  for (auto &t : tokens) {
+    cached.push_back(t);
+  }
+  auto results =
+      qcor::run_token_collector(*PP, cached, {"qb"});
+  std::cout << results << "\n";
+EXPECT_EQ(R"#(quantum::h(qb[0]);
+quantum::cnot(qb[0], qb[1]);
+for (int i = 0; i < qb.size(); ++i ) {
+quantum::x(qb[i]);
+quantum::x(qb[i]);
+quantum::mz(qb[i]);
+}
+)#",
+            results);
+}
 int main(int argc, char **argv) {
   xacc::Initialize();
   ::testing::InitGoogleTest(&argc, argv);
