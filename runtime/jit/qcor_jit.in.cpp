@@ -1,10 +1,10 @@
-#include "qcor_jit.hpp"
-#include "Utils.hpp"
-#include "qcor_syntax_handler.hpp"
-#include "qrt.hpp"
+#include <clang/CodeGen/CodeGenAction.h>
+
+#include <fstream>
+#include <memory>
 
 #include "Accelerator.hpp"
-
+#include "Utils.hpp"
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/DiagnosticOptions.h"
 #include "clang/Basic/FileManager.h"
@@ -22,8 +22,7 @@
 #include "clang/Lex/ModuleLoader.h"
 #include "clang/Lex/Preprocessor.h"
 #include "clang/Lex/PreprocessorOptions.h"
-#include <clang/CodeGen/CodeGenAction.h>
-
+#include "json.hpp"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Bitcode/BitcodeReader.h"
 #include "llvm/Bitcode/BitcodeWriter.h"
@@ -45,11 +44,10 @@
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Support/raw_ostream.h"
-#include <fstream>
-#include <memory>
-
-#include "json.hpp"
 #include "qcor_clang_wrapper.hpp"
+#include "qcor_jit.hpp"
+#include "qcor_syntax_handler.hpp"
+#include "qrt.hpp"
 #include "xacc_internal_compiler.hpp"
 
 using namespace llvm;
@@ -62,7 +60,7 @@ namespace qcor {
 using namespace clang;
 
 class LexerHelper {
-protected:
+ protected:
   FileSystemOptions FileMgrOpts;
   FileManager FileMgr;
   IntrusiveRefCntPtr<DiagnosticIDs> DiagID;
@@ -72,11 +70,13 @@ protected:
   std::shared_ptr<clang::TargetOptions> TargetOpts;
   IntrusiveRefCntPtr<TargetInfo> Target;
 
-public:
+ public:
   LexerHelper()
-      : FileMgr(FileMgrOpts), DiagID(new DiagnosticIDs()),
+      : FileMgr(FileMgrOpts),
+        DiagID(new DiagnosticIDs()),
         Diags(DiagID, new DiagnosticOptions, new IgnoringDiagConsumer()),
-        SourceMgr(Diags, FileMgr), TargetOpts(new clang::TargetOptions) {
+        SourceMgr(Diags, FileMgr),
+        TargetOpts(new clang::TargetOptions) {
     TargetOpts->Triple = "x86_64-apple-darwin11.1.0";
     Target = TargetInfo::CreateTargetInfo(Diags, TargetOpts);
   }
@@ -99,8 +99,8 @@ public:
     return PP;
   }
 
-  std::pair<std::vector<Token>, std::unique_ptr<Preprocessor>>
-  Lex(StringRef Source) {
+  std::pair<std::vector<Token>, std::unique_ptr<Preprocessor>> Lex(
+      StringRef Source) {
     TrivialModuleLoader ModLoader;
     auto PP = CreatePP(Source, ModLoader);
 
@@ -108,8 +108,7 @@ public:
     while (1) {
       Token tok;
       PP->Lex(tok);
-      if (tok.is(tok::eof))
-        break;
+      if (tok.is(tok::eof)) break;
       toks.push_back(tok);
     }
 
@@ -117,7 +116,8 @@ public:
   }
 };
 
-template <class Op> void split(const std::string &s, char delim, Op op) {
+template <class Op>
+void split(const std::string &s, char delim, Op op) {
   std::stringstream ss(s);
   for (std::string item; std::getline(ss, item, delim);) {
     *op++ = item;
@@ -152,15 +152,16 @@ void trim(std::string &s) {
   rtrim(s);
 }
 
-const std::pair<std::string, std::string>
-QJIT::run_syntax_handler(const std::string &kernel_src) {
+const std::pair<std::string, std::string> QJIT::run_syntax_handler(
+    const std::string &kernel_src) {
+  bool has_qpu_function_proto = kernel_src.find("__qpu__") != std::string::npos;
+
   // first do some analysis on the string to pick out
   // from the function prototype the arg_types, arg_vars, and
   // bufferNames
   int i, size = 0;
   for (i = kernel_src.find_first_of("(") - 1;; i--) {
-    if (kernel_src[i] == ' ')
-      break;
+    if (kernel_src[i] == ' ') break;
 
     size++;
   }
@@ -194,6 +195,7 @@ QJIT::run_syntax_handler(const std::string &kernel_src) {
       kernel_src.find_first_of("{") + 1,
       kernel_src.find_last_of("}") - kernel_src.find_first_of("{") - 1);
 
+  // std::cout << "QJIT FBODY:\n" << function_body << "\n";
   LexerHelper helper;
   auto [tokens, PP] = helper.Lex(function_body);
   clang::CachedTokens cached;
@@ -218,13 +220,13 @@ QJIT::run_syntax_handler(const std::string &kernel_src) {
     preamble += ", " + arg_types[j] + " " + arg_vars[j];
   }
 
-  return std::make_pair(kernel_name, preamble + ") {\n" + Replacement +
+  return std::make_pair(kernel_name, Replacement +
                                          "\n// Fix for __dso_handle symbol not "
                                          "found\nint __dso_handle = 1;\n");
 }
 
 class LLVMJIT {
-private:
+ private:
   ExecutionSession ES;
   RTDyldObjectLinkingLayer ObjectLayer;
   IRCompileLayer CompileLayer;
@@ -235,13 +237,15 @@ private:
 
   JITDylib &MainJD;
 
-public:
+ public:
   LLVMJIT(JITTargetMachineBuilder JTMB, DataLayout DL,
           std::unique_ptr<LLVMContext> ctx = std::make_unique<LLVMContext>())
       : ObjectLayer(ES,
                     []() { return std::make_unique<SectionMemoryManager>(); }),
         CompileLayer(ES, ObjectLayer, ConcurrentIRCompiler(std::move(JTMB))),
-        DL(std::move(DL)), Mangle(ES, this->DL), Ctx(std::move(ctx)),
+        DL(std::move(DL)),
+        Mangle(ES, this->DL),
+        Ctx(std::move(ctx)),
         MainJD(ES.createJITDylib("<main>")) {
     MainJD.addGenerator(
         cantFail(DynamicLibrarySearchGenerator::GetForCurrentProcess(
@@ -252,26 +256,22 @@ public:
   static Expected<std::unique_ptr<LLVMJIT>> Create() {
     auto JTMB = JITTargetMachineBuilder::detectHost();
 
-    if (!JTMB)
-      return JTMB.takeError();
+    if (!JTMB) return JTMB.takeError();
 
     auto DL = JTMB->getDefaultDataLayoutForTarget();
-    if (!DL)
-      return DL.takeError();
+    if (!DL) return DL.takeError();
 
     return std::make_unique<LLVMJIT>(std::move(*JTMB), std::move(*DL));
   }
 
-  static Expected<std::unique_ptr<LLVMJIT>>
-  Create(std::unique_ptr<LLVMContext> ctx) {
+  static Expected<std::unique_ptr<LLVMJIT>> Create(
+      std::unique_ptr<LLVMContext> ctx) {
     auto JTMB = JITTargetMachineBuilder::detectHost();
 
-    if (!JTMB)
-      return JTMB.takeError();
+    if (!JTMB) return JTMB.takeError();
 
     auto DL = JTMB->getDefaultDataLayoutForTarget();
-    if (!DL)
-      return DL.takeError();
+    if (!DL) return DL.takeError();
 
     return std::make_unique<LLVMJIT>(std::move(*JTMB), std::move(*DL),
                                      std::move(ctx));
@@ -281,7 +281,6 @@ public:
   LLVMContext &getContext() { return *Ctx.getContext(); }
 
   Error addModule(std::unique_ptr<llvm::Module> M) {
-
     // FIXME hook up to cmake
     MainJD.addGenerator(cantFail(DynamicLibrarySearchGenerator::Load(
         "@CMAKE_INSTALL_PREFIX@/lib/libxacc.so", DL.getGlobalPrefix())));
@@ -302,6 +301,8 @@ public:
 };
 
 QJIT::QJIT() {
+
+  // FIXME if tmp directory doesnt exist create it
   std::string cache_file_loc = "@CMAKE_INSTALL_PREFIX@/tmp/qjit_cache.json";
   if (!xacc::fileExists(cache_file_loc)) {
     // if it doesn't exist, create it
@@ -332,7 +333,6 @@ QJIT::~QJIT() {
 }
 
 void QJIT::jit_compile(const std::string &code) {
-
   // Run the Syntax Handler to get the kernel name and
   // the kernel code (the QuantumKernel subtype def + utility functions)
   auto [kernel_name, new_code] = run_syntax_handler(code);
@@ -345,7 +345,6 @@ void QJIT::jit_compile(const std::string &code) {
 
   std::unique_ptr<CodeGenAction> act;
   if (cached_kernel_codes.count(hash)) {
-
     // If we have this hash in the cache, we will grab its
     // correspoding Module bc file name and load it
     auto module_bitcode_file_name = cached_kernel_codes[hash];
@@ -364,7 +363,6 @@ void QJIT::jit_compile(const std::string &code) {
     }
 
   } else {
-
     // We have not seen this code before, so we
     // need to map it to an LLVM Module
     act = qcor::emit_llvm_ir(new_code);
@@ -388,7 +386,7 @@ void QJIT::jit_compile(const std::string &code) {
   // and get the first one that has the kernel name
   // in it as a substring. This is the corrent Function and
   // now we have it as a mangled name
-  std::string mangled_name = "";
+  std::string mangled_name = "", hetmap_mangled_name = "";
   for (Function &f : *module) {
     auto name = f.getName().str();
     if (demangle(name.c_str()).find(kernel_name) != std::string::npos) {
@@ -398,6 +396,15 @@ void QJIT::jit_compile(const std::string &code) {
     }
   }
 
+  for (Function &f : *module) {
+    auto name = f.getName().str();
+    if (demangle(name.c_str()).find(kernel_name + "__with_hetmap_args") !=
+        std::string::npos) {
+      // First one we see is the correct kernel call
+      hetmap_mangled_name = name;
+      break;
+    }
+  }
   // Create the JIT Engine if we haven't already
   if (!jit) {
     jit = cantFail(qcor::LLVMJIT::Create(),
@@ -414,7 +421,18 @@ void QJIT::jit_compile(const std::string &code) {
   auto rawFPtr = symbol.getAddress();
   kernel_name_to_f_ptr.insert({kernel_name, rawFPtr});
 
+  // Get the function pointer for the hetmap kernel invocation
+  auto hetmap_symbol = cantFail(jit->lookup(hetmap_mangled_name));
+  auto hetmap_rawFPtr = hetmap_symbol.getAddress();
+  kernel_name_to_f_ptr_hetmap.insert({kernel_name, hetmap_rawFPtr});
+
   return;
 }
 
-} // namespace qcor
+void QJIT::invoke_with_hetmap(const std::string &kernel_name, xacc::HeterogeneousMap& args) {
+  auto f_ptr = kernel_name_to_f_ptr_hetmap[kernel_name];
+  void (*kernel_functor)(xacc::HeterogeneousMap&) =
+      (void (*)(xacc::HeterogeneousMap&))f_ptr;
+  kernel_functor(args);
+}
+}  // namespace qcor

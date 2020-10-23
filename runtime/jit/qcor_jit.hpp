@@ -1,7 +1,9 @@
+#pragma once
 #include <cxxabi.h>
 #include <map>
 #include <memory>
 #include <string>
+#include "heterogeneous.hpp"
 
 namespace llvm {
 class Module;
@@ -23,6 +25,7 @@ private:
 
 protected:
   std::map<std::string, std::uint64_t> kernel_name_to_f_ptr;
+  std::map<std::string, std::uint64_t> kernel_name_to_f_ptr_hetmap;
 
   std::unique_ptr<LLVMJIT> jit;
   std::unique_ptr<llvm::Module> module;
@@ -40,6 +43,8 @@ public:
     void (*kernel_functor)(Args...) = (void (*)(Args...))f_ptr;
     kernel_functor(args...);
   }
+
+  void invoke_with_hetmap(const std::string &kernel_name, xacc::HeterogeneousMap& args);
 
   template <typename... Args>
   kernel_functor_t<Args...> get_kernel(const std::string &kernel_name) {
