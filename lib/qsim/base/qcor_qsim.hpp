@@ -171,5 +171,9 @@ getObjEvaluator(PauliOperator &obs, const std::string &name = "default",
                 const HeterogeneousMap &init_params = {}) {
   return getObjEvaluator(&obs, name, init_params);
 }
+
+// Helper to apply optimization/placement before evaluation:
+void executePassManager(
+    std::vector<std::shared_ptr<CompositeInstruction>> evalKernels);
 } // namespace qsim
 } // namespace qcor

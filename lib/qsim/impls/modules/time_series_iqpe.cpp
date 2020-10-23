@@ -161,6 +161,7 @@ double PhaseEstimationObjFuncEval::evaluate(
   auto qpu = xacc::internal_compiler::get_qpu();
   auto temp_buffer = xacc::qalloc(nbQubits + 1);
   // Execute all sub-kernels
+  executePassManager(fsToExec);
   qpu->execute(temp_buffer, fsToExec);
 
   // Assemble execution data into a fast look-up map

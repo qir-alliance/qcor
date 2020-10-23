@@ -10,6 +10,13 @@ bool CostFunctionEvaluator::initialize(Observable *observable,
   return target_operator != nullptr;
 }
 
+void executePassManager(
+    std::vector<std::shared_ptr<CompositeInstruction>> evalKernels) {
+  for (auto &subKernel : evalKernels) {
+    execute_pass_manager(subKernel);
+  }
+}
+
 QuantumSimulationModel
 ModelBuilder::createModel(Observable *obs, TdObservable td_ham,
                           const HeterogeneousMap &params) {
