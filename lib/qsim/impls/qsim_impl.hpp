@@ -25,22 +25,6 @@ public:
   virtual const std::string description() const override { return ""; }
 };
 
-// other methods.
-
-// Estimate the cost function based on bitstring distribution,
-// e.g. actual quantum hardware.
-// Note: we can sub-class CostFunctionEvaluator to add post-processing or
-// analysis of the result.
-class BitCountExpectationEstimator : public CostFunctionEvaluator {
-public:
-  // Evaluate the cost
-  virtual double
-  evaluate(std::shared_ptr<CompositeInstruction> state_prep) override;
-
-private:
-  size_t nb_samples;
-};
-
 // VQE-type workflow which involves an optimization loop, i.e. an Optimizer.
 class VqeWorkflow : public QuantumSimulationWorkflow {
 public:
@@ -67,6 +51,7 @@ public:
   virtual const std::string description() const override { return ""; }
 
 private:
+  HeterogeneousMap config_params;
   double t_0;
   double t_final;
   double dt;
