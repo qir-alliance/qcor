@@ -53,6 +53,7 @@ public:
 
 private:
   std::shared_ptr<Optimizer> optimizer;
+  HeterogeneousMap config_params;
 };
 
 // Time-dependent evolution workflow which can handle
@@ -92,6 +93,10 @@ public:
   virtual const std::string name() const override { return "iqpe"; }
   virtual const std::string description() const override { return ""; }
 
+  static std::shared_ptr<CompositeInstruction> constructQpeTrotterCircuit(
+      std::shared_ptr<Observable> obs, double trotter_step, size_t nbQubits,
+      double compensatedAncRot = 0, int steps = 1, int k = 1, double omega = 0);
+
 private:
   std::shared_ptr<CompositeInstruction>
   constructQpeCircuit(std::shared_ptr<Observable> obs, int k, double omega,
@@ -111,6 +116,16 @@ public:
   virtual double
   evaluate(std::shared_ptr<CompositeInstruction> state_prep) override;
   virtual const std::string name() const override { return "default"; }
+  virtual const std::string description() const override { return ""; }
+};
+
+// Evaluate the objective function based on QPE protocol.
+class PhaseEstimationObjFuncEval : public CostFunctionEvaluator {
+public:
+  // Evaluate the cost
+  virtual double
+  evaluate(std::shared_ptr<CompositeInstruction> state_prep) override;
+  virtual const std::string name() const override { return "qpe"; }
   virtual const std::string description() const override { return ""; }
 };
 } // namespace qsim

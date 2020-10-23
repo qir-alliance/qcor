@@ -25,3 +25,7 @@ endif()
 
 install(FILES qcor.py DESTINATION ${CMAKE_INSTALL_PREFIX})
 install(TARGETS _pyqcor DESTINATION ${CMAKE_INSTALL_PREFIX})
+
+if (QCOR_BUILD_TESTS)
+  add_subdirectory(tests)
+endif()

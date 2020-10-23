@@ -45,6 +45,7 @@ compile_commands.json
 /docs/doxygen/html**
 **/*.dat
 **/.antlr
+__pycache__/
 # IDE files
 .vscode/*
 .theia/*
