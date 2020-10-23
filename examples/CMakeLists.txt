@@ -18,3 +18,6 @@ add_test(NAME qrt_ftqc_deuteron COMMAND ${CMAKE_BINARY_DIR}/qcor -c -qrt ftqc ${
 add_test(NAME qrt_ftqc_bit_flip_qec_std_lib COMMAND ${CMAKE_BINARY_DIR}/qcor -c -qrt ftqc ${CMAKE_CURRENT_SOURCE_DIR}/ftqc_qrt/error_correcting_code.cpp)
 add_test(NAME qrt_ftqc_five_qubit_qec_std_lib COMMAND ${CMAKE_BINARY_DIR}/qcor -c -qrt ftqc ${CMAKE_CURRENT_SOURCE_DIR}/ftqc_qrt/five_qubit_qec_code.cpp)
 add_test(NAME qrt_ftqc_steane_qec_std_lib COMMAND ${CMAKE_BINARY_DIR}/qcor -c -qrt ftqc ${CMAKE_CURRENT_SOURCE_DIR}/ftqc_qrt/steane_qec_code.cpp)
+add_test(NAME qsim_vqe COMMAND ${CMAKE_BINARY_DIR}/qcor ${CMAKE_CURRENT_SOURCE_DIR}/qsim/VqeWithAnsatzCircuit.cpp)
+add_test(NAME qsim_trotter COMMAND ${CMAKE_BINARY_DIR}/qcor ${CMAKE_CURRENT_SOURCE_DIR}/qsim/TrotterTdWorkflow.cpp)
+add_test(NAME qsim_iqpe_vqe COMMAND ${CMAKE_BINARY_DIR}/qcor ${CMAKE_CURRENT_SOURCE_DIR}/qsim/IterativeQpeVqe.cpp)
