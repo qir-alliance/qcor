@@ -2,6 +2,7 @@
 
 #include <fstream>
 #include <memory>
+#include <filesystem>
 
 #include "Accelerator.hpp"
 #include "Utils.hpp"
@@ -302,7 +303,12 @@ class LLVMJIT {
 };
 
 QJIT::QJIT() {
-  // FIXME if tmp directory doesnt exist create it
+  // if tmp directory doesnt exist create it
+  std::string tmp_dir = "@CMAKE_INSTALL_PREFIX@/tmp";
+  if (!std::filesystem::exists(tmp_dir)) {
+    std::filesystem::create_directory(tmp_dir);
+  }
+
   std::string cache_file_loc = "@CMAKE_INSTALL_PREFIX@/tmp/qjit_cache.json";
   if (!xacc::fileExists(cache_file_loc)) {
     // if it doesn't exist, create it
