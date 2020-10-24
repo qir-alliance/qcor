@@ -1,8 +1,8 @@
 #include <clang/CodeGen/CodeGenAction.h>
 
+#include <filesystem>
 #include <fstream>
 #include <memory>
-#include <filesystem>
 
 #include "Accelerator.hpp"
 #include "Utils.hpp"
@@ -301,12 +301,14 @@ class LLVMJIT {
     return ES.lookup({&MainJD}, Mangle(Name.str()));
   }
 };
+#include <sys/stat.h>
 
 QJIT::QJIT() {
   // if tmp directory doesnt exist create it
   std::string tmp_dir = "@CMAKE_INSTALL_PREFIX@/tmp";
-  if (!std::filesystem::exists(tmp_dir)) {
-    std::filesystem::create_directory(tmp_dir);
+  if (!xacc::directoryExists(tmp_dir)) {
+    auto status =
+        mkdir(tmp_dir.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
   }
 
   std::string cache_file_loc = "@CMAKE_INSTALL_PREFIX@/tmp/qjit_cache.json";
