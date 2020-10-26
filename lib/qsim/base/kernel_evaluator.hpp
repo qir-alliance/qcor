@@ -29,7 +29,7 @@ public:
   KernelFunctor(std::shared_ptr<CompositeInstruction> composite) {
     kernel = composite;
     q = qalloc(composite->nPhysicalBits());
-    nbParams = composite->nParameters();
+    nbParams = composite->nVariables();
   }
   qreg &getQreg() { return q; }
   size_t nParams() const { return nbParams; }
