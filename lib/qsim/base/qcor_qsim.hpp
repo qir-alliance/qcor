@@ -140,6 +140,22 @@ public:
       PauliOperator &obs, size_t nbQubits, size_t nbParams) {
     return createModel(quantum_kernel_functor, &obs, nbQubits, nbParams);
   }
+
+  // Passing the state-preparation ansatz as a CompositeInstruction
+  static inline QuantumSimulationModel
+  createModel(std::shared_ptr<CompositeInstruction> composite,
+              Observable *obs) {
+    QuantumSimulationModel model;
+    model.observable = obs;
+    model.user_defined_ansatz = createKernelFunctor(composite);
+    return model;
+  }
+
+  static inline QuantumSimulationModel
+  createModel(std::shared_ptr<CompositeInstruction> composite,
+              PauliOperator &obs) {
+    return createModel(composite, &obs);
+  }
 };
 
 // Quantum Simulation Workflow (Protocol)
