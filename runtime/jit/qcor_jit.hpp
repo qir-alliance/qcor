@@ -47,6 +47,8 @@ class QJIT {
   void jit_compile(const std::string &quantum_kernel_src,
                    const bool add_het_map_kernel_ctor = false);
 
+  void write_cache();
+  
   template <typename... Args>
   void invoke(const std::string &kernel_name, Args... args) {
     auto f_ptr = kernel_name_to_f_ptr[kernel_name];

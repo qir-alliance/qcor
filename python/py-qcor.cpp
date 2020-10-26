@@ -136,6 +136,7 @@ class PyObjectiveFunction : public qcor::ObjectiveFunction {
     // QJIT compile
     // this will be fast if already done, and we just do it once
     qjit.jit_compile(src, true);
+    qjit.write_cache();
   }
 
   // Evaluate this ObjectiveFunction at the dictionary of kernel args, 
@@ -196,6 +197,7 @@ class PyKernelFunctor : public qcor::KernelFunctor {
     auto src = py_kernel.attr("get_internal_src")().cast<std::string>();
     // this will be fast if already done, and we just do it once
     qjit.jit_compile(src, true);
+    qjit.write_cache();
   }
 
   // Delegate to QJIT to create a CompositeInstruction representation 
@@ -282,6 +284,7 @@ PYBIND11_MODULE(_pyqcor, m) {
   // m.def("createObjectiveFunction", [](const std::string name, ))
   py::class_<qcor::QJIT, std::shared_ptr<qcor::QJIT>>(m, "QJIT", "")
       .def(py::init<>(), "")
+      .def("write_cache", &qcor::QJIT::write_cache, "")
       .def("jit_compile", &qcor::QJIT::jit_compile, "")
       .def(
           "internal_python_jit_compile",

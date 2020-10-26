@@ -94,6 +94,7 @@ class qjit(object):
 
         # Run the QJIT compile step to store function pointers internally
         self._qjit.internal_python_jit_compile(self.src)
+        self._qjit.write_cache()
 
         return
 
