@@ -14,7 +14,7 @@ class TestVQEObjectiveFunction(unittest.TestCase):
         
         comp = ansatz.extract_composite(q, [2.2])
         print(comp.toString())
-        
+
         H = -2.1433 * X(0) * X(1) - 2.1433 * \
             Y(0) * Y(1) + .21829 * Z(0) - 6.125 * Z(1) + 5.907
         
@@ -29,6 +29,8 @@ class TestVQEObjectiveFunction(unittest.TestCase):
 
         self.assertAlmostEqual(results[0], -1.74, places=1)
         print(results)
+
+        print(ansatz.openqasm(q, [2.2]))
 
 
 if __name__ == '__main__':
