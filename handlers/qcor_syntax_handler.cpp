@@ -217,6 +217,26 @@ void QCORSyntaxHandler::GetReplacement(
          << program_parameters[i] << "\")";
     }
     OS << ") {}\n";
+
+    // Forth constructor, give us a way to provide a HeterogeneousMap of
+    // arguments, and set a parent kernel - this is also used for Pythonic
+    // QJIT... KERNEL_NAME(std::shared_ptr<CompositeInstruction> parent,
+    // HeterogeneousMap args);
+    OS << kernel_name
+       << "(std::shared_ptr<CompositeInstruction> parent, HeterogeneousMap& "
+          "args): QuantumKernel<"
+       << kernel_name << ", " << program_arg_types[0];
+    for (int i = 1; i < program_arg_types.size(); i++) {
+      OS << ", " << program_arg_types[i];
+    }
+    OS << "> (parent, args.get<" << program_arg_types[0] << ">(\""
+       << program_parameters[0] << "\")";
+    for (int i = 1; i < program_parameters.size(); i++) {
+      OS << ", "
+         << "args.get<" << program_arg_types[i] << ">(\""
+         << program_parameters[i] << "\")";
+    }
+    OS << ") {}\n";
   }
 
   // Destructor definition
@@ -315,6 +335,12 @@ void QCORSyntaxHandler::GetReplacement(
     OS << "void " << kernel_name
        << "__with_hetmap_args(HeterogeneousMap& args) {\n";
     OS << "class " << kernel_name << " __ker__temp__(args);\n";
+    OS << "}\n";
+
+    OS << "void " << kernel_name
+       << "__with_parent_and_hetmap_args(std::shared_ptr<CompositeInstruction> parent, "
+          "HeterogeneousMap& args) {\n";
+    OS << "class " << kernel_name << " __ker__temp__(parent, args);\n";
     OS << "}\n";
   }
   auto s = OS.str();

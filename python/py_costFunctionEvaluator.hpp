@@ -1,3 +1,4 @@
+#pragma once
 #include "base/qcor_qsim.hpp"
 #include <memory>
 #include <pybind11/complex.h>

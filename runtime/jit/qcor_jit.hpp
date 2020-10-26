@@ -10,6 +10,10 @@
 namespace llvm {
 class Module;
 }
+namespace xacc {
+class CompositeInstruction;
+}
+
 namespace qcor {
 class LLVMJIT;
 
@@ -29,6 +33,7 @@ class QJIT {
  protected:
   std::map<std::string, std::uint64_t> kernel_name_to_f_ptr;
   std::map<std::string, std::uint64_t> kernel_name_to_f_ptr_hetmap;
+  std::map<std::string, std::uint64_t> kernel_name_to_f_ptr_parent_hetmap;
 
   std::unique_ptr<LLVMJIT> jit;
   std::unique_ptr<llvm::Module> module;
@@ -51,6 +56,8 @@ class QJIT {
 
   void invoke_with_hetmap(const std::string &kernel_name,
                           xacc::HeterogeneousMap &args);
+  std::shared_ptr<xacc::CompositeInstruction> extract_composite_with_hetmap(
+      const std::string name, xacc::HeterogeneousMap &m);
 
   template <typename... Args>
   kernel_functor_t<Args...> get_kernel(const std::string &kernel_name) {

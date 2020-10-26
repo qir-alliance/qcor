@@ -24,6 +24,7 @@ protected:
   qreg q;
 
 public:
+  KernelFunctor() = default;
   KernelFunctor(qreg qReg) : q(qReg){};
   qreg &getQreg() { return q; }
   size_t nParams() const { return nbParams; }
