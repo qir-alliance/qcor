@@ -1,0 +1,37 @@
+import unittest
+from qcor import *
+
+class TestVQEObjectiveFunction(unittest.TestCase):
+    def test_simple_deuteron(self):
+
+        @qjit
+        def ansatz(q: qreg, theta: List[float]):
+            X(q[0])
+            Ry(q[1], theta[0])
+            CX(q[1], q[0])
+
+        q = qalloc(2)
+        
+        comp = ansatz.extract_composite(q, [2.2])
+        print(comp.toString())
+
+        H = -2.1433 * X(0) * X(1) - 2.1433 * \
+            Y(0) * Y(1) + .21829 * Z(0) - 6.125 * Z(1) + 5.907
+        
+        n_params = 1
+        obj = createObjectiveFunction(ansatz, H, n_params)
+        vqe_energy = obj([.59])
+        self.assertAlmostEqual(vqe_energy, -1.74, places=1)
+
+        optimizer = createOptimizer('nlopt')
+
+        results = optimizer.optimize(obj)
+
+        self.assertAlmostEqual(results[0], -1.74, places=1)
+        print(results)
+
+        print(ansatz.openqasm(q, [2.2]))
+
+
+if __name__ == '__main__':
+    unittest.main()

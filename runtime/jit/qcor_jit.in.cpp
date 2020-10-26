@@ -5,6 +5,7 @@
 #include <memory>
 
 #include "Accelerator.hpp"
+#include "CompositeInstruction.hpp"
 #include "Utils.hpp"
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/DiagnosticOptions.h"
@@ -49,6 +50,7 @@
 #include "qcor_jit.hpp"
 #include "qcor_syntax_handler.hpp"
 #include "qrt.hpp"
+#include "xacc.hpp"
 #include "xacc_internal_compiler.hpp"
 
 using namespace llvm;
@@ -307,8 +309,7 @@ QJIT::QJIT() {
   // if tmp directory doesnt exist create it
   std::string tmp_dir = "@CMAKE_INSTALL_PREFIX@/tmp";
   if (!xacc::directoryExists(tmp_dir)) {
-    auto status =
-        mkdir(tmp_dir.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+    auto status = mkdir(tmp_dir.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
   }
 
   std::string cache_file_loc = "@CMAKE_INSTALL_PREFIX@/tmp/qjit_cache.json";
@@ -321,16 +322,17 @@ QJIT::QJIT() {
     std::string cache_file_contents(
         (std::istreambuf_iterator<char>(cache_file)),
         std::istreambuf_iterator<char>());
-    auto cache_json = nlohmann::json::parse(cache_file_contents);
-    auto jit_cache = cache_json["jit_cache"];
-    for (auto &element : jit_cache) {
-      auto key_val = element.get<std::pair<std::size_t, std::string>>();
-      cached_kernel_codes.insert(key_val);
+    if (!cache_file_contents.empty()) {
+      auto cache_json = nlohmann::json::parse(cache_file_contents);
+      auto jit_cache = cache_json["jit_cache"];
+      for (auto &element : jit_cache) {
+        auto key_val = element.get<std::pair<std::size_t, std::string>>();
+        cached_kernel_codes.insert(key_val);
+      }
     }
   }
 }
-
-QJIT::~QJIT() {
+void QJIT::write_cache() {
   std::string cache_file_loc = "@CMAKE_INSTALL_PREFIX@/tmp/qjit_cache.json";
   nlohmann::json j;
   j["jit_cache"] = cached_kernel_codes;
@@ -339,6 +341,7 @@ QJIT::~QJIT() {
   cache << str;
   cache.close();
 }
+QJIT::~QJIT() { write_cache(); }
 
 void QJIT::jit_compile(const std::string &code,
                        const bool add_het_map_kernel_ctor) {
@@ -396,7 +399,8 @@ void QJIT::jit_compile(const std::string &code,
   // and get the first one that has the kernel name
   // in it as a substring. This is the corrent Function and
   // now we have it as a mangled name
-  std::string mangled_name = "", hetmap_mangled_name = "";
+  std::string mangled_name = "", hetmap_mangled_name = "",
+              parent_hetmap_mangled_name = "";
   for (Function &f : *module) {
     auto name = f.getName().str();
     if (demangle(name.c_str()).find(kernel_name) != std::string::npos) {
@@ -406,6 +410,7 @@ void QJIT::jit_compile(const std::string &code,
     }
   }
 
+  // Find the hetmap args function
   for (Function &f : *module) {
     auto name = f.getName().str();
     if (demangle(name.c_str()).find(kernel_name + "__with_hetmap_args") !=
@@ -415,6 +420,19 @@ void QJIT::jit_compile(const std::string &code,
       break;
     }
   }
+
+  // Find the parent composte + hetmap args function
+  for (Function &f : *module) {
+    auto name = f.getName().str();
+    if (demangle(name.c_str())
+            .find(kernel_name + "__with_parent_and_hetmap_args") !=
+        std::string::npos) {
+      // First one we see is the correct kernel call
+      parent_hetmap_mangled_name = name;
+      break;
+    }
+  }
+
   // Create the JIT Engine if we haven't already
   if (!jit) {
     jit = cantFail(qcor::LLVMJIT::Create(),
@@ -436,6 +454,12 @@ void QJIT::jit_compile(const std::string &code,
   auto hetmap_rawFPtr = hetmap_symbol.getAddress();
   kernel_name_to_f_ptr_hetmap.insert({kernel_name, hetmap_rawFPtr});
 
+  // Get the function pointer for the hetmap kernel invocation
+  auto parent_hetmap_symbol = cantFail(jit->lookup(parent_hetmap_mangled_name));
+  auto parent_hetmap_rawFPtr = parent_hetmap_symbol.getAddress();
+  kernel_name_to_f_ptr_parent_hetmap.insert(
+      {kernel_name, parent_hetmap_rawFPtr});
+
   return;
 }
 
@@ -445,5 +469,18 @@ void QJIT::invoke_with_hetmap(const std::string &kernel_name,
   void (*kernel_functor)(xacc::HeterogeneousMap &) =
       (void (*)(xacc::HeterogeneousMap &))f_ptr;
   kernel_functor(args);
+}
+
+std::shared_ptr<xacc::CompositeInstruction> QJIT::extract_composite_with_hetmap(
+    const std::string kernel_name, xacc::HeterogeneousMap &args) {
+  auto composite =
+      xacc::getIRProvider("quantum")->createComposite(kernel_name + "_qjit");
+  auto f_ptr = kernel_name_to_f_ptr_parent_hetmap[kernel_name];
+  void (*kernel_functor)(std::shared_ptr<xacc::CompositeInstruction>,
+                         xacc::HeterogeneousMap &) =
+      (void (*)(std::shared_ptr<xacc::CompositeInstruction>,
+                xacc::HeterogeneousMap &))f_ptr;
+  kernel_functor(composite, args);
+  return composite;
 }
 }  // namespace qcor

@@ -24,6 +24,7 @@ protected:
   qreg q;
 
 public:
+  KernelFunctor() = default;
   KernelFunctor(qreg qReg) : q(qReg){};
   // Direct construction via a Composite Instruction
   KernelFunctor(std::shared_ptr<CompositeInstruction> composite) {

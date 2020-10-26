@@ -12,9 +12,11 @@
 #include "py_costFunctionEvaluator.hpp"
 #include "py_qsimWorkflow.hpp"
 #include "qcor_jit.hpp"
+#include "qcor_observable.hpp"
 #include "qrt.hpp"
 #include "xacc.hpp"
 #include "xacc_internal_compiler.hpp"
+#include "xacc_service.hpp"
 
 namespace py = pybind11;
 using namespace xacc;
@@ -48,10 +50,16 @@ struct visit_helper<mpark::variant> {
 
 namespace {
 
+// We only allow certain argument types for quantum kernel functors in python
+// Here we enumerate them as a Variant
 using AllowedKernelArgTypes =
     xacc::Variant<bool, int, double, std::string, xacc::internal_compiler::qreg,
                   std::vector<double>>;
+
+// We will take as input a mapping of arg variable names to the argument itself.
 using KernelArgDict = std::map<std::string, AllowedKernelArgTypes>;
+
+// Utility for mapping KernelArgDict to a HeterogeneousMap
 class KernelArgDictToHeterogeneousMap {
  protected:
   xacc::HeterogeneousMap &m;
@@ -68,7 +76,8 @@ class KernelArgDictToHeterogeneousMap {
 };
 
 // Add type name to this list to support receiving from Python.
-using PyHeterogeneousMapTypes = xacc::Variant<bool, int, double, std::string>;
+using PyHeterogeneousMapTypes = xacc::Variant<bool, int, double, std::string,
+                                              std::shared_ptr<qcor::Optimizer>>;
 using PyHeterogeneousMap = std::map<std::string, PyHeterogeneousMapTypes>;
 
 // Helper to convert a Python *dict* (as a map of variants) into a native
@@ -84,6 +93,130 @@ xacc::HeterogeneousMap heterogeneousMapConvert(
   return result;
 }
 }  // namespace
+
+namespace qcor {
+
+// PyObjectiveFunction implements ObjectiveFunction to 
+// enable the utility of pythonic quantum kernels with the 
+// existing qcor ObjectiveFunction infrastructure. This class 
+// keeps track of the quantum kernel as a py::object, which it uses 
+// in tandem with the QCOR QJIT engine to create an executable 
+// functor representation of the quantum code at runtime. It exposes 
+// the ObjectiveFunction operator()() overloads to map vector<double> 
+// x to the correct pythonic argument structure. It delegates to the 
+// usual helper ObjectiveFunction (like vqe) for execution of the 
+// actual pre-, execution, and post-processing. 
+class PyObjectiveFunction : public qcor::ObjectiveFunction {
+ protected:
+  py::object py_kernel;
+  std::shared_ptr<ObjectiveFunction> helper;
+  xacc::internal_compiler::qreg qreg;
+  QJIT qjit;
+
+ public:
+  const std::string name() const override { return "py-objective-impl"; }
+  const std::string description() const override { return ""; }
+  PyObjectiveFunction(py::object q, qcor::PauliOperator &qq, const int n_dim,
+                      const std::string &helper_name)
+      : py_kernel(q) {
+    
+    // Set the OptFunction dimensions
+    _dim = n_dim;
+
+    // Set the helper objective
+    helper = xacc::getService<qcor::ObjectiveFunction>(helper_name);
+
+    // Store the observable pointer and give it to the helper
+    observable = xacc::as_shared_ptr(&qq);
+    helper->update_observable(observable);
+
+    // Extract the QJIT source code
+    auto src = py_kernel.attr("get_internal_src")().cast<std::string>();
+
+    // QJIT compile
+    // this will be fast if already done, and we just do it once
+    qjit.jit_compile(src, true);
+    qjit.write_cache();
+  }
+
+  // Evaluate this ObjectiveFunction at the dictionary of kernel args, 
+  // return the scalar value 
+  double operator()(const KernelArgDict args) {
+    // Map the kernel args to a hetmap
+    xacc::HeterogeneousMap m;
+    for (auto &item : args) {
+      KernelArgDictToHeterogeneousMap vis(m, item.first);
+      mpark::visit(vis, item.second);
+    }
+
+    // Get the kernel as a CompositeInstruction
+    auto kernel_name = py_kernel.attr("kernel_name")().cast<std::string>();
+    kernel = qjit.extract_composite_with_hetmap(kernel_name, m);
+    helper->update_kernel(kernel);
+
+    // FIXME, handle gradients
+    std::vector<double> dx;
+    return (*helper)(qreg, dx);
+  }
+
+  // Evaluate this ObjectiveFunction at the parameters x
+  double operator()(const std::vector<double> &x,
+                    std::vector<double> &dx) override {
+    current_iterate_parameters = x;
+    helper->update_current_iterate_parameters(x);
+
+    // Translate x into kernel args
+    qreg = ::qalloc(observable->nBits());
+    auto args = py_kernel.attr("translate")(qreg, x).cast<KernelArgDict>();
+    // args will be a dictionary, arg_name to arg
+    return operator()(args);
+  }
+
+  virtual double operator()(xacc::internal_compiler::qreg &qreg,
+                            std::vector<double> &dx) {
+    throw std::bad_function_call();
+    return 0.0;
+  }
+};
+
+// PyKernelFunctor is a subtype of KernelFunctor from the qsim library 
+// that returns a CompositeInstruction representation of a pythonic 
+// quantum kernel given a vector of parameters x. This will 
+// leverage the QJIT infrastructure to create executable functor 
+// representation of the python kernel. 
+class PyKernelFunctor : public qcor::KernelFunctor {
+ protected:
+  py::object py_kernel;
+  QJIT qjit;
+  std::size_t n_qubits;
+
+ public:
+  PyKernelFunctor(py::object q, const std::size_t nq, const std::size_t np)
+      : py_kernel(q), n_qubits(nq) {
+    nbParams = np;
+    auto src = py_kernel.attr("get_internal_src")().cast<std::string>();
+    // this will be fast if already done, and we just do it once
+    qjit.jit_compile(src, true);
+    qjit.write_cache();
+  }
+
+  // Delegate to QJIT to create a CompositeInstruction representation 
+  // of the pythonic quantum kernel. 
+  std::shared_ptr<xacc::CompositeInstruction> evaluate_kernel(
+      const std::vector<double> &x) override {
+    // Translate x into kernel args
+    auto qreg = ::qalloc(n_qubits);
+    auto args = py_kernel.attr("translate")(qreg, x).cast<KernelArgDict>();
+    xacc::HeterogeneousMap m;
+    for (auto &item : args) {
+      KernelArgDictToHeterogeneousMap vis(m, item.first);
+      mpark::visit(vis, item.second);
+    }
+    auto kernel_name = py_kernel.attr("kernel_name")().cast<std::string>();
+    return qjit.extract_composite_with_hetmap(kernel_name, m);
+  }
+};
+}  // namespace qcor
 
 PYBIND11_MODULE(_pyqcor, m) {
   m.doc() = "Python bindings for QCOR.";
@@ -148,8 +281,10 @@ PYBIND11_MODULE(_pyqcor, m) {
       .def("counts", &xacc::internal_compiler::qreg::counts, "")
       .def("exp_val_z", &xacc::internal_compiler::qreg::exp_val_z, "");
 
+  // m.def("createObjectiveFunction", [](const std::string name, ))
   py::class_<qcor::QJIT, std::shared_ptr<qcor::QJIT>>(m, "QJIT", "")
       .def(py::init<>(), "")
+      .def("write_cache", &qcor::QJIT::write_cache, "")
       .def("jit_compile", &qcor::QJIT::jit_compile, "")
       .def(
           "internal_python_jit_compile",
@@ -169,7 +304,37 @@ PYBIND11_MODULE(_pyqcor, m) {
             }
             qjit.invoke_with_hetmap(name, m);
           },
+          "")
+      .def("extract_composite",
+           [](qcor::QJIT &qjit, const std::string name, KernelArgDict args) {
+             xacc::HeterogeneousMap m;
+             for (auto &item : args) {
+               KernelArgDictToHeterogeneousMap vis(m, item.first);
+               mpark::visit(vis, item.second);
+             }
+             return qjit.extract_composite_with_hetmap(name, m);
+           });
+
+  py::class_<qcor::ObjectiveFunction, std::shared_ptr<qcor::ObjectiveFunction>>(
+      m, "ObjectiveFunction", "")
+      .def("dimensions", &qcor::ObjectiveFunction::dimensions, "")
+      .def(
+          "__call__",
+          [](qcor::ObjectiveFunction &obj, std::vector<double> x) {
+            return obj(x);
+          },
           "");
+
+  m.def(
+      "createObjectiveFunction",
+      [](py::object kernel, qcor::PauliOperator &obs, const int n_params) {
+        auto q = ::qalloc(obs.nBits());
+        std::shared_ptr<qcor::ObjectiveFunction> obj =
+            std::make_shared<qcor::PyObjectiveFunction>(kernel, obs, n_params,
+                                                        "vqe");
+        return obj;
+      },
+      "");
 
   // qsim sub-module bindings:
   {
@@ -193,7 +358,19 @@ PYBIND11_MODULE(_pyqcor, m) {
             [](qcor::PauliOperator &obs, qcor::qsim::TdObservable ham_func) {
               return qcor::qsim::ModelBuilder::createModel(obs, ham_func);
             },
-            "Return the Model for a time-dependent problem.");
+            "Return the Model for a time-dependent problem.")
+        .def(
+            "createModel",
+            [](py::object py_kernel, qcor::PauliOperator &obs,
+               const int n_qubits, const int n_params) {
+              qcor::qsim::QuantumSimulationModel model;
+              auto kernel_functor = std::make_shared<qcor::PyKernelFunctor>(
+                  py_kernel, n_qubits, n_params);
+              model.observable = &obs;
+              model.user_defined_ansatz = kernel_functor;
+              return std::move(model);
+            },
+            "");
 
     // CostFunctionEvaluator bindings
     py::class_<qcor::qsim::CostFunctionEvaluator,
