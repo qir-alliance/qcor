@@ -3,8 +3,13 @@
 // Using noise-mitigation observable evaluation (Verified QPE)
 
 // Compile and run with (e.g. using the 5-qubit Yorktown device)
-/// $ qcor -qpu aer:ibmqx2 TrotterTdWorkflow.cpp
+/// $ qcor -qpu -qpu aer[noise-model:<noise JSON>] -shots 8192 -opt-pass
+/// two-qubit-block-merging VerifiedQuantumPhaseEstimation.cpp
 /// $ ./a.out
+
+// For this simple circuit, the Trotter circuit can be significantly simplified
+// by the `two-qubit-block-merging` optimizer (combine Trotter steps and
+// decompose the total circuit into a more efficient KAK circuit).
 
 // Note: for simplicity, we use the time-dependent Ising model with only 2
 // qubits, hence with QPE, we need a total of 3 qubits. These 3 qubits can be
