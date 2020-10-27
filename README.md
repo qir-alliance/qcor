@@ -29,24 +29,22 @@ Note that the above requires you have `lsb_release` installed (usually is, if no
 
 QCOR nightly docker images are available that serve up an Eclipse Theia IDE (the same IDE Gitpod uses) on port 3000. To get started, run 
 ```bash
-$ docker run --security-opt seccomp=unconfined --init -it -p 3000:3000 qcor/qcor
+docker run --security-opt seccomp=unconfined --init -it -p 3000:3000 qcor/qcor
 ```
 Navigate to ``https://localhost:3000`` in your browser to open the IDE and get started with QCOR. 
 
 ## Dependencies
-```
-Compiler (C++14): GNU 6.1+, Clang 3.4+
-CMake 3.9+ (for build)
-XACC: see https://xacc.readthedocs.io/en/latest/install.html#building-xacc
-LLVM/Clang [Syntax Handler Fork](https://github.com/hfinkel/llvm-project-csp).
-```
+- Compiler (C++17): GNU 8.4+, Clang 5+
+- CMake 3.12+ (for build)
+- XACC - [Build XACC](https://xacc.readthedocs.io/en/latest/install.html#building-xacc).
+- LLVM/Clang - [Syntax Handler Fork](https://github.com/hfinkel/llvm-project-csp).
 
 ## Linux Build Instructions
 Easiest way to install CMake - do not use the package manager,
 instead use `pip`, and ensure that `/usr/local/bin` is in your PATH:
 ```bash
-$ python3 -m pip install --upgrade cmake
-$ export PATH=$PATH:/usr/local/bin
+python3 -m pip install --upgrade cmake
+export PATH=$PATH:/usr/local/bin
 ```
 
 For now we require our users build a specific fork of LLVM/Clang that 
@@ -54,24 +52,28 @@ provides Syntax Handler plugin support. We expect this fork to be upstreamed
 in a future release of LLVM and Clang, and at that point users will only 
 need to download the appropriate LLVM/Clang binaries (via `apt-get` for instance).
 
-To build this fork of LLVM/Clang (be aware this step takes up a good amount of RAM):
+To build this fork of LLVM/Clang (be aware this step takes up a good amount of time / RAM):
 ```bash
-$ apt-get install ninja-build [if you dont have ninja]
-$ git clone https://github.com/hfinkel/llvm-project-csp llvm
-$ cd llvm && mkdir build && cd build
-$ cmake -G Ninja ../llvm -DCMAKE_INSTALL_PREFIX=$HOME/.llvm -DBUILD_SHARED_LIBS=TRUE -DCMAKE_BUILD_TYPE=Release -DLLVM_TARGETS_TO_BUILD="X86" -DLLVM_ENABLE_DUMP=ON -DLLVM_ENABLE_PROJECTS=clang
-$ cmake --build . --target install
-$ sudo ln -s $HOME/.llvm/bin/llvm-config /usr/bin
+apt-get install ninja-build [if you dont have ninja]
+git clone https://github.com/hfinkel/llvm-project-csp llvm
+cd llvm && mkdir build && cd build
+cmake -G Ninja ../llvm -DCMAKE_INSTALL_PREFIX=$HOME/.llvm -DBUILD_SHARED_LIBS=TRUE -DCMAKE_BUILD_TYPE=Release -DLLVM_TARGETS_TO_BUILD="X86" -DLLVM_ENABLE_DUMP=ON -DLLVM_ENABLE_PROJECTS=clang
+cmake --build . --target install
+sudo ln -s $HOME/.llvm/bin/llvm-config /usr/bin
 ```
 
-Note that, for now, developers must clone QCOR manually:
+To build QCOR from source:
 ``` bash
-$ git clone https://github.com/ornl-qci/qcor
-$ cd qcor
-$ mkdir build && cd build
-$ cmake .. 
-$ [with tests] cmake .. -DQCOR_BUILD_TESTS=TRUE
-$ make -j$(nproc) install
+git clone https://github.com/ornl-qci/qcor
+cd qcor
+mkdir build && cd build
+[Running cmake with no flags will search for LLVM using `llvm-config` executable in your PATH and XACC in $HOME/.xacc]
+cmake .. 
+   [Extra optional flags] 
+   -DQCOR_BUILD_TESTS=TRUE
+   -DLLVM_ROOT=/path/to/llvm
+   -DXACC_DIR=/path/to/xacc
+make -j$(nproc) install
 ```
 Update your PATH to ensure that the ```qcor``` compiler is available.
 ```bash
