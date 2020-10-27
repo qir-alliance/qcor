@@ -2,6 +2,26 @@
 #include "xacc.hpp"
 #include "xacc_service.hpp"
 
+namespace {
+using namespace qcor;
+std::shared_ptr<qsim::CostFunctionEvaluator>
+getEvaluator(Observable *observable, const HeterogeneousMap &params) {
+  // If an evaluator was provided explicitly:
+  if (params.pointerLikeExists<qsim::CostFunctionEvaluator>("evaluator")) {
+    return xacc::as_shared_ptr(
+        params.getPointerLike<qsim::CostFunctionEvaluator>("evaluator"));
+  }
+
+  // Cost Evaluator was provided by name:
+  if (params.stringExists("evaluator")) {
+    return qsim::getObjEvaluator(observable, params.getString("evaluator"));
+  }
+
+  // No specific evaluator/evaluation method was requested,
+  // use the default one (partial tomography based).
+  return qsim::getObjEvaluator(observable);
+}
+} // namespace
 namespace qcor {
 namespace qsim {
 Ansatz TrotterEvolution::create_ansatz(Observable *obs,
@@ -37,13 +57,14 @@ bool TimeDependentWorkflow::initialize(const HeterogeneousMap &params) {
   }
 
   t_final = nbSteps * dt;
+  config_params = params;
   return true;
 }
 
 QuantumSimulationResult
 TimeDependentWorkflow::execute(const QuantumSimulationModel &model) {
   QuantumSimulationResult result;
-  evaluator = getObjEvaluator(model.observable);
+  evaluator = getEvaluator(model.observable, config_params);
   auto ham_func = model.hamiltonian;
   // A TD workflow: stepping through Trotter steps,
   // compute expectations at each step.
@@ -100,12 +121,7 @@ VqeWorkflow::execute(const QuantumSimulationModel &model) {
   // If the model includes a concrete variational ansatz:
   if (model.user_defined_ansatz) {
     auto nParams = model.user_defined_ansatz->nParams();
-    if (config_params.pointerLikeExists<CostFunctionEvaluator>("evaluator")) {
-      evaluator = xacc::as_shared_ptr(
-          config_params.getPointerLike<CostFunctionEvaluator>("evaluator"));
-    } else {
-      evaluator = getObjEvaluator(model.observable);
-    }
+    evaluator = getEvaluator(model.observable, config_params);
 
     OptFunction f(
         [&](const std::vector<double> &x, std::vector<double> &dx) {
@@ -269,11 +285,9 @@ IterativeQpeWorkflow::execute(const QuantumSimulationModel &model) {
     auto iterQpe = constructQpeCircuit(stretchedObs, k, -2 * M_PI * omega_coef);
     kernel->addInstruction(iterQpe);
     // Executes the iterative QPE algorithm:
-    auto qpu = xacc::internal_compiler::get_qpu();
     auto temp_buffer = xacc::qalloc(stretchedObs->nBits() + 1);
     // std::cout << "Kernel: \n" << kernel->toString() << "\n";
-
-    qpu->execute(temp_buffer, kernel);
+    xacc::internal_compiler::execute(temp_buffer.get(), kernel);
     // temp_buffer->print();
 
     // Estimate the phase value's bit at this iteration,
@@ -322,14 +336,13 @@ getWorkflow(const std::string &name, const HeterogeneousMap &init_params) {
 
 double
 DefaultObjFuncEval::evaluate(std::shared_ptr<CompositeInstruction> state_prep) {
-  // Reuse existing VQE util to evaluate the expectation value:
-  auto vqe = xacc::getAlgorithm("vqe");
-  auto qpu = xacc::internal_compiler::get_qpu();
-  vqe->initialize({{"ansatz", state_prep},
-                   {"accelerator", qpu},
-                   {"observable", target_operator}});
-  auto tmp_child = qalloc(state_prep->nPhysicalBits());
-  auto energy = vqe->execute(xacc::as_shared_ptr(tmp_child.results()), {})[0];
+  auto subKernels = qcor::__internal__::observe(
+      xacc::as_shared_ptr(target_operator), state_prep);
+  // Run the pass manager (optimization + placement)
+  executePassManager(subKernels);
+  auto tmp_buffer = qalloc(state_prep->nPhysicalBits());
+  xacc::internal_compiler::execute(tmp_buffer.results(), subKernels);
+  const double energy = tmp_buffer.weighted_sum(target_operator);
   return energy;
 }
 } // namespace qsim

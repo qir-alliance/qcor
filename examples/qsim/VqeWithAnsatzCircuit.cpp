@@ -25,7 +25,8 @@ int main(int argc, char **argv) {
   // Instantiate a VQE workflow with the nlopt optimizer
   auto workflow = qsim::getWorkflow("vqe", {{"optimizer", optimizer}});
 
-  // Result should contain the observable expectation value along Trotter steps.
+  // Result should contain the ground-state energy along with the optimal
+  // parameters.
   auto result = workflow->execute(problemModel);
 
   const auto energy = result.get<double>("energy");

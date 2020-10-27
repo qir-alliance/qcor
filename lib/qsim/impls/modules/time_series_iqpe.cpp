@@ -158,10 +158,10 @@ double PhaseEstimationObjFuncEval::evaluate(
     obsTermTracking.emplace_back(std::make_pair(termCoeff, termData));
   }
 
-  auto qpu = xacc::internal_compiler::get_qpu();
   auto temp_buffer = xacc::qalloc(nbQubits + 1);
   // Execute all sub-kernels
-  qpu->execute(temp_buffer, fsToExec);
+  executePassManager(fsToExec);
+  xacc::internal_compiler::execute(temp_buffer.get(), fsToExec);
 
   // Assemble execution data into a fast look-up map
   ExecutionData exeResult;
@@ -172,6 +172,7 @@ double PhaseEstimationObjFuncEval::evaluate(
   const auto mitigateMeasurementResult =
       [&](const std::map<std::string, int> &in_rawResult) {
         std::map<std::string, int> result{{"0", 0}, {"1", 0}};
+        auto qpu = xacc::internal_compiler::get_qpu();
         const size_t bitIdx =
             (qpu->getBitOrder() == Accelerator::BitOrder::MSB) ? 0 : nbQubits;
         const std::string CORRECT_VERIFIED_BITSTRING(nbQubits, '0');

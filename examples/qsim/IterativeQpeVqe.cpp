@@ -24,7 +24,7 @@ int main(int argc, char **argv) {
   auto problemModel =
       qsim::ModelBuilder::createModel(eigen_state_prep, H, 2, 0);
 
-  // Instantiate an IQPE workflow.
+  // Instantiate an IQPE workflow
   auto workflow =
       qsim::getWorkflow("iqpe", {{"time-steps", 8}, {"iterations", 8}});
 

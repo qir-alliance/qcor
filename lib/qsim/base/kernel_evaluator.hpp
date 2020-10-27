@@ -26,11 +26,17 @@ protected:
 public:
   KernelFunctor() = default;
   KernelFunctor(qreg qReg) : q(qReg){};
+  // Direct construction via a Composite Instruction
+  KernelFunctor(std::shared_ptr<CompositeInstruction> composite) {
+    kernel = composite;
+    q = qalloc(composite->nPhysicalBits());
+    nbParams = composite->nVariables();
+  }
   qreg &getQreg() { return q; }
   size_t nParams() const { return nbParams; }
   virtual std::shared_ptr<CompositeInstruction>
   evaluate_kernel(const std::vector<double> &in_params) {
-    return nullptr;
+    return kernel ? kernel->operator()(in_params) : nullptr;
   }
 };
 
@@ -100,5 +106,10 @@ std::shared_ptr<KernelFunctor> createKernelFunctor(
 
   return std::make_shared<KernelFunctorImpl<Args...>>(
       kernel_ptr, args_translator, helper, q, nParams);
+}
+
+inline std::shared_ptr<KernelFunctor>
+createKernelFunctor(std::shared_ptr<CompositeInstruction> composite) {
+  return std::make_shared<KernelFunctor>(composite);
 }
 } // namespace qcor

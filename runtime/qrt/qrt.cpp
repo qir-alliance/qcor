@@ -18,10 +18,14 @@ std::string __placement_name = "";
 std::vector<int> __qubit_map = {};
 std::string __qrt_env = "nisq";
 
-void execute_pass_manager() {
+void execute_pass_manager(
+    std::shared_ptr<CompositeInstruction> optional_composite) {
   qcor::internal::PassManager passManager(__opt_level, __qubit_map,
                                           __placement_name);
-  auto optData = passManager.optimize(::quantum::qrt_impl->get_current_program());
+  auto kernelToExecute = optional_composite
+                             ? optional_composite
+                             : ::quantum::qrt_impl->get_current_program();
+  auto optData = passManager.optimize(kernelToExecute);
 
   std::vector<std::string> user_passes;
   if (!__user_opt_passes.empty()) {
@@ -37,7 +41,7 @@ void execute_pass_manager() {
   // Runs user-specified passes
   for (const auto &user_pass : user_passes) {
     optData.emplace_back(
-        qcor::internal::PassManager::runPass(user_pass, ::quantum::qrt_impl->get_current_program()));
+        qcor::internal::PassManager::runPass(user_pass, kernelToExecute));
   }
 
   if (__print_opt_stats) {
@@ -47,7 +51,7 @@ void execute_pass_manager() {
     }
   }
 
-  passManager.applyPlacement(::quantum::qrt_impl->get_current_program());
+  passManager.applyPlacement(kernelToExecute);
 }
 
 std::vector<int> parse_qubit_map(const char *qubit_map_str) {

@@ -89,11 +89,12 @@ double observe(std::shared_ptr<CompositeInstruction> program, Observable &obs,
 double observe(std::shared_ptr<CompositeInstruction> program,
                std::shared_ptr<Observable> obs,
                xacc::internal_compiler::qreg &q);
-
+namespace __internal__ {
 // Observe the kernel and return the measured kernels
 std::vector<std::shared_ptr<CompositeInstruction>>
 observe(std::shared_ptr<Observable> obs,
         std::shared_ptr<CompositeInstruction> program);
+} // namespace __internal__
 
 // Create an observable from a string representation
 std::shared_ptr<Observable> createObservable(const std::string &repr);

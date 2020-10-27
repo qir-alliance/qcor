@@ -187,7 +187,10 @@ extern std::vector<int> __qubit_map;
 extern std::vector<int> parse_qubit_map(const char *qubit_map_str);
 extern void apply_decorators(const std::string &decorator_cmdline_string);
 extern std::string __qrt_env;
-void execute_pass_manager();
+// Execute the pass manager on the provided kernel.
+// If none provided, execute the pass manager on the current QRT kernel.
+void execute_pass_manager(
+    std::shared_ptr<CompositeInstruction> optional_composite = nullptr);
 
 } // namespace internal_compiler
 } // namespace xacc
