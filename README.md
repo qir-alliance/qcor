@@ -137,3 +137,24 @@ each compiled for the specified backend. Now just run one of them
 ```bash
 $ ./deuteron_tnqvm
 ```
+
+## Cite QCOR 
+If you use qcor in your research, please use the following citation 
+```
+@ARTICLE{qcor,
+       author = {{Nguyen}, Thien and {Santana}, Anthony and {Kharazi}, Tyler and
+         {Claudino}, Daniel and {Finkel}, Hal and {McCaskey}, Alexander},
+        title = "{Extending C++ for Heterogeneous Quantum-Classical Computing}",
+      journal = {arXiv e-prints},
+     keywords = {Quantum Physics, Computer Science - Mathematical Software},
+         year = 2020,
+        month = oct,
+          eid = {arXiv:2010.03935},
+        pages = {arXiv:2010.03935},
+archivePrefix = {arXiv},
+       eprint = {2010.03935},
+ primaryClass = {quant-ph},
+       adsurl = {https://ui.adsabs.harvard.edu/abs/2020arXiv201003935N},
+      adsnote = {Provided by the SAO/NASA Astrophysics Data System}
+}
+```
