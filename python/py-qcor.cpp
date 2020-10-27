@@ -96,16 +96,16 @@ xacc::HeterogeneousMap heterogeneousMapConvert(
 
 namespace qcor {
 
-// PyObjectiveFunction implements ObjectiveFunction to 
-// enable the utility of pythonic quantum kernels with the 
-// existing qcor ObjectiveFunction infrastructure. This class 
-// keeps track of the quantum kernel as a py::object, which it uses 
-// in tandem with the QCOR QJIT engine to create an executable 
-// functor representation of the quantum code at runtime. It exposes 
-// the ObjectiveFunction operator()() overloads to map vector<double> 
-// x to the correct pythonic argument structure. It delegates to the 
-// usual helper ObjectiveFunction (like vqe) for execution of the 
-// actual pre-, execution, and post-processing. 
+// PyObjectiveFunction implements ObjectiveFunction to
+// enable the utility of pythonic quantum kernels with the
+// existing qcor ObjectiveFunction infrastructure. This class
+// keeps track of the quantum kernel as a py::object, which it uses
+// in tandem with the QCOR QJIT engine to create an executable
+// functor representation of the quantum code at runtime. It exposes
+// the ObjectiveFunction operator()() overloads to map vector<double>
+// x to the correct pythonic argument structure. It delegates to the
+// usual helper ObjectiveFunction (like vqe) for execution of the
+// actual pre-, execution, and post-processing.
 class PyObjectiveFunction : public qcor::ObjectiveFunction {
  protected:
   py::object py_kernel;
@@ -119,7 +119,6 @@ class PyObjectiveFunction : public qcor::ObjectiveFunction {
   PyObjectiveFunction(py::object q, qcor::PauliOperator &qq, const int n_dim,
                       const std::string &helper_name)
       : py_kernel(q) {
-    
     // Set the OptFunction dimensions
     _dim = n_dim;
 
@@ -139,8 +138,8 @@ class PyObjectiveFunction : public qcor::ObjectiveFunction {
     qjit.write_cache();
   }
 
-  // Evaluate this ObjectiveFunction at the dictionary of kernel args, 
-  // return the scalar value 
+  // Evaluate this ObjectiveFunction at the dictionary of kernel args,
+  // return the scalar value
   double operator()(const KernelArgDict args) {
     // Map the kernel args to a hetmap
     xacc::HeterogeneousMap m;
@@ -179,11 +178,11 @@ class PyObjectiveFunction : public qcor::ObjectiveFunction {
   }
 };
 
-// PyKernelFunctor is a subtype of KernelFunctor from the qsim library 
-// that returns a CompositeInstruction representation of a pythonic 
-// quantum kernel given a vector of parameters x. This will 
-// leverage the QJIT infrastructure to create executable functor 
-// representation of the python kernel. 
+// PyKernelFunctor is a subtype of KernelFunctor from the qsim library
+// that returns a CompositeInstruction representation of a pythonic
+// quantum kernel given a vector of parameters x. This will
+// leverage the QJIT infrastructure to create executable functor
+// representation of the python kernel.
 class PyKernelFunctor : public qcor::KernelFunctor {
  protected:
   py::object py_kernel;
@@ -200,8 +199,8 @@ class PyKernelFunctor : public qcor::KernelFunctor {
     qjit.write_cache();
   }
 
-  // Delegate to QJIT to create a CompositeInstruction representation 
-  // of the pythonic quantum kernel. 
+  // Delegate to QJIT to create a CompositeInstruction representation
+  // of the pythonic quantum kernel.
   std::shared_ptr<xacc::CompositeInstruction> evaluate_kernel(
       const std::vector<double> &x) override {
     // Translate x into kernel args
@@ -359,6 +358,20 @@ PYBIND11_MODULE(_pyqcor, m) {
               return qcor::qsim::ModelBuilder::createModel(obs, ham_func);
             },
             "Return the Model for a time-dependent problem.")
+        .def(
+            "createModel",
+            [](py::object py_kernel, qcor::PauliOperator &obs,
+               const int n_params) {
+              qcor::qsim::QuantumSimulationModel model;
+              auto nq = obs.nBits();
+              auto kernel_functor = std::make_shared<qcor::PyKernelFunctor>(
+                  py_kernel, nq, n_params);
+              model.observable = &obs;
+              model.user_defined_ansatz = kernel_functor;
+              return std::move(model);
+            },
+            "")
+            
         .def(
             "createModel",
             [](py::object py_kernel, qcor::PauliOperator &obs,
