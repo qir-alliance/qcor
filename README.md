@@ -20,11 +20,12 @@ Quick Start
 -----------
 QCOR is available via pre-built deb packages on Ubuntu Bionic (18.04) and Focal (20.04). To install on Bionic
 ```bash
-$ wget -qO- https://aide-qc.github.io/deploy/aide_qc/debian/bionic/PUBLIC-KEY.gpg | apt-key add -
-$ wget -qO- "https://aide-qc.github.io/deploy/aide_qc/debian/bionic/aide-qc-bionic.list" > /etc/apt/sources.list.d/aide-qc-bionic.list
-$ apt-get update && apt-get install qcor
+wget -qO- https://aide-qc.github.io/deploy/aide_qc/debian/PUBLIC-KEY.gpg | sudo apt-key add -
+sudo wget -qO- "https://aide-qc.github.io/deploy/aide_qc/debian/$(lsb_release -cs)/aide-qc.list" > /etc/apt/sources.list.d/aide-qc.list
+sudo apt-get update
+sudo apt-get install qcor
 ```
-For Focal, replace bionic with focal in the above commands. 
+Note that the above requires you have `lsb_release` installed (usually is, if not, `apt-get install lsb-release`).
 
 QCOR nightly docker images are available that serve up an Eclipse Theia IDE (the same IDE Gitpod uses) on port 3000. To get started, run 
 ```bash
