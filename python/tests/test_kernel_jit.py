@@ -27,5 +27,33 @@ class TestSimpleKernelJIT(unittest.TestCase):
         self.assertTrue('00' in counts)
         self.assertTrue('11' in counts)
 
+    def test_assignment(self):
+
+        set_qpu('qpp', {'shots':8192})
+
+        @qjit
+        def varAssignKernel(q : qreg):
+            # Simple value assignment
+            angle = 3.14/4.0
+            Rx(q[0], angle)
+            CX(q[0], q[1])
+            for i in range(q.size()):
+                Measure(q[i])
+
+        # Allocate 2 qubits
+        q = qalloc(2)
+
+        # Run the bell experiment
+        varAssignKernel(q)
+
+        # Print the results
+        q.print()
+        counts = q.counts()
+        self.assertEqual(len(counts), 2)
+        self.assertTrue('00' in counts)
+        self.assertTrue('11' in counts)
+        # Angle less than Pi/2 => 00 more than 11
+        self.assertTrue(counts['00'] > counts['11'])
+
 if __name__ == '__main__':
   unittest.main()

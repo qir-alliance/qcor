@@ -120,4 +120,18 @@ class pyxasm_visitor : public pyxasmBaseVisitor {
 
     return 0;
   }
+
+  antlrcpp::Any visitExpr_stmt(pyxasmParser::Expr_stmtContext *ctx) override {
+    if (ctx->ASSIGN().size() == 1 && ctx->testlist_star_expr().size() == 2) {
+      // Handle simple assignment: a = expr
+      std::stringstream ss;
+      const std::string lhs = ctx->testlist_star_expr(0)->getText();
+      const std::string rhs = ctx->testlist_star_expr(1)->getText();
+      ss << "auto " << lhs << " = " << rhs << "; \n";
+      result.first = ss.str();
+      return 0;
+    } else {
+      return visitChildren(ctx);
+    }
+  }
 };
