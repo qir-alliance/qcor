@@ -88,10 +88,34 @@ class qjit(object):
                 self.allowed_type_cpp_map[str(_type)] + ' ' + arg
         cpp_arg_str = cpp_arg_str[1:]
 
+        globalVarDecl = []
+        # Get all globals currently defined at this stack frame
+        globalsInStack = inspect.stack()[1][0].f_globals
+        globalVars = globalsInStack.copy()
+        importedModules = {}
+        for key in globalVars:
+            descStr = str(globalVars[key])
+            # Cache module import and its potential alias
+            # e.g. import abc as abc_alias
+            if descStr.startswith("<module "):
+                moduleName = descStr.split()[1].replace("'", "")
+                importedModules[key] = moduleName
+            else:
+                # Import global variables:
+                # Only support float atm
+                if (isinstance(globalVars[key], float)):
+                    globalVarDecl.append(key + " = " + str(globalVars[key]))
+        
+        # Inject these global declarations into the function body.
+        separator = "\n"
+        globalDeclStr = separator.join(globalVarDecl)
+
+        # TODO: Handle common module like numpy or math
+        # e.g. if seeing `import numpy as np`, we'll have <'np' -> 'numpy'> in the importedModules dict.  
         # Create the qcor quantum kernel function src for QJIT and the Clang syntax handler
         self.src = '__qpu__ void '+self.function.__name__ + \
-            '('+cpp_arg_str+') {\nusing qcor::pyxasm;\n'+fbody_src+"}\n"
-
+            '('+cpp_arg_str+') {\nusing qcor::pyxasm;\n' + globalDeclStr + '\n' + fbody_src +"}\n"
+        
         # Run the QJIT compile step to store function pointers internally
         self._qjit.internal_python_jit_compile(self.src)
         self._qjit.write_cache()
