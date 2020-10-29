@@ -81,9 +81,11 @@ class pyxasm_visitor : public pyxasmBaseVisitor {
             // Get the parameter expressions
             int counter = 0;
             for (int i = required_bits; i < atom_n_args; i++) {
-              inst->setParameter(
-                  counter,
-                  context->trailer()[0]->arglist()->argument()[i]->getText());
+              inst->setParameter(counter,
+                                 replacePythonConstants(context->trailer()[0]
+                                                            ->arglist()
+                                                            ->argument()[i]
+                                                            ->getText()));
               counter++;
             }
           }
@@ -133,5 +135,22 @@ class pyxasm_visitor : public pyxasmBaseVisitor {
     } else {
       return visitChildren(ctx);
     }
+  }
+
+private:
+  // Replaces common Python constants, e.g. 'math.pi' or 'numpy.pi'.
+  // Note: the library names have been resolved to their original names.
+  std::string replacePythonConstants(const std::string &in_pyExpr) const {
+    // List of all keywords to be replaced
+    const std::map<std::string, std::string> REPLACE_MAP{{"math.pi", "M_PI"},
+                                                         {"numpy.pi", "M_PI"}};
+    std::string newSrc = in_pyExpr;
+    for (const auto &[key, value] : REPLACE_MAP) {
+      const auto pos = newSrc.find(key);
+      if (pos != std::string::npos) {
+        newSrc.replace(pos, key.length(), value);
+      }
+    }
+    return newSrc;
   }
 };

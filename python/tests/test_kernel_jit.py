@@ -1,5 +1,7 @@
 import unittest
 from qcor import *
+# Import Python math with alias
+import math as myMathMod
 
 # Some global variables for testing
 MY_PI = 3.1416
@@ -79,6 +81,31 @@ class TestSimpleKernelJIT(unittest.TestCase):
         counts = q.counts()
         # Pi pulse -> X gate
         self.assertTrue(counts['11'] > 8000)
-        
+    
+    def test_ModuleConstants(self):
+
+        set_qpu('qpp', {'shots':8192})
+
+        @qjit
+        def kernelUseConstants(q : qreg):
+            # Use math.pi constant
+            Rx(q[0], myMathMod.pi/2)
+            CX(q[0], q[1])
+            for i in range(q.size()):
+                Measure(q[i])
+
+        # Allocate 2 qubits
+        q = qalloc(2)
+
+        # Run the bell experiment
+        kernelUseConstants(q)
+
+        # Print the results
+        q.print()
+        counts = q.counts()
+        self.assertEqual(len(counts), 2)
+        self.assertTrue('00' in counts)
+        self.assertTrue('11' in counts)
+
 if __name__ == '__main__':
   unittest.main()

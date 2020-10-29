@@ -110,8 +110,16 @@ class qjit(object):
         separator = "\n"
         globalDeclStr = separator.join(globalVarDecl)
 
-        # TODO: Handle common module like numpy or math
+        # Handle common modules like numpy or math
         # e.g. if seeing `import numpy as np`, we'll have <'np' -> 'numpy'> in the importedModules dict.  
+        # We'll replace any module alias by its original name,
+        # i.e. 'np.pi' -> 'numpy.pi', etc.
+        for moduleAlias in importedModules:
+            if moduleAlias != importedModules[moduleAlias]:
+                aliasModuleStr = moduleAlias + '.'
+                originalModuleStr = importedModules[moduleAlias] + '.'
+                fbody_src = fbody_src.replace(aliasModuleStr, originalModuleStr)
+        
         # Create the qcor quantum kernel function src for QJIT and the Clang syntax handler
         self.src = '__qpu__ void '+self.function.__name__ + \
             '('+cpp_arg_str+') {\nusing qcor::pyxasm;\n' + globalDeclStr + '\n' + fbody_src +"}\n"
