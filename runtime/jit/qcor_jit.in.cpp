@@ -224,9 +224,15 @@ const std::pair<std::string, std::string> QJIT::run_syntax_handler(
     preamble += ", " + arg_types[j] + " " + arg_vars[j];
   }
 
-  return std::make_pair(kernel_name, Replacement +
-                                         "\n// Fix for __dso_handle symbol not "
-                                         "found\nint __dso_handle = 1;\n");
+  const std::string fix_dso_str = R"(
+// Fix for __dso_handle symbol not found
+#ifndef __FIX__DSO__HANDLE__
+#define __FIX__DSO__HANDLE__ 
+int __dso_handle = 1;
+#endif
+)";
+
+  return std::make_pair(kernel_name, Replacement + "\n" + fix_dso_str + "\n");
 }
 
 class LLVMJIT {
@@ -359,15 +365,12 @@ void QJIT::jit_compile(const std::string &code,
   // this kernel before compilation.
   std::string dependencyCode;
   if (!kernel_dependency.empty()) {
-    // Put the code in an anonymous namespace
-    dependencyCode += "namespace { \n";
     for (const auto &dep : kernel_dependency) {
       const auto depIter = JIT_KERNEL_RUNTIME_CACHE.find(dep);
       if (depIter != JIT_KERNEL_RUNTIME_CACHE.end()) {
         dependencyCode += JIT_KERNEL_RUNTIME_CACHE[dep];
       }
     }
-    dependencyCode += "}\n";
   }
   // Add dependency before JIT compile:
   new_code = dependencyCode + new_code;

@@ -17,9 +17,12 @@ using pyxasm_result_type =
 class pyxasm_visitor : public pyxasmBaseVisitor {
 protected:
   std::shared_ptr<xacc::IRProvider> provider;
+  // List of buffers in the *context* of this XASM visitor
+  std::vector<std::string> bufferNames;
 
 public:
-  pyxasm_visitor() : provider(xacc::getIRProvider("quantum")) {}
+  pyxasm_visitor(const std::vector<std::string> &buffers = {})
+      : provider(xacc::getIRProvider("quantum")), bufferNames(buffers) {}
   pyxasm_result_type result;
 
   bool in_for_loop = false;
@@ -118,12 +121,17 @@ public:
           }
         }
       } else {
-        // This *callable* is not an intrinsic instruction, just reassemble the
-        // call:
-        // TODO: validate that this is a *previously-defined* kernel (i.e. not a
-        // classical function call)
-        if (!context->trailer().empty()) {
+        // This kernel *callable* is not an intrinsic instruction, just
+        // reassemble the call:
+        // Check that the *first* argument is a *qreg* in the current context of
+        // *this* kernel.
+        if (!context->trailer().empty() &&
+            !context->trailer()[0]->arglist()->argument().empty() &&
+            xacc::container::contains(
+                bufferNames,
+                context->trailer()[0]->arglist()->argument(0)->getText())) {
           std::stringstream ss;
+          // Use the kernel call with a parent kernel arg.
           ss << inst_name << "(parent_kernel, ";
           // TODO: We potentially need to handle *inline* expressions in the
           // function call.

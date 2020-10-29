@@ -96,7 +96,7 @@ void PyXasmTokenCollector::collect(clang::Preprocessor &PP,
     //           << ": " << line.first << ", " << line.second << std::boolalpha
     //           << ", " << is_in_for_loop << "\n";
 
-    pyxasm_visitor visitor;
+    pyxasm_visitor visitor(bufferNames);
 
     if (line.first.find("for ") != std::string::npos) {
       is_in_for_loop = true;

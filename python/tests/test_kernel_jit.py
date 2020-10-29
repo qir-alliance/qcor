@@ -130,6 +130,40 @@ class TestSimpleKernelJIT(unittest.TestCase):
         q = qalloc(5)
         comp = testFor.extract_composite(q)
         self.assertEqual(comp.nInstructions(), 5)   
+    
+    def test_multiple_kernels(self):
+        @qjit
+        def apply_H(q : qreg):
+            for i in range(q.size()):
+                H(q[i])
+        
+        @qjit
+        def apply_Rx(q : qreg, theta: float):
+            for i in range(q.size()):
+                Rx(q[i], theta)
+
+        @qjit
+        def measure_all(q : qreg):
+            for i in range(q.size()):
+                Measure(q[i])
+
+        @qjit
+        def entry_kernel(q : qreg, theta: float):
+           apply_H(q)
+           apply_Rx(q, theta)
+           measure_all(q) 
+        
+        q = qalloc(5)
+        angle = 1.234
+        comp = entry_kernel.extract_composite(q, angle)
+        self.assertEqual(comp.nInstructions(), 15)   
+        for i in range(5):
+            self.assertEqual(comp.getInstruction(i).name(), "H") 
+        for i in range(5, 10):
+            self.assertEqual(comp.getInstruction(i).name(), "Rx") 
+            self.assertAlmostEqual((float)(comp.getInstruction(i).getParameter(0)), angle)
+        for i in range(10, 15):
+            self.assertEqual(comp.getInstruction(i).name(), "Measure") 
 
 if __name__ == '__main__':
   unittest.main()
