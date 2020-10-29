@@ -43,10 +43,14 @@ std::string GetExecutablePath(const char *Argv0, void *MainAddr) {
 }
 
 std::unique_ptr<clang::CodeGenAction> emit_llvm_ir(const std::string src_code) {
-  std::ofstream file("local_output.cpp");
+
+  // Persist the src code to a temporary file
+  std::string internal_file_name = ".__qcor_internal_llvm_ir_emitter.cpp";
+  std::ofstream file(internal_file_name);
   file << src_code;
   file.close();
 
+  // Define the Clang command line
   std::vector<const char *> argv_vec{"@CLANG_EXECUTABLE@",
                                      "-std=c++17",
                                      "-I@CMAKE_INSTALL_PREFIX@/include/xacc",
@@ -54,12 +58,14 @@ std::unique_ptr<clang::CodeGenAction> emit_llvm_ir(const std::string src_code) {
                                      "-I@CMAKE_INSTALL_PREFIX@/include/quantum/gate",
                                      "-I@CMAKE_INSTALL_PREFIX@/include/eigen",
                                      "-c",
-                                     "local_output.cpp"};
+                                     internal_file_name.c_str()};
+
+  // Create argc and argv
   const char **argv = &argv_vec[0];
   int argc = argv_vec.size();
   void *MainAddr = (void *)(intptr_t)GetExecutablePath;
   std::string Path =
-      "@LLVM_INSTALL_PREFIX@/bin/clang++"; // GetExecutablePath(argv[0], MainAddr);
+      "@LLVM_INSTALL_PREFIX@/bin/clang++";
   IntrusiveRefCntPtr<DiagnosticOptions> DiagOpts = new DiagnosticOptions();
   TextDiagnosticPrinter *DiagClient =
       new TextDiagnosticPrinter(llvm::errs(), &*DiagOpts);
@@ -72,6 +78,7 @@ std::unique_ptr<clang::CodeGenAction> emit_llvm_ir(const std::string src_code) {
 
   ExitOnErr.setBanner("clang interpreter");
 
+  // Create the Clang driver
   Driver TheDriver(Path, T.str(), Diags);
   TheDriver.setTitle("clang interpreter");
   TheDriver.setCheckInputsExist(false);
@@ -82,10 +89,10 @@ std::unique_ptr<clang::CodeGenAction> emit_llvm_ir(const std::string src_code) {
   SmallVector<const char *, 16> Args(argv, argv + argc);
   Args.push_back("-fsyntax-only");
   std::unique_ptr<Compilation> C(TheDriver.BuildCompilation(Args));
-  if (!C)
-    std::cout << "ERROR HERE !C\n";
-
-  // FIXME: This is copied from ASTUnit.cpp; simplify and eliminate.
+  if (!C) {
+    std::cout << "QCOR internal clang execution error. Could not create the Compilation data structure.\n";
+    exit(1);
+  }
 
   // We expect to get back exactly one command job, if we didn't something
   // failed. Extract that job from the compilation.
@@ -95,13 +102,14 @@ std::unique_ptr<clang::CodeGenAction> emit_llvm_ir(const std::string src_code) {
     llvm::raw_svector_ostream OS(Msg);
     Jobs.Print(OS, "; ", true);
     Diags.Report(diag::err_fe_expected_compiler_job) << OS.str();
-    std::cout << "ERROR JOBS\n";
+    std::cout << "Error in creating the clang JobList.\n";
+    exit(1);
   }
 
   const driver::Command &Cmd = cast<driver::Command>(*Jobs.begin());
   if (llvm::StringRef(Cmd.getCreator().getName()) != "clang") {
     Diags.Report(diag::err_fe_expected_clang_command);
-    std::cout << " ERROR CMD\n";
+    std::cout << "Error in creating the clang driver command.\n";
   }
 
   // Initialize a compiler invocation object from the clang (-cc1) arguments.
@@ -109,23 +117,16 @@ std::unique_ptr<clang::CodeGenAction> emit_llvm_ir(const std::string src_code) {
   std::unique_ptr<CompilerInvocation> CI(new CompilerInvocation);
   CompilerInvocation::CreateFromArgs(*CI, CCArgs, Diags);
 
-  // Show the invocation, with -v.
-  //   if (CI->getHeaderSearchOpts().Verbose) {
-  //     llvm::errs() << "clang invocation:\n";
-  //     Jobs.Print(llvm::errs(), "\n", true);
-  //     llvm::errs() << "\n";
-  //   }
-
-  // FIXME: This is copied from cc1_main.cpp; simplify and eliminate.
-
   // Create a compiler instance to handle the actual work.
   CompilerInstance Clang;
   Clang.setInvocation(std::move(CI));
 
   // Create the compilers actual diagnostics engine.
   Clang.createDiagnostics();
-  if (!Clang.hasDiagnostics())
-    std::cout << "HAS DIAGS\n";
+  if (!Clang.hasDiagnostics()) {
+    std::cout << "Error - could not create Clang diagnostics.\n";
+    exit(1);
+  }
 
   // Infer the builtin include path if unspecified.
   if (Clang.getHeaderSearchOpts().UseBuiltinIncludes &&
@@ -135,18 +136,13 @@ std::unique_ptr<clang::CodeGenAction> emit_llvm_ir(const std::string src_code) {
 
   // Create and execute the frontend to generate an LLVM bitcode module.
   std::unique_ptr<CodeGenAction> Act(new EmitLLVMOnlyAction());
-  if (!Clang.ExecuteAction(*Act))
-    std::cout << "CODEGEN FAILED\n";
+  if (!Clang.ExecuteAction(*Act)) {
+    std::cout << "Error in executing clang codegen.\n";
+  }
 
   llvm::InitializeNativeTarget();
   llvm::InitializeNativeTargetAsmPrinter();
-
-  std::remove("local_output.cpp");
-  //   int Res = 255;
-  //   std::unique_ptr<llvm::LLVMContext> Ctx(Act->takeLLVMContext());
-  //   std::unique_ptr<llvm::Module> Module = Act->takeModule();
-
-  //   Module->dump();
+  std::remove(internal_file_name.c_str());
 
   return Act;
 }

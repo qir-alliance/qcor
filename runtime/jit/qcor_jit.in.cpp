@@ -454,7 +454,7 @@ void QJIT::jit_compile(const std::string &code,
   auto hetmap_rawFPtr = hetmap_symbol.getAddress();
   kernel_name_to_f_ptr_hetmap.insert({kernel_name, hetmap_rawFPtr});
 
-  // Get the function pointer for the hetmap kernel invocation
+  // Get the function pointer for the hetmap kernel invocation with parent composite
   auto parent_hetmap_symbol = cantFail(jit->lookup(parent_hetmap_mangled_name));
   auto parent_hetmap_rawFPtr = parent_hetmap_symbol.getAddress();
   kernel_name_to_f_ptr_parent_hetmap.insert(

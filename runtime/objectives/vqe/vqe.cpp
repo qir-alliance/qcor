@@ -12,6 +12,7 @@ using namespace cppmicroservices;
 #include "xacc.hpp"
 #include "xacc_internal_compiler.hpp"
 #include "xacc_service.hpp"
+#include "xacc_plugin.hpp"
 
 namespace {
 
@@ -118,27 +119,4 @@ public:
 
 } // namespace qcor
 
-namespace {
-
-/**
- */
-class US_ABI_LOCAL VQEObjectiveActivator : public BundleActivator {
-
-public:
-  VQEObjectiveActivator() {}
-
-  /**
-   */
-  void Start(BundleContext context) {
-    auto xt = std::make_shared<qcor::VQEObjective>();
-    context.RegisterService<qcor::ObjectiveFunction>(xt);
-  }
-
-  /**
-   */
-  void Stop(BundleContext /*context*/) {}
-};
-
-} // namespace
-
-CPPMICROSERVICES_EXPORT_BUNDLE_ACTIVATOR(VQEObjectiveActivator)
+REGISTER_PLUGIN(qcor::VQEObjective, qcor::ObjectiveFunction)
