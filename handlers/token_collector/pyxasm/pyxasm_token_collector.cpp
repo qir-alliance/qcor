@@ -55,9 +55,8 @@ void PyXasmTokenCollector::collect(clang::Preprocessor &PP,
   std::vector<std::pair<std::string, int>> lines;
   std::string line = "";
   auto current_line_number = sm.getSpellingLineNumber(Toks[0].getLocation());
-  line += PP.getSpelling(Toks[0]);
   int last_col_number = 0;
-  for (int i = 1; i < Toks.size(); i++) {
+  for (int i = 0; i < Toks.size(); i++) {
     // std::cout << PP.getSpelling(Toks[i]) << "\n";
     auto location = Toks[i].getLocation();
     auto col_number = sm.getSpellingColumnNumber(location);

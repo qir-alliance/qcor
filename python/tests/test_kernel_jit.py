@@ -119,6 +119,17 @@ class TestSimpleKernelJIT(unittest.TestCase):
         # Validate exp_i_theta expansion
         comp = kernelExpVar.extract_composite(q, theta)
         self.assertEqual(comp.nInstructions(), 14)
-       
+
+    # Test of edge case where the first statement is a for loop
+    def test_for_loop(self):
+        @qjit
+        def testFor(q : qreg):
+            for i in range(q.size()):
+                H(q[i])
+        
+        q = qalloc(5)
+        comp = testFor.extract_composite(q)
+        self.assertEqual(comp.nInstructions(), 5)   
+
 if __name__ == '__main__':
   unittest.main()
