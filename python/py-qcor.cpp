@@ -287,9 +287,10 @@ PYBIND11_MODULE(_pyqcor, m) {
       .def("jit_compile", &qcor::QJIT::jit_compile, "")
       .def(
           "internal_python_jit_compile",
-          [](qcor::QJIT &qjit, const std::string src) {
+          [](qcor::QJIT &qjit, const std::string src,
+             const std::vector<std::string> &dependency = {}) {
             bool turn_on_hetmap_kernel_ctor = true;
-            qjit.jit_compile(src, turn_on_hetmap_kernel_ctor);
+            qjit.jit_compile(src, turn_on_hetmap_kernel_ctor, dependency);
           },
           "")
       .def("run_syntax_handler", &qcor::QJIT::run_syntax_handler, "")

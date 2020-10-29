@@ -344,12 +344,34 @@ void QJIT::write_cache() {
 QJIT::~QJIT() { write_cache(); }
 
 void QJIT::jit_compile(const std::string &code,
-                       const bool add_het_map_kernel_ctor) {
+                       const bool add_het_map_kernel_ctor,
+                       const std::vector<std::string> &kernel_dependency) {
   // Run the Syntax Handler to get the kernel name and
   // the kernel code (the QuantumKernel subtype def + utility functions)
   auto [kernel_name, new_code] =
       run_syntax_handler(code, add_het_map_kernel_ctor);
 
+  static std::unordered_map<std::string, std::string> JIT_KERNEL_RUNTIME_CACHE;
+  JIT_KERNEL_RUNTIME_CACHE[kernel_name] = new_code;
+
+  // Add dependency code if necessary:
+  // Look up the previously-generated for dependency kernels and add them to
+  // this kernel before compilation.
+  std::string dependencyCode;
+  if (!kernel_dependency.empty()) {
+    // Put the code in an anonymous namespace
+    dependencyCode += "namespace { \n";
+    for (const auto &dep : kernel_dependency) {
+      const auto depIter = JIT_KERNEL_RUNTIME_CACHE.find(dep);
+      if (depIter != JIT_KERNEL_RUNTIME_CACHE.end()) {
+        dependencyCode += JIT_KERNEL_RUNTIME_CACHE[dep];
+      }
+    }
+    dependencyCode += "}\n";
+  }
+  // Add dependency before JIT compile:
+  new_code = dependencyCode + new_code;
+  // std::cout << "New code:\n" << new_code << "\n";
   // Hash the new code
   std::hash<std::string> hasher;
   auto hash = hasher(new_code);

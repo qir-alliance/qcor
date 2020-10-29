@@ -4,6 +4,7 @@ import sys
 import inspect
 from typing import List
 import typing
+import re
 
 List = typing.List
 
@@ -124,11 +125,23 @@ class qjit(object):
         self.src = '__qpu__ void '+self.function.__name__ + \
             '('+cpp_arg_str+') {\nusing qcor::pyxasm;\n' + globalDeclStr + '\n' + fbody_src +"}\n"
         
+        # Handle nested kernels:
+        dependency = []
+        for kernelName in self.__compiled__kernels:
+            kernelCall = kernelName + '('
+            # Check that this kernel *calls* a previously-compiled kernel:
+            # pattern: "<white space> kernel("
+            if re.search(r"\b" + re.escape(kernelCall), self.src):
+                dependency.append(kernelName)
+        
         # Run the QJIT compile step to store function pointers internally
-        self._qjit.internal_python_jit_compile(self.src)
+        self._qjit.internal_python_jit_compile(self.src, dependency)
         self._qjit.write_cache()
-
+        self.__compiled__kernels.append(self.function.__name__)
         return
+
+    # Static list of all kernels compiled
+    __compiled__kernels = []
 
     def get_internal_src(self):
         """Return the C++ / embedded python DSL function code that will be passed to QJIT

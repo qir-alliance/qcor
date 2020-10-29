@@ -117,6 +117,26 @@ public:
                         "' is not currently supported.");
           }
         }
+      } else {
+        // This *callable* is not an intrinsic instruction, just reassemble the
+        // call:
+        // TODO: validate that this is a *previously-defined* kernel (i.e. not a
+        // classical function call)
+        if (!context->trailer().empty()) {
+          std::stringstream ss;
+          ss << inst_name << "(parent_kernel, ";
+          // TODO: We potentially need to handle *inline* expressions in the
+          // function call.
+          const auto &argList = context->trailer()[0]->arglist()->argument();
+          for (size_t i = 0; i < argList.size(); ++i) {
+            ss << argList[i]->getText();
+            if (i != argList.size() - 1) {
+              ss << ", ";
+            }
+          }
+          ss << ");\n";
+          result.first = ss.str();
+        }
       }
     }
     return 0;
