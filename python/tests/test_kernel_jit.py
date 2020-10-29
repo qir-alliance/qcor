@@ -106,6 +106,19 @@ class TestSimpleKernelJIT(unittest.TestCase):
         self.assertEqual(len(counts), 2)
         self.assertTrue('00' in counts)
         self.assertTrue('11' in counts)
-
+    
+    def test_exp_i_theta(self):
+        @qjit
+        def kernelExpVar(q : qreg, theta: float):
+            exponent_op = X(0) * Y(1) - Y(0) * X(1)
+            exp_i_theta(q, theta, exponent_op)
+        
+        # Allocate 2 qubits
+        q = qalloc(2)
+        theta = 1.234
+        # Validate exp_i_theta expansion
+        comp = kernelExpVar.extract_composite(q, theta)
+        self.assertEqual(comp.nInstructions(), 14)
+       
 if __name__ == '__main__':
   unittest.main()
