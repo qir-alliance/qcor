@@ -15,18 +15,17 @@ using pyxasm_result_type =
     std::pair<std::string, std::shared_ptr<xacc::Instruction>>;
 
 class pyxasm_visitor : public pyxasmBaseVisitor {
- protected:
+protected:
   std::shared_ptr<xacc::IRProvider> provider;
-  
- public:
-  pyxasm_visitor()
-      : provider(xacc::getIRProvider("quantum")) {}
+
+public:
+  pyxasm_visitor() : provider(xacc::getIRProvider("quantum")) {}
   pyxasm_result_type result;
 
   bool in_for_loop = false;
 
-  antlrcpp::Any visitAtom_expr(
-      pyxasmParser::Atom_exprContext *context) override {
+  antlrcpp::Any
+  visitAtom_expr(pyxasmParser::Atom_exprContext *context) override {
     if (context->atom()->NAME() != nullptr) {
       auto inst_name = context->atom()->NAME()->getText();
 
@@ -67,9 +66,9 @@ class pyxasm_visitor : public pyxasmBaseVisitor {
               auto found_bracket = bit_expr_str.find_first_of("[");
               if (found_bracket != std::string::npos) {
                 auto buffer_name = bit_expr_str.substr(0, found_bracket);
-                auto bit_idx_expr = bit_expr_str.substr(
-                    found_bracket + 1,
-                    bit_expr_str.length() - found_bracket - 2);
+                auto bit_idx_expr = bit_expr_str.substr(found_bracket + 1,
+                                                        bit_expr_str.length() -
+                                                            found_bracket - 2);
                 buffer_names.push_back(buffer_name);
                 inst->setBitExpression(i, bit_idx_expr);
               } else {
@@ -89,8 +88,35 @@ class pyxasm_visitor : public pyxasmBaseVisitor {
               counter++;
             }
           }
+          result.second = inst;
+        } else {
+          // Composite instructions, e.g. exp_i_theta
+          if (inst_name == "exp_i_theta") {
+            // Expected 3 params:
+            if (context->trailer()[0]->arglist()->argument().size() != 3) {
+              xacc::error(
+                  "Invalid number of arguments for the 'exp_i_theta' "
+                  "instruction. Expected 3, got " +
+                  std::to_string(
+                      context->trailer()[0]->arglist()->argument().size()) +
+                  ". Please check your input.");
+            }
+
+            std::stringstream ss;
+            // Delegate to the QRT call directly.
+            ss << "quantum::exp("
+               << context->trailer()[0]->arglist()->argument(0)->getText()
+               << ", "
+               << context->trailer()[0]->arglist()->argument(1)->getText()
+               << ", "
+               << context->trailer()[0]->arglist()->argument(2)->getText()
+               << ");\n";
+            result.first = ss.str();
+          } else {
+            xacc::error("Composite instruction '" + inst_name +
+                        "' is not currently supported.");
+          }
         }
-        result.second = inst;
       }
     }
     return 0;
