@@ -32,6 +32,24 @@ class TestVQEObjectiveFunction(unittest.TestCase):
 
         print(ansatz.openqasm(q, [2.2]))
 
+    def test_simple_deuteron_with_grad(self):
+
+        @qjit
+        def ansatz(q: qreg, theta: float):
+            X(q[0])
+            Ry(q[1], theta)
+            CX(q[1], q[0])
+        
+        H = -2.1433 * X(0) * X(1) - 2.1433 * \
+            Y(0) * Y(1) + .21829 * Z(0) - 6.125 * Z(1) + 5.907
+        
+        n_params = 1
+        obj = createObjectiveFunction(ansatz, H, n_params, {'gradient-strategy':'parameter-shift'})
+        optimizer = createOptimizer('nlopt', {'nlopt-optimizer':'l-bfgs'})
+        results = optimizer.optimize(obj)
+        self.assertAlmostEqual(results[0], -1.74, places=1)
+        print(results)
+
 
 if __name__ == '__main__':
     unittest.main()
