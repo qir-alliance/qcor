@@ -1,14 +1,15 @@
 #pragma once
 
+#include <functional>
+
 #include "qcor_observable.hpp"
 #include "qcor_utils.hpp"
 #include "quantum_kernel.hpp"
-#include <functional>
 
 namespace qcor {
 
 class ObjectiveFunction : public xacc::OptFunction, public xacc::Identifiable {
-protected:
+ protected:
   // Quantum kernel function pointer, we will use
   // this to cast to kernel(composite, args...).
   // Doing it this way means we don't template ObjectiveFunction
@@ -24,7 +25,7 @@ protected:
   HeterogeneousMap options;
   std::vector<double> current_iterate_parameters;
 
-public:
+ public:
   double operator()(const std::vector<double> &x) {
     std::vector<double> unused_grad;
     return operator()(x, unused_grad);
@@ -50,7 +51,8 @@ public:
   }
   // Set any extra options needed for the objective function
   virtual void set_options(HeterogeneousMap &opts) { options = opts; }
-  template <typename T> void update_options(const std::string key, T value) {
+  template <typename T>
+  void update_options(const std::string key, T value) {
     options.insert(key, value);
   }
 
@@ -61,9 +63,59 @@ public:
   }
 };
 
+namespace __internal__ {
+// Get the objective function from the service registry
+std::shared_ptr<ObjectiveFunction> get_objective(const std::string &type);
+
+template <typename T>
+std::shared_ptr<T> qcor_as_shared(T *t) {
+  return std::shared_ptr<T>(t, [](T *const) {});
+}
+
+template <std::size_t... Is>
+auto create_tuple_impl(std::index_sequence<Is...>,
+                       const std::vector<double> &arguments) {
+  return std::make_tuple(arguments[Is]...);
+}
+
+template <std::size_t N>
+auto create_tuple(const std::vector<double> &arguments) {
+  return create_tuple_impl(std::make_index_sequence<N>{}, arguments);
+}
+
+struct ArgsTranslatorAutoGenerator {
+  std::shared_ptr<ArgsTranslator<qreg, std::vector<double>>> operator()(
+      qreg &q, std::tuple<qreg, std::vector<double>> &&) {
+    return std::make_shared<ArgsTranslator<qreg, std::vector<double>>>(
+        [&](const std::vector<double> &x) { return std::make_tuple(q, x); });
+  }
+
+  template <typename... DoubleTypes>
+  std::shared_ptr<ArgsTranslator<qreg, DoubleTypes...>> operator()(
+      qreg &q, std::tuple<qreg, DoubleTypes...> &&t) {
+    if constexpr ((std::is_same<DoubleTypes, double>::value && ...)) {
+      return std::make_shared<ArgsTranslator<qreg, DoubleTypes...>>(
+          [&](const std::vector<double> &x) {
+            auto qreg_tuple = std::make_tuple(q);
+            auto double_tuple = create_tuple<sizeof...(DoubleTypes)>(x);
+            return std::tuple_cat(qreg_tuple, double_tuple);
+          });
+    } else {
+      error(
+          "QCOR cannot auto-generate a ArgsTranslator for this "
+          "ObjectiveFunction. Please provide a custom ArgsTranslator to "
+          "createObjectiveFunction.");
+      return std::make_shared<ArgsTranslator<qreg, DoubleTypes...>>(
+          [&](const std::vector<double> &x) { return t; });
+    }
+  }
+};
+
+}  // namespace __internal__
+
 template <typename... KernelArgs>
 class ObjectiveFunctionImpl : public ObjectiveFunction {
-private:
+ private:
   using LocalArgsTranslator = ArgsTranslator<KernelArgs...>;
 
   std::shared_ptr<CompositeInstruction> create_new_composite() {
@@ -74,12 +126,12 @@ private:
     return _kernel;
   }
 
-protected:
+ protected:
   std::shared_ptr<LocalArgsTranslator> args_translator;
   std::shared_ptr<ObjectiveFunction> helper;
-  xacc::internal_compiler::qreg &qreg;
+  xacc::internal_compiler::qreg qreg;
 
-public:
+ public:
   ObjectiveFunctionImpl(void *k_ptr, std::shared_ptr<Observable> obs,
                         xacc::internal_compiler::qreg &qq,
                         std::shared_ptr<LocalArgsTranslator> translator,
@@ -97,6 +149,25 @@ public:
     helper->update_observable(observable);
     helper->set_options(options);
   }
+
+  ObjectiveFunctionImpl(void *k_ptr, std::shared_ptr<Observable> obs,
+                        std::shared_ptr<ObjectiveFunction> obj_helper,
+                        const int dim, HeterogeneousMap opts) {
+    qreg = ::qalloc(obs->nBits());
+    kernel_ptr = k_ptr;
+    observable = obs;
+    __internal__::ArgsTranslatorAutoGenerator auto_gen;
+    args_translator = auto_gen(qreg, std::tuple<KernelArgs...>());
+    // args_translator = translator;
+    helper = obj_helper;
+    _dim = dim;
+    _function = *this;
+    options = opts;
+    options.insert("observable", observable);
+    helper->update_observable(observable);
+    helper->set_options(options);
+  }
+
   void set_options(HeterogeneousMap &opts) override {
     options = opts;
     helper->set_options(opts);
@@ -164,62 +235,12 @@ public:
   const std::string description() const override { return ""; }
 };
 
-namespace __internal__ {
-// Get the objective function from the service registry
-std::shared_ptr<ObjectiveFunction> get_objective(const std::string &type);
-
-template <typename T> std::shared_ptr<T> qcor_as_shared(T *t) {
-  return std::shared_ptr<T>(t, [](T *const) {});
-}
-
-template <std::size_t... Is>
-auto create_tuple_impl(std::index_sequence<Is...>,
-                       const std::vector<double> &arguments) {
-  return std::make_tuple(arguments[Is]...);
-}
-
-template <std::size_t N>
-auto create_tuple(const std::vector<double> &arguments) {
-  return create_tuple_impl(std::make_index_sequence<N>{}, arguments);
-}
-
-struct ArgsTranslatorAutoGenerator {
-
-  std::shared_ptr<ArgsTranslator<qreg, std::vector<double>>>
-  operator()(qreg &q, std::tuple<qreg, std::vector<double>> &&) {
-    return std::make_shared<ArgsTranslator<qreg, std::vector<double>>>(
-        [&](const std::vector<double> &x) { return std::make_tuple(q, x); });
-  }
-
-  template <typename... DoubleTypes>
-  std::shared_ptr<ArgsTranslator<qreg, DoubleTypes...>>
-  operator()(qreg &q, std::tuple<qreg, DoubleTypes...> &&t) {
-    if constexpr ((std::is_same<DoubleTypes, double>::value && ...)) {
-      return std::make_shared<ArgsTranslator<qreg, DoubleTypes...>>(
-          [&](const std::vector<double> &x) {
-            auto qreg_tuple = std::make_tuple(q);
-            auto double_tuple = create_tuple<sizeof...(DoubleTypes)>(x);
-            return std::tuple_cat(qreg_tuple, double_tuple);
-          });
-    } else {
-      error("QCOR cannot auto-generate a ArgsTranslator for this "
-            "ObjectiveFunction. Please provide a custom ArgsTranslator to "
-            "createObjectiveFunction.");
-      return std::make_shared<ArgsTranslator<qreg, DoubleTypes...>>(
-          [&](const std::vector<double> &x) { return t; });
-    }
-  }
-};
-
-} // namespace __internal__
-
 template <typename... Args>
 std::shared_ptr<ObjectiveFunction> createObjectiveFunction(
     void (*quantum_kernel_functor)(std::shared_ptr<CompositeInstruction>,
                                    Args...),
     std::shared_ptr<Observable> observable, qreg &q, const int nParams,
     HeterogeneousMap &&options = {}) {
-
   auto helper = qcor::__internal__::get_objective("vqe");
   __internal__::ArgsTranslatorAutoGenerator auto_gen;
   auto args_translator = auto_gen(q, std::tuple<Args...>());
@@ -237,7 +258,6 @@ std::shared_ptr<ObjectiveFunction> createObjectiveFunction(
                                    Args...),
     std::shared_ptr<Observable> observable, qreg &q, const int nParams,
     HeterogeneousMap &&options = {}) {
-
   auto helper = qcor::__internal__::get_objective(obj_name);
   __internal__::ArgsTranslatorAutoGenerator auto_gen;
   auto args_translator = auto_gen(q, std::tuple<Args...>());
@@ -254,7 +274,6 @@ std::shared_ptr<ObjectiveFunction> createObjectiveFunction(
                                    Args...),
     Observable &observable, qreg &q, const int nParams,
     HeterogeneousMap &&options = {}) {
-
   auto helper = qcor::__internal__::get_objective("vqe");
   __internal__::ArgsTranslatorAutoGenerator auto_gen;
   auto args_translator = auto_gen(q, std::tuple<Args...>());
@@ -273,7 +292,6 @@ std::shared_ptr<ObjectiveFunction> createObjectiveFunction(
                                    Args...),
     Observable &observable, qreg &q, const int nParams,
     HeterogeneousMap &&options = {}) {
-
   auto helper = qcor::__internal__::get_objective(obj_name);
   __internal__::ArgsTranslatorAutoGenerator auto_gen;
   auto args_translator = auto_gen(q, std::tuple<Args...>());
@@ -290,7 +308,6 @@ std::shared_ptr<ObjectiveFunction> createObjectiveFunction(
     void (*quantum_kernel_functor)(std::shared_ptr<CompositeInstruction>,
                                    Args...),
     qreg &q, const int nParams, HeterogeneousMap &&options = {}) {
-
   auto helper = qcor::__internal__::get_objective("vqe");
   __internal__::ArgsTranslatorAutoGenerator auto_gen;
   auto args_translator = auto_gen(q, std::tuple<Args...>());
@@ -298,8 +315,7 @@ std::shared_ptr<ObjectiveFunction> createObjectiveFunction(
   void *kernel_ptr = reinterpret_cast<void *>(quantum_kernel_functor);
 
   std::map<int, std::string> all_zs;
-  for (int i = 0; i < q.size(); i++)
-    all_zs.insert({i, "Z"});
+  for (int i = 0; i < q.size(); i++) all_zs.insert({i, "Z"});
   auto observable = std::make_shared<PauliOperator>(all_zs);
   return std::make_shared<ObjectiveFunctionImpl<Args...>>(
       kernel_ptr, observable, q, args_translator, helper, nParams, options);
@@ -311,7 +327,6 @@ std::shared_ptr<ObjectiveFunction> createObjectiveFunction(
     void (*quantum_kernel_functor)(std::shared_ptr<CompositeInstruction>,
                                    Args...),
     qreg &q, const int nParams, HeterogeneousMap &&options = {}) {
-
   auto helper = qcor::__internal__::get_objective(obj_name);
   __internal__::ArgsTranslatorAutoGenerator auto_gen;
   auto args_translator = auto_gen(q, std::tuple<Args...>());
@@ -319,8 +334,7 @@ std::shared_ptr<ObjectiveFunction> createObjectiveFunction(
   void *kernel_ptr = reinterpret_cast<void *>(quantum_kernel_functor);
 
   std::map<int, std::string> all_zs;
-  for (int i = 0; i < q.size(); i++)
-    all_zs.insert({i, "Z"});
+  for (int i = 0; i < q.size(); i++) all_zs.insert({i, "Z"});
   auto observable = std::make_shared<PauliOperator>(all_zs);
   return std::make_shared<ObjectiveFunctionImpl<Args...>>(
       kernel_ptr, observable, q, args_translator, helper, nParams, options);
@@ -335,7 +349,6 @@ std::shared_ptr<ObjectiveFunction> createObjectiveFunction(
     std::shared_ptr<Observable> observable,
     std::shared_ptr<ArgsTranslator<Args...>> args_translator, qreg &q,
     const int nParams, HeterogeneousMap &&options = {}) {
-
   auto helper = qcor::__internal__::get_objective("vqe");
 
   void *kernel_ptr = reinterpret_cast<void *>(quantum_kernel_functor);
@@ -352,7 +365,6 @@ std::shared_ptr<ObjectiveFunction> createObjectiveFunction(
     std::shared_ptr<Observable> observable,
     std::shared_ptr<ArgsTranslator<Args...>> args_translator, qreg &q,
     const int nParams, HeterogeneousMap &&options = {}) {
-
   auto helper = qcor::__internal__::get_objective(obj_name);
 
   void *kernel_ptr = reinterpret_cast<void *>(quantum_kernel_functor);
@@ -368,7 +380,6 @@ std::shared_ptr<ObjectiveFunction> createObjectiveFunction(
     Observable &observable,
     std::shared_ptr<ArgsTranslator<Args...>> args_translator, qreg &q,
     const int nParams, HeterogeneousMap &&options = {}) {
-
   auto helper = qcor::__internal__::get_objective("vqe");
 
   void *kernel_ptr = reinterpret_cast<void *>(quantum_kernel_functor);
@@ -386,7 +397,6 @@ std::shared_ptr<ObjectiveFunction> createObjectiveFunction(
     Observable &observable,
     std::shared_ptr<ArgsTranslator<Args...>> args_translator, qreg &q,
     const int nParams, HeterogeneousMap &&options = {}) {
-
   auto helper = qcor::__internal__::get_objective(obj_name);
 
   void *kernel_ptr = reinterpret_cast<void *>(quantum_kernel_functor);
@@ -402,14 +412,12 @@ std::shared_ptr<ObjectiveFunction> createObjectiveFunction(
                                    Args...),
     std::shared_ptr<ArgsTranslator<Args...>> args_translator, qreg &q,
     const int nParams, HeterogeneousMap &&options = {}) {
-
   auto helper = qcor::__internal__::get_objective("vqe");
 
   void *kernel_ptr = reinterpret_cast<void *>(quantum_kernel_functor);
 
   std::map<int, std::string> all_zs;
-  for (int i = 0; i < q.size(); i++)
-    all_zs.insert({i, "Z"});
+  for (int i = 0; i < q.size(); i++) all_zs.insert({i, "Z"});
   auto observable = std::make_shared<PauliOperator>(all_zs);
   return std::make_shared<ObjectiveFunctionImpl<Args...>>(
       kernel_ptr, observable, q, args_translator, helper, nParams, options);
@@ -422,17 +430,77 @@ std::shared_ptr<ObjectiveFunction> createObjectiveFunction(
                                    Args...),
     std::shared_ptr<ArgsTranslator<Args...>> args_translator, qreg &q,
     const int nParams, HeterogeneousMap &&options = {}) {
-
   auto helper = qcor::__internal__::get_objective(obj_name);
 
   void *kernel_ptr = reinterpret_cast<void *>(quantum_kernel_functor);
 
   std::map<int, std::string> all_zs;
-  for (int i = 0; i < q.size(); i++)
-    all_zs.insert({i, "Z"});
+  for (int i = 0; i < q.size(); i++) all_zs.insert({i, "Z"});
   auto observable = std::make_shared<PauliOperator>(all_zs);
   return std::make_shared<ObjectiveFunctionImpl<Args...>>(
       kernel_ptr, observable, q, args_translator, helper, nParams, options);
 }
 
-} // namespace qcor
+/// no qreg args
+
+template <typename... Args>
+std::shared_ptr<ObjectiveFunction> createObjectiveFunction(
+    void (*quantum_kernel_functor)(std::shared_ptr<CompositeInstruction>,
+                                   Args...),
+    std::shared_ptr<Observable> observable, const int nParams,
+    HeterogeneousMap &&options = {}) {
+  auto helper = qcor::__internal__::get_objective("vqe");
+
+  void *kernel_ptr = reinterpret_cast<void *>(quantum_kernel_functor);
+
+  return std::make_shared<ObjectiveFunctionImpl<Args...>>(
+      kernel_ptr, observable, helper, nParams, options);
+}
+
+template <typename... Args>
+std::shared_ptr<ObjectiveFunction> createObjectiveFunction(
+    const std::string obj_name,
+    void (*quantum_kernel_functor)(std::shared_ptr<CompositeInstruction>,
+                                   Args...),
+    std::shared_ptr<Observable> observable, const int nParams,
+    HeterogeneousMap &&options = {}) {
+  auto helper = qcor::__internal__::get_objective(obj_name);
+
+  void *kernel_ptr = reinterpret_cast<void *>(quantum_kernel_functor);
+
+  return std::make_shared<ObjectiveFunctionImpl<Args...>>(
+      kernel_ptr, observable, helper, nParams, options);
+}
+
+template <typename... Args>
+std::shared_ptr<ObjectiveFunction> createObjectiveFunction(
+    void (*quantum_kernel_functor)(std::shared_ptr<CompositeInstruction>,
+                                   Args...),
+    Observable &observable, const int nParams,
+    HeterogeneousMap &&options = {}) {
+  auto helper = qcor::__internal__::get_objective("vqe");
+
+  void *kernel_ptr = reinterpret_cast<void *>(quantum_kernel_functor);
+
+  return std::make_shared<ObjectiveFunctionImpl<Args...>>(
+      kernel_ptr, __internal__::qcor_as_shared(&observable), helper, nParams,
+      options);
+}
+
+template <typename... Args>
+std::shared_ptr<ObjectiveFunction> createObjectiveFunction(
+    const std::string obj_name,
+    void (*quantum_kernel_functor)(std::shared_ptr<CompositeInstruction>,
+                                   Args...),
+    Observable &observable, const int nParams,
+    HeterogeneousMap &&options = {}) {
+  auto helper = qcor::__internal__::get_objective(obj_name);
+
+  void *kernel_ptr = reinterpret_cast<void *>(quantum_kernel_functor);
+
+  return std::make_shared<ObjectiveFunctionImpl<Args...>>(
+      kernel_ptr, __internal__::qcor_as_shared(&observable), helper, nParams,
+      options);
+}
+
+}  // namespace qcor

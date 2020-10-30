@@ -118,7 +118,8 @@ class PyObjectiveFunction : public qcor::ObjectiveFunction {
   const std::string name() const override { return "py-objective-impl"; }
   const std::string description() const override { return ""; }
   PyObjectiveFunction(py::object q, qcor::PauliOperator &qq, const int n_dim,
-                      const std::string &helper_name)
+                      const std::string &helper_name,
+                      xacc::HeterogeneousMap opts = {})
       : py_kernel(q) {
     // Set the OptFunction dimensions
     _dim = n_dim;
@@ -128,6 +129,9 @@ class PyObjectiveFunction : public qcor::ObjectiveFunction {
 
     // Store the observable pointer and give it to the helper
     observable = xacc::as_shared_ptr(&qq);
+    options = opts;
+    options.insert("observable", observable);
+    helper->set_options(options);
     helper->update_observable(observable);
 
     // Extract the QJIT source code
@@ -141,21 +145,29 @@ class PyObjectiveFunction : public qcor::ObjectiveFunction {
 
   // Evaluate this ObjectiveFunction at the dictionary of kernel args,
   // return the scalar value
-  double operator()(const KernelArgDict args) {
-    // Map the kernel args to a hetmap
-    xacc::HeterogeneousMap m;
-    for (auto &item : args) {
-      KernelArgDictToHeterogeneousMap vis(m, item.first);
-      mpark::visit(vis, item.second);
-    }
+  double operator()(const KernelArgDict args, std::vector<double> &dx) {
+    std::function<std::shared_ptr<CompositeInstruction>(std::vector<double>)>
+        kernel_evaluator = [&](std::vector<double> x) {
+          qreg = ::qalloc(observable->nBits());
+          auto _args =
+              py_kernel.attr("translate")(qreg, x).cast<KernelArgDict>();
+          // Map the kernel args to a hetmap
+          xacc::HeterogeneousMap m;
+          for (auto &item : _args) {
+            KernelArgDictToHeterogeneousMap vis(m, item.first);
+            mpark::visit(vis, item.second);
+          }
 
-    // Get the kernel as a CompositeInstruction
-    auto kernel_name = py_kernel.attr("kernel_name")().cast<std::string>();
-    kernel = qjit.extract_composite_with_hetmap(kernel_name, m);
+          // Get the kernel as a CompositeInstruction
+          auto kernel_name =
+              py_kernel.attr("kernel_name")().cast<std::string>();
+          return qjit.extract_composite_with_hetmap(kernel_name, m);
+        };
+
+    kernel = kernel_evaluator(current_iterate_parameters);
     helper->update_kernel(kernel);
+    helper->update_options("kernel-evaluator", kernel_evaluator);
 
-    // FIXME, handle gradients
-    std::vector<double> dx;
     return (*helper)(qreg, dx);
   }
 
@@ -169,7 +181,7 @@ class PyObjectiveFunction : public qcor::ObjectiveFunction {
     qreg = ::qalloc(observable->nBits());
     auto args = py_kernel.attr("translate")(qreg, x).cast<KernelArgDict>();
     // args will be a dictionary, arg_name to arg
-    return operator()(args);
+    return operator()(args, dx);
   }
 
   virtual double operator()(xacc::internal_compiler::qreg &qreg,
@@ -324,6 +336,14 @@ PYBIND11_MODULE(_pyqcor, m) {
           [](qcor::ObjectiveFunction &obj, std::vector<double> x) {
             return obj(x);
           },
+          "")
+      .def(
+          "__call__",
+          [](qcor::ObjectiveFunction &obj, std::vector<double> x,
+             std::vector<double> &dx) {
+            auto val = obj(x, dx);
+            return std::make_pair(val, dx);
+          },
           "");
 
   m.def(
@@ -333,6 +353,18 @@ PYBIND11_MODULE(_pyqcor, m) {
         std::shared_ptr<qcor::ObjectiveFunction> obj =
             std::make_shared<qcor::PyObjectiveFunction>(kernel, obs, n_params,
                                                         "vqe");
+        return obj;
+      },
+      "");
+  m.def(
+      "createObjectiveFunction",
+      [](py::object kernel, qcor::PauliOperator &obs, const int n_params,
+         PyHeterogeneousMap &options) {
+        auto nativeHetMap = heterogeneousMapConvert(options);
+        auto q = ::qalloc(obs.nBits());
+        std::shared_ptr<qcor::ObjectiveFunction> obj =
+            std::make_shared<qcor::PyObjectiveFunction>(kernel, obs, n_params,
+                                                        "vqe", nativeHetMap);
         return obj;
       },
       "");
@@ -373,7 +405,7 @@ PYBIND11_MODULE(_pyqcor, m) {
               return std::move(model);
             },
             "")
-            
+
         .def(
             "createModel",
             [](py::object py_kernel, qcor::PauliOperator &obs,
