@@ -165,5 +165,38 @@ class TestSimpleKernelJIT(unittest.TestCase):
         for i in range(10, 15):
             self.assertEqual(comp.getInstruction(i).name(), "Measure") 
 
+    # Make sure that multi-level dependency can be resolved.
+    def test_nested_kernels(self):
+        @qjit
+        def apply_cnot_fwd(q : qreg):
+            for i in range(q.size() - 1):
+                CX(q[i], q[i + 1])
+        
+        @qjit
+        def make_bell(q : qreg):
+            H(q[0])
+            apply_cnot_fwd(q)
+
+        @qjit
+        def measure_all_bits(q : qreg):
+            for i in range(q.size()):
+                Measure(q[i])
+
+        @qjit
+        def bell_expr(q : qreg):
+           # dep: apply_cnot_fwd -> make_bell -> bell_expr
+           make_bell(q)
+           measure_all_bits(q) 
+        
+        q = qalloc(5)
+        comp = bell_expr.extract_composite(q)
+        # 1 H, 4 CNOT, 5 Measure
+        self.assertEqual(comp.nInstructions(), 1 + 4 + 5)   
+        self.assertEqual(comp.getInstruction(0).name(), "H") 
+        for i in range(1, 5):
+            self.assertEqual(comp.getInstruction(i).name(), "CNOT") 
+        for i in range(5, 10):
+            self.assertEqual(comp.getInstruction(i).name(), "Measure") 
+
 if __name__ == '__main__':
   unittest.main()
