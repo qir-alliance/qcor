@@ -364,12 +364,10 @@ void QJIT::jit_compile(const std::string &code,
   // Look up the previously-generated for dependency kernels and add them to
   // this kernel before compilation.
   std::string dependencyCode;
-  if (!kernel_dependency.empty()) {
-    for (const auto &dep : kernel_dependency) {
-      const auto depIter = JIT_KERNEL_RUNTIME_CACHE.find(dep);
-      if (depIter != JIT_KERNEL_RUNTIME_CACHE.end()) {
-        dependencyCode += JIT_KERNEL_RUNTIME_CACHE[dep];
-      }
+  for (const auto &dep : kernel_dependency) {
+    const auto depIter = JIT_KERNEL_RUNTIME_CACHE.find(dep);
+    if (depIter != JIT_KERNEL_RUNTIME_CACHE.end()) {
+      dependencyCode += JIT_KERNEL_RUNTIME_CACHE[dep];
     }
   }
   // Add dependency before JIT compile:
