@@ -8,7 +8,7 @@ MY_PI = 3.1416
 class TestSimpleKernelJIT(unittest.TestCase):
     def test_simple_bell(self):
 
-        set_qpu('qpp', {'shots':8192})
+        set_qpu('qpp', {'shots':1024})
 
         @qjit
         def bell(q : qreg):
@@ -33,7 +33,7 @@ class TestSimpleKernelJIT(unittest.TestCase):
 
     def test_assignment(self):
 
-        set_qpu('qpp', {'shots':8192})
+        set_qpu('qpp', {'shots':1024})
 
         @qjit
         def varAssignKernel(q : qreg):
@@ -61,7 +61,7 @@ class TestSimpleKernelJIT(unittest.TestCase):
     
     def test_globalVar(self):
 
-        set_qpu('qpp', {'shots':8192})
+        set_qpu('qpp', {'shots':1024})
 
         @qjit
         def kernelUseGlobals(q : qreg):
@@ -80,11 +80,11 @@ class TestSimpleKernelJIT(unittest.TestCase):
         q.print()
         counts = q.counts()
         # Pi pulse -> X gate
-        self.assertTrue(counts['11'] > 8000)
+        self.assertTrue(counts['11'] > 1000)
     
     def test_ModuleConstants(self):
 
-        set_qpu('qpp', {'shots':8192})
+        set_qpu('qpp', {'shots':1024})
 
         @qjit
         def kernelUseConstants(q : qreg):
@@ -197,6 +197,27 @@ class TestSimpleKernelJIT(unittest.TestCase):
             self.assertEqual(comp.getInstruction(i).name(), "CNOT") 
         for i in range(5, 10):
             self.assertEqual(comp.getInstruction(i).name(), "Measure") 
+
+    def test_for_loop(self):
+        @qjit
+        def kernels_w_loops(q : qreg, thetas : List[float], betas : List[float]):
+            for i in range(len(q)):
+                for theta in thetas:
+                    for beta in betas:
+                        angle = theta + beta
+                        Rx(q[i], angle)
+            for i in range(q.size()):
+                Measure(q[i])
+
+        list1 = [1.0, 2.0, 3.0]
+        list2 = [4.0, 5.0, 6.0]
+        q = qalloc(2)
+        comp = kernels_w_loops.extract_composite(q, list1, list2)
+        self.assertEqual(comp.nInstructions(), q.size() * len(list1) * len(list2) + q.size())
+        for i in range(0, q.size() * len(list1) * len(list2)):
+            self.assertEqual(comp.getInstruction(i).name(), "Rx") 
+        for i in range(q.size() * len(list1) * len(list2), comp.nInstructions()):
+            self.assertEqual(comp.getInstruction(i).name(), "Measure")    
 
 if __name__ == '__main__':
   unittest.main()

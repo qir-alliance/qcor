@@ -95,17 +95,18 @@ void PyXasmTokenCollector::collect(clang::Preprocessor &PP,
   for (const auto &line : lines) {
     // std::cout << "processing line " << line_counter << " of " << lines.size()
     //           << ": " << line.first << ", " << line.second << std::boolalpha
-    //           << ", " << is_in_for_loop << "\n";
+    //           << ", " << !for_loop_indent.empty() << "\n";
 
     pyxasm_visitor visitor(bufferNames);
     // Should we close a 'for' scope after this statement
-    bool close_for_scope = false;
+    // If > 0, indicate the number of for blocks to be closed.
+    int close_for_scopes = 0;
     // If the stack is not empty and this line changed column to an outside
     // scope:
-    if (!for_loop_indent.empty() && line.second < for_loop_indent.top()) {
+    while (!for_loop_indent.empty() && line.second < for_loop_indent.top()) {
       // Pop the stack and flag to close the scope afterward
       for_loop_indent.pop();
-      close_for_scope = true;
+      close_for_scopes++;
     }
 
     // Enter a new for loop -> push to the stack
@@ -138,9 +139,12 @@ void PyXasmTokenCollector::collect(clang::Preprocessor &PP,
       ss << visitor.result.first;
     }
 
-    if (close_for_scope) {
+    if (close_for_scopes > 0) {
+      // std::cout << "Close " << close_for_scopes << " for scopes.\n";
       // need to close out the c++ or loop
-      ss << "}\n";
+      for (int i = 0; i < close_for_scopes; ++i) {
+        ss << "}\n";
+      }
     }
     previous_col = line.second;
     line_counter++;
