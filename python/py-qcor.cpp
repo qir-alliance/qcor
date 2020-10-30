@@ -76,8 +76,9 @@ class KernelArgDictToHeterogeneousMap {
 };
 
 // Add type name to this list to support receiving from Python.
-using PyHeterogeneousMapTypes = xacc::Variant<bool, int, double, std::string,
-                                              std::shared_ptr<qcor::Optimizer>>;
+using PyHeterogeneousMapTypes =
+    xacc::Variant<bool, int, double, std::string,
+                  std::shared_ptr<qcor::Optimizer>, std::vector<double>>;
 using PyHeterogeneousMap = std::map<std::string, PyHeterogeneousMapTypes>;
 
 // Helper to convert a Python *dict* (as a map of variants) into a native
