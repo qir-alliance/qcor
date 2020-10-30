@@ -15,13 +15,11 @@ def qaoa_circ(q: qreg, cost_ham: PauliOperator, nbSteps: int, theta: List[float]
     
     terms = cost_ham.getNonIdentitySubTerms()
     for step in range(nbSteps):
-        # TODO: this looks weird (terms is a vector)
-        # we need to support Pythonic len() method
-        for i in range(terms.size()):
-            exp_i_theta(q, theta[step], terms[i])
+        for term in terms:
+            exp_i_theta(q, theta[step], term)
 
         # Reference Hamiltonian: 
-        for i in range(q.size()):
+        for i in range(len(q)):
             ref_ham_term = X(i)
             exp_i_theta(q, beta[step], ref_ham_term)
    

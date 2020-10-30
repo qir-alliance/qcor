@@ -57,6 +57,16 @@ template <typename T> std::vector<T> linspace(T a, T b, size_t N) {
   return xs;
 }
 
+inline std::vector<int> range(int N) {
+  std::vector<int> vec(N);
+  std::iota(vec.begin(), vec.end(), 0);
+  return vec;
+}
+
+// Get size() of any types that have size() implemented.
+template <typename T> int len(const T &countable) { return countable.size(); }
+template <typename T> int len(T &countable) { return countable.size(); }
+
 // The TranslationFunctor maps vector<double> to a tuple of Args...
 template <typename... Args>
 using TranslationFunctor =

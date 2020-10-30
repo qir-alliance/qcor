@@ -152,28 +152,16 @@ public:
 
   antlrcpp::Any visitFor_stmt(pyxasmParser::For_stmtContext *context) override {
     auto counter_expr = context->exprlist()->expr()[0];
-
-    if (context->testlist()->test()[0]->getText().find("range") !=
-        std::string::npos) {
-      auto range_str = context->testlist()->test()[0]->getText();
-      auto found_paren = range_str.find_first_of("(");
-      auto range_contents = range_str.substr(
-          found_paren + 1, range_str.length() - found_paren - 2);
-
-      std::stringstream ss;
-      ss << "for (int " << counter_expr->getText() << " = 0; "
-         << counter_expr->getText() << " < " << range_contents << "; ++"
-         << counter_expr->getText() << " ) {\n";
-
-      result.first = ss.str();
-      in_for_loop = true;
-
-    } else {
-      xacc::error(
-          "QCOR PyXasm can only handle 'for VAR in range(QREG.size())' at the "
-          "moment.");
-    }
-
+    auto iter_container = context->testlist()->test()[0]->getText();
+    // Rewrite:
+    // Python: "for <var> in <expr>:"
+    // C++: for (auto& var: <expr>) {}
+    // Note: we add range(int) as a C++ function to support this common pattern.
+    std::stringstream ss;
+    ss << "for (auto &" << counter_expr->getText() << " : " << iter_container
+       << ") {\n";
+    result.first = ss.str();
+    in_for_loop = true;
     return 0;
   }
 
