@@ -62,6 +62,10 @@ def main(argv=None):
         sys.argv.remove('-qpu')
         sys.argv += ['-D__internal__qcor__compile__backend=\"'+accName+'\"']
         sHandlerArgs = ['-Xclang', '-plugin-arg-qcor-args', '-Xclang', '-qpu', '-Xclang', '-plugin-arg-qcor-args', '-Xclang', accName]
+    else:
+        accName = 'qpp'
+        sys.argv += ['-D__internal__qcor__compile__backend=\"'+accName+'\"']
+        sHandlerArgs = ['-Xclang', '-plugin-arg-qcor-args', '-Xclang', '-qpu', '-Xclang', '-plugin-arg-qcor-args', '-Xclang', accName]
 
     # Get the shots if necessary
     shots = 0
