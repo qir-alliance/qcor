@@ -8,7 +8,7 @@ import re
 from collections import defaultdict 
 
 List = typing.List
-
+PauliOperator = xacc.quantum.PauliOperator
 
 def X(idx):
     return xacc.quantum.PauliOperator({idx: 'X'}, 1.0)
@@ -126,7 +126,9 @@ class qjit(object):
         self.kwargs = kwargs
         self.function = function
         self.allowed_type_cpp_map = {'<class \'_pyqcor.qreg\'>': 'qreg',
-                                     '<class \'float\'>': 'double', 'typing.List[float]': 'std::vector<double>'}
+                                     '<class \'float\'>': 'double', 'typing.List[float]': 'std::vector<double>', 
+                                     '<class \'int\'>': 'int', 
+                                     '<class \'_pyxacc.quantum.PauliOperator\'>': 'qcor::PauliOperator'}
         self.__dict__.update(kwargs)
 
         # Create the qcor just in time engine
