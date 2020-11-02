@@ -268,8 +268,16 @@ class qjit(object):
         args_dict = {}
         for i, arg_name in enumerate(self.arg_names):
             args_dict[arg_name] = list(args)[i]
-
         return self._qjit.extract_composite(self.function.__name__, args_dict)
+
+    def observe(self, observable, *args):
+        """
+        Return the expectation value of <observable> with 
+        respect to the state given by this qjit kernel evaluated 
+        at the given arguments. 
+        """
+        program = self.extract_composite(*args)
+        return internal_observe(program, observable)
 
     def openqasm(self, *args):
         """

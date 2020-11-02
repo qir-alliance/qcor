@@ -369,6 +369,15 @@ PYBIND11_MODULE(_pyqcor, m) {
       },
       "");
 
+  m.def(
+      "internal_observe",
+      [](std::shared_ptr<CompositeInstruction> kernel,
+         qcor::PauliOperator &obs) {
+        auto q = ::qalloc(obs.nBits());
+        return qcor::observe(kernel, obs, q);
+      },
+      "");
+
   // qsim sub-module bindings:
   {
     py::module qsim = m.def_submodule("qsim", "QCOR's python qsim submodule");
