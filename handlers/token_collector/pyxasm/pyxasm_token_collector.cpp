@@ -55,9 +55,8 @@ void PyXasmTokenCollector::collect(clang::Preprocessor &PP,
   std::vector<std::pair<std::string, int>> lines;
   std::string line = "";
   auto current_line_number = sm.getSpellingLineNumber(Toks[0].getLocation());
-  line += PP.getSpelling(Toks[0]);
   int last_col_number = 0;
-  for (int i = 1; i < Toks.size(); i++) {
+  for (int i = 0; i < Toks.size(); i++) {
     // std::cout << PP.getSpelling(Toks[i]) << "\n";
     auto location = Toks[i].getLocation();
     auto col_number = sm.getSpellingColumnNumber(location);
@@ -90,17 +89,29 @@ void PyXasmTokenCollector::collect(clang::Preprocessor &PP,
   using namespace antlr4;
 
   int previous_col = lines[0].second;
-  bool is_in_for_loop = false;
   int line_counter = 0;
+  // Tracking the scope of for loops by their indent
+  std::stack<int> for_loop_indent;
   for (const auto &line : lines) {
     // std::cout << "processing line " << line_counter << " of " << lines.size()
     //           << ": " << line.first << ", " << line.second << std::boolalpha
-    //           << ", " << is_in_for_loop << "\n";
+    //           << ", " << !for_loop_indent.empty() << "\n";
 
-    pyxasm_visitor visitor;
+    pyxasm_visitor visitor(bufferNames);
+    // Should we close a 'for' scope after this statement
+    // If > 0, indicate the number of for blocks to be closed.
+    int close_for_scopes = 0;
+    // If the stack is not empty and this line changed column to an outside
+    // scope:
+    while (!for_loop_indent.empty() && line.second < for_loop_indent.top()) {
+      // Pop the stack and flag to close the scope afterward
+      for_loop_indent.pop();
+      close_for_scopes++;
+    }
 
+    // Enter a new for loop -> push to the stack
     if (line.first.find("for ") != std::string::npos) {
-      is_in_for_loop = true;
+      for_loop_indent.push(line.second);
     }
 
     // is_in_for_loop = line.first.find("for ") != std::string::npos &&
@@ -128,17 +139,21 @@ void PyXasmTokenCollector::collect(clang::Preprocessor &PP,
       ss << visitor.result.first;
     }
 
-    if ((is_in_for_loop && line.second < previous_col) ||
-        (is_in_for_loop && line_counter == lines.size() - 1)) {
-      // we are now not in a for loop...
-      is_in_for_loop = false;
+    if (close_for_scopes > 0) {
+      // std::cout << "Close " << close_for_scopes << " for scopes.\n";
       // need to close out the c++ or loop
-      ss << "}\n";
+      for (int i = 0; i < close_for_scopes; ++i) {
+        ss << "}\n";
+      }
     }
-
     previous_col = line.second;
     line_counter++;
   }
-
+  // If there are open for scope blocks here,
+  // i.e. for loops at the end of the function body.
+  while (!for_loop_indent.empty()) {
+    for_loop_indent.pop();
+    ss << "}\n";
+  }
 }
 }  // namespace qcor

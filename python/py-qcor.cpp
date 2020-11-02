@@ -54,7 +54,7 @@ namespace {
 // Here we enumerate them as a Variant
 using AllowedKernelArgTypes =
     xacc::Variant<bool, int, double, std::string, xacc::internal_compiler::qreg,
-                  std::vector<double>>;
+                  std::vector<double>, qcor::PauliOperator>;
 
 // We will take as input a mapping of arg variable names to the argument itself.
 using KernelArgDict = std::map<std::string, AllowedKernelArgTypes>;
@@ -76,8 +76,9 @@ class KernelArgDictToHeterogeneousMap {
 };
 
 // Add type name to this list to support receiving from Python.
-using PyHeterogeneousMapTypes = xacc::Variant<bool, int, double, std::string,
-                                              std::shared_ptr<qcor::Optimizer>>;
+using PyHeterogeneousMapTypes =
+    xacc::Variant<bool, int, double, std::string,
+                  std::shared_ptr<qcor::Optimizer>, std::vector<double>>;
 using PyHeterogeneousMap = std::map<std::string, PyHeterogeneousMapTypes>;
 
 // Helper to convert a Python *dict* (as a map of variants) into a native
@@ -299,9 +300,10 @@ PYBIND11_MODULE(_pyqcor, m) {
       .def("jit_compile", &qcor::QJIT::jit_compile, "")
       .def(
           "internal_python_jit_compile",
-          [](qcor::QJIT &qjit, const std::string src) {
+          [](qcor::QJIT &qjit, const std::string src,
+             const std::vector<std::string> &dependency = {}) {
             bool turn_on_hetmap_kernel_ctor = true;
-            qjit.jit_compile(src, turn_on_hetmap_kernel_ctor);
+            qjit.jit_compile(src, turn_on_hetmap_kernel_ctor, dependency);
           },
           "")
       .def("run_syntax_handler", &qcor::QJIT::run_syntax_handler, "")

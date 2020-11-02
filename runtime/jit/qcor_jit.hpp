@@ -45,7 +45,8 @@ class QJIT {
       const std::string &quantum_kernel_src,
       const bool add_het_map_kernel_ctor = false);
   void jit_compile(const std::string &quantum_kernel_src,
-                   const bool add_het_map_kernel_ctor = false);
+                   const bool add_het_map_kernel_ctor = false,
+                   const std::vector<std::string> &kernel_dependency = {});
 
   void write_cache();
   
