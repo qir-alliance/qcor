@@ -288,6 +288,22 @@ class qjit(object):
         staq = xacc.getCompiler('staq')
         return staq.translate(kernel)
 
+    def print_kernel(self, *args):
+        """
+        Print the QJIT kernel as a QASM-like string
+        """
+        print(self.extract_composite(*args).toString())
+    
+    def n_instructions(self, *args):
+        """
+        Return the number of quantum instructions in this kernel. 
+        """
+        return self.extract_composite(*args).nInstructions()
+
+    # def ctrl(self, *args):
+
+
+
     def __call__(self, *args):
         """
         Execute the decorated quantum kernel. This will directly 

@@ -217,7 +217,100 @@ class TestSimpleKernelJIT(unittest.TestCase):
         for i in range(0, q.size() * len(list1) * len(list2)):
             self.assertEqual(comp.getInstruction(i).name(), "Rx") 
         for i in range(q.size() * len(list1) * len(list2), comp.nInstructions()):
-            self.assertEqual(comp.getInstruction(i).name(), "Measure")    
+            self.assertEqual(comp.getInstruction(i).name(), "Measure") 
+
+    def test_iqft_kernel(self):
+        import numpy as np
+        @qjit
+        def iqft(q : qreg, startIdx : int, nbQubits : int):
+            for i in range(nbQubits/2):
+                Swap(q[startIdx + i], q[startIdx + nbQubits - i - 1])
+            
+            for i in range(nbQubits-1):
+                H(q[startIdx+i])
+                j = i +1
+                for y in range(i, -1, -1):
+                    theta = -MY_PI / 2**(j-y)
+                    CPhase(q[startIdx+j], q[startIdx + y], theta)
+            
+            H(q[startIdx+nbQubits-1])
+        
+        q = qalloc(5)
+        comp = iqft.extract_composite(q, 0, 5)
+        print(comp.toString())
+        self.assertEqual(comp.nInstructions(), 17)   
+        self.assertEqual(comp.getInstruction(0).name(), "Swap") 
+        self.assertEqual(comp.getInstruction(1).name(), "Swap") 
+        self.assertEqual(comp.getInstruction(2).name(), "H") 
+        self.assertEqual(comp.getInstruction(3).name(), "CPhase") 
+        self.assertEqual(comp.getInstruction(4).name(), "H") 
+        for i in range(5, 7):
+            self.assertEqual(comp.getInstruction(i).name(), "CPhase") 
+        self.assertEqual(comp.getInstruction(7).name(), "H") 
+        for i in range(8, 11):
+            self.assertEqual(comp.getInstruction(i).name(), "CPhase") 
+        self.assertEqual(comp.getInstruction(11).name(), "H") 
+        for i in range(12, 16):
+            self.assertEqual(comp.getInstruction(i).name(), "CPhase")
+        self.assertEqual(comp.getInstruction(16).name(), "H") 
+        
+    # def test_ctrl_kernel(self):
+    #     @qjit
+    #     def qft(q : qreg, startIdx : int, nbQubits : int): # with swap
+    #         for i in range(nbQubits - 1, -1, -1):
+    #             shiftedBitIdx = i + startIdx
+    #             H(q[shiftedBitIdx])
+
+    #             for j in range(i-1, -1, -1):
+    #                 theta = np.pi / 2**(i-j)
+    #                 tIdx = j + i
+    #                 CPhase(q[shiftedBitIdx], q[tIdx], theta)
+
+    #         swapCount = 0 if shouldSwap == 0 else 1
+    #         for i in range(nbQubits/2):
+    #             Swap(q[startIdx+i], q[startIdx+nbQubits-i-1])
+        
+    #     @qjit
+    #     def iqft(q : qreg, startIdx : int, nbQubits : int):
+    #         for i in range(nbQubits/2):
+    #             Swap(q[startIdx + i], q[startIdx + nbQubits - i - 1])
+            
+    #         for i in range(nbQubits-1):
+    #             H(q[startIdx+i])
+    #             j = i +1
+    #             for y in range(i, -1, -1):
+    #                 theta = -np.pi / 2**(j-y)
+    #                 CPhase(q[startIdx+j], q[startIdx + y], theta)
+            
+    #         H(q[startIdx+nbQubits-1])
+
+    #     @qjit
+    #     def oracle(q : qreg):
+    #         bit = q.size()-1
+    #         T(q[bit])
+
+    #     def qpe(q : qreg):
+    #         nq = q.size()
+
+    #         for i in range(q.size()-1):
+    #             H(q[i])
+            
+    #         bitPrecision = nq-1
+    #         for i in range(bitPrecision):
+    #             nbCalls = 1 << i
+    #             for j in range(nbCalls):
+    #                 ctrl_bit = i
+    #                 oracle.ctrl(ctrl_bit, q)
+            
+    #         iqft(q, 0, bitPrecision)
+    #         for i in range(bitPrecision):
+    #             Measure(q[i])
+        
+    #     q = qalloc(4)
+    #     qpe(q)
+    #     print(q.counts())
+
+
 
 if __name__ == '__main__':
   unittest.main()

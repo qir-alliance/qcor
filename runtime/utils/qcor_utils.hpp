@@ -47,6 +47,10 @@ using Handle = std::future<ResultsBuffer>;
 // Sync up a Handle
 ResultsBuffer sync(Handle &handle);
 
+// Indicate we have an error with the given message.
+// This should abort execution
+void error(const std::string &msg);
+
 template <typename T> std::vector<T> linspace(T a, T b, size_t N) {
   T h = (b - a) / static_cast<T>(N - 1);
   std::vector<T> xs(N);
@@ -61,6 +65,25 @@ inline std::vector<int> range(int N) {
   std::vector<int> vec(N);
   std::iota(vec.begin(), vec.end(), 0);
   return vec;
+}
+
+inline std::vector<int> range(int start, int stop, int step) {
+  if (step == 0) {
+    error("step for range must be non-zero.");
+  }
+
+  int i = start;
+  std::vector<int> vec;
+  while ((step > 0) ? (i < stop) : (i > stop)) {
+    vec.push_back(i);
+    i+=step;
+  }
+  return vec;
+}
+
+
+inline std::vector<int> range(int start, int stop) {
+  return range(start, stop, 1);
 }
 
 // Get size() of any types that have size() implemented.
@@ -272,8 +295,5 @@ bool get_verbose();
 // Set the shots for a given quantum kernel execution
 void set_shots(const int shots);
 
-// Indicate we have an error with the given message.
-// This should abort execution
-void error(const std::string &msg);
 
 } // namespace qcor

@@ -15,20 +15,20 @@ using pyxasm_result_type =
     std::pair<std::string, std::shared_ptr<xacc::Instruction>>;
 
 class pyxasm_visitor : public pyxasmBaseVisitor {
-protected:
+ protected:
   std::shared_ptr<xacc::IRProvider> provider;
   // List of buffers in the *context* of this XASM visitor
   std::vector<std::string> bufferNames;
 
-public:
+ public:
   pyxasm_visitor(const std::vector<std::string> &buffers = {})
       : provider(xacc::getIRProvider("quantum")), bufferNames(buffers) {}
   pyxasm_result_type result;
 
   bool in_for_loop = false;
 
-  antlrcpp::Any
-  visitAtom_expr(pyxasmParser::Atom_exprContext *context) override {
+  antlrcpp::Any visitAtom_expr(
+      pyxasmParser::Atom_exprContext *context) override {
     if (context->atom()->NAME() != nullptr) {
       auto inst_name = context->atom()->NAME()->getText();
 
@@ -69,9 +69,9 @@ public:
               auto found_bracket = bit_expr_str.find_first_of("[");
               if (found_bracket != std::string::npos) {
                 auto buffer_name = bit_expr_str.substr(0, found_bracket);
-                auto bit_idx_expr = bit_expr_str.substr(found_bracket + 1,
-                                                        bit_expr_str.length() -
-                                                            found_bracket - 2);
+                auto bit_idx_expr = bit_expr_str.substr(
+                    found_bracket + 1,
+                    bit_expr_str.length() - found_bracket - 2);
                 buffer_names.push_back(buffer_name);
                 inst->setBitExpression(i, bit_idx_expr);
               } else {
@@ -173,13 +173,43 @@ public:
       const std::string rhs = ctx->testlist_star_expr(1)->getText();
       ss << "auto " << lhs << " = " << rhs << "; \n";
       result.first = ss.str();
-      return 0;
+      if (rhs.find("**") != std::string::npos) {
+        // keep processing
+        return visitChildren(ctx);
+      } else {
+        return 0;
+      }
     } else {
       return visitChildren(ctx);
     }
   }
 
-private:
+  antlrcpp::Any visitPower(pyxasmParser::PowerContext *context) override {
+    if (context->getText().find("**") != std::string::npos &&
+        context->factor() != nullptr) {
+      // Here we handle x**y from parent assignment expression
+      auto replaceAll = [](std::string &s, const std::string &search,
+                           const std::string &replace) {
+        for (std::size_t pos = 0;; pos += replace.length()) {
+          // Locate the substring to replace
+          pos = s.find(search, pos);
+          if (pos == std::string::npos) break;
+          // Replace by erasing and inserting
+          s.erase(pos, search.length());
+          s.insert(pos, replace);
+        }
+      };
+      auto factor = context->factor();
+      auto atom_expr = context->atom_expr();
+      std::string s =
+          "std::pow(" + atom_expr->getText() + ", " + factor->getText() + ")";
+      replaceAll(result.first, context->getText(), s);
+      return 0;
+    }
+    return visitChildren(context);
+  }
+
+ private:
   // Replaces common Python constants, e.g. 'math.pi' or 'numpy.pi'.
   // Note: the library names have been resolved to their original names.
   std::string replacePythonConstants(const std::string &in_pyExpr) const {
