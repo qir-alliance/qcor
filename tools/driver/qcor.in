@@ -39,6 +39,9 @@ def main(argv=None):
         parser.add_argument('-I',action='append',nargs=1, metavar=('header_file.hpp'),help='specify additional headers to add to the include search path.')
         parser.add_argument('-L',action='append',nargs=1,metavar=('/path/to/libs'),help='specifiy additional linker search paths.')
         parser.add_argument('-l',action='append',nargs=1,metavar=('lib_name'),help='specifiy additional libraries to link.')
+        parser.add_argument('-set-credentials', nargs=1, help='set api key and other credential information for remote qpu.\nMust provide at least -key KEY arguments. For IBM also specify -hub HUB -group GROUP -project PROJECT.')
+        parser.add_argument('-print-credentials', nargs=1, help='print remote api credentials for given qpu name.')
+        parser.add_argument('-update-credentials', nargs=1, help='set a specific credential for remote qpu access. Example\nqcor -update-credentials ibm -project MYOTHERPROJECT.')
         args = parser.parse_args(sys.argv)
 
 
@@ -48,6 +51,88 @@ def main(argv=None):
     if '-v' in sys.argv[1:]:
         verbose=True
         sys.argv.remove('-v')
+
+    if '-set-credentials' in sys.argv[1:]:
+        idx = sys.argv.index('-set-credentials')
+        accName = sys.argv[idx+1]
+        if accName not in ['ibm', 'qcs', 'rigetti', 'dwave']:
+            print('invalid remote qpu name: ', accName)
+            exit(1)
+
+        try:
+            kidx = sys.argv.index('-key')
+        except:
+            print('-key not found in command line args. must provide key if -set-credentials is used.')
+            exit(1)
+        
+        if accName == 'ibm':
+            try:
+                hidx = sys.argv.index('-hub')
+                gidx = sys.argv.index('-group')
+                pidx = sys.argv.index('-project')
+            except:
+                print('-hub, -project, or -group not found in command line args. must provide them if setting credentials for ibm.')
+                exit(1)
+            
+            key = sys.argv[kidx+1]
+            hub = sys.argv[hidx+1]
+            group = sys.argv[gidx+1]
+            project = sys.argv[pidx+1]
+            s = 'key: {}\nhub: {}\ngroup: {}\nproject: {}\n'.format(key,hub,group,project)
+            f = open(os.getenv('HOME')+'/.ibm_config', 'w')
+            f.write(s)
+            f.close()
+            print('Writing to $HOME/.ibm_config \n\n')
+            print(s)
+            exit(0)
+
+    if '-print-credentials' in sys.argv[1:]:
+        idx = sys.argv.index('-print-credentials')
+        try:
+            accName = sys.argv[idx+1]
+        except:
+            print('must provide qpu name after -print-credentials.')
+            exit(1)
+        f = open(os.getenv('HOME')+'/.{}_config'.format(accName), 'r')
+        print(f.read())
+        f.close()
+        exit(0)
+
+    if '-update-credentials' in sys.argv[1:]:
+        idx = sys.argv.index('-update-credentials')
+        try:
+            accName = sys.argv[idx+1]
+        except:
+            print('must provide qpu name after -update-credentials.')
+            exit(1)
+
+        f = open(os.getenv('HOME')+'/.{}_config'.format(accName), 'r')
+        lines = f.readlines()
+        f.close()
+
+        if '-key' in sys.argv[1:]:
+            kidx = sys.argv.index('-key')
+            lines[0] = 'key: {}\n'.format(sys.argv[kidx+1])
+
+        if '-hub' in sys.argv[1:]:
+            kidx = sys.argv.index('-hub')
+            lines[1] = 'hub: {}\n'.format(sys.argv[kidx+1])
+
+        if '-group' in sys.argv[1:]:
+            kidx = sys.argv.index('-group')
+            lines[2] = 'group: {}\n'.format(sys.argv[kidx+1])
+
+        if '-project' in sys.argv[1:]:
+            kidx = sys.argv.index('-project')
+            lines[3] = 'project: {}\n'.format(sys.argv[kidx+1])
+        
+        f = open(os.getenv('HOME')+'/.{}_config'.format(accName), 'w')
+        f.writelines(lines)
+        f.close()
+        print('Credential after update:')
+        print(''.join([l for l in lines]))
+        exit(0)
+
 
     sHandlerArgs = []
     # Get the QPU Backend
