@@ -200,10 +200,12 @@ class qjit(object):
         # Handle nested kernels:
         dependency = []
         for kernelName in self.__compiled__kernels:
-            kernelCall = kernelName + '('
             # Check that this kernel *calls* a previously-compiled kernel:
-            # pattern: "<white space> kernel("
-            if re.search(r"\b" + re.escape(kernelCall), self.src):
+            # pattern: "<white space> kernel(" OR "kernel.adjoint(" OR "kernel.ctrl("
+            kernelCall = kernelName + '('
+            kernelAdjCall = kernelName + '.adjoint('
+            kernelCtrlCall = kernelName + '.ctrl('
+            if re.search(r"\b" + re.escape(kernelCall) + '|' + re.escape(kernelAdjCall) + '|' + re.escape(kernelCtrlCall), self.src):
                 dependency.append(kernelName)
                 
 
