@@ -285,10 +285,10 @@ class pyxasm_visitor : public pyxasmBaseVisitor {
           }
         };
         // Handle FTQC Measure in *if* conditional clause
-        replaceMeasureInst(ifConditionExpr, "Measure", " quantum::mz");
+        replaceMeasureInst(ifConditionExpr, "Measure", "quantum::mz");
       }
 
-      ss << "if (" << ifConditionExpr << ")\n";
+      ss << "if (" << ifConditionExpr << ") {\n";
       result.first = ss.str();
       return 0;
     }
