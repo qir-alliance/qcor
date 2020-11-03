@@ -259,6 +259,42 @@ class pyxasm_visitor : public pyxasmBaseVisitor {
     return visitChildren(context);
   }
 
+  virtual antlrcpp::Any
+  visitIf_stmt(pyxasmParser::If_stmtContext *ctx) override {
+    // Only support single clause atm
+    if (ctx->test().size() == 1) {
+      std::stringstream ss;
+      std::string ifConditionExpr = ctx->test(0)->getText();
+
+      if (ifConditionExpr.find("Measure") != std::string::npos) {
+        // Found measure in an if statement instruction.
+        const auto replaceMeasureInst = [](std::string &s,
+                                           const std::string &search,
+                                           const std::string &replace) {
+          for (size_t pos = 0;; pos += replace.length()) {
+            pos = s.find(search, pos);
+            if (pos == std::string::npos) {
+              break;
+            }
+            if (!isspace(s[pos + search.length()]) &&
+                (s[pos + search.length()] != '(')) {
+              continue;
+            }
+            s.erase(pos, search.length());
+            s.insert(pos, replace);
+          }
+        };
+        // Handle FTQC Measure in *if* conditional clause
+        replaceMeasureInst(ifConditionExpr, "Measure", " quantum::mz");
+      }
+
+      ss << "if (" << ifConditionExpr << ")\n";
+      result.first = ss.str();
+      return 0;
+    }
+    return visitChildren(ctx);
+  }
+
  private:
   // Replaces common Python constants, e.g. 'math.pi' or 'numpy.pi'.
   // Note: the library names have been resolved to their original names.

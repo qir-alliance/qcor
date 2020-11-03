@@ -80,6 +80,14 @@ void PyXasmTokenCollector::collect(clang::Preprocessor &PP,
       line += PP.getSpelling(Toks[i]);
       line += " ";
     }
+
+    // If statement:
+    if (Toks[i].is(clang::tok::TokenKind::kw_if)) {
+      line += " ";
+      i += 1;
+      line += PP.getSpelling(Toks[i]);
+    }
+
     last_col_number = col_number;
   }
 
@@ -93,9 +101,9 @@ void PyXasmTokenCollector::collect(clang::Preprocessor &PP,
   // Tracking the scope of for loops by their indent
   std::stack<int> for_loop_indent;
   for (const auto &line : lines) {
-    // std::cout << "processing line " << line_counter << " of " << lines.size()
-    //           << ": " << line.first << ", " << line.second << std::boolalpha
-    //           << ", " << !for_loop_indent.empty() << "\n";
+    std::cout << "processing line " << line_counter << " of " << lines.size()
+              << ": " << line.first << ", " << line.second << std::boolalpha
+              << ", " << !for_loop_indent.empty() << "\n";
 
     pyxasm_visitor visitor(bufferNames);
     // Should we close a 'for' scope after this statement
