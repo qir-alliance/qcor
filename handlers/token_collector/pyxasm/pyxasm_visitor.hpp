@@ -31,7 +31,9 @@ class pyxasm_visitor : public pyxasmBaseVisitor {
       pyxasmParser::Atom_exprContext *context) override {
       
     // Handle kernel::ctrl(...), kernel::adjoint(...)
-    if (!context->trailer().empty() && context->trailer()[0]->getText() == ".ctrl") {
+    if (!context->trailer().empty() &&
+        (context->trailer()[0]->getText() == ".ctrl" ||
+         context->trailer()[0]->getText() == ".adjoint")) {
       std::cout << "HELLO: " << context->getText() << "\n";
       std::cout << context->trailer()[0]->getText() << "\n";
       std::cout << context->atom()->getText() << "\n";
@@ -41,7 +43,10 @@ class pyxasm_visitor : public pyxasmBaseVisitor {
       auto arg_list = context->trailer()[1]->arglist();
 
       std::stringstream ss;
-      ss << context->atom()->getText() << "::ctrl(parent_kernel";
+      // Remove the first '.' character
+      const std::string methodName = context->trailer()[0]->getText().substr(1);
+      ss << context->atom()->getText() << "::" << methodName
+         << "(parent_kernel";
       for (int i = 0; i < arg_list->argument().size(); i++) {
         ss << ", " << arg_list->argument(i)->getText();
       }
@@ -50,7 +55,6 @@ class pyxasm_visitor : public pyxasmBaseVisitor {
       std::cout << "HELLO SS: " << ss.str() << "\n";
       result.first = ss.str();
       return 0;
-
     }
     if (context->atom()->NAME() != nullptr) {
       auto inst_name = context->atom()->NAME()->getText();
@@ -137,6 +141,29 @@ class pyxasm_visitor : public pyxasmBaseVisitor {
                << ", "
                << context->trailer()[0]->arglist()->argument(2)->getText()
                << ");\n";
+            result.first = ss.str();
+          }
+          // Handle potential name collision: user-defined kernel having the
+          // same name as an XACC circuit: e.g. common names such as qft, iqft
+          // Note: these circuits (except exp_i_theta) don't have QRT
+          // equivalents.
+          // Condition: first argument is a qubit register
+          else if (!context->trailer()[0]->arglist()->argument().empty() &&
+                   xacc::container::contains(bufferNames, context->trailer()[0]
+                                                              ->arglist()
+                                                              ->argument(0)
+                                                              ->getText())) {
+            std::stringstream ss;
+            // Use the kernel call with a parent kernel arg.
+            ss << inst_name << "(parent_kernel, ";
+            const auto &argList = context->trailer()[0]->arglist()->argument();
+            for (size_t i = 0; i < argList.size(); ++i) {
+              ss << argList[i]->getText();
+              if (i != argList.size() - 1) {
+                ss << ", ";
+              }
+            }
+            ss << ");\n";
             result.first = ss.str();
           } else {
             xacc::error("Composite instruction '" + inst_name +

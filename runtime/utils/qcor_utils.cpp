@@ -38,6 +38,11 @@ get_transformation(const std::string &transform_type) {
     xacc::internal_compiler::compiler_InitializeXACC();
   return xacc::getService<xacc::IRTransformation>(transform_type);
 }
+
+std::shared_ptr<qcor::IRProvider> get_provider() {
+  return xacc::getIRProvider("quantum");
+}
+
 std::shared_ptr<qcor::CompositeInstruction>
 decompose_unitary(const std::string algorithm, UnitaryMatrix &mat,
                   const std::string buffer_name) {
