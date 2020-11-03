@@ -108,7 +108,6 @@ public:
     }
 
     auto provider = qcor::__internal__::get_provider();
-    std::reverse(instructions.begin(), instructions.end());
     for (int i = 0; i < instructions.size(); i++) {
       auto inst = derived.parent_kernel->getInstruction(i);
       // Parametric gates:
@@ -127,8 +126,13 @@ public:
       }
     }
 
+    // We update/replace instructions in the derived.parent_kernel composite,
+    // hence collecting these new instructions and reversing the sequence.
+    auto new_instructions = derived.parent_kernel->getInstructions();
+    std::reverse(new_instructions.begin(), new_instructions.end());
+
     // add the instructions to the current parent kernel
-    parent_kernel->addInstructions(instructions);
+    parent_kernel->addInstructions(new_instructions);
 
     // no measures, so no execute
   }

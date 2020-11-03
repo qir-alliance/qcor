@@ -301,6 +301,31 @@ class TestSimpleKernelJIT(unittest.TestCase):
         print(q.counts())
         self.assertEqual(q.counts()['100'], 1024)
 
+    def test_adjoint_kernel(self):
+        @qjit
+        def test_kernel(q : qreg):
+            CX(q[0], q[1])
+            Rx(q[0], 1.234)
+            T(q[0])
+            X(q[0])
+
+        @qjit
+        def check_adjoint(q : qreg):
+            test_kernel.adjoint(q)
+        
+        q = qalloc(2)
+        comp = check_adjoint.extract_composite(q)
+        print(comp.toString())
+        self.assertEqual(comp.nInstructions(), 4)   
+        # Reverse
+        self.assertEqual(comp.getInstruction(0).name(), "X") 
+        # Check T -> Tdg
+        self.assertEqual(comp.getInstruction(1).name(), "Tdg") 
+        self.assertEqual(comp.getInstruction(2).name(), "Rx") 
+        # Check angle -> -angle
+        self.assertAlmostEqual((float)(comp.getInstruction(2).getParameter(0)), -1.234)
+        self.assertEqual(comp.getInstruction(3).name(), "CNOT") 
+
 
 if __name__ == '__main__':
   unittest.main()
