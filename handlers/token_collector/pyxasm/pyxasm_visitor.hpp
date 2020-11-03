@@ -220,7 +220,8 @@ class pyxasm_visitor : public pyxasmBaseVisitor {
       // Handle simple assignment: a = expr
       std::stringstream ss;
       const std::string lhs = ctx->testlist_star_expr(0)->getText();
-      const std::string rhs = ctx->testlist_star_expr(1)->getText();
+      const std::string rhs = replacePythonConstants(
+          replaceMeasureAssignment(ctx->testlist_star_expr(1)->getText()));
       ss << "auto " << lhs << " = " << rhs << "; \n";
       result.first = ss.str();
       if (rhs.find("**") != std::string::npos) {
@@ -264,31 +265,10 @@ class pyxasm_visitor : public pyxasmBaseVisitor {
     // Only support single clause atm
     if (ctx->test().size() == 1) {
       std::stringstream ss;
-      std::string ifConditionExpr = ctx->test(0)->getText();
-
-      if (ifConditionExpr.find("Measure") != std::string::npos) {
-        // Found measure in an if statement instruction.
-        const auto replaceMeasureInst = [](std::string &s,
-                                           const std::string &search,
-                                           const std::string &replace) {
-          for (size_t pos = 0;; pos += replace.length()) {
-            pos = s.find(search, pos);
-            if (pos == std::string::npos) {
-              break;
-            }
-            if (!isspace(s[pos + search.length()]) &&
-                (s[pos + search.length()] != '(')) {
-              continue;
-            }
-            s.erase(pos, search.length());
-            s.insert(pos, replace);
-          }
-        };
-        // Handle FTQC Measure in *if* conditional clause
-        replaceMeasureInst(ifConditionExpr, "Measure", "quantum::mz");
-      }
-
-      ss << "if (" << ifConditionExpr << ") {\n";
+      ss << "if ("
+         << replacePythonConstants(
+                replaceMeasureAssignment(ctx->test(0)->getText()))
+         << ") {\n";
       result.first = ss.str();
       return 0;
     }
@@ -310,5 +290,34 @@ class pyxasm_visitor : public pyxasmBaseVisitor {
       }
     }
     return newSrc;
+  }
+
+  // Assignment of Measure results -> variable or in if conditional statements
+  std::string replaceMeasureAssignment(const std::string &in_expr) const {
+    if (in_expr.find("Measure") != std::string::npos) {
+      // Found measure in an if statement instruction.
+      const auto replaceMeasureInst = [](std::string &s,
+                                         const std::string &search,
+                                         const std::string &replace) {
+        for (size_t pos = 0;; pos += replace.length()) {
+          pos = s.find(search, pos);
+          if (pos == std::string::npos) {
+            break;
+          }
+          if (!isspace(s[pos + search.length()]) &&
+              (s[pos + search.length()] != '(')) {
+            continue;
+          }
+          s.erase(pos, search.length());
+          s.insert(pos, replace);
+        }
+      };
+
+      std::string result = in_expr;
+      replaceMeasureInst(result, "Measure", "quantum::mz");
+      return result;
+    } else {
+      return in_expr;
+    }
   }
 };
