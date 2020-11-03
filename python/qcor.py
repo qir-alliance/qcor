@@ -314,6 +314,10 @@ class qjit(object):
         print('This is an internal API call and will be translated to C++ via the QJIT.\nIt can only be called from within another quantum kernel.')
         exit(1)
 
+    def adjoint(self, *args):
+        print('This is an internal API call and will be translated to C++ via the QJIT.\nIt can only be called from within another quantum kernel.')
+        exit(1)
+
     def __call__(self, *args):
         """
         Execute the decorated quantum kernel. This will directly 

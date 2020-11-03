@@ -142,6 +142,29 @@ class pyxasm_visitor : public pyxasmBaseVisitor {
                << context->trailer()[0]->arglist()->argument(2)->getText()
                << ");\n";
             result.first = ss.str();
+          }
+          // Handle potential name collision: user-defined kernel having the
+          // same name as an XACC circuit: e.g. common names such as qft, iqft
+          // Note: these circuits (except exp_i_theta) don't have QRT
+          // equivalents.
+          // Condition: first argument is a qubit register
+          else if (!context->trailer()[0]->arglist()->argument().empty() &&
+                   xacc::container::contains(bufferNames, context->trailer()[0]
+                                                              ->arglist()
+                                                              ->argument(0)
+                                                              ->getText())) {
+            std::stringstream ss;
+            // Use the kernel call with a parent kernel arg.
+            ss << inst_name << "(parent_kernel, ";
+            const auto &argList = context->trailer()[0]->arglist()->argument();
+            for (size_t i = 0; i < argList.size(); ++i) {
+              ss << argList[i]->getText();
+              if (i != argList.size() - 1) {
+                ss << ", ";
+              }
+            }
+            ss << ");\n";
+            result.first = ss.str();
           } else {
             xacc::error("Composite instruction '" + inst_name +
                         "' is not currently supported.");

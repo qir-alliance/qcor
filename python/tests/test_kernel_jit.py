@@ -221,7 +221,7 @@ class TestSimpleKernelJIT(unittest.TestCase):
 
     def test_iqft_kernel(self):
         @qjit
-        def iqft(q : qreg, startIdx : int, nbQubits : int):
+        def inverse_qft(q : qreg, startIdx : int, nbQubits : int):
             for i in range(nbQubits/2):
                 Swap(q[startIdx + i], q[startIdx + nbQubits - i - 1])
             
@@ -235,7 +235,7 @@ class TestSimpleKernelJIT(unittest.TestCase):
             H(q[startIdx+nbQubits-1])
         
         q = qalloc(5)
-        comp = iqft.extract_composite(q, 0, 5)
+        comp = inverse_qft.extract_composite(q, 0, 5)
         print(comp.toString())
         self.assertEqual(comp.nInstructions(), 17)   
         self.assertEqual(comp.getInstruction(0).name(), "Swap") 
@@ -279,16 +279,19 @@ class TestSimpleKernelJIT(unittest.TestCase):
         @qjit
         def qpe(q : qreg):
             nq = q.size()
-
+            X(q[nq - 1])
             for i in range(q.size()-1):
                 H(q[i])
             
             bitPrecision = nq-1
             for i in range(bitPrecision):
-                nbCalls = 1 << i
+                nbCalls = 2**i
                 for j in range(nbCalls):
                     ctrl_bit = i
                     oracle.ctrl(ctrl_bit, q)
+            
+            # Inverse QFT on the counting qubits
+            iqft(q, 0, bitPrecision)
             
             for i in range(bitPrecision):
                 Measure(q[i])
@@ -296,7 +299,7 @@ class TestSimpleKernelJIT(unittest.TestCase):
         q = qalloc(4)
         qpe(q)
         print(q.counts())
-
+        self.assertEqual(q.counts()['100'], 1024)
 
 
 if __name__ == '__main__':
