@@ -24,7 +24,7 @@ public:
 #endif
 // IMPORTANT: This needs to be set before quantum::initialize
 #ifdef __internal__qcor__compile__qrt__mode
-    xacc::internal_compiler::__qrt_env = __internal__qcor__compile__qrt__mode;
+    quantum::set_qrt(__internal__qcor__compile__qrt__mode);
 #endif
 #ifdef __internal__qcor__compile__backend
     quantum::initialize(__internal__qcor__compile__backend, "empty");

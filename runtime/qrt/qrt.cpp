@@ -108,6 +108,10 @@ void set_shots(int shots) {
 
 int get_shots() { return current_shots; }
 
+void set_qrt(const std::string &qrt_name) {
+  xacc::internal_compiler::__qrt_env = qrt_name;
+}
+
 void h(const qubit &qidx) { qrt_impl->h(qidx); }
 void x(const qubit &qidx) { qrt_impl->x(qidx); }
 void y(const qubit &qidx) { qrt_impl->y(qidx); }

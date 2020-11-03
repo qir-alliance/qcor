@@ -102,6 +102,7 @@ void set_shots(int shots);
 int get_shots();
 void set_backend(std::string accelerator_name);
 void set_backend(std::string accelerator_name, const int shots);
+void set_qrt(const std::string &qrt_name);
 
 // Common single-qubit gates.
 void h(const qubit &qidx);

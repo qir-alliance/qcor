@@ -251,6 +251,13 @@ PYBIND11_MODULE(_pyqcor, m) {
       "Initialize",
       [](py::kwargs kwargs) {
         if (kwargs) {
+          // QRT (if provided) must be set before quantum::initialize
+          if (kwargs.contains("qrt")) {
+            const auto value = std::string(py::str(kwargs["qrt"]));
+            // QRT (if provided) should be set before quantum::initialize
+            ::quantum::set_qrt(value);
+          }
+          
           for (auto arg : kwargs) {
             const auto key = std::string(py::str(arg.first));
             // Handle "qpu" key

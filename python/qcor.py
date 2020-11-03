@@ -343,6 +343,10 @@ init_kwargs = {'qpu': sys.argv[sys.argv.index(
 if '-shots' in sys.argv:
     init_kwargs['shots'] = int(sys.argv[sys.argv.index('-shots')+1])
 
+# get -qrt if provided
+if '-qrt' in sys.argv:
+    init_kwargs['qrt'] = sys.argv[sys.argv.index('-qrt')+1]
+
 # Implements internal_startup initialization:
 # i.e. set up qrt, backends, shots, etc.
 Initialize(**init_kwargs)
