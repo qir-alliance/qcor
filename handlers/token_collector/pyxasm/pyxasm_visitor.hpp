@@ -31,7 +31,9 @@ class pyxasm_visitor : public pyxasmBaseVisitor {
       pyxasmParser::Atom_exprContext *context) override {
       
     // Handle kernel::ctrl(...), kernel::adjoint(...)
-    if (!context->trailer().empty() && context->trailer()[0]->getText() == ".ctrl") {
+    if (!context->trailer().empty() &&
+        (context->trailer()[0]->getText() == ".ctrl" ||
+         context->trailer()[0]->getText() == ".adjoint")) {
       std::cout << "HELLO: " << context->getText() << "\n";
       std::cout << context->trailer()[0]->getText() << "\n";
       std::cout << context->atom()->getText() << "\n";
@@ -41,7 +43,10 @@ class pyxasm_visitor : public pyxasmBaseVisitor {
       auto arg_list = context->trailer()[1]->arglist();
 
       std::stringstream ss;
-      ss << context->atom()->getText() << "::ctrl(parent_kernel";
+      // Remove the first '.' character
+      const std::string methodName = context->trailer()[0]->getText().substr(1);
+      ss << context->atom()->getText() << "::" << methodName
+         << "(parent_kernel";
       for (int i = 0; i < arg_list->argument().size(); i++) {
         ss << ", " << arg_list->argument(i)->getText();
       }
@@ -50,7 +55,6 @@ class pyxasm_visitor : public pyxasmBaseVisitor {
       std::cout << "HELLO SS: " << ss.str() << "\n";
       result.first = ss.str();
       return 0;
-
     }
     if (context->atom()->NAME() != nullptr) {
       auto inst_name = context->atom()->NAME()->getText();
