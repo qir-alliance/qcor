@@ -370,6 +370,39 @@ PYBIND11_MODULE(_pyqcor, m) {
       "");
 
   m.def(
+      "createOperator",
+      [](const std::string &repr) { return qcor::createOperator(repr); }, "");
+  m.def(
+      "createOperator",
+      [](const std::string &type, const std::string &repr) {
+        return qcor::createOperator(type, repr);
+      },
+      "");
+  m.def(
+      "createOperator",
+      [](const std::string &type, PyHeterogeneousMap &options) {
+        auto nativeHetMap = heterogeneousMapConvert(options);
+        return qcor::createOperator(type, nativeHetMap);
+      },
+      "");
+  m.def(
+      "createObservable",
+      [](const std::string &repr) { return qcor::createOperator(repr); }, "");
+  m.def(
+      "createObservable",
+      [](const std::string &type, const std::string &repr) {
+        return qcor::createOperator(type, repr);
+      },
+      "");
+  m.def(
+      "createObservable",
+      [](const std::string &type, PyHeterogeneousMap &options) {
+        auto nativeHetMap = heterogeneousMapConvert(options);
+        return qcor::createOperator(type, nativeHetMap);
+      },
+      "");
+
+  m.def(
       "internal_observe",
       [](std::shared_ptr<CompositeInstruction> kernel,
          qcor::PauliOperator &obs) {
