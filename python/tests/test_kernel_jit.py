@@ -326,6 +326,37 @@ class TestSimpleKernelJIT(unittest.TestCase):
         self.assertAlmostEqual((float)(comp.getInstruction(2).getParameter(0)), -1.234)
         self.assertEqual(comp.getInstruction(3).name(), "CNOT") 
 
+    # Test conditional if..elif..else rewrite
+    def test_if_clause(self):
+        @qjit
+        def test_if_stmt(q : qreg, flag: int):
+            H(q[0])
+            if flag == 0:
+                X(q[0])
+            elif flag == 1:
+                Y(q[0])
+            elif flag == 2:
+                Z(q[0])
+            else:
+                T(q[0])
+        
+        q = qalloc(2)
+
+        # Examine the circuit QASM with various values of flag
+        comp0 = test_if_stmt.extract_composite(q, 0)
+        comp1 = test_if_stmt.extract_composite(q, 1)
+        comp2 = test_if_stmt.extract_composite(q, 2)
+        comp3 = test_if_stmt.extract_composite(q, 3)
+
+        self.assertEqual(comp0.nInstructions(), 2)   
+        self.assertEqual(comp1.nInstructions(), 2)   
+        self.assertEqual(comp2.nInstructions(), 2)   
+        self.assertEqual(comp3.nInstructions(), 2)   
+
+        self.assertEqual(comp0.getInstruction(1).name(), "X") 
+        self.assertEqual(comp1.getInstruction(1).name(), "Y") 
+        self.assertEqual(comp2.getInstruction(1).name(), "Z") 
+        self.assertEqual(comp3.getInstruction(1).name(), "T") 
 
 if __name__ == '__main__':
   unittest.main()

@@ -82,7 +82,9 @@ void PyXasmTokenCollector::collect(clang::Preprocessor &PP,
     }
 
     // If statement:
-    if (Toks[i].is(clang::tok::TokenKind::kw_if)) {
+    // Note: Python has an "elif" token, which doesn't have a C++ equiv.
+    if (Toks[i].is(clang::tok::TokenKind::kw_if) ||
+        PP.getSpelling(Toks[i]) == "elif") {
       line += " ";
       i += 1;
       line += PP.getSpelling(Toks[i]);
@@ -118,16 +120,50 @@ void PyXasmTokenCollector::collect(clang::Preprocessor &PP,
       nb_closing_scopes++;
     }
 
+    std::string lineText = line.first;
     // Enter a new for scope block (for/if/etc.) -> push to the stack
+    // Note: we rewrite Python if .. elif .. else as follows:
+    // Python:
+    // if (cond1):
+    //   code1
+    // elif (cond2):
+    //   code2
+    // else:
+    //   code3
+    // ===============
+    // C++:
+    // if (cond1) {
+    //   code1
+    // }
+    // else if (cond2) {
+    //   code2
+    // }
+    // else {
+    //   code3
+    // }
+
     if (line.first.find("for ") != std::string::npos ||
-        line.first.find("if ") != std::string::npos) {
+        // Starts with 'if'
+        line.first.rfind("if ", 0) == 0) {
+      scope_block_indent.push(line.second);
+    } else if (line.first == "else:") {
+      ss << "else {\n";
       scope_block_indent.push(line.second);
     }
-
+    // Starts with 'elif'
+    else if (line.first.rfind("elif ", 0) == 0) {
+      // Rewrite it to
+      // else if () { }
+      ss << "else ";
+      scope_block_indent.push(line.second);
+      // Remove the first two characters ("el")
+      // hence this line will be parsed as an idependent C++ if block:
+      lineText.erase(0, 2);
+    }
     // is_in_for_loop = line.first.find("for ") != std::string::npos &&
     // line.second >= previous_col;
 
-    ANTLRInputStream input(line.first);
+    ANTLRInputStream input(lineText);
     pyxasmLexer lexer(&input);
     CommonTokenStream tokens(&lexer);
     pyxasmParser parser(&tokens);
