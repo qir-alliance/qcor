@@ -32,6 +32,8 @@ def measureSyndrome(q : qreg, logicalIdx: int, ancIdx: int):
     if parity12:
         #Reset anc qubit
         X(q[ancIdx])
+    # Note: only in FTQC runtime that we can examine the measure results in realtime.
+    print("Parity01 =", parity01, "Parity12 =", parity12)
 
 @qjit
 def testBitflipCode(q : qreg):
@@ -39,8 +41,12 @@ def testBitflipCode(q : qreg):
     encodeLogicalQubit(q)
     measureSyndrome(q, 0, 3)
     # Apply an X error
-    X(q[0])
-    measureSyndrome(q, 0, 3)
+    for i in range(3):
+        print("Apply X error @ ", i)
+        X(q[i])
+        measureSyndrome(q, 0, 3)
+        # Cancel the error for the next test
+        X(q[i])
 
 
 # Allocate 4 qubits: 3 qubits + 1 ancilla

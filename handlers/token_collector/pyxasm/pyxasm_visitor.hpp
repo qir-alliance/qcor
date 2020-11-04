@@ -175,7 +175,7 @@ class pyxasm_visitor : public pyxasmBaseVisitor {
         // reassemble the call:
         // Check that the *first* argument is a *qreg* in the current context of
         // *this* kernel.
-        if (!context->trailer().empty() &&
+        if (!context->trailer().empty() && context->trailer()[0]->arglist() &&
             !context->trailer()[0]->arglist()->argument().empty() &&
             xacc::container::contains(
                 bufferNames,
@@ -193,6 +193,14 @@ class pyxasm_visitor : public pyxasmBaseVisitor {
             }
           }
           ss << ");\n";
+          result.first = ss.str();
+        }
+        else {
+          // A classical call-like expression: i.e. not a kernel call:
+          // Just output it *as-is* to the C++ stream.
+          // We can hook more sophisticated code-gen here if required.
+          std::stringstream ss;
+          ss << context->getText() << ";\n";
           result.first = ss.str();
         }
       }
