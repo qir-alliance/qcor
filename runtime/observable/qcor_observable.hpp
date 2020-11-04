@@ -98,4 +98,14 @@ observe(std::shared_ptr<Observable> obs,
 
 // Create an observable from a string representation
 std::shared_ptr<Observable> createObservable(const std::string &repr);
+std::shared_ptr<Observable> createObservable(const std::string& name, const std::string &repr);
+std::shared_ptr<Observable> createObservable(const std::string &name, HeterogeneousMap&& options);
+std::shared_ptr<Observable> createObservable(const std::string &name, HeterogeneousMap& options);
+
+std::shared_ptr<Observable> createOperator(const std::string &repr);
+std::shared_ptr<Observable> createOperator(const std::string& name, const std::string &repr);
+std::shared_ptr<Observable> createOperator(const std::string &name, HeterogeneousMap&& options);
+std::shared_ptr<Observable> createOperator(const std::string &name, HeterogeneousMap& options);
+
+
 } // namespace qcor

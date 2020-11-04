@@ -1,7 +1,7 @@
 import unittest
 from qcor import *
 
-class TestVQEObjectiveFunction(unittest.TestCase):
+class TestQCORSpecAPI(unittest.TestCase):
     def test_simple_deuteron(self):
 
         @qjit
@@ -71,6 +71,10 @@ class TestVQEObjectiveFunction(unittest.TestCase):
         opt_val, opt_params = optimizer.optimize(objective_function, 1)   
         self.assertAlmostEqual(opt_val, 0.0, places=1)
         self.assertAlmostEqual(opt_params[0], .5, places=1)
+    
+    def test_operator(self):
+        H = createOperator('-2.1433 X0X1 - 2.1433 Y0Y1 + .21829 Z0 - 6.125 Z1 + 5.907')
+        print(H)
 
 
 if __name__ == '__main__':

@@ -21,7 +21,6 @@ PauliOperator operator-(PauliOperator &op, double coeff) {
   return -1.0 * coeff + op;
 }
 
-
 PauliOperator X(int idx) { return PauliOperator({{idx, "X"}}); }
 
 PauliOperator Y(int idx) { return PauliOperator({{idx, "Y"}}); }
@@ -48,16 +47,51 @@ PauliOperator SM(int idx) {
 std::shared_ptr<xacc::Observable> createObservable(const std::string &repr) {
   if (!xacc::isInitialized())
     xacc::internal_compiler::compiler_InitializeXACC();
-  return xacc::quantum::getObservable("pauli", std::string(repr));
+  return xacc::quantum::getObservable("pauli", repr);
+}
+
+std::shared_ptr<Observable> createObservable(const std::string &name,
+                                             const std::string &repr) {
+  if (!xacc::isInitialized())
+    xacc::internal_compiler::compiler_InitializeXACC();
+  return xacc::quantum::getObservable(name, repr);
+}
+std::shared_ptr<Observable> createObservable(const std::string &name,
+                                             HeterogeneousMap &&options) {
+  if (!xacc::isInitialized())
+    xacc::internal_compiler::compiler_InitializeXACC();
+  return xacc::quantum::getObservable(name, options);
+}
+std::shared_ptr<Observable> createObservable(const std::string &name,
+                                             HeterogeneousMap &options) {
+  if (!xacc::isInitialized())
+    xacc::internal_compiler::compiler_InitializeXACC();
+  return xacc::quantum::getObservable(name, options);
+}
+
+std::shared_ptr<Observable> createOperator(const std::string &repr) {
+  return createObservable(repr);
+}
+std::shared_ptr<Observable> createOperator(const std::string &name,
+                                           const std::string &repr) {
+  return createObservable(name, repr);
+}
+std::shared_ptr<Observable> createOperator(const std::string &name,
+                                           HeterogeneousMap &&options) {
+  return createObservable(name, options);
+}
+std::shared_ptr<Observable> createOperator(const std::string &name,
+                                           HeterogeneousMap &options) {
+  return createObservable(name, options);
 }
 
 namespace __internal__ {
-std::vector<std::shared_ptr<xacc::CompositeInstruction>>
-observe(std::shared_ptr<xacc::Observable> obs,
-        std::shared_ptr<CompositeInstruction> program) {
+std::vector<std::shared_ptr<xacc::CompositeInstruction>> observe(
+    std::shared_ptr<xacc::Observable> obs,
+    std::shared_ptr<CompositeInstruction> program) {
   return obs->observe(program);
 }
-} // namespace __internal__
+}  // namespace __internal__
 
 double observe(std::shared_ptr<CompositeInstruction> program,
                std::shared_ptr<xacc::Observable> obs,
@@ -87,4 +121,4 @@ double observe(std::shared_ptr<CompositeInstruction> program, Observable &obs,
     return q.weighted_sum(&obs);
   }();
 }
-} // namespace qcor
+}  // namespace qcor
