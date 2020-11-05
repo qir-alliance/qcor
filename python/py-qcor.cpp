@@ -470,6 +470,17 @@ PYBIND11_MODULE(_pyqcor, m) {
       "");
   m.def(
       "createObjectiveFunction",
+      [](py::object kernel, py::object &py_obs, const int n_params) {
+        auto obs = convertToPauliOperator(py_obs);
+        auto q = ::qalloc(obs->nBits());
+        std::shared_ptr<qcor::ObjectiveFunction> obj =
+            std::make_shared<qcor::PyObjectiveFunction>(kernel, obs, n_params,
+                                                        "vqe");
+        return obj;
+      },
+      "");
+  m.def(
+      "createObjectiveFunction",
       [](py::object kernel, qcor::PauliOperator &obs, const int n_params,
          PyHeterogeneousMap &options) {
         auto nativeHetMap = heterogeneousMapConvert(options);
