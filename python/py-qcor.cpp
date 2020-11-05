@@ -298,8 +298,13 @@ PYBIND11_MODULE(_pyqcor, m) {
       .def("size", &xacc::internal_compiler::qreg::size, "")
       .def("print", &xacc::internal_compiler::qreg::print, "")
       .def("counts", &xacc::internal_compiler::qreg::counts, "")
-      .def("exp_val_z", &xacc::internal_compiler::qreg::exp_val_z, "");
-
+      .def("exp_val_z", &xacc::internal_compiler::qreg::exp_val_z, "")
+      .def(
+          "getInformation",
+          [](xacc::internal_compiler::qreg &q, const std::string &key) {
+            return q.results()->getInformation(key);
+          },
+          "");
   // m.def("createObjectiveFunction", [](const std::string name, ))
   py::class_<qcor::QJIT, std::shared_ptr<qcor::QJIT>>(m, "QJIT", "")
       .def(py::init<>(), "")

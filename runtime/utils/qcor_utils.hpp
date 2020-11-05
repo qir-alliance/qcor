@@ -97,6 +97,11 @@ template <typename T, typename... TAIL> void print(const T &t, TAIL... tail) {
   print(tail...);
 }
 
+template <typename T>
+void persist_var_to_qreq(const std::string &key, T &val, qreg &q) {
+  q.results()->addExtraInfo(key, val);
+}
+
 // The TranslationFunctor maps vector<double> to a tuple of Args...
 template <typename... Args>
 using TranslationFunctor =
