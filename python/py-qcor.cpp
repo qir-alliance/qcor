@@ -113,7 +113,18 @@ std::shared_ptr<qcor::Observable> convertToPauliOperator(py::object op) {
           }
         } else {
           // this was identity
-          ss << terms[term].cast<double>();
+          try {
+            auto coeff = terms[term].cast<double>();
+            ss << coeff;
+          } catch (std::exception &e) {
+            try {
+              auto coeff = terms[term].cast<std::complex<double>>();
+              ss << coeff;
+            } catch (std::exception &e) {
+              qcor::error(
+                  "Could not cast identity coefficient to double or complex.");
+            }
+          }
         }
         i++;
         if (i != py::len(terms)) {
@@ -139,7 +150,19 @@ std::shared_ptr<qcor::Observable> convertToPauliOperator(py::object op) {
           }
         } else {
           // this was identity
-          ss << terms[term].cast<double>();
+
+          try {
+            auto coeff = terms[term].cast<double>();
+            ss << coeff;
+          } catch (std::exception &e) {
+            try {
+              auto coeff = terms[term].cast<std::complex<double>>();
+              ss << coeff;
+            } catch (std::exception &e) {
+              qcor::error(
+                  "Could not cast identity coefficient to double or complex.");
+            }
+          }
         }
         i++;
         if (i != py::len(terms)) {
@@ -150,6 +173,7 @@ std::shared_ptr<qcor::Observable> convertToPauliOperator(py::object op) {
     }
   } else {
     // throw an error
+    std::cout << "THrowing an error\n";
     qcor::error(
         "Invalid python object passed as a QCOR Operator/Observable. "
         "Currently, we only accept OpenFermion datastructures.");
@@ -509,6 +533,14 @@ PYBIND11_MODULE(_pyqcor, m) {
          qcor::PauliOperator &obs) {
         auto q = ::qalloc(obs.nBits());
         return qcor::observe(kernel, obs, q);
+      },
+      "");
+  m.def(
+      "internal_observe",
+      [](std::shared_ptr<CompositeInstruction> kernel, py::object obs) {
+        auto observable = convertToPauliOperator(obs);
+        auto q = ::qalloc(observable->nBits());
+        return qcor::observe(kernel, observable, q);
       },
       "");
 
