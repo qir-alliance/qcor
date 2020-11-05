@@ -1,5 +1,6 @@
 #include "qcor_observable.hpp"
 
+#include "ObservableTransform.hpp"
 #include "xacc.hpp"
 #include "xacc_quantum_gate_api.hpp"
 #include "xacc_service.hpp"
@@ -83,6 +84,16 @@ std::shared_ptr<Observable> createOperator(const std::string &name,
 std::shared_ptr<Observable> createOperator(const std::string &name,
                                            HeterogeneousMap &options) {
   return createObservable(name, options);
+}
+
+std::shared_ptr<Observable> operatorTransform(const std::string &type,
+                                              qcor::Observable &op) {
+  // return xacc::getService<xacc::ObservableTransform>(type)->transform(
+  //     xacc::as_shared_ptr(*&op));
+}
+std::shared_ptr<Observable> operatorTransform(const std::string &type,
+                                              std::shared_ptr<Observable> op) {
+  return xacc::getService<xacc::ObservableTransform>(type)->transform(op);
 }
 
 namespace __internal__ {
