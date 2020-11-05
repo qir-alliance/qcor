@@ -100,6 +100,7 @@ void PyXasmTokenCollector::collect(clang::Preprocessor &PP,
 
   int previous_col = lines[0].second;
   int line_counter = 0;
+  std::vector<std::string> local_vars;
   // Tracking the Python scopes by the indent of code blocks
   std::stack<int> scope_block_indent;
   for (const auto &line : lines) {
@@ -107,7 +108,7 @@ void PyXasmTokenCollector::collect(clang::Preprocessor &PP,
     //           << ": " << line.first << ", " << line.second << std::boolalpha
     //           << ", " << !scope_block_indent.empty() << "\n";
 
-    pyxasm_visitor visitor(bufferNames);
+    pyxasm_visitor visitor(bufferNames, local_vars);
     // Should we close a 'for'/'if' scope after this statement
     // If > 0, indicate the number of for blocks to be closed.
     int nb_closing_scopes = 0;
@@ -194,6 +195,10 @@ void PyXasmTokenCollector::collect(clang::Preprocessor &PP,
     }
     previous_col = line.second;
     line_counter++;
+    if (!visitor.new_var.empty()) {
+      // A new local variable was declared, add to the tracking list.
+      local_vars.emplace_back(visitor.new_var);
+    }
   }
   // If there are open scope blocks here,
   // e.g. for loops at the end of the function body.

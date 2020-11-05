@@ -19,12 +19,17 @@ class pyxasm_visitor : public pyxasmBaseVisitor {
   std::shared_ptr<xacc::IRProvider> provider;
   // List of buffers in the *context* of this XASM visitor
   std::vector<std::string> bufferNames;
+  // List of *declared* variables
+  std::vector<std::string> declared_var_names;
 
- public:
-  pyxasm_visitor(const std::vector<std::string> &buffers = {})
-      : provider(xacc::getIRProvider("quantum")), bufferNames(buffers) {}
+public:
+  pyxasm_visitor(const std::vector<std::string> &buffers = {},
+                 const std::vector<std::string> &local_var_names = {})
+      : provider(xacc::getIRProvider("quantum")), bufferNames(buffers),
+        declared_var_names(local_var_names) {}
   pyxasm_result_type result;
-
+  // New var declared (auto type) after visiting this node.
+  std::string new_var;
   bool in_for_loop = false;
 
   antlrcpp::Any visitAtom_expr(
@@ -230,7 +235,15 @@ class pyxasm_visitor : public pyxasmBaseVisitor {
       const std::string lhs = ctx->testlist_star_expr(0)->getText();
       const std::string rhs = replacePythonConstants(
           replaceMeasureAssignment(ctx->testlist_star_expr(1)->getText()));
-      ss << "auto " << lhs << " = " << rhs << "; \n";
+      
+      if (xacc::container::contains(declared_var_names, lhs)) {
+        ss << lhs << " = " << rhs << "; \n";
+      } else {
+        // New variable: need to add *auto*
+        ss << "auto " << lhs << " = " << rhs << "; \n";
+        new_var = lhs;
+      }
+      
       result.first = ss.str();
       if (rhs.find("**") != std::string::npos) {
         // keep processing
