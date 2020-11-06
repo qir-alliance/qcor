@@ -15,3 +15,5 @@ Employing the QCOR just-in-time (qjit) compilation features, we can wrap QCOR in
 `qsim_vqe.py` qsim example of VQE routine for Deuteron Hamiltonian.
 
 `vqe_qcor_spec.py` example of VQE using `taskInitiate` for asynchronous execution of quantum-classical hybrid computations. 
+
+`pyscf_qubit_tapering.py` example of using the QCOR `OperatorTransform`, specifically running [Qubit Tapering](https://arxiv.org/abs/1701.08213) followed by VQE using the QSim library.
