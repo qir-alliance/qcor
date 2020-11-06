@@ -242,16 +242,20 @@ class qjit(object):
         argument variable should point to x[0], for example. 
         """
 
-        if [str(x) for x in self.type_annotations.values()] == ['<class \'_pyqcor.qreg\'>', '<class \'float\'>']:
-            ret_dict = {}
-            for arg_name, _type in self.type_annotations.items():
-                if str(_type) == '<class \'_pyqcor.qreg\'>':
-                    ret_dict[arg_name] = q
-                elif str(_type) == '<class \'float\'>':
-                    ret_dict[arg_name] = x[0]
+        # Local vars used to figure out if we have 
+        # arg structures that look like (qreg, float...)
+        type_annots_list = [str(self.type_annotations[x]) for x in self.arg_names]
+        default_float_args = ['<class \'float\'>']
+        intersection = list(set(type_annots_list[1:]) & set(default_float_args) ) 
+
+        if intersection == default_float_args:
+            # This handles all (qreg, float...)
+            ret_dict = {self.arg_names[0]:q}
+            for i, arg_name in enumerate(self.arg_names[1:]):
+                ret_dict[arg_name] = x[i]
             if len(ret_dict) != len(self.type_annotations):
                 print(
-                    'Error, could not translate vector parameters x into arguments for quantum kernel.')
+                    'Error, could not translate vector parameters x into arguments for quantum kernel. ', len(ret_dict), len(self.type_annotations))
                 exit(1)
             return ret_dict
         elif [str(x) for x in self.type_annotations.values()] == ['<class \'_pyqcor.qreg\'>', 'typing.List[float]']:

@@ -10,9 +10,9 @@ print('\nTapered:\n', H_tapered)
 
 # Define a simple 1 qubit ansatz
 @qjit
-def ansatz(q : qreg, x : List[float]):
-    Rx(q[0], x[0])
-    Ry(q[0], x[1])
+def ansatz(q : qreg, phi : float, theta : float):
+    Rx(q[0], phi)
+    Ry(q[0], theta)
 
 # Create the problem model, provide the state 
 # prep circuit, Hamiltonian and note variational parameters 
