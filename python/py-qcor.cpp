@@ -409,7 +409,13 @@ PYBIND11_MODULE(_pyqcor, m) {
   py::class_<qcor::QJIT, std::shared_ptr<qcor::QJIT>>(m, "QJIT", "")
       .def(py::init<>(), "")
       .def("write_cache", &qcor::QJIT::write_cache, "")
-      .def("jit_compile", &qcor::QJIT::jit_compile, "")
+      .def(
+          "jit_compile",
+          [](qcor::QJIT &qjit, const std::string src) {
+            bool turn_on_hetmap_kernel_ctor = true;
+            qjit.jit_compile(src, turn_on_hetmap_kernel_ctor, {});
+          },
+          "")
       .def(
           "internal_python_jit_compile",
           [](qcor::QJIT &qjit, const std::string src,
@@ -418,7 +424,12 @@ PYBIND11_MODULE(_pyqcor, m) {
             qjit.jit_compile(src, turn_on_hetmap_kernel_ctor, dependency);
           },
           "")
-      .def("run_syntax_handler", &qcor::QJIT::run_syntax_handler, "")
+      .def(
+          "run_syntax_handler",
+          [](qcor::QJIT &qjit, const std::string src) {
+            return qjit.run_syntax_handler(src, true);
+          },
+          "")
       .def(
           "invoke",
           [](qcor::QJIT &qjit, const std::string name, KernelArgDict args) {
