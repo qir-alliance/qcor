@@ -522,7 +522,7 @@ PYBIND11_MODULE(_pyqcor, m) {
   m.def(
       "createOperator",
       [](const std::string &type, const std::string &repr) {
-        return qcor::createOperator(type, repr);
+        auto op = qcor::createOperator(type, repr);
       },
       "");
   m.def(
@@ -549,6 +549,12 @@ PYBIND11_MODULE(_pyqcor, m) {
       },
       "");
 
+  m.def(
+      "operatorTransform",
+      [](const std::string &type, std::shared_ptr<Observable> obs) {
+        return qcor::operatorTransform(type, obs);
+      },
+      "");
   m.def(
       "internal_observe",
       [](std::shared_ptr<CompositeInstruction> kernel,
