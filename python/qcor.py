@@ -186,8 +186,8 @@ class qjit(object):
             if descStr.startswith("<module "):
                 moduleName = descStr.split()[1].replace("'", "")
                 importedModules[key] = moduleName
-            else:
-                # Import global variables:
+            elif key in fbody_src:
+                # Import global variables (if used in the body):
                 # Only support float atm
                 if (isinstance(globalVars[key], float)):
                     globalVarDecl.append(key + " = " + str(globalVars[key]))
