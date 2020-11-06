@@ -100,14 +100,19 @@ void PyXasmTokenCollector::collect(clang::Preprocessor &PP,
 
   int previous_col = lines[0].second;
   int line_counter = 0;
-  const std::string kernel_name = ::quantum::kernels_in_translation_unit.back();
-  const auto &[arg_types, arg_names] =
-      ::quantum::kernel_signatures_in_translation_unit[kernel_name];
-  
   // Add all the kernel args to the list of *known* arguments.
   // i.e. when we see an assignment expression where this arg. is the LHS,
   // we don't add *auto * to the codegen.
-  std::vector<std::string> local_vars = arg_names;
+  std::vector<std::string> local_vars = [&]() -> std::vector<std::string> {
+    if (::quantum::kernels_in_translation_unit.empty()) {
+      return {};
+    }
+    const std::string kernel_name =
+        ::quantum::kernels_in_translation_unit.back();
+    const auto &[arg_types, arg_names] =
+        ::quantum::kernel_signatures_in_translation_unit[kernel_name];
+    return arg_names;
+  }();
   // Tracking the Python scopes by the indent of code blocks
   std::stack<int> scope_block_indent;
   for (const auto &line : lines) {
