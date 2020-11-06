@@ -107,5 +107,7 @@ std::shared_ptr<Observable> createOperator(const std::string& name, const std::s
 std::shared_ptr<Observable> createOperator(const std::string &name, HeterogeneousMap&& options);
 std::shared_ptr<Observable> createOperator(const std::string &name, HeterogeneousMap& options);
 
+std::shared_ptr<Observable> operatorTransform(const std::string& type, qcor::Observable& op);
+std::shared_ptr<Observable> operatorTransform(const std::string& type, std::shared_ptr<Observable> op);
 
 } // namespace qcor

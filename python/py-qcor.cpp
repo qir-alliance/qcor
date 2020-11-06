@@ -93,6 +93,93 @@ xacc::HeterogeneousMap heterogeneousMapConvert(
 
   return result;
 }
+
+std::shared_ptr<qcor::Observable> convertToPauliOperator(py::object op) {
+  if (py::hasattr(op, "terms")) {
+    // this is from openfermion
+    if (py::hasattr(op, "is_two_body_number_conserving")) {
+      // This is a fermion Operator
+      auto terms = op.attr("terms");
+      // terms is a list of tuples
+      std::stringstream ss;
+      int i = 0;
+      for (auto term : terms) {
+        auto term_tuple = term.cast<py::tuple>();
+        if (!term_tuple.empty()) {
+          ss << terms[term].cast<std::complex<double>>() << " ";
+          for (auto element : term_tuple) {
+            auto element_pair = element.cast<std::pair<int, int>>();
+            ss << element_pair.first << (element_pair.second ? "^" : "") << " ";
+          }
+        } else {
+          // this was identity
+          try {
+            auto coeff = terms[term].cast<double>();
+            ss << coeff;
+          } catch (std::exception &e) {
+            try {
+              auto coeff = terms[term].cast<std::complex<double>>();
+              ss << coeff;
+            } catch (std::exception &e) {
+              qcor::error(
+                  "Could not cast identity coefficient to double or complex.");
+            }
+          }
+        }
+        i++;
+        if (i != py::len(terms)) {
+          ss << " + ";
+        }
+      }
+      auto obs_tmp = qcor::createOperator("fermion", ss.str());
+      return qcor::operatorTransform("jw", obs_tmp);
+
+    } else {
+      // this is a qubit  operator
+      auto terms = op.attr("terms");
+      // terms is a list of tuples
+      std::stringstream ss;
+      int i = 0;
+      for (auto term : terms) {
+        auto term_tuple = term.cast<py::tuple>();
+        if (!term_tuple.empty()) {
+          ss << terms[term].cast<std::complex<double>>() << " ";
+          for (auto element : term_tuple) {
+            auto element_pair = element.cast<std::pair<int, std::string>>();
+            ss << element_pair.second << element_pair.first << " ";
+          }
+        } else {
+          // this was identity
+
+          try {
+            auto coeff = terms[term].cast<double>();
+            ss << coeff;
+          } catch (std::exception &e) {
+            try {
+              auto coeff = terms[term].cast<std::complex<double>>();
+              ss << coeff;
+            } catch (std::exception &e) {
+              qcor::error(
+                  "Could not cast identity coefficient to double or complex.");
+            }
+          }
+        }
+        i++;
+        if (i != py::len(terms)) {
+          ss << " + ";
+        }
+      }
+      return qcor::createOperator(ss.str());
+    }
+  } else {
+    // throw an error
+    std::cout << "THrowing an error\n";
+    qcor::error(
+        "Invalid python object passed as a QCOR Operator/Observable. "
+        "Currently, we only accept OpenFermion datastructures.");
+  }
+}
+
 }  // namespace
 
 namespace qcor {
@@ -143,6 +230,31 @@ class PyObjectiveFunction : public qcor::ObjectiveFunction {
     qjit.write_cache();
   }
 
+  PyObjectiveFunction(py::object q, std::shared_ptr<qcor::Observable> &qq,
+                      const int n_dim, const std::string &helper_name,
+                      xacc::HeterogeneousMap opts = {})
+      : py_kernel(q) {
+    // Set the OptFunction dimensions
+    _dim = n_dim;
+
+    // Set the helper objective
+    helper = xacc::getService<qcor::ObjectiveFunction>(helper_name);
+
+    // Store the observable pointer and give it to the helper
+    observable = qq;
+    options = opts;
+    options.insert("observable", observable);
+    helper->set_options(options);
+    helper->update_observable(observable);
+
+    // Extract the QJIT source code
+    auto src = py_kernel.attr("get_internal_src")().cast<std::string>();
+
+    // QJIT compile
+    // this will be fast if already done, and we just do it once
+    qjit.jit_compile(src, true);
+    qjit.write_cache();
+  }
   // Evaluate this ObjectiveFunction at the dictionary of kernel args,
   // return the scalar value
   double operator()(const KernelArgDict args, std::vector<double> &dx) {
@@ -370,10 +482,34 @@ PYBIND11_MODULE(_pyqcor, m) {
       "");
   m.def(
       "createObjectiveFunction",
+      [](py::object kernel, py::object &py_obs, const int n_params) {
+        auto obs = convertToPauliOperator(py_obs);
+        auto q = ::qalloc(obs->nBits());
+        std::shared_ptr<qcor::ObjectiveFunction> obj =
+            std::make_shared<qcor::PyObjectiveFunction>(kernel, obs, n_params,
+                                                        "vqe");
+        return obj;
+      },
+      "");
+  m.def(
+      "createObjectiveFunction",
       [](py::object kernel, qcor::PauliOperator &obs, const int n_params,
          PyHeterogeneousMap &options) {
         auto nativeHetMap = heterogeneousMapConvert(options);
         auto q = ::qalloc(obs.nBits());
+        std::shared_ptr<qcor::ObjectiveFunction> obj =
+            std::make_shared<qcor::PyObjectiveFunction>(kernel, obs, n_params,
+                                                        "vqe", nativeHetMap);
+        return obj;
+      },
+      "");
+  m.def(
+      "createObjectiveFunction",
+      [](py::object kernel, py::object &py_obs, const int n_params,
+         PyHeterogeneousMap &options) {
+        auto nativeHetMap = heterogeneousMapConvert(options);
+        auto obs = convertToPauliOperator(py_obs);
+        auto q = ::qalloc(obs->nBits());
         std::shared_ptr<qcor::ObjectiveFunction> obj =
             std::make_shared<qcor::PyObjectiveFunction>(kernel, obs, n_params,
                                                         "vqe", nativeHetMap);
@@ -420,6 +556,14 @@ PYBIND11_MODULE(_pyqcor, m) {
          qcor::PauliOperator &obs) {
         auto q = ::qalloc(obs.nBits());
         return qcor::observe(kernel, obs, q);
+      },
+      "");
+  m.def(
+      "internal_observe",
+      [](std::shared_ptr<CompositeInstruction> kernel, py::object obs) {
+        auto observable = convertToPauliOperator(obs);
+        auto q = ::qalloc(observable->nBits());
+        return qcor::observe(kernel, observable, q);
       },
       "");
 
