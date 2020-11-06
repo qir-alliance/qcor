@@ -201,12 +201,14 @@ public:
           result.first = ss.str();
         }
         else {
-          // A classical call-like expression: i.e. not a kernel call:
-          // Just output it *as-is* to the C++ stream.
-          // We can hook more sophisticated code-gen here if required.
-          std::stringstream ss;
-          ss << context->getText() << ";\n";
-          result.first = ss.str();
+          if (!context->trailer().empty()) {
+            // A classical call-like expression: i.e. not a kernel call:
+            // Just output it *as-is* to the C++ stream.
+            // We can hook more sophisticated code-gen here if required.
+            std::stringstream ss;
+            ss << context->getText() << ";\n";
+            result.first = ss.str();
+          }
         }
       }
     }

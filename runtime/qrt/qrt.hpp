@@ -96,6 +96,9 @@ public:
 extern int current_shots;
 extern std::shared_ptr<QuantumRuntime> qrt_impl;
 extern std::vector<std::string> kernels_in_translation_unit;
+extern std::unordered_map<
+    std::string, std::pair<std::vector<std::string>, std::vector<std::string>>>
+    kernel_signatures_in_translation_unit;
 
 void initialize(const std::string qpu_name, const std::string kernel_name);
 void set_shots(int shots);

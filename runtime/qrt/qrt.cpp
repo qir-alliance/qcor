@@ -82,6 +82,9 @@ namespace quantum {
 int current_shots = 0;
 std::shared_ptr<QuantumRuntime> qrt_impl = nullptr;
 std::vector<std::string> kernels_in_translation_unit = {};
+std::unordered_map<
+    std::string, std::pair<std::vector<std::string>, std::vector<std::string>>>
+    kernel_signatures_in_translation_unit = {};
 
 void initialize(const std::string qpu_name, const std::string kernel_name) {
   xacc::internal_compiler::compiler_InitializeXACC(qpu_name.c_str());
