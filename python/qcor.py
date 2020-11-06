@@ -152,13 +152,18 @@ class qjit(object):
 
         # Construct the C++ kernel arg string
         cpp_arg_str = ''
-        self.float_ref_args = []
+        self.ref_type_args = []
         self.qRegName = ''
         for arg, _type in self.type_annotations.items():
             if _type is FLOAT_REF:
-                self.float_ref_args.append(arg)
+                self.ref_type_args.append(arg)
                 cpp_arg_str += ',' + \
                     'double& ' + arg
+                continue
+            if _type is INT_REF:
+                self.ref_type_args.append(arg)
+                cpp_arg_str += ',' + \
+                    'int& ' + arg
                 continue
             if str(_type) not in self.allowed_type_cpp_map:
                 print('Error, this quantum kernel arg type is not allowed: ', str(_type))
@@ -204,7 +209,7 @@ class qjit(object):
 
         # Persist *pass by ref* variables to the accelerator buffer:
         persist_by_ref_var_code = ''
-        for ref_var in self.float_ref_args:
+        for ref_var in self.ref_type_args:
             persist_by_ref_var_code += '\npersist_var_to_qreq(\"' + ref_var + '\", ' + ref_var + ', '+ self.qRegName + ')' 
 
         # Create the qcor quantum kernel function src for QJIT and the Clang syntax handler
@@ -348,7 +353,7 @@ class qjit(object):
         
         # Update any *by-ref* arguments: annotated with the custom type: FLOAT_REF, INT_REF, etc.
         # If there are *pass-by-ref* variables:
-        if len(self.float_ref_args) > 0:
+        if len(self.ref_type_args) > 0:
             # Access the register:
             qReg = args_dict[self.qRegName]
             # Retrieve *original* variable names of the argument pack
@@ -365,13 +370,14 @@ class qjit(object):
                     caller_var_names.append(i)
             
             # Get the updated value:
-            for by_ref_var in self.float_ref_args:
+            for by_ref_var in self.ref_type_args:
                 updated_var = qReg.getInformation(by_ref_var)
                 caller_var_name = caller_var_names[self.arg_names.index(by_ref_var)]
                 if (caller_var_name in inspect.stack()[1][0].f_globals):
                     # Make sure it is the correct type:
                     by_ref_instane = inspect.stack()[1][0].f_globals[caller_var_name] 
-                    if (isinstance(by_ref_instane, float)):
+                    # We only support float and int atm
+                    if (isinstance(by_ref_instane, float) or isinstance(by_ref_instane, int)):
                         inspect.stack()[1][0].f_globals[caller_var_name] = updated_var
 
         return
