@@ -620,6 +620,32 @@ PYBIND11_MODULE(_pyqcor, m) {
               model.user_defined_ansatz = kernel_functor;
               return std::move(model);
             },
+            "")
+        .def(
+            "createModel",
+            [](py::object py_kernel, std::shared_ptr<Observable> &obs,
+               const int n_params) {
+              qcor::qsim::QuantumSimulationModel model;
+              auto nq = obs->nBits();
+              auto kernel_functor = std::make_shared<qcor::PyKernelFunctor>(
+                  py_kernel, nq, n_params);
+              model.observable = obs.get();
+              model.user_defined_ansatz = kernel_functor;
+              return std::move(model);
+            },
+            "")
+
+        .def(
+            "createModel",
+            [](py::object py_kernel, std::shared_ptr<Observable> &obs,
+               const int n_qubits, const int n_params) {
+              qcor::qsim::QuantumSimulationModel model;
+              auto kernel_functor = std::make_shared<qcor::PyKernelFunctor>(
+                  py_kernel, n_qubits, n_params);
+              model.observable = obs.get();
+              model.user_defined_ansatz = kernel_functor;
+              return std::move(model);
+            },
             "");
 
     // CostFunctionEvaluator bindings
