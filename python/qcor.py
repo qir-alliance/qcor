@@ -156,8 +156,10 @@ class qjit(object):
         self.qRegName = ''
         for arg, _type in self.type_annotations.items():
             if _type is FLOAT_REF:
-                _type = float
                 self.float_ref_args.append(arg)
+                cpp_arg_str += ',' + \
+                    'double& ' + arg
+                continue
             if str(_type) not in self.allowed_type_cpp_map:
                 print('Error, this quantum kernel arg type is not allowed: ', str(_type))
                 exit(1)

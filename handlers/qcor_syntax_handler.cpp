@@ -200,44 +200,44 @@ void QCORSyntaxHandler::GetReplacement(
   }
   OS << ") {}\n";
 
-  if (add_het_map_ctor) {
-    // Third constructor, give us a way to provide a HeterogeneousMap of
-    // arguments, this is used for Pythonic QJIT...
-    // KERNEL_NAME(HeterogeneousMap args);
-    OS << kernel_name << "(HeterogeneousMap& args): QuantumKernel<"
-       << kernel_name << ", " << program_arg_types[0];
-    for (int i = 1; i < program_arg_types.size(); i++) {
-      OS << ", " << program_arg_types[i];
-    }
-    OS << "> (args.get<" << program_arg_types[0] << ">(\""
-       << program_parameters[0] << "\")";
-    for (int i = 1; i < program_parameters.size(); i++) {
-      OS << ", "
-         << "args.get<" << program_arg_types[i] << ">(\""
-         << program_parameters[i] << "\")";
-    }
-    OS << ") {}\n";
+  // if (add_het_map_ctor) {
+  //   // Third constructor, give us a way to provide a HeterogeneousMap of
+  //   // arguments, this is used for Pythonic QJIT...
+  //   // KERNEL_NAME(HeterogeneousMap args);
+  //   OS << kernel_name << "(HeterogeneousMap& args): QuantumKernel<"
+  //      << kernel_name << ", " << program_arg_types[0];
+  //   for (int i = 1; i < program_arg_types.size(); i++) {
+  //     OS << ", " << program_arg_types[i];
+  //   }
+  //   OS << "> (args.get<" << program_arg_types[0] << ">(\""
+  //      << program_parameters[0] << "\")";
+  //   for (int i = 1; i < program_parameters.size(); i++) {
+  //     OS << ", "
+  //        << "args.get<" << program_arg_types[i] << ">(\""
+  //        << program_parameters[i] << "\")";
+  //   }
+  //   OS << ") {}\n";
 
-    // Forth constructor, give us a way to provide a HeterogeneousMap of
-    // arguments, and set a parent kernel - this is also used for Pythonic
-    // QJIT... KERNEL_NAME(std::shared_ptr<CompositeInstruction> parent,
-    // HeterogeneousMap args);
-    OS << kernel_name
-       << "(std::shared_ptr<CompositeInstruction> parent, HeterogeneousMap& "
-          "args): QuantumKernel<"
-       << kernel_name << ", " << program_arg_types[0];
-    for (int i = 1; i < program_arg_types.size(); i++) {
-      OS << ", " << program_arg_types[i];
-    }
-    OS << "> (parent, args.get<" << program_arg_types[0] << ">(\""
-       << program_parameters[0] << "\")";
-    for (int i = 1; i < program_parameters.size(); i++) {
-      OS << ", "
-         << "args.get<" << program_arg_types[i] << ">(\""
-         << program_parameters[i] << "\")";
-    }
-    OS << ") {}\n";
-  }
+  //   // Forth constructor, give us a way to provide a HeterogeneousMap of
+  //   // arguments, and set a parent kernel - this is also used for Pythonic
+  //   // QJIT... KERNEL_NAME(std::shared_ptr<CompositeInstruction> parent,
+  //   // HeterogeneousMap args);
+  //   OS << kernel_name
+  //      << "(std::shared_ptr<CompositeInstruction> parent, HeterogeneousMap& "
+  //         "args): QuantumKernel<"
+  //      << kernel_name << ", " << program_arg_types[0];
+  //   for (int i = 1; i < program_arg_types.size(); i++) {
+  //     OS << ", " << program_arg_types[i];
+  //   }
+  //   OS << "> (parent, args.get<" << program_arg_types[0] << ">(\""
+  //      << program_parameters[0] << "\")";
+  //   for (int i = 1; i < program_parameters.size(); i++) {
+  //     OS << ", "
+  //        << "args.get<" << program_arg_types[i] << ">(\""
+  //        << program_parameters[i] << "\")";
+  //   }
+  //   OS << ") {}\n";
+  // }
 
   // Destructor definition
   OS << "virtual ~" << kernel_name << "() {\n";
@@ -331,16 +331,93 @@ void QCORSyntaxHandler::GetReplacement(
   OS << "}\n";
 
   if (add_het_map_ctor) {
+    // Remove "&" from type string before getting the Python variables in the HetMap.
+    // Note: HetMap can't store references.
+    const auto remove_ref_arg_type = [](const std::string &org_arg_type) -> std::string {
+      // We intentially only support a very limited set of pass-by-ref types
+      // from the HetMap.
+      // Only do: double& and int&
+      if (org_arg_type == "double&") {
+        return "double";
+      }
+      if (org_arg_type == "int&") {
+        return "int";
+      }
+      // Keep the type string.
+      return org_arg_type;
+    };
+
+    // Strategy: we unpack the args in the HetMap and call
+    // the appropriate ctor overload.
+    
+    // For reference ctor params (e.g. double& and int&),
+    // we create a local variable to copy the arg from the HetMap
+    // before passing to the ctor.
+    // We have a special machanism to handle *pass-by-reference*
+    // in the Python side.
+    // Non-reference types will just use inline `args.get<T>(key)` to unpack
+    // the arguments.
+
+    // List of resolved argument strings for ctor calls.
+    std::vector<std::string> arg_ctor_list;
+    // Code to copy *ref* type arguments from the HetMap.
+    // This *must* be injected before the ctor call.
+    std::stringstream ref_type_copy_decl_ss;
+    int var_counter = 0;
+    // Only handle non-qreg args
+    for (int i = 1; i < program_parameters.size(); i++) {
+      // If this is a *supported* ref types: double&, int&, etc. 
+      if (remove_ref_arg_type(program_arg_types[i]) != program_arg_types[i]) {
+        // Generate a temp var
+        const std::string new_var_name = "__temp_var__" + std::to_string(var_counter++);
+        // Copy the var from HetMap to the temp var
+        ref_type_copy_decl_ss << remove_ref_arg_type(program_arg_types[i]) << " "<< new_var_name << " = " << "args.get<" << remove_ref_arg_type(program_arg_types[i]) << ">(\""
+         << program_parameters[i] << "\");\n";
+        
+        // We just pass this copied var to the ctor 
+        // where it expects a reference type.
+        arg_ctor_list.emplace_back(new_var_name); 
+      }
+      else {
+        // Otherwise, just unpack the arg inline in the ctor call.
+        std::stringstream ss;
+        ss << "args.get<" << program_arg_types[i] << ">(\""<< program_parameters[i] << "\")";
+        arg_ctor_list.emplace_back(ss.str());
+      }
+    }
+
     // Add the HeterogeneousMap args function overload
     OS << "void " << kernel_name
        << "__with_hetmap_args(HeterogeneousMap& args) {\n";
-    OS << "class " << kernel_name << " __ker__temp__(args);\n";
+    // First, inject any copying statements required to unpack *ref* types.
+    OS << ref_type_copy_decl_ss.str();
+    // CTor call
+    OS << "class " << kernel_name << " __ker__temp__(";
+    // First arg: qreg
+    OS << "args.get<" << program_arg_types[0] << ">(\""
+       << program_parameters[0] << "\")";
+    // The rest: either inline unpacking or temp var names (ref type)
+    for (const auto &arg_str: arg_ctor_list) {
+      OS << ", " << arg_str;
+    }
+    OS << ");\n";
     OS << "}\n";
 
     OS << "void " << kernel_name
        << "__with_parent_and_hetmap_args(std::shared_ptr<CompositeInstruction> parent, "
           "HeterogeneousMap& args) {\n";
-    OS << "class " << kernel_name << " __ker__temp__(parent, args);\n";
+    OS << ref_type_copy_decl_ss.str();
+    // CTor call with parent kernel
+    OS << "class " << kernel_name << " __ker__temp__(parent, ";
+    // Second arg: qreg
+    OS << "args.get<" << program_arg_types[0] << ">(\""
+       << program_parameters[0] << "\")";
+    // The rest: either inline unpacking or temp var names (ref type)
+    for (const auto &arg_str: arg_ctor_list) {
+      OS << ", " << arg_str;
+    }
+    OS << ");\n";   
+    // The rest: either inline unpacking or temp var names (ref type)
     OS << "}\n";
   }
   auto s = OS.str();
