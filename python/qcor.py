@@ -131,7 +131,7 @@ class qjit(object):
         self.function = function
         self.allowed_type_cpp_map = {'<class \'_pyqcor.qreg\'>': 'qreg',
                                      '<class \'float\'>': 'double', 'typing.List[float]': 'std::vector<double>',
-                                     '<class \'int\'>': 'int',
+                                     '<class \'int\'>': 'int', 'typing.List[int]': 'std::vector<int>',
                                      '<class \'_pyxacc.quantum.PauliOperator\'>': 'qcor::PauliOperator'}
         self.__dict__.update(kwargs)
 
