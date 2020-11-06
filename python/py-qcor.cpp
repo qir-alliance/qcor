@@ -421,7 +421,13 @@ PYBIND11_MODULE(_pyqcor, m) {
   py::class_<qcor::QJIT, std::shared_ptr<qcor::QJIT>>(m, "QJIT", "")
       .def(py::init<>(), "")
       .def("write_cache", &qcor::QJIT::write_cache, "")
-      .def("jit_compile", &qcor::QJIT::jit_compile, "")
+      .def(
+          "jit_compile",
+          [](qcor::QJIT &qjit, const std::string src) {
+            bool turn_on_hetmap_kernel_ctor = true;
+            qjit.jit_compile(src, turn_on_hetmap_kernel_ctor, {});
+          },
+          "")
       .def(
           "internal_python_jit_compile",
           [](qcor::QJIT &qjit, const std::string src,
@@ -430,7 +436,12 @@ PYBIND11_MODULE(_pyqcor, m) {
             qjit.jit_compile(src, turn_on_hetmap_kernel_ctor, dependency);
           },
           "")
-      .def("run_syntax_handler", &qcor::QJIT::run_syntax_handler, "")
+      .def(
+          "run_syntax_handler",
+          [](qcor::QJIT &qjit, const std::string src) {
+            return qjit.run_syntax_handler(src, true);
+          },
+          "")
       .def(
           "invoke",
           [](qcor::QJIT &qjit, const std::string name, KernelArgDict args) {
@@ -523,7 +534,7 @@ PYBIND11_MODULE(_pyqcor, m) {
   m.def(
       "createOperator",
       [](const std::string &type, const std::string &repr) {
-        return qcor::createOperator(type, repr);
+        auto op = qcor::createOperator(type, repr);
       },
       "");
   m.def(
@@ -550,6 +561,12 @@ PYBIND11_MODULE(_pyqcor, m) {
       },
       "");
 
+  m.def(
+      "operatorTransform",
+      [](const std::string &type, std::shared_ptr<Observable> obs) {
+        return qcor::operatorTransform(type, obs);
+      },
+      "");
   m.def(
       "internal_observe",
       [](std::shared_ptr<CompositeInstruction> kernel,
@@ -612,6 +629,32 @@ PYBIND11_MODULE(_pyqcor, m) {
               auto kernel_functor = std::make_shared<qcor::PyKernelFunctor>(
                   py_kernel, n_qubits, n_params);
               model.observable = &obs;
+              model.user_defined_ansatz = kernel_functor;
+              return std::move(model);
+            },
+            "")
+        .def(
+            "createModel",
+            [](py::object py_kernel, std::shared_ptr<Observable> &obs,
+               const int n_params) {
+              qcor::qsim::QuantumSimulationModel model;
+              auto nq = obs->nBits();
+              auto kernel_functor = std::make_shared<qcor::PyKernelFunctor>(
+                  py_kernel, nq, n_params);
+              model.observable = obs.get();
+              model.user_defined_ansatz = kernel_functor;
+              return std::move(model);
+            },
+            "")
+
+        .def(
+            "createModel",
+            [](py::object py_kernel, std::shared_ptr<Observable> &obs,
+               const int n_qubits, const int n_params) {
+              qcor::qsim::QuantumSimulationModel model;
+              auto kernel_functor = std::make_shared<qcor::PyKernelFunctor>(
+                  py_kernel, n_qubits, n_params);
+              model.observable = obs.get();
               model.user_defined_ansatz = kernel_functor;
               return std::move(model);
             },
