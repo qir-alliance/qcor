@@ -1,5 +1,6 @@
 import unittest
 from qcor import *
+import math
 
 float_result = 0.0
 int_result = 0
@@ -126,6 +127,57 @@ class TestKernelFTQC(unittest.TestCase):
         testBitflipCode(q, 2, int_result)
         # X @ q2 -> Syndrome = 01 == 2
         self.assertEqual(int_result, 2)
+
+    def test_deuteron_measurement(self):
+        @qjit
+        def measure_basis(q: qreg, bases: List[int], out_parity: INT_REF):
+            oneCount = 0
+            for i in range(q.size()):
+                pauliOp = bases[i]
+                if pauliOp != 0:
+                    if pauliOp == 1:
+                        H(q[i])
+                    if pauliOp == 2:
+                        Rx(q[i], math.pi/2)
+                    if Measure(q[i]):
+                        oneCount = 1 + oneCount
+            out_parity = oneCount - 2 * (oneCount / 2)
+
+        @qjit 
+        def h2_ansatz(q: qreg, theta: float):
+            X(q[0])
+            Ry(q[1], theta)
+            CX(q[1], q[0])
+
+        @qjit 
+        def estimate_term_expectation(q: qreg, theta: float, bases: List[int], nSamples: int, out_energy: FLOAT_REF):
+            exp_sum = 0.0
+            for i in range(nSamples):
+                h2_ansatz(q, theta)
+                parity = 0
+                measure_basis(q, bases, parity)
+                if parity == 1:
+                    exp_sum = exp_sum - 1.0
+                else:
+                    exp_sum = exp_sum + 1.0
+                for i in range(q.size()):
+                    if Measure(q[i]):
+                        X(q[i])
+            out_energy = exp_sum / nSamples
+        
+        global float_result
+        float_result = 0.0
+        # Measure X0X1
+        test_bases = [1,1]
+        q = qalloc(2)
+        # Theta = pi/2
+        theta = math.pi / 2.0   
+        estimate_term_expectation(q, theta, test_bases, 100, float_result)
+        self.assertAlmostEqual(float_result, 1.0)
+        # Theta = -pi/2
+        theta = -math.pi / 2.0   
+        estimate_term_expectation(q, theta, test_bases, 100, float_result)
+        self.assertAlmostEqual(float_result, -1.0)
 
 if __name__ == '__main__':
     import argparse
