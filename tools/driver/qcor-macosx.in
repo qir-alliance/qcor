@@ -5,10 +5,9 @@ def main(argv=None):
     compiler = '@CLANG_EXECUTABLE@'
     verbose=False
     baseLibs = ['-rdynamic', '-Wl,-rpath,@XACC_ROOT@/lib', '-Wl,-rpath,@LLVM_INSTALL_PREFIX@/lib', '-Wl,-rpath,@CMAKE_INSTALL_PREFIX@/clang-plugins',
-                            '-L', '@GCC_STDCXX_PATH@','-lstdc++', '-stdlib=libstdc++', '-L', '@CMAKE_INSTALL_PREFIX@/lib', '-lxacc',
-                            '-lqcor', '-lqrt', '-lqcor-hybrid', '-lqcor-jit', '-lCppMicroServices',
-                            '-lxacc-quantum-gate',
-                            '-lxacc-pauli', '-lpthread']
+                            '-L', '@GCC_STDCXX_PATH@','-lstdc++', '-stdlib=libstdc++', '-L', '@XACC_ROOT@/lib', '-lxacc', '-lCppMicroServices', '-lxacc-quantum-gate', '-lxacc-pauli', 
+                            '-L', '@CMAKE_INSTALL_PREFIX@/lib', '-lqcor', '-lqrt', '-lqcor-hybrid', '-lqcor-jit', 
+                            '-lpthread']
     baseIncludes = ['-I', '@XACC_ROOT@/include/xacc', '-I', '@CMAKE_INSTALL_PREFIX@/include/qcor', '-I', '@XACC_ROOT@/include/quantum/gate', '-I', '@XACC_ROOT@/include/eigen']
     extra_headers = '@QCOR_EXTRA_HEADERS@'.replace('"','')
     for path in extra_headers.split(';'):
