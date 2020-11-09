@@ -54,7 +54,7 @@ namespace {
 // Here we enumerate them as a Variant
 using AllowedKernelArgTypes =
     xacc::Variant<bool, int, double, std::string, xacc::internal_compiler::qreg,
-                  std::vector<double>, qcor::PauliOperator>;
+                  std::vector<double>, std::vector<int>, qcor::PauliOperator>;
 
 // We will take as input a mapping of arg variable names to the argument itself.
 using KernelArgDict = std::map<std::string, AllowedKernelArgTypes>;
@@ -363,6 +363,13 @@ PYBIND11_MODULE(_pyqcor, m) {
       "Initialize",
       [](py::kwargs kwargs) {
         if (kwargs) {
+          // QRT (if provided) must be set before quantum::initialize
+          if (kwargs.contains("qrt")) {
+            const auto value = std::string(py::str(kwargs["qrt"]));
+            // QRT (if provided) should be set before quantum::initialize
+            ::quantum::set_qrt(value);
+          }
+          
           for (auto arg : kwargs) {
             const auto key = std::string(py::str(arg.first));
             // Handle "qpu" key
@@ -403,8 +410,13 @@ PYBIND11_MODULE(_pyqcor, m) {
       .def("size", &xacc::internal_compiler::qreg::size, "")
       .def("print", &xacc::internal_compiler::qreg::print, "")
       .def("counts", &xacc::internal_compiler::qreg::counts, "")
-      .def("exp_val_z", &xacc::internal_compiler::qreg::exp_val_z, "");
-
+      .def("exp_val_z", &xacc::internal_compiler::qreg::exp_val_z, "")
+      .def(
+          "getInformation",
+          [](xacc::internal_compiler::qreg &q, const std::string &key) {
+            return q.results()->getInformation(key);
+          },
+          "");
   // m.def("createObjectiveFunction", [](const std::string name, ))
   py::class_<qcor::QJIT, std::shared_ptr<qcor::QJIT>>(m, "QJIT", "")
       .def(py::init<>(), "")

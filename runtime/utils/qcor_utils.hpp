@@ -90,6 +90,18 @@ inline std::vector<int> range(int start, int stop) {
 template <typename T> int len(const T &countable) { return countable.size(); }
 template <typename T> int len(T &countable) { return countable.size(); }
 
+// Python-like print instructions:
+inline void print() { std::cout << "\n"; }
+template <typename T, typename... TAIL> void print(const T &t, TAIL... tail) {
+  std::cout << t << " ";
+  print(tail...);
+}
+
+template <typename T>
+void persist_var_to_qreq(const std::string &key, T &val, qreg &q) {
+  q.results()->addExtraInfo(key, val);
+}
+
 // The TranslationFunctor maps vector<double> to a tuple of Args...
 template <typename... Args>
 using TranslationFunctor =

@@ -6,7 +6,9 @@
 #include <sstream>
 
 namespace qcor {
-void append_kernel(const std::string name);
+void append_kernel(const std::string name,
+                   const std::vector<std::string> &program_arg_types,
+                   const std::vector<std::string> &program_parameters);
 std::string run_token_collector(clang::Preprocessor &PP,
                                 clang::CachedTokens &Toks,
                                 std::vector<std::string> bufferNames);

@@ -82,6 +82,9 @@ namespace quantum {
 int current_shots = 0;
 std::shared_ptr<QuantumRuntime> qrt_impl = nullptr;
 std::vector<std::string> kernels_in_translation_unit = {};
+std::unordered_map<
+    std::string, std::pair<std::vector<std::string>, std::vector<std::string>>>
+    kernel_signatures_in_translation_unit = {};
 
 void initialize(const std::string qpu_name, const std::string kernel_name) {
   xacc::internal_compiler::compiler_InitializeXACC(qpu_name.c_str());
@@ -107,6 +110,10 @@ void set_shots(int shots) {
 }
 
 int get_shots() { return current_shots; }
+
+void set_qrt(const std::string &qrt_name) {
+  xacc::internal_compiler::__qrt_env = qrt_name;
+}
 
 void h(const qubit &qidx) { qrt_impl->h(qidx); }
 void x(const qubit &qidx) { qrt_impl->x(qidx); }

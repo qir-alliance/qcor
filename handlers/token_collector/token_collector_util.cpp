@@ -16,8 +16,12 @@
 #include "qcor_config.hpp"
 
 namespace qcor {
-void append_kernel(const std::string name) {
+void append_kernel(const std::string name,
+                   const std::vector<std::string> &program_arg_types,
+                   const std::vector<std::string> &program_parameters) {
   ::quantum::kernels_in_translation_unit.push_back(name);
+  ::quantum::kernel_signatures_in_translation_unit[name] =
+      std::make_pair(program_arg_types, program_parameters);
 }
 
 void set_verbose(bool verbose) { xacc::set_verbose(verbose); }

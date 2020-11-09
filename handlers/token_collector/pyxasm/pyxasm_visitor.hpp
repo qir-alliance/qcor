@@ -19,12 +19,17 @@ class pyxasm_visitor : public pyxasmBaseVisitor {
   std::shared_ptr<xacc::IRProvider> provider;
   // List of buffers in the *context* of this XASM visitor
   std::vector<std::string> bufferNames;
+  // List of *declared* variables
+  std::vector<std::string> declared_var_names;
 
- public:
-  pyxasm_visitor(const std::vector<std::string> &buffers = {})
-      : provider(xacc::getIRProvider("quantum")), bufferNames(buffers) {}
+public:
+  pyxasm_visitor(const std::vector<std::string> &buffers = {},
+                 const std::vector<std::string> &local_var_names = {})
+      : provider(xacc::getIRProvider("quantum")), bufferNames(buffers),
+        declared_var_names(local_var_names) {}
   pyxasm_result_type result;
-
+  // New var declared (auto type) after visiting this node.
+  std::string new_var;
   bool in_for_loop = false;
 
   antlrcpp::Any visitAtom_expr(
@@ -175,7 +180,7 @@ class pyxasm_visitor : public pyxasmBaseVisitor {
         // reassemble the call:
         // Check that the *first* argument is a *qreg* in the current context of
         // *this* kernel.
-        if (!context->trailer().empty() &&
+        if (!context->trailer().empty() && context->trailer()[0]->arglist() &&
             !context->trailer()[0]->arglist()->argument().empty() &&
             xacc::container::contains(
                 bufferNames,
@@ -194,6 +199,16 @@ class pyxasm_visitor : public pyxasmBaseVisitor {
           }
           ss << ");\n";
           result.first = ss.str();
+        }
+        else {
+          if (!context->trailer().empty()) {
+            // A classical call-like expression: i.e. not a kernel call:
+            // Just output it *as-is* to the C++ stream.
+            // We can hook more sophisticated code-gen here if required.
+            std::stringstream ss;
+            ss << context->getText() << ";\n";
+            result.first = ss.str();
+          }
         }
       }
     }
@@ -220,8 +235,17 @@ class pyxasm_visitor : public pyxasmBaseVisitor {
       // Handle simple assignment: a = expr
       std::stringstream ss;
       const std::string lhs = ctx->testlist_star_expr(0)->getText();
-      const std::string rhs = ctx->testlist_star_expr(1)->getText();
-      ss << "auto " << lhs << " = " << rhs << "; \n";
+      const std::string rhs = replacePythonConstants(
+          replaceMeasureAssignment(ctx->testlist_star_expr(1)->getText()));
+      
+      if (xacc::container::contains(declared_var_names, lhs)) {
+        ss << lhs << " = " << rhs << "; \n";
+      } else {
+        // New variable: need to add *auto*
+        ss << "auto " << lhs << " = " << rhs << "; \n";
+        new_var = lhs;
+      }
+      
       result.first = ss.str();
       if (rhs.find("**") != std::string::npos) {
         // keep processing
@@ -259,6 +283,21 @@ class pyxasm_visitor : public pyxasmBaseVisitor {
     return visitChildren(context);
   }
 
+  virtual antlrcpp::Any
+  visitIf_stmt(pyxasmParser::If_stmtContext *ctx) override {
+    // Only support single clause atm
+    if (ctx->test().size() == 1) {
+      std::stringstream ss;
+      ss << "if ("
+         << replacePythonConstants(
+                replaceMeasureAssignment(ctx->test(0)->getText()))
+         << ") {\n";
+      result.first = ss.str();
+      return 0;
+    }
+    return visitChildren(ctx);
+  }
+
  private:
   // Replaces common Python constants, e.g. 'math.pi' or 'numpy.pi'.
   // Note: the library names have been resolved to their original names.
@@ -274,5 +313,34 @@ class pyxasm_visitor : public pyxasmBaseVisitor {
       }
     }
     return newSrc;
+  }
+
+  // Assignment of Measure results -> variable or in if conditional statements
+  std::string replaceMeasureAssignment(const std::string &in_expr) const {
+    if (in_expr.find("Measure") != std::string::npos) {
+      // Found measure in an if statement instruction.
+      const auto replaceMeasureInst = [](std::string &s,
+                                         const std::string &search,
+                                         const std::string &replace) {
+        for (size_t pos = 0;; pos += replace.length()) {
+          pos = s.find(search, pos);
+          if (pos == std::string::npos) {
+            break;
+          }
+          if (!isspace(s[pos + search.length()]) &&
+              (s[pos + search.length()] != '(')) {
+            continue;
+          }
+          s.erase(pos, search.length());
+          s.insert(pos, replace);
+        }
+      };
+
+      std::string result = in_expr;
+      replaceMeasureInst(result, "Measure", "quantum::mz");
+      return result;
+    } else {
+      return in_expr;
+    }
   }
 };
