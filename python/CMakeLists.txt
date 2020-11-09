@@ -7,6 +7,16 @@ if(APPLE)
    set(CMAKE_SHARED_LIBRARY_SUFFIX ".so")
 endif(APPLE)
 file(GLOB SRC *.cpp)
+
+set(QCOR_APPEND_PLUGIN_PATH "")
+if (NOT ${XACC_ROOT} MATCHES ${CMAKE_INSTALL_PREFIX}) 
+  message(STATUS "WE ARE BUILDING WITH HOMEBREW")
+  set (QCOR_APPEND_PLUGIN_PATH "${CMAKE_INSTALL_PREFIX}/plugins")
+endif()
+
+configure_file(qcor.in.py
+            ${CMAKE_BINARY_DIR}/qcor.py)
+
 add_library(${LIBRARY_NAME} SHARED ${SRC})
 target_include_directories(${LIBRARY_NAME} PUBLIC . ${CMAKE_SOURCE_DIR}/runtime/jit
                                           ${CMAKE_SOURCE_DIR}/lib/qsim
@@ -23,7 +33,7 @@ else()
    set_target_properties(${LIBRARY_NAME} PROPERTIES LINK_FLAGS "-shared")
 endif()
 
-install(FILES qcor.py DESTINATION ${CMAKE_INSTALL_PREFIX})
+install(FILES ${CMAKE_BINARY_DIR}/qcor.py DESTINATION ${CMAKE_INSTALL_PREFIX})
 install(TARGETS _pyqcor DESTINATION ${CMAKE_INSTALL_PREFIX})
 
 if (QCOR_BUILD_TESTS)

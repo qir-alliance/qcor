@@ -53,10 +53,10 @@ std::unique_ptr<clang::CodeGenAction> emit_llvm_ir(const std::string src_code) {
   // Define the Clang command line
   std::vector<const char *> argv_vec{"@CLANG_EXECUTABLE@",
                                      "-std=c++17",
-                                     "-I@CMAKE_INSTALL_PREFIX@/include/xacc",
+                                     "-I@XACC_ROOT@/include/xacc",
                                      "-I@CMAKE_INSTALL_PREFIX@/include/qcor",
-                                     "-I@CMAKE_INSTALL_PREFIX@/include/quantum/gate",
-                                     "-I@CMAKE_INSTALL_PREFIX@/include/eigen",
+                                     "-I@XACC_ROOT@/include/quantum/gate",
+                                     "-I@XACC_ROOT@/include/eigen",
                                      "-c",
                                      internal_file_name.c_str()};
 

@@ -292,13 +292,13 @@ class LLVMJIT {
   Error addModule(std::unique_ptr<llvm::Module> M) {
     // FIXME hook up to cmake
     MainJD.addGenerator(cantFail(DynamicLibrarySearchGenerator::Load(
-        "@CMAKE_INSTALL_PREFIX@/lib/libxacc.so", DL.getGlobalPrefix())));
+        "@XACC_ROOT@/lib/libxacc.so", DL.getGlobalPrefix())));
     MainJD.addGenerator(cantFail(DynamicLibrarySearchGenerator::Load(
         "@CMAKE_INSTALL_PREFIX@/lib/libqrt.so", DL.getGlobalPrefix())));
     MainJD.addGenerator(cantFail(DynamicLibrarySearchGenerator::Load(
         "@CMAKE_INSTALL_PREFIX@/lib/libqcor.so", DL.getGlobalPrefix())));
     MainJD.addGenerator(cantFail(DynamicLibrarySearchGenerator::Load(
-        "@CMAKE_INSTALL_PREFIX@/lib/libCppMicroServices.so",
+        "@XACC_ROOT@/lib/libCppMicroServices.so",
         DL.getGlobalPrefix())));
 
     return CompileLayer.add(MainJD, ThreadSafeModule(std::move(M), Ctx));

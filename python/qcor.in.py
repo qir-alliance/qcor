@@ -1,6 +1,11 @@
-import xacc
-from _pyqcor import *
 import sys
+
+if '@QCOR_APPEND_PLUGIN_PATH@':
+    sys.argv += ['__internal__add__plugin__path', '@QCOR_APPEND_PLUGIN_PATH@']
+
+import xacc
+
+from _pyqcor import *
 import inspect
 from typing import List
 import typing
