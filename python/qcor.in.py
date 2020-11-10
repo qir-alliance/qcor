@@ -405,6 +405,22 @@ if '-shots' in sys.argv:
 if '-qrt' in sys.argv:
     init_kwargs['qrt'] = sys.argv[sys.argv.index('-qrt')+1]
 
+# get Pass Manager configs:
+if '-opt' in sys.argv:
+    init_kwargs['opt'] = int(sys.argv[sys.argv.index('-opt')+1])
+
+if '-print-opt-stats' in sys.argv:
+    init_kwargs['print-opt-stats'] = True
+
+if '-placement' in sys.argv:
+    init_kwargs['placement'] = sys.argv[sys.argv.index('-placement')+1]
+
+if '-opt-pass' in sys.argv:
+    init_kwargs['opt-pass'] = sys.argv[sys.argv.index('-opt-pass')+1]
+    
+if '-qubit-map' in sys.argv:
+    init_kwargs['qubit-map'] = sys.argv[sys.argv.index('-qubit-map')+1]
+
 # Implements internal_startup initialization:
 # i.e. set up qrt, backends, shots, etc.
 Initialize(**init_kwargs)

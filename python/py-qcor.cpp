@@ -379,6 +379,21 @@ PYBIND11_MODULE(_pyqcor, m) {
             } else if (key == "shots") {
               const auto value = arg.second.cast<int>();
               ::quantum::set_shots(value);
+            } else if (key == "opt") {
+              const auto value = arg.second.cast<int>();
+              xacc::internal_compiler::__opt_level = value;
+            } else if (key == "print-opt-stats") {
+              const auto value = arg.second.cast<bool>();
+              xacc::internal_compiler::__print_opt_stats = value;
+            } else if (key == "placement") {
+              const auto value = std::string(py::str(arg.second));
+              xacc::internal_compiler::__placement_name = value;
+            } else if (key == "opt-pass") {
+              const auto value = std::string(py::str(arg.second));
+              xacc::internal_compiler::__user_opt_passes = value;
+            } else if (key == "qubit-map") {
+              const auto value = std::string(py::str(arg.second));
+              xacc::internal_compiler::__qubit_map = xacc::internal_compiler::parse_qubit_map(value.c_str());
             }
             /// TODO: handle other CLI parameters.
           }
