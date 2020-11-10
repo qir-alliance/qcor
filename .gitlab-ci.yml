@@ -4,10 +4,15 @@ stages:
 
 docker build_master:
   stage: build
+  except:
+   - schedules
   only:
-  - master
+   - master
   script:
   - cd docker/ci/ubuntu1804/master && docker build -t qcor/master-ci . --no-cache
+  - docker rm $(docker ps -a -f status=exited -q)
+  - docker rmi $(docker images -f dangling=true)
+  - docker rmi -f qcor/master-ci
   - git config remote.aideqcqcor.url >&- || git remote add -t master aideqcqcor https://amccaskey:$AIDEQC_ACCESS_TOKEN@github.com/aide-qc/qcor
   - git push -f aideqcqcor HEAD:master
   - git remote remove aideqcqcor
@@ -29,14 +34,25 @@ docker run_docker_deploy:
   - cd docker/deploy/dev && docker build -t qcor/qcor . --no-cache
   - echo "$REGISTRY_PASSWORD" | docker login -u qcor --password-stdin
   - docker push qcor/qcor
-  - docker system prune -f 
+  - docker rm $(docker ps -a -f status=exited -q)
+  - docker rmi $(docker images -f dangling=true)
+  - docker rmi -f qcor/qcor 
 
-docker run_brew_bottle:
+# builds xacc and qcor bottles nightly
+docker run_brew_bottles:
   stage: deploy
   only:
    - schedules
   script:
   - git clone https://github.com/aide-qc/homebrew-deploy
-  - cd homebrew-deploy/scripts/linux-x86_64/qcor
+  - cd homebrew-deploy/scripts/linux-x86_64
   - docker build --build-arg AIDEQC_ACCESS_TOKEN=$AIDEQC_ACCESS_TOKEN --build-arg JFROG_API_KEY=$JFROG_API_KEY -t qcor/brew-linux . --no-cache
+  - docker rm $(docker ps -a -f status=exited -q)
+  - docker rmi $(docker images -f dangling=true)
+  - docker rmi -f qcor/brew-linux
+  # now run catalina
+  #- start up docker
+  #- ssh catalina-ci "PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin bash homebrew-deploy/scripts/catalina/build.sh $AIDEQC_ACCESS_TOKEN $JFROG_API_KEY"
+  # now run mojave
+  #- cd ../mojave && sh build.sh $AIDEQC_ACCESS_TOKEN $JFROG_API_KEY
   
