@@ -37,7 +37,7 @@ docker run_docker_deploy:
   - docker rmi -f qcor/qcor 
 
 # builds xacc and qcor bottles nightly
-docker run_brew_bottles:
+docker run_brew_linux_bottles:
   stage: deploy
   only:
    - schedules
@@ -47,9 +47,17 @@ docker run_brew_bottles:
   - docker build --build-arg AIDEQC_ACCESS_TOKEN=$AIDEQC_ACCESS_TOKEN --build-arg JFROG_API_KEY=$JFROG_API_KEY -t qcor/brew-linux . --no-cache
   - docker system prune -f
   - docker rmi -f qcor/brew-linux
-  # now run catalina
-  #- start up docker
-  #- ssh catalina-ci "PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin bash homebrew-deploy/scripts/catalina/build.sh $AIDEQC_ACCESS_TOKEN $JFROG_API_KEY"
+
+docker run_macosx_bottles:
+  stage: deploy
+  only:
+    - schedules
+  tags: 
+    - osx
+  script:
+  - ssh catalina-ci "git clone https://github.com/aide-qc/homebrew-deploy"
+  - ssh catalina-ci "PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin bash homebrew-deploy/scripts/catalina/build.sh $AIDEQC_ACCESS_TOKEN $JFROG_API_KEY"
   # now run mojave
-  #- ssh mojave-ci "PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin bash homebrew-deploy/scripts/mojave/build.sh $AIDEQC_ACCESS_TOKEN $JFROG_API_KEY"
+  - ssh mojave-ci "git clone https://github.com/aide-qc/homebrew-deploy"
+  - ssh mojave-ci "PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin bash homebrew-deploy/scripts/mojave/build.sh $AIDEQC_ACCESS_TOKEN $JFROG_API_KEY"
   
