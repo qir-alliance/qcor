@@ -39,12 +39,12 @@ public:
     if (!context->trailer().empty() &&
         (context->trailer()[0]->getText() == ".ctrl" ||
          context->trailer()[0]->getText() == ".adjoint")) {
-      std::cout << "HELLO: " << context->getText() << "\n";
-      std::cout << context->trailer()[0]->getText() << "\n";
-      std::cout << context->atom()->getText() << "\n";
+      // std::cout << "HELLO: " << context->getText() << "\n";
+      // std::cout << context->trailer()[0]->getText() << "\n";
+      // std::cout << context->atom()->getText() << "\n";
 
-      std::cout << context->trailer()[1]->getText() << "\n";
-      std::cout << context->trailer()[1]->arglist() << "\n";
+      // std::cout << context->trailer()[1]->getText() << "\n";
+      // std::cout << context->trailer()[1]->arglist() << "\n";
       auto arg_list = context->trailer()[1]->arglist();
 
       std::stringstream ss;
@@ -57,7 +57,7 @@ public:
       }
       ss << ");\n";
 
-      std::cout << "HELLO SS: " << ss.str() << "\n";
+      // std::cout << "HELLO SS: " << ss.str() << "\n";
       result.first = ss.str();
       return 0;
     }

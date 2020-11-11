@@ -9,7 +9,7 @@ from _pyqcor import *
 import inspect
 from typing import List
 import typing
-import re
+import re, itertools
 from collections import defaultdict
 
 List = typing.List
@@ -145,6 +145,63 @@ class qjit(object):
 
         # Get the kernel function body as a string
         fbody_src = '\n'.join(inspect.getsource(self.function).split('\n')[2:])
+
+        # Look at fbody_src, if with decompose is in there, then we 
+        # want to rewrite that portion to C++ here, that would be easiest. 
+        # strategy is going to be to run the decompose body code, get the 
+        # matrix as a 1d array, and rewrite to read it into UnitaryMatrix
+        if 'with decompose' in fbody_src:
+            # split the function into lines
+            lines = fbody_src.split('\n')
+
+            # Get all lines that are 'with decompose...'
+            with_decomp_lines = [line for line in lines if 'with decompose' in line]
+            # Get their index in the lines list
+            with_decomp_lines_idxs = [lines.index(s) for s in with_decomp_lines]
+            # Get their column start integer
+            with_decomp_lines_col_starts = [sum(1 for _ in itertools.takewhile(str.isspace,s)) for s in with_decomp_lines]
+            # Get the name of the matrix we are decomposing
+            with_decomp_matrix_names = [line.split(' ')[-1][:-1] for line in with_decomp_lines]
+            # print(with_decomp_lines, with_decomp_lines_idxs, with_decomp_lines_col_starts, with_decomp_matrix_names)
+
+            # Loop over all decompose segments
+            for i, line_idx in enumerate(with_decomp_lines_idxs):
+                stmts_to_run = []
+                total_decompose_code = with_decomp_lines[i]
+                # Get all lines in the with decompose scope
+                # ends if we hit a line with column dedent
+                for line in lines[line_idx+1:]:
+                    col_loc = sum(1 for _ in itertools.takewhile(str.isspace,line))
+                    if col_loc == with_decomp_lines_col_starts[i]:
+                        break
+                    total_decompose_code += '\n' + line
+                    stmts_to_run.append(line.lstrip())
+                
+                # Get decompose args
+                decompose_args = re.search('\(([^)]+)', with_decomp_lines[i]).group(1)
+
+                # Build up the matrix generation code
+                code_to_exec = 'import numpy as np\n' + '\n'.join([s for s in stmts_to_run])
+                code_to_exec += '\nmat_data = ' + with_decomp_matrix_names[i]+'.flatten()\n'
+                code_to_exec += 'mat_size = '+ with_decomp_matrix_names[i]+'.shape[0]\n'
+                # Users can use numpy. or np.
+                code_to_exec = code_to_exec.replace('numpy.', 'np.')
+                
+                # Execute the code, extract the matrix data and size
+                _locals = locals()
+                exec(code_to_exec, globals(), _locals)
+                data = str(_locals['mat_data'])
+                data = data.replace('[','').replace(']','')
+                data = ','.join([d for d in data.split(' ')])
+                mat_size = _locals['mat_size']
+                
+                # Replace total_decompose_code in fbody_src...
+                col_skip = ' '*with_decomp_lines_col_starts[i]
+                new_src = col_skip + 'decompose {\n'
+                new_src += col_skip+' '*4 + 'UnitaryMatrix {} = UnitaryMatrix::Zero({},{});\n'.format(with_decomp_matrix_names[i], mat_size,mat_size)
+                new_src += col_skip+' '*4 + '{} << {};\n'.format(with_decomp_matrix_names[i], data)
+                new_src += col_skip + '{}({});\n'.format('}', decompose_args)
+                fbody_src = fbody_src.replace(total_decompose_code, new_src)
 
         # Get the arg variable names and their types
         self.arg_names, _, _, _, _, _, self.type_annotations = inspect.getfullargspec(

@@ -5,7 +5,77 @@ import math as myMathMod
 
 # Some global variables for testing
 MY_PI = 3.1416
-class TestSimpleKernelJIT(unittest.TestCase):
+class TestKernelJIT(unittest.TestCase):
+    def test_rewrite_decompose(self):
+        set_qpu('qpp', {'shots':1024})
+        @qjit
+        def foo(q : qreg):
+            for i in range(q.size()):
+                X(q[i])
+            
+            with decompose(q) as ccnot:
+                ccnot = np.eye(8)
+                ccnot[6,6] = 0.0
+                ccnot[7,7] = 0.0
+                ccnot[6,7] = 1.0
+                ccnot[7,6] = 1.0
+            
+            for i in range(q.size()):
+                Measure(q[i])
+
+        print(foo.src)
+        q = qalloc(3)
+        foo(q)
+        counts = q.counts()
+        self.assertTrue('110' in counts)
+        self.assertTrue(counts['110'] == 1024)
+
+        @qjit
+        def all_x(q : qreg):
+            with decompose(q) as x_kron:
+                sx = np.array([[0, 1],[1, 0]])
+                x_kron = np.kron(np.kron(sx,sx),sx)
+            
+            for i in range(q.size()):
+                Measure(q[i])
+
+        print(all_x.src)
+        q = qalloc(3)
+        all_x(q)
+        counts = q.counts()
+        print(counts)
+        self.assertTrue('111' in counts)
+        self.assertTrue(counts['111'] == 1024)
+
+        @qjit
+        def try_two_decompose(q : qreg):
+            for i in range(q.size()):
+                X(q[i])
+            
+            with decompose(q) as ccnot:
+                ccnot = numpy.eye(8)
+                ccnot[6,6] = 0.0
+                ccnot[7,7] = 0.0
+                ccnot[6,7] = 1.0
+                ccnot[7,6] = 1.0
+
+            # should have 110
+            with decompose(q) as x_kron:
+                sx = np.array([[0, 1],[1, 0]])
+                x_kron = np.kron(np.kron(sx,sx),sx)
+            
+            # Should have flipped the bits
+            for i in range(q.size()):
+                Measure(q[i])
+
+        print(try_two_decompose.src)
+        q = qalloc(3)
+        try_two_decompose(q)
+        counts = q.counts()
+        print(counts)
+        self.assertTrue('001' in counts)
+        self.assertTrue(counts['001'] == 1024)
+
     def test_simple_bell(self):
 
         set_qpu('qpp', {'shots':1024})

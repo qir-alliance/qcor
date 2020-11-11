@@ -177,6 +177,7 @@ std::shared_ptr<qcor::Observable> convertToPauliOperator(py::object op) {
     qcor::error(
         "Invalid python object passed as a QCOR Operator/Observable. "
         "Currently, we only accept OpenFermion datastructures.");
+    return nullptr;
   }
 }
 

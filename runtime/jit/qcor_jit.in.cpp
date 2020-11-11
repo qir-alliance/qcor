@@ -231,6 +231,7 @@ int __dso_handle = 1;
 #endif
 )";
 
+  // std::cout << "Replacement:\n" << Replacement << "\n";
   return std::make_pair(kernel_name, Replacement + "\n" + fix_dso_str + "\n");
 }
 

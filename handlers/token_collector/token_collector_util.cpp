@@ -71,7 +71,9 @@ std::string run_token_collector(clang::Preprocessor &PP,
 
       token_collector = xacc::getService<TokenCollector>(lang_name);
       tmp_cache.clear();
-    } else if (PP.getSpelling(Toks[i]) == "decompose") {
+    } 
+    
+    if (PP.getSpelling(Toks[i]) == "decompose") {
       // Flush the current CachedTokens...
       if (!tmp_cache.empty())
         token_collector->collect(PP, tmp_cache, bufferNames, code_ss);
@@ -136,6 +138,7 @@ std::string run_token_collector(clang::Preprocessor &PP,
           arguments.push_back("QFAST");
       }
 
+      code_ss << "{\n";
       
       std::map<int, std::function<void(const std::string arg)>> arg_to_action{
           {0,
@@ -159,6 +162,8 @@ std::string run_token_collector(clang::Preprocessor &PP,
 
       if (!tmp_cache.empty())
         token_collector->collect(PP, tmp_cache, bufferNames, code_ss);
+
+      code_ss << "}\n";
 
       // advance past the r_paren and semi colon
       i+=1;

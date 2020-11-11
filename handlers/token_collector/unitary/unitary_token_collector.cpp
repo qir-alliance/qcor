@@ -72,6 +72,8 @@ void UnitaryTokenCollector::collect(clang::Preprocessor &PP,
         if (next == "::") {
           // this means we are on the rhs of equal sign
           var_name = PP.getSpelling(Toks[i - 2]);
+        } else if (next == ":" && PP.getSpelling(Toks[i+2]) == ":") {
+          var_name = PP.getSpelling(Toks[i - 2]);
         } else {
           // this means we are on lhs of equal sign
           var_name = next;
@@ -79,7 +81,12 @@ void UnitaryTokenCollector::collect(clang::Preprocessor &PP,
       }
     }
 
-    ss << current_token_str << " ";
+    if (current_token_str == ":" && PP.getSpelling(Toks[i+1]) == ":") {
+      ss << "::";
+      i+=1;
+    } else {
+      ss << current_token_str << " ";
+    }
   }
   ss << "\n";
 
