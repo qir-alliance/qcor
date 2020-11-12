@@ -75,6 +75,56 @@ class TestKernelJIT(unittest.TestCase):
         print(counts)
         self.assertTrue('001' in counts)
         self.assertTrue(counts['001'] == 1024)
+    
+    def test_more_decompose(self):
+        set_qpu('qpp', {'shots':1024})
+       
+        @qjit
+        def random_2qbit(q : qreg):
+            with decompose(q, kak) as random_unitary:
+                a = np.random.rand(4,4)
+                qm, r = np.linalg.qr(a, mode='complete')
+                random_unitary = qm
+            
+            for i in range(q.size()):
+                Measure(q[i])
+        
+        print(random_2qbit.src)
+        q = qalloc(2)
+        print(random_2qbit.extract_composite(q).toString())
+        
+        @qjit
+        def random_1qbit(q : qreg):
+            with decompose(q, z_y_z) as random_unitary:
+                random_unitary, _ = np.linalg.qr(np.random.rand(2,2), mode='complete')
+            
+            for i in range(q.size()):
+                Measure(q[i])
+        
+        print(random_1qbit.get_internal_src())
+        q = qalloc(2)
+        print(random_1qbit.get_syntax_handler_src())
+        print(random_1qbit.extract_composite(q).toString())
+
+    # def test_decompose_param(self):
+
+    #     @qjit
+    #     def ansatz(q : qreg, x : float):
+    #         X(q[0])
+    #         with decompose(q, kak) as u:
+    #             from scipy.linalg import expm
+    #             x0 = np.kron(np.array([[0, 1],[1, 0]]), np.eye(2))
+    #             x1 = np.kron(np.eye(2), np.array([[0, 1],[1, 0]]))
+    #             y0 = np.kron(np.array([[0, -1j],[1j, 0]]), np.eye(2))
+    #             y1 = np.kron(np.eye(2), np.array([[0, -1j],[1j, 0]]))
+    #             u = expm(1j * x * (x0 * y1 - x1 * y0))
+
+    #     print(ansatz.get_internal_src())
+    #     print(ansatz.get_syntax_handler_src())
+    #     q = qalloc(2)
+    #     #ansatz(q, 2.2)
+    #     #q.print()
+
 
     def test_simple_bell(self):
 

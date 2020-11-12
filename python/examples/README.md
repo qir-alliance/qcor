@@ -21,3 +21,5 @@ Employing the QCOR just-in-time (qjit) compilation features, we can wrap QCOR in
 `bit_flip_code_ftqc.py` example using the QCOR ftqc runtime to support fault-tolerant, fast-feedback instruction execution. 
 
 `vqe_ftqc.py` example demonstrating VQE algorithm using the ftqc runtime. 
+
+`unitary.py` example demonstrating circuit synthesis language extension.

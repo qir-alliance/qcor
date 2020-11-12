@@ -190,9 +190,8 @@ class qjit(object):
                 # Execute the code, extract the matrix data and size
                 _locals = locals()
                 exec(code_to_exec, globals(), _locals)
-                data = str(_locals['mat_data'])
-                data = data.replace('[','').replace(']','')
-                data = ','.join([d for d in data.split(' ')])
+                data = _locals['mat_data']
+                data = ','.join([str(d) for d in data])
                 mat_size = _locals['mat_size']
                 
                 # Replace total_decompose_code in fbody_src...
@@ -306,9 +305,18 @@ class qjit(object):
     __compiled__kernels = []
     __kernels__graph = KernelGraph()
 
+    def get_syntax_handler_src(self):
+        """
+        Good for debugging purposes - return the actuall C++ code that the SyntaxHandler
+        generates for this qjit kernel.
+        """
+        return self._qjit.run_syntax_handler(self.src)[1]
+
     def get_internal_src(self):
-        """Return the C++ / embedded python DSL function code that will be passed to QJIT
-        and the clang syntax handler. This function is primarily to be used for developer purposes. """
+        """
+        Return the C++ / embedded python DSL function code that will be passed to QJIT
+        and the clang syntax handler. This function is primarily to be used for developer purposes.
+        """
         return self.src
 
     def kernel_name(self):

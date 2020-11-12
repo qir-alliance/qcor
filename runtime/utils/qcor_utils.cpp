@@ -46,7 +46,10 @@ std::shared_ptr<qcor::IRProvider> get_provider() {
 std::shared_ptr<qcor::CompositeInstruction>
 decompose_unitary(const std::string algorithm, UnitaryMatrix &mat,
                   const std::string buffer_name) {
-  auto tmp = xacc::getService<xacc::Instruction>(algorithm);
+  std::string local_algorithm = algorithm;
+  if (local_algorithm == "z_y_z") local_algorithm = "z-y-z";
+
+  auto tmp = xacc::getService<xacc::Instruction>(local_algorithm);
   auto decomposed = std::dynamic_pointer_cast<CompositeInstruction>(tmp);
 
   // default Adam
@@ -55,7 +58,7 @@ decompose_unitary(const std::string algorithm, UnitaryMatrix &mat,
       {std::make_pair("unitary", mat), std::make_pair("optimizer", optimizer)});
 
   if (!expandOk) {
-    xacc::error("Could not decmpose unitary with " + algorithm);
+    xacc::error("Could not decmpose unitary with " + local_algorithm);
   }
 
   for (auto inst : decomposed->getInstructions()) {
