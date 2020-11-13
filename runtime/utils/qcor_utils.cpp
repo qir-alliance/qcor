@@ -58,7 +58,7 @@ decompose_unitary(const std::string algorithm, UnitaryMatrix &mat,
       {std::make_pair("unitary", mat), std::make_pair("optimizer", optimizer)});
 
   if (!expandOk) {
-    xacc::error("Could not decmpose unitary with " + local_algorithm);
+    xacc::error("Could not decompose unitary with " + local_algorithm);
   }
 
   for (auto inst : decomposed->getInstructions()) {

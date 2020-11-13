@@ -57,6 +57,7 @@ using namespace llvm::orc;
 
 #include <iostream>
 #include <regex>
+#include <sys/stat.h>
 
 namespace qcor {
 using namespace clang;
@@ -299,8 +300,7 @@ class LLVMJIT {
     MainJD.addGenerator(cantFail(DynamicLibrarySearchGenerator::Load(
         "@CMAKE_INSTALL_PREFIX@/lib/libqcor.so", DL.getGlobalPrefix())));
     MainJD.addGenerator(cantFail(DynamicLibrarySearchGenerator::Load(
-        "@XACC_ROOT@/lib/libCppMicroServices.so",
-        DL.getGlobalPrefix())));
+        "@XACC_ROOT@/lib/libCppMicroServices.so", DL.getGlobalPrefix())));
 
     return CompileLayer.add(MainJD, ThreadSafeModule(std::move(M), Ctx));
   }
@@ -309,7 +309,6 @@ class LLVMJIT {
     return ES.lookup({&MainJD}, Mangle(Name.str()));
   }
 };
-#include <sys/stat.h>
 
 QJIT::QJIT() {
   // if tmp directory doesnt exist create it
@@ -351,7 +350,7 @@ QJIT::~QJIT() { write_cache(); }
 
 void QJIT::jit_compile(const std::string &code,
                        const bool add_het_map_kernel_ctor,
-                       const std::vector<std::string> &kernel_dependency) {
+                       const std::vector<std::string> &kernel_dependency, const std::string& extra_functions_src) {
   // Run the Syntax Handler to get the kernel name and
   // the kernel code (the QuantumKernel subtype def + utility functions)
   auto [kernel_name, new_code] =
@@ -372,6 +371,10 @@ void QJIT::jit_compile(const std::string &code,
   }
   // Add dependency before JIT compile:
   new_code = dependencyCode + new_code;
+
+  // Add any extra functions to be compiled
+  new_code = extra_functions_src + "\n" + new_code;
+
   // std::cout << "New code:\n" << new_code << "\n";
   // Hash the new code
   std::hash<std::string> hasher;
@@ -472,16 +475,20 @@ void QJIT::jit_compile(const std::string &code,
   auto rawFPtr = symbol.getAddress();
   kernel_name_to_f_ptr.insert({kernel_name, rawFPtr});
 
-  // Get the function pointer for the hetmap kernel invocation
-  auto hetmap_symbol = cantFail(jit->lookup(hetmap_mangled_name));
-  auto hetmap_rawFPtr = hetmap_symbol.getAddress();
-  kernel_name_to_f_ptr_hetmap.insert({kernel_name, hetmap_rawFPtr});
+  if (add_het_map_kernel_ctor) {
+    // Get the function pointer for the hetmap kernel invocation
+    auto hetmap_symbol = cantFail(jit->lookup(hetmap_mangled_name));
+    auto hetmap_rawFPtr = hetmap_symbol.getAddress();
+    kernel_name_to_f_ptr_hetmap.insert({kernel_name, hetmap_rawFPtr});
 
-  // Get the function pointer for the hetmap kernel invocation with parent composite
-  auto parent_hetmap_symbol = cantFail(jit->lookup(parent_hetmap_mangled_name));
-  auto parent_hetmap_rawFPtr = parent_hetmap_symbol.getAddress();
-  kernel_name_to_f_ptr_parent_hetmap.insert(
-      {kernel_name, parent_hetmap_rawFPtr});
+    // Get the function pointer for the hetmap kernel invocation with parent
+    // composite
+    auto parent_hetmap_symbol =
+        cantFail(jit->lookup(parent_hetmap_mangled_name));
+    auto parent_hetmap_rawFPtr = parent_hetmap_symbol.getAddress();
+    kernel_name_to_f_ptr_parent_hetmap.insert(
+        {kernel_name, parent_hetmap_rawFPtr});
+  }
 
   return;
 }

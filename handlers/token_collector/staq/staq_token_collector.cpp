@@ -205,11 +205,11 @@ void StaqTokenCollector::collect(clang::Preprocessor &PP,
     }
   }
 
-//   std::cout << "FROM STAQ:\n" << sss.str() << "\n";
+  std::cout << "FROM STAQ:\n" << sss.str() << "\n";
 
   auto compiler = xacc::getCompiler("staq");
   auto inst = compiler->compile(sss.str())->getComposites()[0];
-//   std::cout << inst->toString() << "\n";
+  std::cout << inst->toString() << "\n";
 
   // Map this CompositeInstruction to QRT calls
   auto visitor = std::make_shared<qcor::qrt_mapper>(inst->name());

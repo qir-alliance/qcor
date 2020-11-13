@@ -224,10 +224,14 @@ class PyObjectiveFunction : public qcor::ObjectiveFunction {
 
     // Extract the QJIT source code
     auto src = py_kernel.attr("get_internal_src")().cast<std::string>();
+    auto extra_cpp_src =
+        py_kernel.attr("get_extra_cpp_code")().cast<std::string>();
+    auto sorted_kernel_deps = py_kernel.attr("get_sorted_kernels_deps")()
+                                  .cast<std::vector<std::string>>();
 
     // QJIT compile
     // this will be fast if already done, and we just do it once
-    qjit.jit_compile(src, true);
+    qjit.jit_compile(src, true, sorted_kernel_deps, extra_cpp_src);
     qjit.write_cache();
   }
 
@@ -250,10 +254,14 @@ class PyObjectiveFunction : public qcor::ObjectiveFunction {
 
     // Extract the QJIT source code
     auto src = py_kernel.attr("get_internal_src")().cast<std::string>();
+    auto extra_cpp_src =
+        py_kernel.attr("get_extra_cpp_code")().cast<std::string>();
+    auto sorted_kernel_deps = py_kernel.attr("get_sorted_kernels_deps")()
+                                  .cast<std::vector<std::string>>();
 
     // QJIT compile
     // this will be fast if already done, and we just do it once
-    qjit.jit_compile(src, true);
+    qjit.jit_compile(src, true, sorted_kernel_deps, extra_cpp_src);
     qjit.write_cache();
   }
   // Evaluate this ObjectiveFunction at the dictionary of kernel args,
@@ -320,8 +328,13 @@ class PyKernelFunctor : public qcor::KernelFunctor {
       : py_kernel(q), n_qubits(nq) {
     nbParams = np;
     auto src = py_kernel.attr("get_internal_src")().cast<std::string>();
+    auto extra_cpp_src =
+        py_kernel.attr("get_extra_cpp_code")().cast<std::string>();
+    auto sorted_kernel_deps = py_kernel.attr("get_sorted_kernels_deps")()
+                                  .cast<std::vector<std::string>>();
+
     // this will be fast if already done, and we just do it once
-    qjit.jit_compile(src, true);
+    qjit.jit_compile(src, true, sorted_kernel_deps, extra_cpp_src);
     qjit.write_cache();
   }
 
@@ -370,7 +383,7 @@ PYBIND11_MODULE(_pyqcor, m) {
             // QRT (if provided) should be set before quantum::initialize
             ::quantum::set_qrt(value);
           }
-          
+
           for (auto arg : kwargs) {
             const auto key = std::string(py::str(arg.first));
             // Handle "qpu" key
@@ -394,7 +407,8 @@ PYBIND11_MODULE(_pyqcor, m) {
               xacc::internal_compiler::__user_opt_passes = value;
             } else if (key == "qubit-map") {
               const auto value = std::string(py::str(arg.second));
-              xacc::internal_compiler::__qubit_map = xacc::internal_compiler::parse_qubit_map(value.c_str());
+              xacc::internal_compiler::__qubit_map =
+                  xacc::internal_compiler::parse_qubit_map(value.c_str());
             }
             /// TODO: handle other CLI parameters.
           }
@@ -447,9 +461,11 @@ PYBIND11_MODULE(_pyqcor, m) {
       .def(
           "internal_python_jit_compile",
           [](qcor::QJIT &qjit, const std::string src,
-             const std::vector<std::string> &dependency = {}) {
+             const std::vector<std::string> &dependency = {},
+             const std::string &extra_cpp_code = "") {
             bool turn_on_hetmap_kernel_ctor = true;
-            qjit.jit_compile(src, turn_on_hetmap_kernel_ctor, dependency);
+            qjit.jit_compile(src, turn_on_hetmap_kernel_ctor, dependency,
+                             extra_cpp_code);
           },
           "")
       .def(

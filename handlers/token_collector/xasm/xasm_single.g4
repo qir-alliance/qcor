@@ -27,7 +27,7 @@ cinst
    | exp '--' ';'
    | 'for' '(' cpp_type exp '=' exp ';' (exp compare exp)? ';' ((exp ('++' | '--')) | (('++' | '--') exp))?  ')' '{'?
    | '}'
-   | exp '(' explist ')' ';'
+   | exp '(' explist? ')' ';'
    | 'if' '(' explist ')' '{'?
    | 'else' '(' explist ')' '{'?
    | 'const'? type_name=cpp_type var_name=exp '=' '(' exp '==' exp ')' '?' exp ':' exp ';'

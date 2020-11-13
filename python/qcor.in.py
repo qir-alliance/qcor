@@ -28,6 +28,20 @@ def Y(idx):
 def Z(idx):
     return xacc.quantum.PauliOperator({idx: 'Z'}, 1.0)
 
+cpp_matrix_gen_code = '''#include <pybind11/embed.h>
+#include <pybind11/stl.h>
+#include <pybind11/complex.h>
+namespace py = pybind11;
+// returns 1d data as vector and matrix size (assume square)
+auto __internal__qcor_pyjit_gen_{}_unitary_matrix({}) {{
+  auto py_src = R"#({})#";
+  auto locals = py::dict();
+  {}
+  py::exec(py_src, py::globals(), locals);
+  return std::make_pair(
+      locals["mat_data"].cast<std::vector<std::complex<double>>>(), 
+      locals["mat_size"].cast<int>());
+}}'''
 
 # Simple graph class to help resolve kernel dependency (via topological sort)
 class KernelGraph(object):
@@ -142,9 +156,14 @@ class qjit(object):
 
         # Create the qcor just in time engine
         self._qjit = QJIT()
+        self.extra_cpp_code = ''
 
         # Get the kernel function body as a string
         fbody_src = '\n'.join(inspect.getsource(self.function).split('\n')[2:])
+
+        # Get the arg variable names and their types
+        self.arg_names, _, _, _, _, _, self.type_annotations = inspect.getfullargspec(
+            self.function)
 
         # Look at fbody_src, if with decompose is in there, then we 
         # want to rewrite that portion to C++ here, that would be easiest. 
@@ -155,14 +174,13 @@ class qjit(object):
             lines = fbody_src.split('\n')
 
             # Get all lines that are 'with decompose...'
-            with_decomp_lines = [line for line in lines if 'with decompose' in line]
+            with_decomp_lines = [line for line in lines if 'with decompose' in line if line.lstrip()[0] != '#']
             # Get their index in the lines list
             with_decomp_lines_idxs = [lines.index(s) for s in with_decomp_lines]
             # Get their column start integer
             with_decomp_lines_col_starts = [sum(1 for _ in itertools.takewhile(str.isspace,s)) for s in with_decomp_lines]
             # Get the name of the matrix we are decomposing
             with_decomp_matrix_names = [line.split(' ')[-1][:-1] for line in with_decomp_lines]
-            # print(with_decomp_lines, with_decomp_lines_idxs, with_decomp_lines_col_starts, with_decomp_matrix_names)
 
             # Loop over all decompose segments
             for i, line_idx in enumerate(with_decomp_lines_idxs):
@@ -179,32 +197,51 @@ class qjit(object):
                 
                 # Get decompose args
                 decompose_args = re.search('\(([^)]+)', with_decomp_lines[i]).group(1)
+                d_list = decompose_args.split(',')
+                decompose_args = d_list[0]
+                for e in d_list[1:]:
+                    if 'depends_on' in e:
+                        break
+                    decompose_args += ',' + e
+
 
                 # Build up the matrix generation code
                 code_to_exec = 'import numpy as np\n' + '\n'.join([s for s in stmts_to_run])
-                code_to_exec += '\nmat_data = ' + with_decomp_matrix_names[i]+'.flatten()\n'
+                code_to_exec += '\nmat_data = np.array(' + with_decomp_matrix_names[i]+').flatten()\n'
                 code_to_exec += 'mat_size = '+ with_decomp_matrix_names[i]+'.shape[0]\n'
                 # Users can use numpy. or np.
                 code_to_exec = code_to_exec.replace('numpy.', 'np.')
                 
-                # Execute the code, extract the matrix data and size
-                _locals = locals()
-                exec(code_to_exec, globals(), _locals)
-                data = _locals['mat_data']
-                data = ','.join([str(d) for d in data])
-                mat_size = _locals['mat_size']
-                
-                # Replace total_decompose_code in fbody_src...
-                col_skip = ' '*with_decomp_lines_col_starts[i]
-                new_src = col_skip + 'decompose {\n'
-                new_src += col_skip+' '*4 + 'UnitaryMatrix {} = UnitaryMatrix::Zero({},{});\n'.format(with_decomp_matrix_names[i], mat_size,mat_size)
-                new_src += col_skip+' '*4 + '{} << {};\n'.format(with_decomp_matrix_names[i], data)
-                new_src += col_skip + '{}({});\n'.format('}', decompose_args)
-                fbody_src = fbody_src.replace(total_decompose_code, new_src)
+                if 'depends_on' in with_decomp_lines[i]:
+                    # Need arg structure, python code, and locals[vars] code
+                    depends_on_str = re.search(r"\[([A-Za-z0-9_]+)\]", with_decomp_lines[i]).group(1)
+                    arg_struct = ','.join([self.allowed_type_cpp_map[str(self.type_annotations[s])]+' '+s for s in depends_on_str.split(',')])
+                    arg_var_names = ','.join([s for s in depends_on_str.split(',')])
+                    locals_code = '\n'.join(['locals["{}"] = {};'.format(n,n) for n in arg_var_names])
+                    self.extra_cpp_code = cpp_matrix_gen_code.format(with_decomp_matrix_names[i], arg_struct, code_to_exec, locals_code)
 
-        # Get the arg variable names and their types
-        self.arg_names, _, _, _, _, _, self.type_annotations = inspect.getfullargspec(
-            self.function)
+                    col_skip = ' '*with_decomp_lines_col_starts[i]
+                    new_src = col_skip + 'decompose {\n'
+                    new_src += col_skip + ' '*4 + 'auto [mat_data, mat_size] = __internal__qcor_pyjit_gen_{}_unitary_matrix({});\n'.format(with_decomp_matrix_names[i], arg_var_names)
+                    new_src += col_skip+' '*4 + 'UnitaryMatrix {} = Eigen::Map<UnitaryMatrix>(mat_data.data(), mat_size, mat_size);\n'.format(with_decomp_matrix_names[i])
+                    new_src += col_skip + '{}({});\n'.format('}', decompose_args)
+                    fbody_src = fbody_src.replace(total_decompose_code, new_src)
+                else:
+                    # Execute the code, extract the matrix data and size
+                    _locals = locals()
+                    exec(code_to_exec, globals(), _locals)
+                    data = _locals['mat_data']
+                    data = ','.join([str(d) for d in data])
+                    mat_size = _locals['mat_size']
+                
+                    # Replace total_decompose_code in fbody_src...
+                    col_skip = ' '*with_decomp_lines_col_starts[i]
+                    new_src = col_skip + 'decompose {\n'
+                    new_src += col_skip+' '*4 + 'UnitaryMatrix {} = UnitaryMatrix::Zero({},{});\n'.format(with_decomp_matrix_names[i], mat_size,mat_size)
+                    new_src += col_skip+' '*4 + '{} << {};\n'.format(with_decomp_matrix_names[i], data)
+                    new_src += col_skip + '{}({});\n'.format('}', decompose_args)
+                    fbody_src = fbody_src.replace(total_decompose_code, new_src)
+
 
         # Users must provide arg types, if not we throw an error
         if not self.type_annotations or len(self.arg_names) != len(self.type_annotations):
@@ -292,11 +329,11 @@ class qjit(object):
 
         self.__kernels__graph.addKernelDependency(
             self.function.__name__, dependency)
-        sorted_kernel_dep = self.__kernels__graph.getSortedDependency(
+        self.sorted_kernel_dep = self.__kernels__graph.getSortedDependency(
             self.function.__name__)
 
         # Run the QJIT compile step to store function pointers internally
-        self._qjit.internal_python_jit_compile(self.src, sorted_kernel_dep)
+        self._qjit.internal_python_jit_compile(self.src, self.sorted_kernel_dep, self.extra_cpp_code)
         self._qjit.write_cache()
         self.__compiled__kernels.append(self.function.__name__)
         return
@@ -311,6 +348,15 @@ class qjit(object):
         generates for this qjit kernel.
         """
         return self._qjit.run_syntax_handler(self.src)[1]
+
+    def get_extra_cpp_code(self):
+        """
+        Return any required C++ code that the JIT source code will need.
+        """
+        return self.extra_cpp_code
+
+    def get_sorted_kernels_deps(self):
+        return self.sorted_kernel_dep
 
     def get_internal_src(self):
         """

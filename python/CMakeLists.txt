@@ -17,6 +17,7 @@ endif()
 configure_file(qcor.in.py
             ${CMAKE_BINARY_DIR}/qcor.py)
 
+message(STATUS "PYTHON INCLUDE: ${Python_INCLUDE_DIRS}")
 add_library(${LIBRARY_NAME} SHARED ${SRC})
 target_include_directories(${LIBRARY_NAME} PUBLIC . ${CMAKE_SOURCE_DIR}/runtime/jit
                                           ${CMAKE_SOURCE_DIR}/lib/qsim

@@ -107,24 +107,25 @@ class TestKernelJIT(unittest.TestCase):
         print(random_1qbit.extract_composite(q).toString())
 
     # def test_decompose_param(self):
-
+    #     set_qpu('qpp')
     #     @qjit
-    #     def ansatz(q : qreg, x : float):
+    #     def ansatz(q : qreg, x : List[float]):
     #         X(q[0])
-    #         with decompose(q, kak) as u:
-    #             from scipy.linalg import expm
-    #             x0 = np.kron(np.array([[0, 1],[1, 0]]), np.eye(2))
-    #             x1 = np.kron(np.eye(2), np.array([[0, 1],[1, 0]]))
-    #             y0 = np.kron(np.array([[0, -1j],[1j, 0]]), np.eye(2))
-    #             y1 = np.kron(np.eye(2), np.array([[0, -1j],[1j, 0]]))
-    #             u = expm(1j * x * (x0 * y1 - x1 * y0))
+    #         with decompose(q, kak, depends_on=[x]) as u:
+    #             from scipy.sparse.linalg import expm
+    #             from openfermion.ops import QubitOperator
+    #             from openfermion.transforms import get_sparse_operator
+    #             qop = QubitOperator('X0 Y1') - QubitOperator('Y0 X1')
+    #             qubit_sparse = get_sparse_operator(qop)
+    #             u = expm(0.5j * x[0] * qubit_sparse).todense()
 
-    #     print(ansatz.get_internal_src())
-    #     print(ansatz.get_syntax_handler_src())
-    #     q = qalloc(2)
-    #     #ansatz(q, 2.2)
-    #     #q.print()
-
+    #     H = -2.1433 * X(0) * X(1) - 2.1433 * \
+    #         Y(0) * Y(1) + .21829 * Z(0) - 6.125 * Z(1) + 5.907
+    #     o = createObjectiveFunction(ansatz, H, 1, {'gradient-strategy':'central', 'step':1e-1})
+    #     opt = createOptimizer('nlopt', {'initial-parameters':[.5], 'maxeval':10, 'algorithm':'l-bfgs'})
+    #     results = opt.optimize(o)
+    #     print("WE ARE DONE")
+    #     self.assertAlmostEqual(results[0], -1.74, places=1)
 
     def test_simple_bell(self):
 

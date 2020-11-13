@@ -54,6 +54,8 @@ std::unique_ptr<clang::CodeGenAction> emit_llvm_ir(const std::string src_code) {
   std::vector<const char *> argv_vec{"@CLANG_EXECUTABLE@",
                                      "-std=c++17",
                                      "-I@XACC_ROOT@/include/xacc",
+                                     "-I@XACC_ROOT@/include/pybind11/include",
+                                     "-I/usr/include/python3.8",
                                      "-I@CMAKE_INSTALL_PREFIX@/include/qcor",
                                      "-I@XACC_ROOT@/include/quantum/gate",
                                      "-I@XACC_ROOT@/include/eigen",

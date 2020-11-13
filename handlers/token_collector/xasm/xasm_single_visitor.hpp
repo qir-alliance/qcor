@@ -159,7 +159,6 @@ public:
     // Strategy here is simple, we just want to
     // preserve all classical code statements in
     // the original quantum kernel
-
     std::stringstream ss;
 
     if (context->getText().find("::adjoint") != std::string::npos) {
