@@ -45,7 +45,16 @@ def main(argv=None):
         parser.add_argument('-set-credentials', nargs=1, help='set api key and other credential information for remote qpu.\nMust provide at least -key KEY arguments. For IBM also specify -hub HUB -group GROUP -project PROJECT.')
         parser.add_argument('-print-credentials', nargs=1, help='print remote api credentials for given qpu name.')
         parser.add_argument('-update-credentials', nargs=1, help='set a specific credential for remote qpu access. Example\nqcor -update-credentials ibm -project MYOTHERPROJECT.')
+        parser.add_argument('-xacc-install', nargs=1, help='returns the install directory for xacc.')
+        parser.add_argument('-qcor-install', nargs=1, help='returns the install directory for qcor.')
         args = parser.parse_args(sys.argv)
+    
+    if '-xacc-install' in sys.argv[1:]:
+        print('@XACC_ROOT@')
+        exit(0)
+    if '-qcor-install' in sys.argv[1:]:
+        print('@CMAKE_INSTALL_PREFIX@')
+        exit(0)
 
     if '--verbose' in sys.argv[1:]:
         verbose=True
