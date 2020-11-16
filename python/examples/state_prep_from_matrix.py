@@ -11,7 +11,7 @@ def ansatz(q : qreg, x : List[float]):
     # here todense() maps the sparse operator to a numpy.matrix.
     # Note that if your matrix is dependent on a kernel argument, 
     # you must define it in the depends_on=[..] decompose arg.
-    with decompose(q, kak, depends_on=[x]) as u:
+    with decompose(q, kak) as u:
         from scipy.sparse.linalg import expm
         from openfermion.ops import QubitOperator
         from openfermion.transforms import get_sparse_operator

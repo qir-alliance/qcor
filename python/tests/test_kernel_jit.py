@@ -111,7 +111,7 @@ class TestKernelJIT(unittest.TestCase):
     #     @qjit
     #     def ansatz(q : qreg, x : List[float]):
     #         X(q[0])
-    #         with decompose(q, kak, depends_on=[x]) as u:
+    #         with decompose(q, kak) as u:
     #             from scipy.sparse.linalg import expm
     #             from openfermion.ops import QubitOperator
     #             from openfermion.transforms import get_sparse_operator
