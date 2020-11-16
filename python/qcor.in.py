@@ -14,6 +14,8 @@ import itertools
 from collections import defaultdict
 
 List = typing.List
+Tuple = typing.Tuple
+
 PauliOperator = xacc.quantum.PauliOperator
 FLOAT_REF = typing.NewType('value', float)
 INT_REF = typing.NewType('value', int)
@@ -156,7 +158,8 @@ class qjit(object):
         self.allowed_type_cpp_map = {'<class \'_pyqcor.qreg\'>': 'qreg',
                                      '<class \'float\'>': 'double', 'typing.List[float]': 'std::vector<double>',
                                      '<class \'int\'>': 'int', 'typing.List[int]': 'std::vector<int>',
-                                     '<class \'_pyxacc.quantum.PauliOperator\'>': 'qcor::PauliOperator'}
+                                     '<class \'_pyxacc.quantum.PauliOperator\'>': 'qcor::PauliOperator',
+                                     'typing.List[typing.Tuple[int, int]]': 'PairList<int>'}
         self.__dict__.update(kwargs)
 
         # Create the qcor just in time engine

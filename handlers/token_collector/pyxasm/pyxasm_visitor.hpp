@@ -5,6 +5,7 @@
 #include "pyxasmBaseVisitor.h"
 #include "qrt.hpp"
 #include "xacc.hpp"
+#include "qcor_utils.hpp"
 
 using namespace pyxasm;
 
@@ -22,10 +23,11 @@ class pyxasm_visitor : public pyxasmBaseVisitor {
   // List of *declared* variables
   std::vector<std::string> declared_var_names;
 
-public:
+ public:
   pyxasm_visitor(const std::vector<std::string> &buffers = {},
                  const std::vector<std::string> &local_var_names = {})
-      : provider(xacc::getIRProvider("quantum")), bufferNames(buffers),
+      : provider(xacc::getIRProvider("quantum")),
+        bufferNames(buffers),
         declared_var_names(local_var_names) {}
   pyxasm_result_type result;
   // New var declared (auto type) after visiting this node.
@@ -34,7 +36,6 @@ public:
 
   antlrcpp::Any visitAtom_expr(
       pyxasmParser::Atom_exprContext *context) override {
-      
     // Handle kernel::ctrl(...), kernel::adjoint(...)
     if (!context->trailer().empty() &&
         (context->trailer()[0]->getText() == ".ctrl" ||
@@ -199,8 +200,7 @@ public:
           }
           ss << ");\n";
           result.first = ss.str();
-        }
-        else {
+        } else {
           if (!context->trailer().empty()) {
             // A classical call-like expression: i.e. not a kernel call:
             // Just output it *as-is* to the C++ stream.
@@ -232,20 +232,38 @@ public:
 
   antlrcpp::Any visitExpr_stmt(pyxasmParser::Expr_stmtContext *ctx) override {
     if (ctx->ASSIGN().size() == 1 && ctx->testlist_star_expr().size() == 2) {
+
       // Handle simple assignment: a = expr
       std::stringstream ss;
       const std::string lhs = ctx->testlist_star_expr(0)->getText();
       const std::string rhs = replacePythonConstants(
           replaceMeasureAssignment(ctx->testlist_star_expr(1)->getText()));
-      
-      if (xacc::container::contains(declared_var_names, lhs)) {
-        ss << lhs << " = " << rhs << "; \n";
+
+      if (lhs.find(",") != std::string::npos) {
+        // this is
+        // var1, var2, ... = some_tuple_thing
+        // We only support var1, var2 = ... for now
+        // where ... is a pair-like object
+        std::vector<std::string> suffix{".first", ".second"};
+        auto vars = xacc::split(lhs, ',');
+        for (auto [i, var] : qcor::enumerate(vars)) {
+          if (xacc::container::contains(declared_var_names, var)) {
+            ss << var << " = " << rhs << suffix[i] << ";\n";
+          } else {
+            ss << "auto " << var << " = " << rhs << suffix[i] << ";\n";
+            new_var = lhs;
+          }
+        }
       } else {
-        // New variable: need to add *auto*
-        ss << "auto " << lhs << " = " << rhs << "; \n";
-        new_var = lhs;
+        if (xacc::container::contains(declared_var_names, lhs)) {
+          ss << lhs << " = " << rhs << "; \n";
+        } else {
+          // New variable: need to add *auto*
+          ss << "auto " << lhs << " = " << rhs << "; \n";
+          new_var = lhs;
+        }
       }
-      
+
       result.first = ss.str();
       if (rhs.find("**") != std::string::npos) {
         // keep processing
@@ -283,8 +301,8 @@ public:
     return visitChildren(context);
   }
 
-  virtual antlrcpp::Any
-  visitIf_stmt(pyxasmParser::If_stmtContext *ctx) override {
+  virtual antlrcpp::Any visitIf_stmt(
+      pyxasmParser::If_stmtContext *ctx) override {
     // Only support single clause atm
     if (ctx->test().size() == 1) {
       std::stringstream ss;

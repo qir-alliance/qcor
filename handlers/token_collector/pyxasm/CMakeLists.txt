@@ -27,7 +27,7 @@ add_library(${LIBRARY_NAME} SHARED ${SRC})
 target_compile_options(${LIBRARY_NAME} PRIVATE "-Wno-attributes")
 target_include_directories(
   ${LIBRARY_NAME}
-  PUBLIC . .. ${XACC_ROOT}/include/antlr4-runtime generated ${CLANG_INCLUDE_DIRS})
+  PUBLIC . .. ${CMAKE_SOURCE_DIR}/runtime/utils ${XACC_ROOT}/include/antlr4-runtime generated ${CLANG_INCLUDE_DIRS})
 
 target_link_libraries(${LIBRARY_NAME} PUBLIC ${CLANG_LIBS} ${LLVM_LIBS} ${ANTLR_LIB} qrt xacc::xacc)
 

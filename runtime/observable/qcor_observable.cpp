@@ -88,8 +88,8 @@ std::shared_ptr<Observable> createOperator(const std::string &name,
 
 std::shared_ptr<Observable> operatorTransform(const std::string &type,
                                               qcor::Observable &op) {
-  // return xacc::getService<xacc::ObservableTransform>(type)->transform(
-  //     xacc::as_shared_ptr(*&op));
+  return xacc::getService<xacc::ObservableTransform>(type)->transform(
+      xacc::as_shared_ptr(&op));
 }
 std::shared_ptr<Observable> operatorTransform(const std::string &type,
                                               std::shared_ptr<Observable> op) {

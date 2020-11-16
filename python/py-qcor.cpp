@@ -54,7 +54,7 @@ namespace {
 // Here we enumerate them as a Variant
 using AllowedKernelArgTypes =
     xacc::Variant<bool, int, double, std::string, xacc::internal_compiler::qreg,
-                  std::vector<double>, std::vector<int>, qcor::PauliOperator>;
+                  std::vector<double>, std::vector<int>, qcor::PauliOperator, qcor::PairList<int>>;
 
 // We will take as input a mapping of arg variable names to the argument itself.
 using KernelArgDict = std::map<std::string, AllowedKernelArgTypes>;

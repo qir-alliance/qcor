@@ -4,7 +4,7 @@
 #include "IRProvider.hpp"
 #include "IRTransformation.hpp"
 #include "Optimizer.hpp"
-#include "qrt.hpp"
+#include "qalloc.hpp"
 #include "xacc_internal_compiler.hpp"
 
 #include <Eigen/Dense>
@@ -28,6 +28,9 @@ using IRTransformation = xacc::IRTransformation;
 using IRProvider = xacc::IRProvider;
 using qreg = xacc::internal_compiler::qreg;
 using UnitaryMatrix = Eigen::MatrixXcd;
+
+template<typename T>
+using PairList = std::vector<std::pair<T,T>>;
 
 // The ResultsBuffer is returned upon completion of
 // the taskInitiate async call, it contains the buffer,
