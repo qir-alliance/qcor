@@ -15,8 +15,10 @@ from collections import defaultdict
 
 List = typing.List
 Tuple = typing.Tuple
+MethodType = types.MethodType
 
 PauliOperator = xacc.quantum.PauliOperator
+FermionOperator = xacc.quantum.FermionOperator 
 FLOAT_REF = typing.NewType('value', float)
 INT_REF = typing.NewType('value', int)
 
@@ -164,7 +166,10 @@ class qjit(object):
                                      '<class \'float\'>': 'double', 'typing.List[float]': 'std::vector<double>',
                                      '<class \'int\'>': 'int', 'typing.List[int]': 'std::vector<int>',
                                      '<class \'_pyxacc.quantum.PauliOperator\'>': 'qcor::PauliOperator',
-                                     'typing.List[typing.Tuple[int, int]]': 'PairList<int>'}
+                                     '<class \'_pyxacc.quantum.FermionOperator\'>': 'qcor::FermionOperator',
+                                     'typing.List[typing.Tuple[int, int]]': 'PairList<int>',
+                                     'typing.List[_pyxacc.quantum.PauliOperator]': 'std::vector<qcor::PauliOperator>',
+                                     'typing.List[_pyxacc.quantum.FermionOperator]': 'std::vector<qcor::FermionOperator>'}
         self.__dict__.update(kwargs)
 
         # Create the qcor just in time engine
