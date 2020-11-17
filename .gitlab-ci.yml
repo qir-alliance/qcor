@@ -58,13 +58,11 @@ docker run_macosx_bottles:
   - docker start catalina-ci-container
   # give it time to boot up
   - sleep 120
-  - ssh catalina-ci "git clone https://github.com/aide-qc/homebrew-deploy"
   - ssh catalina-ci "PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin bash homebrew-deploy/scripts/catalina/build.sh $AIDEQC_ACCESS_TOKEN $JFROG_API_KEY"
   - docker stop catalina-ci-container
   # now run mojave
   - docker start mojave-ci-container
   - sleep 120
-  - ssh mojave-ci "git clone https://github.com/aide-qc/homebrew-deploy"
   - ssh mojave-ci "PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin bash homebrew-deploy/scripts/mojave/build.sh $AIDEQC_ACCESS_TOKEN $JFROG_API_KEY"
   - docker stop mojave-ci-container
   
