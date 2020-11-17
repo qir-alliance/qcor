@@ -22,6 +22,9 @@ PauliOperator operator-(PauliOperator &op, double coeff) {
   return -1.0 * coeff + op;
 }
 
+FermionOperator adag(int idx) {return FermionOperator(xacc::quantum::Operators{{idx, true}});};
+FermionOperator a(int idx) {return FermionOperator(xacc::quantum::Operators{{idx, false}});};
+
 PauliOperator X(int idx) { return PauliOperator({{idx, "X"}}); }
 
 PauliOperator Y(int idx) { return PauliOperator({{idx, "Y"}}); }

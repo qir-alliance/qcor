@@ -1,19 +1,28 @@
-#include "PauliOperator.hpp"
-#include "qrt.hpp"
-#include "xacc.hpp"
-#include "xacc_internal_compiler.hpp"
-#include "xacc_service.hpp"
 #include <Eigen/Dense>
 #include <Utils.hpp>
 
+#include "FermionOperator.hpp"
+#include "ObservableTransform.hpp"
+#include "PauliOperator.hpp"
 #include "cppmicroservices/BundleActivator.h"
 #include "cppmicroservices/BundleContext.h"
 #include "cppmicroservices/ServiceProperties.h"
+#include "qrt.hpp"
+#include "xacc.hpp"
+#include "xacc_internal_compiler.hpp"
+#include "xacc_observable.hpp"
+#include "xacc_service.hpp"
+
 using namespace cppmicroservices;
+using namespace xacc;
 
 namespace qcor {
-class NISQ : public quantum::QuantumRuntime {
-protected:
+template <typename T>
+bool ptr_is_a(std::shared_ptr<Observable> ptr) {
+  return std::dynamic_pointer_cast<T>(ptr) != nullptr;
+}
+class NISQ : public ::quantum::QuantumRuntime {
+ protected:
   std::shared_ptr<xacc::CompositeInstruction> program;
   std::shared_ptr<xacc::IRProvider> provider;
 
@@ -52,8 +61,7 @@ protected:
     // }
   }
 
-public:
-  
+ public:
   void initialize(const std::string kernel_name) override {
     provider = xacc::getIRProvider("quantum");
     program = provider->createComposite(kernel_name);
@@ -135,11 +143,33 @@ public:
   }
 
   void exp(qreg q, const double theta,
-           std::shared_ptr<xacc::Observable> H) override {
-
+           std::shared_ptr<xacc::Observable> Hptr_input) override {
     std::unordered_map<std::string, xacc::quantum::Term> terms;
 
-    terms = dynamic_cast<xacc::quantum::PauliOperator *>(H.get())->getTerms();
+    auto obs_str = Hptr_input->toString();
+    auto fermi_to_pauli = xacc::getService<xacc::ObservableTransform>("jw");
+    std::shared_ptr<xacc::Observable> Hptr;
+    if (ptr_is_a<xacc::quantum::FermionOperator>(Hptr_input)) {
+      Hptr = fermi_to_pauli->transform(Hptr_input);
+    } else if (obs_str.find("^") != std::string::npos) {
+      auto fermionObservable = xacc::quantum::getObservable("fermion", obs_str);
+      Hptr = fermi_to_pauli->transform(fermionObservable);
+    } else if (ptr_is_a<xacc::quantum::PauliOperator>(Hptr_input)) {
+      Hptr = Hptr_input;
+    } else if (obs_str.find("X") != std::string::npos ||
+               obs_str.find("Y") != std::string::npos ||
+               obs_str.find("Z") != std::string::npos) {
+      Hptr = xacc::quantum::getObservable("pauli", obs_str);
+    } else {
+      xacc::error(
+          "[qcor::exp()] Error, cannot cast incoming Observable ptr to "
+          "something we can process.");
+    }
+
+    // Convert the IR into a Hamiltonian
+    xacc::quantum::PauliOperator &H =
+        dynamic_cast<xacc::quantum::PauliOperator &>(*Hptr.get());
+    terms = H.getTerms();
 
     double pi = xacc::constants::pi;
     auto gateRegistry = xacc::getIRProvider("quantum");
@@ -147,7 +177,6 @@ public:
 
     auto q_name = q.name();
     for (auto inst : terms) {
-
       auto spinInst = inst.second;
 
       // Get the individual pauli terms
@@ -166,20 +195,20 @@ public:
       std::stringstream basis_front, basis_back;
 
       for (auto &term : terms) {
-
         auto qid = term.first;
         auto pop = term.second;
 
         qidxs.push_back(qid);
 
         if (pop == "X") {
-
           basis_front << "H(" << q_name << "[" << qid << "]);\n";
           basis_back << "H(" << q_name << "[" << qid << "]);\n";
 
         } else if (pop == "Y") {
-          basis_front << "Rx(" << q_name << "[" << qid << "], " << 1.57079362679 << ");\n";
-          basis_back << "Rx(" << q_name << "[" << qid << "], " << -1.57079362679 << ");\n";
+          basis_front << "Rx(" << q_name << "[" << qid << "], " << 1.57079362679
+                      << ");\n";
+          basis_back << "Rx(" << q_name << "[" << qid << "], " << -1.57079362679
+                     << ");\n";
         }
       }
 
@@ -199,14 +228,16 @@ public:
         Eigen::VectorXi pairs = cnot_pairs.col(i);
         auto c = pairs(0);
         auto t = pairs(1);
-        cnot_front << "CNOT(" << q_name << "[" << c << "], " << q_name << "[" << t << "]);\n";
+        cnot_front << "CNOT(" << q_name << "[" << c << "], " << q_name << "["
+                   << t << "]);\n";
       }
 
       for (int i = qidxs.size() - 2; i >= 0; i--) {
         Eigen::VectorXi pairs = cnot_pairs.col(i);
         auto c = pairs(0);
         auto t = pairs(1);
-        cnot_back << "CNOT(" << q_name << "[" << c << "], " << q_name << "[" << t << "]);\n";
+        cnot_back << "CNOT(" << q_name << "[" << c << "], " << q_name << "["
+                  << t << "]);\n";
       }
 
       xasm_src = xasm_src + "\n" + basis_front.str() + cnot_front.str();
@@ -232,7 +263,8 @@ public:
       name += std::to_string(name_counter);
     }
 
-    xasm_src = "__qpu__ void " + name + "(qbit " + q_name + ") {\n" + xasm_src + "}";
+    xasm_src =
+        "__qpu__ void " + name + "(qbit " + q_name + ") {\n" + xasm_src + "}";
 
     //   std::cout << "FROMQRT: " << theta << "\n" << xasm_src << "\n";
     auto xasm = xacc::getCompiler("xasm");
@@ -253,8 +285,8 @@ public:
     xacc::internal_compiler::execute(buffers, nBuffers, program);
   }
 
-  void
-  set_current_program(std::shared_ptr<xacc::CompositeInstruction> p) override {
+  void set_current_program(
+      std::shared_ptr<xacc::CompositeInstruction> p) override {
     program = p;
   }
   std::shared_ptr<xacc::CompositeInstruction> get_current_program() override {
@@ -273,22 +305,21 @@ public:
   const std::string name() const override { return "nisq"; }
   const std::string description() const override { return ""; }
 };
-} // namespace qcor
+}  // namespace qcor
 
 namespace {
 
 /**
  */
 class US_ABI_LOCAL NisqQRTActivator : public BundleActivator {
-
-public:
+ public:
   NisqQRTActivator() {}
 
   /**
    */
   void Start(BundleContext context) {
     auto xt = std::make_shared<qcor::NISQ>();
-    context.RegisterService<quantum::QuantumRuntime>(xt);
+    context.RegisterService<::quantum::QuantumRuntime>(xt);
   }
 
   /**
@@ -296,6 +327,6 @@ public:
   void Stop(BundleContext /*context*/) {}
 };
 
-} // namespace
+}  // namespace
 
 CPPMICROSERVICES_EXPORT_BUNDLE_ACTIVATOR(NisqQRTActivator)

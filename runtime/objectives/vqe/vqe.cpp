@@ -7,6 +7,7 @@ using namespace cppmicroservices;
 
 #include <memory>
 #include <set>
+#include <iomanip> 
 
 #include "AlgorithmGradientStrategy.hpp"
 #include "xacc.hpp"
@@ -67,7 +68,7 @@ public:
       std_dev = std::sqrt(sq_sum / all_energies.size() - val * val);
     }
 
-    std::cout << "<H>(" << this->current_iterate_parameters << ") = " << val;
+    std::cout << "<H>(" << this->current_iterate_parameters << ") = " << std::setprecision(12) << val;
     if (std::fabs(std_dev) > 1e-12) {
       std::cout << " +- " << std_dev << "\n";
     } else {

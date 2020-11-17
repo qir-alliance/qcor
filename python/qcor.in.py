@@ -32,6 +32,11 @@ def Y(idx):
 def Z(idx):
     return xacc.quantum.PauliOperator({idx: 'Z'}, 1.0)
 
+def adag(idx):
+    return xacc.quantum.FermionOperator([(idx,True)], 1.0)
+
+def a(idx):
+    return xacc.quantum.FermionOperator([(idx,False)], 1.0)
 
 cpp_matrix_gen_code = '''#include <pybind11/embed.h>
 #include <pybind11/stl.h>

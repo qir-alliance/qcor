@@ -4,12 +4,14 @@
 
 #include "Observable.hpp"
 #include "PauliOperator.hpp"
+#include "FermionOperator.hpp"
 
 namespace qcor {
 
 // Remap xacc types to qcor ones
 using Observable = xacc::Observable;
 using PauliOperator = xacc::quantum::PauliOperator;
+using FermionOperator = xacc::quantum::FermionOperator;
 
 // Convenience functions for constructing Pauli operators
 PauliOperator X(int idx);
@@ -18,6 +20,9 @@ PauliOperator Z(int idx);
 PauliOperator SP(int idx);
 PauliOperator SM(int idx);
 PauliOperator allZs(const int nQubits);
+
+FermionOperator adag(int idx);
+FermionOperator a(int idx);
 
 // Expose extra algebra needed for pauli operators
 PauliOperator operator+(double coeff, PauliOperator &op);
