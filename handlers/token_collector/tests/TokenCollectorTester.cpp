@@ -156,7 +156,7 @@ TEST(TokenCollectorTester, checkPyXasm) {
   std::cout << results << "\n";
   EXPECT_EQ(R"#(quantum::h(qb[0]);
 quantum::cnot(qb[0], qb[1]);
-for (auto &i : range(qb.size())) {
+for (auto i : range(qb.size())) {
 quantum::x(qb[i]);
 quantum::x(qb[i]);
 quantum::mz(qb[i]);
