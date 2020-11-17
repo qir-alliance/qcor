@@ -251,7 +251,19 @@ class TestKernelJIT(unittest.TestCase):
         q = qalloc(5)
         comp = testFor.extract_composite(q)
         self.assertEqual(comp.nInstructions(), 5)   
-    
+
+    def test_for_loop_enumerate(self):
+        @qjit
+        def ansatz(q: qreg, x: List[float], exp_args: List[FermionOperator]):
+            X(q[0])
+            for i, exp_arg in enumerate(exp_args):
+                exp_i_theta(q, x[i], exp_args[i])
+
+        exp_args = [adag(0) * a(1) - adag(1)*a(0), adag(0)*a(2) - adag(2)*a(0)]
+        H = createOperator('5.907 - 2.1433 X0X1 - 2.1433 Y0Y1 + .21829 Z0 - 6.125 Z1 + 9.625 - 9.625 Z2 - 3.91 X1 X2 - 3.91 Y1 Y2')
+        energy = ansatz.observe(H, qalloc(3), [0.7118083109334505, 0.27387413138588135], exp_args)
+        self.assertAlmostEqual(energy, -2.044, places=1)
+
     def test_multiple_kernels(self):
         @qjit
         def apply_H(q : qreg):

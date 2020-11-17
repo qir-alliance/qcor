@@ -69,15 +69,14 @@ void PyXasmTokenCollector::collect(clang::Preprocessor &PP,
     line += PP.getSpelling(Toks[i]);
     if (Toks[i].is(clang::tok::TokenKind::kw_for)) {
       // Right now we only assume 'for var in range'
-      line += " ";
-      // add var space
-      i += 1;
-      line += PP.getSpelling(Toks[i]);
-      line += " ";
-      // add 'in space'
-      i += 1;
-      line += PP.getSpelling(Toks[i]);
-      line += " ";
+      // or 'for i , var in enumerate( list_var ):
+      // Slurp all elements of the for loop stmt, separate with spaces
+      std::string for_stmt = " "; i++;
+      while(Toks[i].isNot(clang::tok::TokenKind::colon)) {
+        for_stmt += PP.getSpelling(Toks[i]) + " ";
+        i++;
+      }
+      line += for_stmt;
     }
 
     // If statement:

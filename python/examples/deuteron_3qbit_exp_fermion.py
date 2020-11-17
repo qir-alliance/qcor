@@ -7,7 +7,7 @@ from qcor import *
 @qjit
 def ansatz(q: qreg, x: List[float], exp_args: List[FermionOperator]):
     X(q[0])
-    for i in range(len(exp_args)):
+    for i, exp_arg in enumerate(exp_args):
         exp_i_theta(q, x[i], exp_args[i])
 
 exp_args = [adag(0) * a(1) - adag(1)*a(0), adag(0)*a(2) - adag(2)*a(0)]
@@ -28,11 +28,10 @@ H = createOperator(
 
 # Create the ObjectiveFunction, specify central finite diff gradient
 obj = createObjectiveFunction(
-    ansatz, H, 2)
-    #, {'gradient-strategy': 'central', 'step': 1e-1})
+    ansatz, H, 2, {'gradient-strategy': 'central', 'step': 1e-2})
 
 # create the lbfgs optimizer
-optimizer = createOptimizer('nlopt')#, {'algorithm': 'l-bfgs', 'ftol': 1e-3})
+optimizer = createOptimizer('nlopt', {'algorithm': 'l-bfgs', 'ftol': 1e-3})
 
 # Run VQE...
 results = optimizer.optimize(obj)

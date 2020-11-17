@@ -3,9 +3,9 @@
 
 #include "IRProvider.hpp"
 #include "pyxasmBaseVisitor.h"
+#include "qcor_utils.hpp"
 #include "qrt.hpp"
 #include "xacc.hpp"
-#include "qcor_utils.hpp"
 
 using namespace pyxasm;
 
@@ -216,14 +216,25 @@ class pyxasm_visitor : public pyxasmBaseVisitor {
   }
 
   antlrcpp::Any visitFor_stmt(pyxasmParser::For_stmtContext *context) override {
-    auto counter_expr = context->exprlist()->expr()[0];
-    auto iter_container = context->testlist()->test()[0]->getText();
     // Rewrite:
     // Python: "for <var> in <expr>:"
-    // C++: for (auto& var: <expr>) {}
+    // C++: for (auto var: <expr>) {}
     // Note: we add range(int) as a C++ function to support this common pattern.
+    // or
+    // Python: "for <idx>,<var> in enumerate(<listvar>):"
+    // C++: for (auto [idx, var] : enumerate(listvar))
+    auto iter_container = context->testlist()->test()[0]->getText();
+    std::string counter_expr = context->exprlist()->expr()[0]->getText();
+    if (context->exprlist()->expr().size() > 1) {
+      counter_expr = "[" + counter_expr;
+      for (int i = 1; i < context->exprlist()->expr().size(); i++) {
+        counter_expr += ", " + context->exprlist()->expr()[i]->getText();
+      }
+      counter_expr += "]";
+    }
+
     std::stringstream ss;
-    ss << "for (auto &" << counter_expr->getText() << " : " << iter_container
+    ss << "for (auto " << counter_expr << " : " << iter_container
        << ") {\n";
     result.first = ss.str();
     in_for_loop = true;
@@ -232,7 +243,6 @@ class pyxasm_visitor : public pyxasmBaseVisitor {
 
   antlrcpp::Any visitExpr_stmt(pyxasmParser::Expr_stmtContext *ctx) override {
     if (ctx->ASSIGN().size() == 1 && ctx->testlist_star_expr().size() == 2) {
-
       // Handle simple assignment: a = expr
       std::stringstream ss;
       const std::string lhs = ctx->testlist_star_expr(0)->getText();

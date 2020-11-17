@@ -56,7 +56,8 @@ using AllowedKernelArgTypes =
     xacc::Variant<bool, int, double, std::string, xacc::internal_compiler::qreg,
                   std::vector<double>, std::vector<int>, qcor::PauliOperator,
                   qcor::FermionOperator, qcor::PairList<int>,
-                  std::vector<qcor::PauliOperator>, std::vector<qcor::FermionOperator>>;
+                  std::vector<qcor::PauliOperator>,
+                  std::vector<qcor::FermionOperator>>;
 
 // We will take as input a mapping of arg variable names to the argument itself.
 using KernelArgDict = std::map<std::string, AllowedKernelArgTypes>;
@@ -96,7 +97,8 @@ xacc::HeterogeneousMap heterogeneousMapConvert(
   return result;
 }
 
-std::shared_ptr<qcor::Observable> convertToPauliOperator(py::object op) {
+std::shared_ptr<qcor::Observable> convertToQCOROperator(
+    py::object op, bool keep_fermion = false) {
   if (py::hasattr(op, "terms")) {
     // this is from openfermion
     if (py::hasattr(op, "is_two_body_number_conserving")) {
@@ -134,9 +136,16 @@ std::shared_ptr<qcor::Observable> convertToPauliOperator(py::object op) {
         }
       }
       auto obs_tmp = qcor::createOperator("fermion", ss.str());
-      return qcor::operatorTransform("jw", obs_tmp);
+      if (keep_fermion) {
+        return obs_tmp;
+      } else {
+        return qcor::operatorTransform("jw", obs_tmp);
+      }
 
     } else {
+      if (keep_fermion) {
+        xacc::error("Error - you asked for a qcor::FermionOperator, but this is an OpenFermion QubitOperator.");
+      }
       // this is a qubit  operator
       auto terms = op.attr("terms");
       // terms is a list of tuples
@@ -528,7 +537,7 @@ PYBIND11_MODULE(_pyqcor, m) {
   m.def(
       "createObjectiveFunction",
       [](py::object kernel, py::object &py_obs, const int n_params) {
-        auto obs = convertToPauliOperator(py_obs);
+        auto obs = convertToQCOROperator(py_obs);
         auto q = ::qalloc(obs->nBits());
         std::shared_ptr<qcor::ObjectiveFunction> obj =
             std::make_shared<qcor::PyObjectiveFunction>(kernel, obs, n_params,
@@ -553,7 +562,7 @@ PYBIND11_MODULE(_pyqcor, m) {
       [](py::object kernel, py::object &py_obs, const int n_params,
          PyHeterogeneousMap &options) {
         auto nativeHetMap = heterogeneousMapConvert(options);
-        auto obs = convertToPauliOperator(py_obs);
+        auto obs = convertToQCOROperator(py_obs);
         auto q = ::qalloc(obs->nBits());
         std::shared_ptr<qcor::ObjectiveFunction> obj =
             std::make_shared<qcor::PyObjectiveFunction>(kernel, obs, n_params,
@@ -578,6 +587,9 @@ PYBIND11_MODULE(_pyqcor, m) {
         return qcor::createOperator(type, nativeHetMap);
       },
       "");
+  m.def("createOperator", [](const std::string &type, py::object pyobject) {
+    return convertToQCOROperator(pyobject, type == "fermion");
+  });
   m.def(
       "createObservable",
       [](const std::string &repr) { return qcor::createOperator(repr); }, "");
@@ -612,7 +624,7 @@ PYBIND11_MODULE(_pyqcor, m) {
   m.def(
       "internal_observe",
       [](std::shared_ptr<CompositeInstruction> kernel, py::object obs) {
-        auto observable = convertToPauliOperator(obs);
+        auto observable = convertToQCOROperator(obs);
         auto q = ::qalloc(observable->nBits());
         return qcor::observe(kernel, observable, q);
       },

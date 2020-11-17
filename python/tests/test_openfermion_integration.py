@@ -39,6 +39,18 @@ try:
             optimizer = createOptimizer('nlopt', {'nlopt-optimizer':'l-bfgs'})
             results = optimizer.optimize(obj)
             self.assertAlmostEqual(results[0], -1.74, places=1) 
+        
+        def test_convert_to_qcor(self):
+            H = FOp('', 0.0002899) + FOp('0^ 0', -.43658) + \
+                FOp('1 0^', 4.2866) + FOp('1^ 0', -4.2866) + FOp('1^ 1', 12.25) 
+            
+            ours = createOperator('fermion', H)
+            print(ours.toString())
+            
+            H = QOp('', 5.907) + QOp('Y0 Y1', -2.1433) + \
+                QOp('X0 X1', -2.1433) + QOp('Z0', .21829) + QOp('Z1', -6.125) 
+            ours = createOperator('pauli', H)
+            print(ours.toString())
 except:
     pass
 
