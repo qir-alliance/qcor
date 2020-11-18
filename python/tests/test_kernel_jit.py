@@ -253,6 +253,7 @@ class TestKernelJIT(unittest.TestCase):
         self.assertEqual(comp.nInstructions(), 5)   
 
     def test_for_loop_enumerate(self):
+        set_qpu('qpp')
         @qjit
         def ansatz(q: qreg, x: List[float], exp_args: List[FermionOperator]):
             X(q[0])

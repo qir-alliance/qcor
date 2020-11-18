@@ -1,5 +1,4 @@
 
-
 configure_file(qcor_jit.in.cpp
                ${CMAKE_BINARY_DIR}/runtime/jit/qcor_jit.cpp)
 

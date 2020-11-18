@@ -30,6 +30,8 @@ class QJIT {
     return (status == 0) ? res.get() : std::string(name);
   };
 
+  std::string qjit_cache_path = "";
+
  protected:
   std::map<std::string, std::uint64_t> kernel_name_to_f_ptr;
   std::map<std::string, std::uint64_t> kernel_name_to_f_ptr_hetmap;

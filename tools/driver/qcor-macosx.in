@@ -58,13 +58,13 @@ def main(argv=None):
         exit(0)
 
     if '-clear-jit-cache' in sys.argv[1:]:
-        files = glob.glob('@CMAKE_INSTALL_PREFIX@/tmp/*.bc')
+        files = glob.glob(os.getenv('HOME') + '/.qjit/*.bc')
         for f in files:
             print("removing ", f)
             os.remove(f)
-        if os.path.exists('@CMAKE_INSTALL_PREFIX@/tmp/qjit_cache.json'):
-            os.remove('@CMAKE_INSTALL_PREFIX@/tmp/qjit_cache.json')
-            print('removing @CMAKE_INSTALL_PREFIX@/tmp/qjit_cache.json')
+        if os.path.exists(os.getenv('HOME') + '/.qjit/qjit_cache.json'):
+            os.remove(os.getenv('HOME') + '/.qjit/qjit_cache.json')
+            print('removing {}/.qjit/qjit_cache.json'.format(os.getenv('HOME')))
         exit(0)
 
     if '--verbose' in sys.argv[1:]:
