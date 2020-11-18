@@ -179,15 +179,11 @@ void XasmTokenCollector::collect(clang::Preprocessor &PP,
     CommonTokenStream tokens(&lexer);
     xasm_singleParser parser(&tokens);
 
-    std::cout << "LINE IS: " << line << "\n";
     lexer.removeErrorListeners();
     parser.removeErrorListeners();
 
     tree::ParseTree *tree = parser.line();
-    if (tree == nullptr) {
-      std::cout << "THIS WAS NULL\n";
-    }
-
+  
     visitor.visitChildren(tree);
 
     if (visitor.result.second) {
