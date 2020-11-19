@@ -48,7 +48,19 @@ def main(argv=None):
         parser.add_argument('-xacc-install', nargs=1, help='returns the install directory for xacc.')
         parser.add_argument('-qcor-install', nargs=1, help='returns the install directory for qcor.')
         parser.add_argument('-clear-jit-cache', help='delete existing QJIT cache.')
+        parser.add_argument('-xacc-version', nargs=1, help='returns the current build version for underlying xacc install.')
+        parser.add_argument('-version', nargs=1, help='returns the current qcor build version.')
         args = parser.parse_args(sys.argv)
+
+    if '-version' in sys.argv[1:]:
+        version = open('@CMAKE_INSTALL_PREFIX@/include/qcor/version', 'r').read().rstrip()
+        print('qcor build version = {}'.format(version))
+        exit(0)
+
+    if '-xacc-version' in sys.argv[1:]:
+        version = open('@XACC_ROOT@/include/xacc/version', 'r').read().rstrip()
+        print('xacc build version = {}'.format(version))
+        exit(0)
     
     if '-xacc-install' in sys.argv[1:]:
         print('@XACC_ROOT@')

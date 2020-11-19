@@ -1,3 +1,8 @@
+
+configure_file("${CMAKE_SOURCE_DIR}/runtime/version.in"
+               "${CMAKE_BINARY_DIR}/runtime/version")
+install(FILES "${CMAKE_BINARY_DIR}/runtime/version" DESTINATION include/qcor)
+
 set(LIBRARY_NAME qcor)
 
 file(GLOB SRC observable/qcor_observable.cpp 

@@ -19,6 +19,14 @@ project(qcor LANGUAGES CXX)
 
 option(QCOR_BUILD_TESTS "Build qcor tests" OFF)
 
+find_package(Git QUIET)
+if(GIT_FOUND AND EXISTS "${CMAKE_SOURCE_DIR}/.git")
+    execute_process(COMMAND ${GIT_EXECUTABLE} rev-parse --short HEAD WORKING_DIRECTORY "${local_dir}"
+                            OUTPUT_VARIABLE QCOR_BUILD_VERSION ERROR_QUIET
+                            OUTPUT_STRIP_TRAILING_WHITESPACE)
+  message( STATUS "QCOR GIT hash: ${QCOR_BUILD_VERSION}")
+endif()
+
 find_package(Clang 10.0.0 REQUIRED)
 find_package(XACC REQUIRED)
 
