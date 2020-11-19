@@ -20,7 +20,7 @@ Install
 -------
 To install `qcor` run the following command from your terminal 
 ```bash
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/aide-qc/deploy/master/aide_qc/install.sh)"
+/bin/bash -c "$(curl -fsSL https://aide-qc.github.io/deploy/install.sh)"
 ```
 For more details, see [here](https://aide-qc.github.io/deploy/getting_started/).
 

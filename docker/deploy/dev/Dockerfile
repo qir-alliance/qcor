@@ -1,6 +1,6 @@
 from qcor/deploy-base
 workdir /home/dev
-run cd /home/dev && apt-get update && apt-get install -y uuid-dev pkg-config \
+run cd /home/dev && apt-get update && apt-get install -y uuid-dev pkg-config ca-certificates \
     && git clone https://github.com/zeromq/libzmq \
     && cd libzmq/ && mkdir build && cd build \
     && cmake .. -DCMAKE_INSTALL_PREFIX=~/.zmq \
