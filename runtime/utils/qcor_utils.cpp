@@ -99,6 +99,7 @@ std::shared_ptr<qcor::CompositeInstruction> decompose_unitary(
 }
 
 }  // namespace __internal__
+
 using namespace xacc::quantum;
 
 MatrixXcd X_Mat{MatrixXcd::Zero(2, 2)};

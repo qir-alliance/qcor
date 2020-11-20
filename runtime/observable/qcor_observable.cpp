@@ -48,6 +48,27 @@ PauliOperator SM(int idx) {
   std::complex<double> imag(0.0, 1.0);
   return X(idx) - imag * Y(idx);
 }
+
+Eigen::MatrixXcd get_dense_matrix(PauliOperator &op) {
+  auto mat_el = op.to_sparse_matrix();
+  auto size = std::pow(2, op.nBits());
+  Eigen::MatrixXcd mat = Eigen::MatrixXcd::Zero(size, size);
+  for (auto el : mat_el) {
+    mat(el.row(), el.col()) = el.coeff();
+  }
+  return mat;
+}
+
+Eigen::MatrixXcd get_dense_matrix(std::shared_ptr<Observable> op) {
+  auto mat_el = op->to_sparse_matrix();
+  auto size = std::pow(2, op->nBits());
+  Eigen::MatrixXcd mat = Eigen::MatrixXcd::Zero(size, size);
+  for (auto el : mat_el) {
+    mat(el.row(), el.col()) = el.coeff();
+  }
+  return mat;
+}
+
 std::shared_ptr<xacc::Observable> createObservable(const std::string &repr) {
   if (!xacc::isInitialized())
     xacc::internal_compiler::compiler_InitializeXACC();

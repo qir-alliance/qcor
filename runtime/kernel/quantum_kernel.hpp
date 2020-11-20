@@ -30,8 +30,9 @@ enum class QrtType { NISQ, FTQC };
 // with an appropriate implementation of constructors and destructors.
 // Users can then call for adjoint/ctrl methods like this
 // foo::adjoint(q); foo::ctrl(1, q);
-template <typename Derived, typename... Args> class QuantumKernel {
-protected:
+template <typename Derived, typename... Args>
+class QuantumKernel {
+ protected:
   // Tuple holder for variadic kernel arguments
   std::tuple<Args...> args_tuple;
 
@@ -47,7 +48,7 @@ protected:
   // qcor developers, not to be used by clients / programmers
   bool disable_destructor = false;
 
-public:
+ public:
   // Flag to indicate we only want to
   // run the pass manager and not execute
   bool optimize_only = false;
@@ -63,7 +64,8 @@ public:
   QuantumKernel(std::shared_ptr<qcor::CompositeInstruction> _parent_kernel,
                 Args... args)
       : args_tuple(std::forward_as_tuple(args...)),
-        parent_kernel(_parent_kernel), is_callable(false) {
+        parent_kernel(_parent_kernel),
+        is_callable(false) {
     runtime_env = (__qrt_env == "ftqc") ? QrtType::FTQC : QrtType::NISQ;
   }
 
@@ -87,7 +89,6 @@ public:
   // Create the Adjoint of this quantum kernel
   static void adjoint(std::shared_ptr<CompositeInstruction> parent_kernel,
                       Args... args) {
-
     // instantiate and don't let it call the destructor
     Derived derived(args...);
     derived.disable_destructor = true;
@@ -170,7 +171,6 @@ public:
   // Create the controlled version of this quantum kernel
   static void ctrl(std::shared_ptr<CompositeInstruction> parent_kernel,
                    qubit ctrl_qbit, Args... args) {
-
     int ctrl_bit = (int)ctrl_qbit.second;
 
     // instantiate and don't let it call the destructor
@@ -197,7 +197,23 @@ public:
     // Need to reset and point current program to the parent
     quantum::set_current_program(parent_kernel);
   }
+
+  static Eigen::MatrixXcd as_unitary_matrix(Args... args) {
+    Derived derived(args...);
+    derived.disable_destructor = true;
+    derived(args...);
+    qcor::KernelToUnitaryVisitor visitor(derived.parent_kernel->nLogicalBits());
+    xacc::InstructionIterator iter(derived.parent_kernel);
+    while (iter.hasNext()) {
+      auto inst = iter.next();
+      if (!inst->isComposite() && inst->isEnabled()) {
+        inst->accept(&visitor);
+      }
+    }
+    return visitor.getMat();
+  }
+
   virtual ~QuantumKernel() {}
 };
 
-} // namespace qcor
+}  // namespace qcor

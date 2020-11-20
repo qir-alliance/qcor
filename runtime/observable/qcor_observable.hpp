@@ -30,6 +30,10 @@ PauliOperator operator+(PauliOperator &op, double coeff);
 PauliOperator operator-(double coeff, PauliOperator &op);
 PauliOperator operator-(PauliOperator &op, double coeff);
 
+
+Eigen::MatrixXcd get_dense_matrix(PauliOperator &op);
+Eigen::MatrixXcd get_dense_matrix(std::shared_ptr<Observable> op);
+
 // Public observe function, returns expected value of Observable
 template <typename... Args>
 auto observe(void (*quantum_kernel_functor)(

@@ -1,13 +1,5 @@
 #pragma once
 
-#include "CompositeInstruction.hpp"
-#include "IRProvider.hpp"
-#include "IRTransformation.hpp"
-#include "Optimizer.hpp"
-#include "qalloc.hpp"
-#include "xacc_internal_compiler.hpp"
-#include "AllGateVisitor.hpp"
-
 #include <Eigen/Dense>
 #include <functional>
 #include <future>
@@ -16,10 +8,18 @@
 #include <tuple>
 #include <vector>
 
+#include "AllGateVisitor.hpp"
+#include "CompositeInstruction.hpp"
+#include "IRProvider.hpp"
+#include "IRTransformation.hpp"
+#include "Optimizer.hpp"
+#include "qalloc.hpp"
+#include "xacc_internal_compiler.hpp"
+
 namespace qcor {
 
 namespace constants {
-    static constexpr double pi = 3.141592653589793238;
+static constexpr double pi = 3.141592653589793238;
 }
 
 // Typedefs mapping xacc types to qcor types
@@ -29,16 +29,18 @@ using IRTransformation = xacc::IRTransformation;
 using IRProvider = xacc::IRProvider;
 using qreg = xacc::internal_compiler::qreg;
 using UnitaryMatrix = Eigen::MatrixXcd;
+using DenseMatrix = Eigen::MatrixXcd;
+using DenseVector = Eigen::VectorXcd;
 
-template<typename T>
-using PairList = std::vector<std::pair<T,T>>;
+template <typename T>
+using PairList = std::vector<std::pair<T, T>>;
 
 // The ResultsBuffer is returned upon completion of
 // the taskInitiate async call, it contains the buffer,
 // the optimal value for the objective function, and the
 // optimal parameters
 class ResultsBuffer {
-public:
+ public:
   xacc::internal_compiler::qreg q_buffer;
   double opt_val;
   std::vector<double> opt_params;
@@ -55,13 +57,13 @@ ResultsBuffer sync(Handle &handle);
 // This should abort execution
 void error(const std::string &msg);
 
-template <typename T> std::vector<T> linspace(T a, T b, size_t N) {
+template <typename T>
+std::vector<T> linspace(T a, T b, size_t N) {
   T h = (b - a) / static_cast<T>(N - 1);
   std::vector<T> xs(N);
   typename std::vector<T>::iterator x;
   T val;
-  for (x = xs.begin(), val = a; x != xs.end(); ++x, val += h)
-    *x = val;
+  for (x = xs.begin(), val = a; x != xs.end(); ++x, val += h) *x = val;
   return xs;
 }
 
@@ -80,23 +82,29 @@ inline std::vector<int> range(int start, int stop, int step) {
   std::vector<int> vec;
   while ((step > 0) ? (i < stop) : (i > stop)) {
     vec.push_back(i);
-    i+=step;
+    i += step;
   }
   return vec;
 }
-
 
 inline std::vector<int> range(int start, int stop) {
   return range(start, stop, 1);
 }
 
 // Get size() of any types that have size() implemented.
-template <typename T> int len(const T &countable) { return countable.size(); }
-template <typename T> int len(T &countable) { return countable.size(); }
+template <typename T>
+int len(const T &countable) {
+  return countable.size();
+}
+template <typename T>
+int len(T &countable) {
+  return countable.size();
+}
 
 // Python-like print instructions:
 inline void print() { std::cout << "\n"; }
-template <typename T, typename... TAIL> void print(const T &t, TAIL... tail) {
+template <typename T, typename... TAIL>
+void print(const T &t, TAIL... tail) {
   std::cout << t << " ";
   print(tail...);
 }
@@ -116,11 +124,12 @@ using TranslationFunctor =
 // the arguments for the quantum kernel in question
 //
 // FIXME provide example here
-template <typename... Args> class ArgsTranslator {
-protected:
+template <typename... Args>
+class ArgsTranslator {
+ protected:
   TranslationFunctor<Args...> functor;
 
-public:
+ public:
   ArgsTranslator(TranslationFunctor<Args...> ts) : functor(ts) {}
 
   std::tuple<Args...> operator()(const std::vector<double> &x) {
@@ -129,8 +138,8 @@ public:
 };
 
 template <typename... Args>
-std::shared_ptr<ArgsTranslator<Args...>>
-createArgsTranslator(TranslationFunctor<Args...> functor) {
+std::shared_ptr<ArgsTranslator<Args...>> createArgsTranslator(
+    TranslationFunctor<Args...> functor) {
   return std::make_shared<ArgsTranslator<Args...>>(functor);
 }
 
@@ -151,24 +160,23 @@ std::shared_ptr<qcor::CompositeInstruction> create_composite(std::string name);
 std::shared_ptr<qcor::CompositeInstruction> create_ctrl_u();
 
 // Return the IR Transformation
-std::shared_ptr<qcor::IRTransformation>
-get_transformation(const std::string &transform_type);
+std::shared_ptr<qcor::IRTransformation> get_transformation(
+    const std::string &transform_type);
 
 // return the IR Provider
 std::shared_ptr<qcor::IRProvider> get_provider();
 
 // Decompose the given unitary matrix with the specified decomposition
 // algorithm.
-std::shared_ptr<qcor::CompositeInstruction>
-decompose_unitary(const std::string algorithm, UnitaryMatrix &mat,
-                  const std::string buffer_name);
+std::shared_ptr<qcor::CompositeInstruction> decompose_unitary(
+    const std::string algorithm, UnitaryMatrix &mat,
+    const std::string buffer_name);
 
 // Decompose the given unitary matrix with the specified decomposition algorithm
 // and optimizer
-std::shared_ptr<qcor::CompositeInstruction>
-decompose_unitary(const std::string algorithm, UnitaryMatrix &mat,
-                  const std::string buffer_name,
-                  std::shared_ptr<xacc::Optimizer> optimizer);
+std::shared_ptr<qcor::CompositeInstruction> decompose_unitary(
+    const std::string algorithm, UnitaryMatrix &mat,
+    const std::string buffer_name, std::shared_ptr<xacc::Optimizer> optimizer);
 
 // Utility for calling a Functor via mapping a tuple of Args to
 // a sequence of Args...
@@ -209,7 +217,7 @@ auto evaluate_function_with_tuple_args(Function f, Tuple t) {
 // into a single std::vector<double> (these correspond to circuit
 // rotation parameters)
 class ConvertDoubleLikeToVectorDouble {
-public:
+ public:
   std::vector<double> &vec;
   ConvertDoubleLikeToVectorDouble(std::vector<double> &v) : vec(v) {}
   void operator()(std::vector<double> tuple_element_vec) {
@@ -220,7 +228,8 @@ public:
   void operator()(double tuple_element_double) {
     vec.push_back(tuple_element_double);
   }
-  template <typename T> void operator()(T &) {}
+  template <typename T>
+  void operator()(T &) {}
 };
 
 // Utility function for looping over tuple elements
@@ -248,7 +257,7 @@ void tuple_for_each(TupleType &&t, FunctionType f) {
   __internal__::tuple_for_each(std::forward<TupleType>(t), f,
                                std::integral_constant<size_t, 0>());
 }
-} // namespace __internal__
+}  // namespace __internal__
 
 // Create and return a random vector<ScalarType> of the given size
 // where all elements are within the given range
@@ -257,7 +266,7 @@ auto random_vector(const ScalarType l_range, const ScalarType r_range,
                    const std::size_t size) {
   // Generate a random initial parameter set
   std::random_device rnd_device;
-  std::mt19937 mersenne_engine{rnd_device()}; // Generates random integers
+  std::mt19937 mersenne_engine{rnd_device()};  // Generates random integers
   std::uniform_real_distribution<ScalarType> dist{l_range, r_range};
   auto gen = [&dist, &mersenne_engine]() { return dist(mersenne_engine); };
   std::vector<ScalarType> vec(size);
@@ -313,22 +322,21 @@ void set_shots(const int shots);
 
 using namespace Eigen;
 
-// The following visitor is adapted from xacc AutodiffVisitor. 
+// The following visitor is adapted from xacc AutodiffVisitor.
 
 constexpr std::complex<double> I{0.0, 1.0};
-// Note: cannot use std::complex_literal 
+// Note: cannot use std::complex_literal
 // because https://gcc.gnu.org/onlinedocs/gcc/Complex.html#Complex
 inline constexpr std::complex<double> operator"" _i(long double x) noexcept {
   return {0., static_cast<double>(x)};
 }
 
-MatrixXcd kroneckerProduct(MatrixXcd &lhs, MatrixXcd &rhs); 
+MatrixXcd kroneckerProduct(MatrixXcd &lhs, MatrixXcd &rhs);
 enum class Rot { X, Y, Z };
 
 class KernelToUnitaryVisitor : public xacc::quantum::AllGateVisitor {
-public:
-  KernelToUnitaryVisitor(
-      size_t in_nbQubits);
+ public:
+  KernelToUnitaryVisitor(size_t in_nbQubits);
 
   void visit(xacc::quantum::Hadamard &h) override;
   void visit(xacc::quantum::CNOT &cnot) override;
@@ -356,18 +364,17 @@ public:
   const std::string name() const override { return "kernel-to-unitary"; }
   const std::string description() const override { return ""; }
   MatrixXcd getMat() const;
-  MatrixXcd singleQubitGateExpand(MatrixXcd &in_gateMat,
-                                     size_t in_loc) const;
+  MatrixXcd singleQubitGateExpand(MatrixXcd &in_gateMat, size_t in_loc) const;
 
-  MatrixXcd singleParametricQubitGateExpand(double in_var,
-                                               Rot in_rotType,
-                                               size_t in_bitLoc) const;
+  MatrixXcd singleParametricQubitGateExpand(double in_var, Rot in_rotType,
+                                            size_t in_bitLoc) const;
 
   MatrixXcd twoQubitGateExpand(MatrixXcd &in_gateMat, size_t in_bit1,
-                                  size_t in_bit2) const;
-private:
+                               size_t in_bit2) const;
+
+ private:
   MatrixXcd m_circuitMat;
   size_t m_nbQubit;
 };
 
-} // namespace qcor
+}  // namespace qcor
