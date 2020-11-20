@@ -144,7 +144,9 @@ std::shared_ptr<qcor::Observable> convertToQCOROperator(
 
     } else {
       if (keep_fermion) {
-        xacc::error("Error - you asked for a qcor::FermionOperator, but this is an OpenFermion QubitOperator.");
+        xacc::error(
+            "Error - you asked for a qcor::FermionOperator, but this is an "
+            "OpenFermion QubitOperator.");
       }
       // this is a qubit  operator
       auto terms = op.attr("terms");
@@ -496,6 +498,7 @@ PYBIND11_MODULE(_pyqcor, m) {
             qjit.invoke_with_hetmap(name, m);
           },
           "")
+          
       .def("extract_composite",
            [](qcor::QJIT &qjit, const std::string name, KernelArgDict args) {
              xacc::HeterogeneousMap m;
@@ -504,6 +507,25 @@ PYBIND11_MODULE(_pyqcor, m) {
                mpark::visit(vis, item.second);
              }
              return qjit.extract_composite_with_hetmap(name, m);
+           })
+      .def("internal_as_unitary",
+           [](qcor::QJIT &qjit, const std::string name, KernelArgDict args) {
+             xacc::HeterogeneousMap m;
+             for (auto &item : args) {
+               KernelArgDictToHeterogeneousMap vis(m, item.first);
+               mpark::visit(vis, item.second);
+             }
+             auto composite = qjit.extract_composite_with_hetmap(name, m);
+             auto n_qubits = composite->nLogicalBits();
+             qcor::KernelToUnitaryVisitor visitor(n_qubits);
+             InstructionIterator iter(composite);
+             while (iter.hasNext()) {
+               auto inst = iter.next();
+               if (!inst->isComposite() && inst->isEnabled()) {
+                 inst->accept(&visitor);
+               }
+             }
+             return visitor.getMat();
            });
 
   py::class_<qcor::ObjectiveFunction, std::shared_ptr<qcor::ObjectiveFunction>>(

@@ -509,7 +509,13 @@ class qjit(object):
         Return the number of quantum instructions in this kernel. 
         """
         return self.extract_composite(*args).nInstructions()
-
+    
+    def as_unitary_matrix(self, *args):
+        args_dict = {}
+        for i, arg_name in enumerate(self.arg_names):
+            args_dict[arg_name] = list(args)[i]
+        return self._qjit.internal_as_unitary(self.function.__name__, args_dict)
+    
     def ctrl(self, *args):
         print('This is an internal API call and will be translated to C++ via the QJIT.\nIt can only be called from within another quantum kernel.')
         exit(1)
