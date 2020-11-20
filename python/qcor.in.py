@@ -398,7 +398,6 @@ class qjit(object):
         self.sorted_kernel_dep = self.__kernels__graph.getSortedDependency(
             self.function.__name__)
 
-        print('EXTRA HEADERS: ', extra_headers)
         # Run the QJIT compile step to store function pointers internally
         self._qjit.internal_python_jit_compile(
             self.src, self.sorted_kernel_dep, self.extra_cpp_code, extra_headers)
