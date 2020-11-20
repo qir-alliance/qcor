@@ -475,10 +475,10 @@ PYBIND11_MODULE(_pyqcor, m) {
           "internal_python_jit_compile",
           [](qcor::QJIT &qjit, const std::string src,
              const std::vector<std::string> &dependency = {},
-             const std::string &extra_cpp_code = "") {
+             const std::string &extra_cpp_code = "", std::vector<std::string> extra_headers = {}) {
             bool turn_on_hetmap_kernel_ctor = true;
             qjit.jit_compile(src, turn_on_hetmap_kernel_ctor, dependency,
-                             extra_cpp_code);
+                             extra_cpp_code, extra_headers);
           },
           "")
       .def(

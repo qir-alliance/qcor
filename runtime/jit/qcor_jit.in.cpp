@@ -55,9 +55,10 @@
 using namespace llvm;
 using namespace llvm::orc;
 
+#include <sys/stat.h>
+
 #include <iostream>
 #include <regex>
-#include <sys/stat.h>
 
 namespace qcor {
 
@@ -315,10 +316,11 @@ QJIT::QJIT() {
   // if tmp directory doesnt exist create it
   qjit_cache_path = std::string(std::getenv("HOME")) + "/.qjit";
   if (!xacc::directoryExists(qjit_cache_path)) {
-    auto status = mkdir(qjit_cache_path.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+    auto status =
+        mkdir(qjit_cache_path.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
   }
 
-  std::string cache_file_loc = qjit_cache_path+"/qjit_cache.json";
+  std::string cache_file_loc = qjit_cache_path + "/qjit_cache.json";
   if (!xacc::fileExists(cache_file_loc)) {
     // if it doesn't exist, create it
     std::ofstream cache(cache_file_loc);
@@ -351,7 +353,9 @@ QJIT::~QJIT() { write_cache(); }
 
 void QJIT::jit_compile(const std::string &code,
                        const bool add_het_map_kernel_ctor,
-                       const std::vector<std::string> &kernel_dependency, const std::string& extra_functions_src) {
+                       const std::vector<std::string> &kernel_dependency,
+                       const std::string &extra_functions_src,
+                       std::vector<std::string> extra_headers) {
   // Run the Syntax Handler to get the kernel name and
   // the kernel code (the QuantumKernel subtype def + utility functions)
   auto [kernel_name, new_code] =
@@ -388,8 +392,7 @@ void QJIT::jit_compile(const std::string &code,
     // If we have this hash in the cache, we will grab its
     // correspoding Module bc file name and load it
     auto module_bitcode_file_name = cached_kernel_codes[hash];
-    std::string full_path =
-        qjit_cache_path+"/" + module_bitcode_file_name;
+    std::string full_path = qjit_cache_path + "/" + module_bitcode_file_name;
 
     // Load the bitcode file as Module
     SMDiagnostic error;
@@ -405,15 +408,15 @@ void QJIT::jit_compile(const std::string &code,
   } else {
     // We have not seen this code before, so we
     // need to map it to an LLVM Module
-    act = qcor::emit_llvm_ir(new_code);
+    act = qcor::emit_llvm_ir(new_code, extra_headers);
     module = act->takeModule();
 
     // Persist the Module to a bitcode file
     std::stringstream file_name_ss;
     file_name_ss << "__qjit_m_" << module.get() << ".bc";
     std::error_code ec;
-    ToolOutputFile result(qjit_cache_path+"/" + file_name_ss.str(),
-                          ec, sys::fs::F_None);
+    ToolOutputFile result(qjit_cache_path + "/" + file_name_ss.str(), ec,
+                          sys::fs::F_None);
     WriteBitcodeToFile(*module, result.os());
     result.keep();
 
