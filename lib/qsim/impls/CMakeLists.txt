@@ -39,4 +39,5 @@ install(TARGETS ${LIBRARY_NAME} DESTINATION ${CMAKE_INSTALL_PREFIX}/plugins)
 
 if (QCOR_BUILD_TESTS)
   add_subdirectory(cost_evaluator/tests)
+  add_subdirectory(workflow/tests)
 endif()
