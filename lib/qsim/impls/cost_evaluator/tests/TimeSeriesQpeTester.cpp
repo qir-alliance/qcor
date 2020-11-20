@@ -1,6 +1,6 @@
 #include "qcor.hpp"
 #include "qcor_qsim.hpp"
-#include "utils/prony_method.hpp"
+#include "utils/qsim_utils.hpp"
 #include "xacc.hpp"
 #include <gtest/gtest.h>
 
@@ -14,7 +14,7 @@ TEST(TimeSeriesQpeTester, checkPronyMethod) {
         0.15 * std::exp(I * xVal * 1.5) + 0.1 * std::exp(I * xVal * 4.0) +
         0.05 * std::exp(I * xVal * 1.2));
   }
-  auto result = qcor::utils::pronyFit(y_vec);
+  auto result = qcor::qsim::pronyFit(y_vec);
   size_t idx = 0;
   const std::vector<double> expectedAmpls{0.05, 0.1, 0.15, 0.3, 0.5};
   const std::vector<double> expectedFreqs{0.12, 0.4, 0.15, 0.5, 0.3};
