@@ -1,7 +1,7 @@
 
-configure_file("${CMAKE_SOURCE_DIR}/runtime/version.in"
-               "${CMAKE_BINARY_DIR}/runtime/version")
-install(FILES "${CMAKE_BINARY_DIR}/runtime/version" DESTINATION include/qcor)
+configure_file("${CMAKE_SOURCE_DIR}/runtime/qcor_version.in"
+               "${CMAKE_BINARY_DIR}/runtime/qcor_version")
+install(FILES "${CMAKE_BINARY_DIR}/runtime/qcor_version" DESTINATION include/qcor)
 
 set(LIBRARY_NAME qcor)
 

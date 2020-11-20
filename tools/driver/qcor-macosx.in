@@ -53,12 +53,12 @@ def main(argv=None):
         args = parser.parse_args(sys.argv)
 
     if '-version' in sys.argv[1:]:
-        version = open('@CMAKE_INSTALL_PREFIX@/include/qcor/version', 'r').read().rstrip()
+        version = open('@CMAKE_INSTALL_PREFIX@/include/qcor/qcor_version', 'r').read().rstrip()
         print('qcor build version = {}'.format(version))
         exit(0)
 
     if '-xacc-version' in sys.argv[1:]:
-        version = open('@XACC_ROOT@/include/xacc/version', 'r').read().rstrip()
+        version = open('@XACC_ROOT@/include/xacc/xacc_version', 'r').read().rstrip()
         print('xacc build version = {}'.format(version))
         exit(0)
     
