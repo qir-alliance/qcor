@@ -1,4 +1,6 @@
-#include "qcor_clang_wrapper.hpp"
+#include <fstream>
+#include <iostream>
+#include <sstream>
 
 #include "clang/Basic/DiagnosticOptions.h"
 #include "clang/CodeGen/CodeGenAction.h"
@@ -26,10 +28,7 @@
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetMachine.h"
-
-#include <fstream>
-#include <iostream>
-#include <sstream>
+#include "qcor_clang_wrapper.hpp"
 
 using namespace clang::driver;
 using namespace clang;
@@ -42,8 +41,8 @@ std::string GetExecutablePath(const char *Argv0, void *MainAddr) {
   return llvm::sys::fs::getMainExecutable(Argv0, MainAddr);
 }
 
-std::unique_ptr<clang::CodeGenAction> emit_llvm_ir(const std::string src_code) {
-
+std::unique_ptr<clang::CodeGenAction> emit_llvm_ir(
+    const std::string src_code, std::vector<std::string> extra_headers) {
   // Persist the src code to a temporary file
   std::string internal_file_name = ".__qcor_internal_llvm_ir_emitter.cpp";
   std::ofstream file(internal_file_name);
@@ -51,23 +50,30 @@ std::unique_ptr<clang::CodeGenAction> emit_llvm_ir(const std::string src_code) {
   file.close();
 
   // Define the Clang command line
-  std::vector<const char *> argv_vec{"@CLANG_EXECUTABLE@",
-                                     "-std=c++17",
-                                     "-I@XACC_ROOT@/include/xacc",
-                                     "-I@XACC_ROOT@/include/pybind11/include",
-                                     "-I/usr/include/python3.8",
-                                     "-I@CMAKE_INSTALL_PREFIX@/include/qcor",
-                                     "-I@XACC_ROOT@/include/quantum/gate",
-                                     "-I@XACC_ROOT@/include/eigen",
-                                     "-c",
-                                     internal_file_name.c_str()};
+  std::vector<std::string> argv_vec{"@CLANG_EXECUTABLE@", "-std=c++17"};
+  std::vector<std::string> base_includes{
+      "-I@XACC_ROOT@/include/xacc", "-I@XACC_ROOT@/include/pybind11/include",
+      "-I@CMAKE_INSTALL_PREFIX@/include/qcor",
+      "-I@XACC_ROOT@/include/quantum/gate", "-I@XACC_ROOT@/include/eigen"};
+  for (auto extra : extra_headers) {
+    base_includes.push_back(extra);
+  }
+  for (auto include : base_includes) {
+    argv_vec.push_back(include);
+  }
+  argv_vec.push_back("-c");
+  argv_vec.push_back(internal_file_name.c_str());
+
+  std::vector<const char *> tmp_argv(argv_vec.size(), nullptr);
+  for (int i = 0; i < argv_vec.size(); i++) {
+    tmp_argv[i] = argv_vec[i].c_str();
+  }
 
   // Create argc and argv
-  const char **argv = &argv_vec[0];
+  const char **argv = &tmp_argv[0];
   int argc = argv_vec.size();
   void *MainAddr = (void *)(intptr_t)GetExecutablePath;
-  std::string Path =
-      "@LLVM_INSTALL_PREFIX@/bin/clang++";
+  std::string Path = "@LLVM_INSTALL_PREFIX@/bin/clang++";
   IntrusiveRefCntPtr<DiagnosticOptions> DiagOpts = new DiagnosticOptions();
   TextDiagnosticPrinter *DiagClient =
       new TextDiagnosticPrinter(llvm::errs(), &*DiagOpts);
@@ -92,7 +98,8 @@ std::unique_ptr<clang::CodeGenAction> emit_llvm_ir(const std::string src_code) {
   Args.push_back("-fsyntax-only");
   std::unique_ptr<Compilation> C(TheDriver.BuildCompilation(Args));
   if (!C) {
-    std::cout << "QCOR internal clang execution error. Could not create the Compilation data structure.\n";
+    std::cout << "QCOR internal clang execution error. Could not create the "
+                 "Compilation data structure.\n";
     exit(1);
   }
 
@@ -149,4 +156,4 @@ std::unique_ptr<clang::CodeGenAction> emit_llvm_ir(const std::string src_code) {
   return Act;
 }
 
-} // namespace qcor
+}  // namespace qcor

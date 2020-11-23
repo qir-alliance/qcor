@@ -22,6 +22,15 @@ FermionOperator = xacc.quantum.FermionOperator
 FLOAT_REF = typing.NewType('value', float)
 INT_REF = typing.NewType('value', int)
 
+# Need to add a few extra header paths 
+# for the clang code-gen mechanism. Mac OS X will 
+# need QCOR_EXTRA_HEADERS, all will need the 
+# Python include path.
+extra_headers = ['-I'+'@Python_INCLUDE_DIRS@']
+tmp_extra_headers = '@QCOR_EXTRA_HEADERS@'.replace('"','')
+for path in tmp_extra_headers.split(';'):
+    if path:
+        extra_headers.append('-I'+path)
 
 def X(idx):
     return xacc.quantum.PauliOperator({idx: 'X'}, 1.0)
@@ -391,7 +400,7 @@ class qjit(object):
 
         # Run the QJIT compile step to store function pointers internally
         self._qjit.internal_python_jit_compile(
-            self.src, self.sorted_kernel_dep, self.extra_cpp_code)
+            self.src, self.sorted_kernel_dep, self.extra_cpp_code, extra_headers)
         self._qjit.write_cache()
         self.__compiled__kernels.append(self.function.__name__)
         return
