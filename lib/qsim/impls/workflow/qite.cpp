@@ -104,10 +104,10 @@ QiteWorkflow::execute(const QuantumSimulationModel &model) {
   };
   
   // Cost function (observable) evaluator
-  evaluator = getEvaluator(model.observable, config_params);
   auto calcCurrentEnergy = [&](){
     // Trotter kernel up to this point
     auto propagateKernel = constructPropagateCircuit(approxOps, model.user_defined_ansatz, stepSize);
+    evaluator = getEvaluator(model.observable, config_params);
     return evaluator->evaluate(propagateKernel);
   };
 
