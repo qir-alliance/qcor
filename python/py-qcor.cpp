@@ -726,6 +726,12 @@ PYBIND11_MODULE(_pyqcor, m) {
               model.user_defined_ansatz = kernel_functor;
               return std::move(model);
             },
+            "")
+        .def(
+            "createModel",
+            [](qcor::PauliOperator &obs) {
+              return qcor::qsim::ModelBuilder::createModel(obs);
+            },
             "");
 
     // CostFunctionEvaluator bindings

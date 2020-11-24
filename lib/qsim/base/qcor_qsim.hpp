@@ -91,6 +91,11 @@ public:
   // the observable of interest.
   static QuantumSimulationModel createModel(Observable *obs,
                                            const HeterogeneousMap &params = {});
+  static QuantumSimulationModel
+  createModel(PauliOperator &obs, const HeterogeneousMap &params = {}) {
+    return createModel(&obs, params);
+  }
+  
   // Build a time-dependent problem model:
   //  -  obs: observable operator to measure.
   //  -  td_ham: time-dependent Hamiltonian to evolve the system.
