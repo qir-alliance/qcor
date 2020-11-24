@@ -1,40 +1,12 @@
 from qcor/deploy-base
 workdir /home/dev
 run cd /home/dev && apt-get update && apt-get install -y uuid-dev pkg-config ca-certificates \
-    && git clone https://github.com/zeromq/libzmq \
-    && cd libzmq/ && mkdir build && cd build \
-    && cmake .. -DCMAKE_INSTALL_PREFIX=~/.zmq \
-    && make -j$(nproc) install \
-    && cd ../.. \
-    && git clone https://github.com/zeromq/cppzmq \
-    && cd cppzmq/ && mkdir build && cd build/ \
-    && cmake .. -DCMAKE_INSTALL_PREFIX=~/.zmq -DCMAKE_PREFIX_PATH=~/.zmq -DCPPZMQ_BUILD_TESTS=OFF \
-    && make -j$(nproc) install \
-    && cd ../.. \
-    && git clone -b c_master https://github.com/msgpack/msgpack-c/ \
-    && cd msgpack-c/ && mkdir build && cd build \
-    && cmake .. -DCMAKE_INSTALL_PREFIX=~/.zmq \
-    && make -j$(nproc) install \
-    && cd ../.. \
     && git clone --recursive https://github.com/eclipse/xacc && cd xacc && mkdir build && cd build \
     && cmake .. \
     && make -j$(nproc) install \
-    && cd ../../ && git clone https://github.com/ornl-qci/tnqvm && cd tnqvm && mkdir build && cd build \
-    && cmake .. -DXACC_DIR=~/.xacc && make -j$(nproc) install \
-    && cd /home/dev && git clone -b maint https://bitbucket.org/petsc/petsc petsc && cd petsc \
-    && export PETSC_DIR=${PWD} && export PETSC_ARCH=linux-gnu-c-complex \
-    && ./configure --with-scalar-type=complex --download-mpich --download-fblaslapack=1 \
-                   --with-debugging=no COPTFLAGS=-O3 CXXOPTFLAGS=-O3 FOPTFLAGS=-O3 --with-64-bit-indices \
-    && make PETSC_DIR=${PETSC_DIR} PETSC_ARCH=${PETSC_ARCH} all \
-    && cd /home/dev && git clone -b xacc-integration https://github.com/ORNL-QCI/QuaC.git \
-    && cd QuaC && mkdir build && cd build \
-    && cmake .. -DPETSC_DIR=${PETSC_DIR} -DPETSC_ARCH=linux-gnu-c-complex -DXACC_DIR=~/.xacc \
-    && make install \
     && cd /home/dev && git clone https://github.com/ornl-qci/qcor && cd qcor && mkdir build && cd build \
     && cmake .. && make -j$(nproc) install \
-    && git clone https://github.com/rigetti/qcs-cli && cd qcs-cli \
-    && npm install && npm link
-
+    
 # Theia application
 workdir /home/dev
 ARG version=latest

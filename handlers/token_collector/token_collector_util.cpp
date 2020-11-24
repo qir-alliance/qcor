@@ -1,19 +1,18 @@
 #include "token_collector_util.hpp"
-#include "token_collector.hpp"
-#include "xacc.hpp"
-#include "xacc_service.hpp"
 
 #include <limits>
 #include <qalloc>
 
-#include "qrt.hpp"
-#include "qrt_mapper.hpp"
-
 #include "clang/Basic/TokenKinds.h"
 #include "clang/Lex/Token.h"
 #include "clang/Sema/DeclSpec.h"
-
 #include "qcor_config.hpp"
+#include "qrt.hpp"
+#include "qrt_mapper.hpp"
+#include "token_collector.hpp"
+#include "xacc.hpp"
+#include "xacc_config.hpp"
+#include "xacc_service.hpp"
 
 namespace qcor {
 void append_kernel(const std::string name,
@@ -30,12 +29,31 @@ void info(const std::string &s) { xacc::info(s); }
 std::string run_token_collector(clang::Preprocessor &PP,
                                 clang::CachedTokens &Toks,
                                 std::vector<std::string> bufferNames) {
-
   if (!xacc::isInitialized()) {
+    // Check if we are installed somewhere other than xacc install dir
+    // if so add qcor plugins path to plugin search path
     if (std::string(XACC_ROOT) != std::string(QCOR_INSTALL_DIR)) {
-       xacc::addPluginSearchPath(std::string(QCOR_INSTALL_DIR)+std::string("/plugins"));
+      xacc::addPluginSearchPath(std::string(QCOR_INSTALL_DIR) +
+                                std::string("/plugins"));
     }
-    xacc::Initialize();
+
+    // if XACC_INSTALL_DIR != XACC_ROOT
+    // then we need to pass --xacc-root-path XACC_ROOT to xacc Initialize
+    //
+    // Example - we are on Rigetti QCS and can't install via sudo
+    // so we dpkg -x xacc to a user directory, but deb package
+    // expects to be extracted to /usr/local/xacc, and xacc_config.hpp
+    // points to that /usr/local/xacc. Therefore ServiceRegistry fails
+    // to load plugins and libs, unless we change rootPath.
+    std::string xacc_config_install_dir(XACC_INSTALL_DIR);
+    std::string qcor_config_xacc_root(XACC_ROOT);
+    if (xacc_config_install_dir != qcor_config_xacc_root) {
+      std::vector<std::string> cmd_line{"--xacc-root-path",
+                                        qcor_config_xacc_root};
+      xacc::Initialize(cmd_line);
+    } else {
+      xacc::Initialize();
+    }
   }
 
   // Loop through and partition Toks into language sets
@@ -47,7 +65,7 @@ std::string run_token_collector(clang::Preprocessor &PP,
   clang::CachedTokens tmp_cache;
   for (std::size_t i = 0; i < Toks.size(); i++) {
     // FIXME if using and using qcor::LANG;
-    if (PP.getSpelling(Toks[i]) == "using") { //}.is(clang::tok::kw_using)) {
+    if (PP.getSpelling(Toks[i]) == "using") {  //}.is(clang::tok::kw_using)) {
       // Flush the current CachedTokens...
       if (!tmp_cache.empty())
         token_collector->collect(PP, tmp_cache, bufferNames, code_ss);
@@ -71,8 +89,8 @@ std::string run_token_collector(clang::Preprocessor &PP,
 
       token_collector = xacc::getService<TokenCollector>(lang_name);
       tmp_cache.clear();
-    } 
-    
+    }
+
     if (PP.getSpelling(Toks[i]) == "decompose") {
       // Flush the current CachedTokens...
       if (!tmp_cache.empty())
@@ -87,12 +105,13 @@ std::string run_token_collector(clang::Preprocessor &PP,
 
       // must open scope
       if (Toks[i].isNot(clang::tok::l_brace)) {
-        xacc::error("Invalid decompose statement, must be of form decompose "
-                    "{...} (...); with args in parenthesis being optional");
+        xacc::error(
+            "Invalid decompose statement, must be of form decompose "
+            "{...} (...); with args in parenthesis being optional");
       }
 
       // skip l_brace
-      i++; 
+      i++;
 
       // slurp up all tokens in the decompose scope {...}(...);
       int l_brace_count = 1;
@@ -113,8 +132,9 @@ std::string run_token_collector(clang::Preprocessor &PP,
       // advance past the r_brace
       i++;
       if (Toks[i].isNot(clang::tok::l_paren)) {
-        xacc::error("Invalid decompose statement, after scope close you must "
-                    "provide at least buffer_name argument.");
+        xacc::error(
+            "Invalid decompose statement, after scope close you must "
+            "provide at least buffer_name argument.");
       }
 
       // get the args, can be
@@ -131,31 +151,29 @@ std::string run_token_collector(clang::Preprocessor &PP,
       }
 
       if (arguments.size() == 0) {
-          xacc::error("Invalid decompose arguments, must at least provide the qreg variable");
+        xacc::error(
+            "Invalid decompose arguments, must at least provide the qreg "
+            "variable");
       }
-      
+
       if (arguments.size() == 1) {
-          arguments.push_back("QFAST");
+        arguments.push_back("QFAST");
       }
 
       code_ss << "{\n";
-      
+
       std::map<int, std::function<void(const std::string arg)>> arg_to_action{
           {0,
            [&](const std::string arg) {
              code_ss << "auto decompose_buffer_name = " << arg << ".name();\n";
-           }
-           },
+           }},
           {1,
            [&](const std::string arg) {
              code_ss << "auto decompose_algo_name = \"" << arg << "\";\n";
-           }
-           },
+           }},
           {2, [&](const std::string arg) {
              code_ss << "auto decompose_optimizer = " << arg << ";\n";
-           }
-           }
-      };
+           }}};
       for (int i = 0; i < arguments.size(); i++) {
         arg_to_action[i](arguments[i]);
       }
@@ -166,7 +184,7 @@ std::string run_token_collector(clang::Preprocessor &PP,
       code_ss << "}\n";
 
       // advance past the r_paren and semi colon
-      i+=1;
+      i += 1;
       tmp_cache.clear();
       token_collector = last_tc;
       continue;
@@ -183,4 +201,4 @@ std::string run_token_collector(clang::Preprocessor &PP,
   return code_ss.str();
 }
 
-} // namespace qcor
+}  // namespace qcor

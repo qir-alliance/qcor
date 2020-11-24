@@ -42,12 +42,12 @@ usfunctionembedresources(TARGET
 
 if(APPLE)
   set_target_properties(${LIBRARY_NAME}
-                        PROPERTIES INSTALL_RPATH "@loader_path/../lib")
+                        PROPERTIES INSTALL_RPATH "@loader_path/../lib;${XACC_ROOT}/lib")
   set_target_properties(${LIBRARY_NAME}
                         PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
 else()
   set_target_properties(${LIBRARY_NAME}
-                        PROPERTIES INSTALL_RPATH "$ORIGIN/../lib")
+                        PROPERTIES INSTALL_RPATH "$ORIGIN/../lib:${XACC_ROOT}/lib")
   set_target_properties(${LIBRARY_NAME} PROPERTIES LINK_FLAGS "-shared")
 endif()
 

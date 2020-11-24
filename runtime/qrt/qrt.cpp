@@ -1,12 +1,16 @@
 #include "qrt.hpp"
+
+#include <Eigen/Dense>
+#include <Utils.hpp>
+
 #include "Instruction.hpp"
 #include "PauliOperator.hpp"
 #include "pass_manager.hpp"
+#include "qcor_config.hpp"
 #include "xacc.hpp"
+#include "xacc_config.hpp"
 #include "xacc_internal_compiler.hpp"
 #include "xacc_service.hpp"
-#include <Eigen/Dense>
-#include <Utils.hpp>
 
 namespace xacc {
 namespace internal_compiler {
@@ -76,8 +80,8 @@ void apply_decorators(const std::string &decorator_cmdline_string) {
       xacc::getAcceleratorDecorator(decorator_cmdline_string, get_qpu());
   xacc::internal_compiler::qpu = decorator;
 }
-} // namespace internal_compiler
-} // namespace xacc
+}  // namespace internal_compiler
+}  // namespace xacc
 namespace quantum {
 int current_shots = 0;
 std::shared_ptr<QuantumRuntime> qrt_impl = nullptr;
@@ -87,14 +91,30 @@ std::unordered_map<
     kernel_signatures_in_translation_unit = {};
 
 void initialize(const std::string qpu_name, const std::string kernel_name) {
-  xacc::internal_compiler::compiler_InitializeXACC(qpu_name.c_str());
+  // if XACC_INSTALL_DIR != XACC_ROOT
+  // then we need to pass --xacc-root-path XACC_ROOT
+  //
+  // Example - we are on Rigetti QCS and can't install via sudo
+  // so we dpkg -x xacc to a user directory, but deb package
+  // expects to be extracted to /usr/local/xacc, and xacc_config.hpp
+  // points to that /usr/local/xacc. Therefore ServiceRegistry fails
+  // to load plugins and libs, unless we change rootPath.
+  std::string xacc_config_install_dir = std::string(XACC_INSTALL_DIR);
+  std::string qcor_config_xacc_root = std::string(XACC_ROOT);
+  if (xacc_config_install_dir != qcor_config_xacc_root) {
+    std::vector<std::string> cmd_line{"--xacc-root-path",
+                                      qcor_config_xacc_root};
+    xacc::internal_compiler::compiler_InitializeXACC(qpu_name.c_str(),
+                                                     cmd_line);
+  } else {
+    xacc::internal_compiler::compiler_InitializeXACC(qpu_name.c_str());
+  }
 
   qrt_impl = xacc::getService<QuantumRuntime>(__qrt_env);
   qrt_impl->initialize(kernel_name);
 }
 
 void set_backend(std::string accelerator_name, const int shots) {
-
   xacc::internal_compiler::compiler_InitializeXACC(accelerator_name.c_str());
   set_shots(shots);
 }
@@ -191,7 +211,7 @@ void set_current_program(std::shared_ptr<xacc::CompositeInstruction> p) {
   qrt_impl->set_current_program(p);
 }
 
-void set_current_buffer(xacc::AcceleratorBuffer* buffer) {
+void set_current_buffer(xacc::AcceleratorBuffer *buffer) {
   qrt_impl->set_current_buffer(buffer);
 }
 
@@ -201,4 +221,4 @@ void persistBitstring(xacc::AcceleratorBuffer *buffer) {
     buffer->appendMeasurement(bitstring);
   }
 }
-} // namespace quantum
+}  // namespace quantum
