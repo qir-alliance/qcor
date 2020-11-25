@@ -1,20 +1,27 @@
-#pragma once
+#include "qsim_utils.hpp"
 #include <Eigen/Dense>
 #include <Eigen/Eigenvalues>
 #include <Eigen/QR>
 #include <cassert>
-#include <complex>
-#include <iostream>
-#include <vector>
-// Implements Prony method for IQPE signal fitting.
-// i.e. fit g(t) = sum a_i * exp(i * omega_i * t)
-// Returns the vector of amplitude {a_i} and freq. {omega_i}
-
 namespace qcor {
-namespace utils {
-// Returns a vector of <Ampl, Freq> pair
-using PronyResult =
-    std::vector<std::pair<std::complex<double>, std::complex<double>>>;
+namespace qsim {
+std::shared_ptr<CostFunctionEvaluator>
+getEvaluator(Observable *observable, const HeterogeneousMap &params) {
+  // If an evaluator was provided explicitly:
+  if (params.pointerLikeExists<CostFunctionEvaluator>("evaluator")) {
+    return xacc::as_shared_ptr(
+        params.getPointerLike<CostFunctionEvaluator>("evaluator"));
+  }
+
+  // Cost Evaluator was provided by name:
+  if (params.stringExists("evaluator")) {
+    return getObjEvaluator(observable, params.getString("evaluator"));
+  }
+
+  // No specific evaluator/evaluation method was requested,
+  // use the default one (partial tomography based).
+  return getObjEvaluator(observable);
+}
 
 PronyResult pronyFit(const std::vector<std::complex<double>> &in_signal) {
   assert(!in_signal.empty());
@@ -104,5 +111,5 @@ PronyResult pronyFit(const std::vector<std::complex<double>> &in_signal) {
 
   return finalResult;
 }
-} // namespace utils
+} // namespace qsim
 } // namespace qcor
