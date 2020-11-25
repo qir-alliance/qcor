@@ -1,9 +1,10 @@
 #include "Instruction.hpp"
 #include "InstructionIterator.hpp"
-#include "qsim_impl.hpp"
-#include "utils/prony_method.hpp"
+#include "time_series_iqpe.hpp"
+#include "qsim_utils.hpp"
 #include "xacc.hpp"
 #include "xacc_service.hpp"
+#include "workflow/iterative_qpe.hpp"
 
 /// Implements time-series phase estimation protocol:
 /// Refs:
@@ -268,8 +269,8 @@ double PhaseEstimationObjFuncEval::evaluate(
     // for (size_t i = 0; i < gFuncList.size(); ++i) {
     //   std::cout << "t = " << tList[i] << ": " << gFuncList[i] << "\n";
     // }
-    const auto pronyRaw = qcor::utils::pronyFit(gFuncList);
-    utils::PronyResult pronyFit;
+    const auto pronyRaw = qcor::qsim::pronyFit(gFuncList);
+    qcor::qsim::PronyResult pronyFit;
     // Filter the frequency around the 1-circle:
     // Some noise channels on the control qubit will introduce spurious
     // zero-frequency signals, hence just filter them.
