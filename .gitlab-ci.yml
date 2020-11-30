@@ -55,14 +55,14 @@ docker run_macosx_bottles:
   tags: 
     - osx
   script:
-  - docker start catalina-ci-container
+  #- docker start catalina-ci-container
   # give it time to boot up
-  - sleep 120
+  #- sleep 120
   - ssh catalina-ci "PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin bash run_bottle_build.sh $AIDEQC_ACCESS_TOKEN $JFROG_API_KEY"
-  - docker stop catalina-ci-container
+  #- docker stop catalina-ci-container
   # now run mojave
-  - docker start mojave-ci-container
-  - sleep 120
+  #- docker start mojave-ci-container
+  #- sleep 120
   - ssh mojave-ci "PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin bash run_bottle_build.sh $AIDEQC_ACCESS_TOKEN $JFROG_API_KEY"
-  - docker stop mojave-ci-container
+  #- docker stop mojave-ci-container
   
