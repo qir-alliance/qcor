@@ -1,14 +1,7 @@
-from qcor/deploy-base
-workdir /home/dev
-run cd /home/dev && apt-get update && apt-get install -y uuid-dev pkg-config ca-certificates \
-    && git clone --recursive https://github.com/eclipse/xacc && cd xacc && mkdir build && cd build \
-    && cmake .. \
-    && make -j$(nproc) install \
-    && cd /home/dev && git clone https://github.com/ornl-qci/qcor && cd qcor && mkdir build && cd build \
-    && cmake .. && make -j$(nproc) install \
-    
-# Theia application
-workdir /home/dev
+FROM xacc/deploy-base
+
+RUN apt-get update && apt-get install -y lsb-release sudo && wget https://aide-qc.github.io/deploy/install.sh && bash install.sh 
+
 ARG version=latest
 ADD $version.package.json ./package.json
 
@@ -18,8 +11,7 @@ RUN yarn --cache-folder ./ycache && rm -rf ./ycache && \
 EXPOSE 3000
 ENV SHELL=/bin/bash \
     THEIA_DEFAULT_PLUGINS=local-dir:/home/dev/plugins
-ENV PYTHONPATH "${PYTHONPATH}:/root/.xacc:/root/.local/lib/python3.6/site-packages/psi4/lib"
-ENV PATH "${PATH}:/root/.xacc/bin"
+ENV PYTHONPATH "${PYTHONPATH}:/usr/local/xacc:/root/.local/lib/python3.6/site-packages/psi4/lib"
 
 ENTRYPOINT [ "yarn", "theia", "start", "/home/dev", "--hostname=0.0.0.0" ]
 
