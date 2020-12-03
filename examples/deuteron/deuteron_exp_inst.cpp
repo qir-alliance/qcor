@@ -20,10 +20,10 @@ int main(int argc, char **argv) {
   auto optimizer = createOptimizer("nlopt");
 
   // Optimize the above function
-  auto result = optimizer->optimize(*objective.get());
+  auto [optval, opt_params] = optimizer->optimize(*objective.get());
 
   // Print the result
-  printf("energy = %f\n", result.first);
+  printf("energy = %f\n", optval);
 
   return 0;
 }

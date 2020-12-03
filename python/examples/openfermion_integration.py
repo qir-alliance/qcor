@@ -18,9 +18,6 @@ H = FOp('', 0.0002899) + FOp('0^ 0', -.43658) + \
 n_params = 1
 obj = createObjectiveFunction(ansatz, H, n_params)
 
-# evaluate at a concrete set of params
-vqe_energy = obj([.59])
-
 # Run full optimization
 optimizer = createOptimizer('nlopt')
 results = optimizer.optimize(obj)
