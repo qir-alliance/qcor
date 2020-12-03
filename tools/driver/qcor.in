@@ -39,6 +39,8 @@ def main(argv=None):
         parser.add_argument('-I',action='append',nargs=1, metavar=('header_file.hpp'),help='specify additional headers to add to the include search path.')
         parser.add_argument('-L',action='append',nargs=1,metavar=('/path/to/libs'),help='specifiy additional linker search paths.')
         parser.add_argument('-l',action='append',nargs=1,metavar=('lib_name'),help='specifiy additional libraries to link.')
+        parser.add_argument('-opt', nargs=1, help='specify optimization level for quantum circuit optimization.')
+        parser.add_argument('-print-opt-stats', help='print circuit optimization pass statistics.')
         parser.add_argument('-set-credentials', nargs=1, help='set api key and other credential information for remote qpu.\nMust provide at least -key KEY arguments. For IBM also specify -hub HUB -group GROUP -project PROJECT.')
         parser.add_argument('-print-credentials', nargs=1, help='print remote api credentials for given qpu name.')
         parser.add_argument('-update-credentials', nargs=1, help='set a specific credential for remote qpu access. Example\nqcor -update-credentials ibm -project MYOTHERPROJECT.')
@@ -47,7 +49,15 @@ def main(argv=None):
         parser.add_argument('-clear-jit-cache', help='delete existing QJIT cache.')
         parser.add_argument('-xacc-version', nargs=1, help='returns the current build version for underlying xacc install.')
         parser.add_argument('-version', nargs=1, help='returns the current qcor build version.')
+        parser.add_argument('-pythonpath', help='print the correct PYTHONPATH to leverage qcor and xacc python API.')
         args = parser.parse_args(sys.argv)
+
+    if '-pythonpath' in sys.argv[1:]:
+        if '@XACC_ROOT@' == '@CMAKE_INSTALL_PREFIX@':
+            print('@XACC_ROOT@')
+        else:
+            print('@XACC_ROOT@:@CMAKE_INSTALL_PREFIX@')
+        exit(0)
 
     if '-version' in sys.argv[1:]:
         version = open('@CMAKE_INSTALL_PREFIX@/include/qcor/qcor_version', 'r').read().rstrip()
