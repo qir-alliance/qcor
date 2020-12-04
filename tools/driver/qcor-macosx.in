@@ -52,6 +52,7 @@ def main(argv=None):
         parser.add_argument('-clear-jit-cache', help='delete existing QJIT cache.')
         parser.add_argument('-xacc-version', nargs=1, help='returns the current build version for underlying xacc install.')
         parser.add_argument('-version', nargs=1, help='returns the current qcor build version.')
+        parser.add_argument('-pythonpath', help='print the correct PYTHONPATH to leverage qcor and xacc python API.')
         args = parser.parse_args(sys.argv)
     
     if '-pythonpath' in sys.argv[1:]:
