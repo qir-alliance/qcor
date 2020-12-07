@@ -85,6 +85,33 @@ struct QuantumSimulationModel {
 // Create a model which capture the problem description.
 class ModelBuilder {
 public:
+  // Generic Heisenberg model
+  struct HeisenbergModel {
+    double Jx = 0.0;
+    double Jy = 0.0;
+    double Jz = 0.0;
+    double h_ext = 0.0;
+    // "X", "Y", or "Z"
+    std::string ext_dir = "Z";
+    size_t num_spins = 2;
+    std::vector<int> initial_spins;
+    // Time-dependent freq.
+    // Default to using the cosine function.
+    double freq = 0.0;
+    // User-provided custom time-dependent function:
+    std::function<double(double)> time_func;
+    // Allows a simple Pythonic kwarg-style initialization.
+    // i.e. all params have preset defaults, only update those that are
+    // specified.
+    void fromDict(const HeterogeneousMap &params);
+
+    bool validateModel() const {
+      const bool ext_dir_valid = (ext_dir == "X" || ext_dir == "Y" || ext_dir == "Z");
+      const bool initial_spins_valid = (initial_spins.empty() || (initial_spins.size() == num_spins));
+      return ext_dir_valid && initial_spins_valid;
+    }
+  };
+
   // ======== Direct model builder ==============
   // Strongly-typed parameters/argument.
   // Build a simple Hamiltonian-based model: static Hamiltonian which is also
@@ -121,7 +148,10 @@ public:
   static QuantumSimulationModel createModel(const std::string &format,
                                            const std::string &data,
                                            const HeterogeneousMap &params = {});
-
+  // Predefined model type that we support intrinsically.
+  enum class ModelType { Heisenberg };
+  static QuantumSimulationModel createModel(ModelType type,
+                                           const HeterogeneousMap &params);
   // ========== QuantumSimulationModel with a fixed (pre-defined) ansatz ========
   // The ansatz is provided as a QCOR kernel.
   template <typename... Args>
