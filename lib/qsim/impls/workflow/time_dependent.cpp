@@ -42,7 +42,13 @@ TimeDependentWorkflow::execute(const QuantumSimulationModel &model) {
     // std::cout << stepAnsatz.circuit->toString() << "\n";
     // First step:
     if (!totalCirc) {
-      totalCirc = stepAnsatz.circuit;
+      // If there is a state-prep circuit (non-zero initial state)
+      if (model.user_defined_ansatz) {
+        totalCirc = model.user_defined_ansatz->evaluate_kernel({});
+        totalCirc->addInstructions(stepAnsatz.circuit->getInstructions());
+      } else {
+        totalCirc = stepAnsatz.circuit;
+      }
     } else {
       // Append Trotter steps
       totalCirc->addInstructions(stepAnsatz.circuit->getInstructions());

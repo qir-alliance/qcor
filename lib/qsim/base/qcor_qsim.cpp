@@ -89,6 +89,19 @@ ModelBuilder::createModel(ModelType type, const HeterogeneousMap &params) {
     };
     
     model.hamiltonian = H;
+    // Non-zero initial spin state:
+    if (std::find(hs_model.initial_spins.begin(), hs_model.initial_spins.end(),
+                  1) != hs_model.initial_spins.end()) {
+      auto initialSpinPrep = qcor::__internal__::create_composite("InitialSpin");
+      auto provider = qcor::__internal__::get_provider();
+      for (int i = 0; i < hs_model.initial_spins.size(); ++i) {
+        if (hs_model.initial_spins[i] == 1) {
+          initialSpinPrep->addInstruction(provider->createInstruction("X", i));
+        }
+      }
+      model.user_defined_ansatz = std::make_shared<KernelFunctor>(initialSpinPrep);
+    }
+
     return model;
   } else {
     qcor::error("Unknown model type.");
