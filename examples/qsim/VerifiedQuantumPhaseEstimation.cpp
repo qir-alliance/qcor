@@ -36,11 +36,9 @@ int main(int argc, char **argv) {
   // Request the Verified QPE observable evaluator:
   auto vqpeEvaluator =
       qsim::getObjEvaluator(observable, "qpe", {{"verified", true}});
-  auto workflow =
-      qsim::getWorkflow("td-evolution", {{"method", "trotter"},
-                                         {"dt", 3.0},
-                                         {"steps", 100},
-                                         {"evaluator", vqpeEvaluator}});
+  auto workflow = qsim::getWorkflow(
+      "td-evolution",
+      {{"dt", 3.0}, {"steps", 100}, {"evaluator", vqpeEvaluator}});
 
   // Result should contain the observable expectation value along Trotter steps.
   auto result = workflow->execute(problemModel);

@@ -23,7 +23,7 @@ problemModel = qsim.ModelBuilder.createModel(observable, td_hamiltonian)
 # TD workflow with hyper-parameters: 
 # Trotter step = 3fs, number of steps = 100 -> end time = 300fs
 workflow = qsim.getWorkflow(
-      "td-evolution", {"method": "trotter", "dt": 3.0, "steps": 100})
+      "td-evolution", {"dt": 3.0, "steps": 100})
 
 # Result contains the observable expectation value along Trotter steps.
 result = workflow.execute(problemModel)

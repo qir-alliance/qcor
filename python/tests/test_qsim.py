@@ -16,7 +16,7 @@ class TestWorkflows(unittest.TestCase):
       problemModel = qsim.ModelBuilder.createModel(observable, td_hamiltonian)
       nbSteps = 100
       workflow = qsim.getWorkflow(
-        "td-evolution", {"method": "trotter", "dt": 3.0, "steps": nbSteps})
+        "td-evolution", {"dt": 3.0, "steps": nbSteps})
       result = workflow.execute(problemModel)
       self.assertEqual(len(result["exp-vals"]), nbSteps + 1)
       self.assertAlmostEqual(result["exp-vals"][0], 1.0, places=1)

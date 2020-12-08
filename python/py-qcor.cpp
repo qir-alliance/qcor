@@ -732,8 +732,18 @@ PYBIND11_MODULE(_pyqcor, m) {
             [](qcor::PauliOperator &obs) {
               return qcor::qsim::ModelBuilder::createModel(obs);
             },
-            "");
-
+            "")
+        .def(
+            "createModel",
+            [](qcor::qsim::ModelBuilder::ModelType type,
+               PyHeterogeneousMap &params) {
+              auto nativeHetMap = heterogeneousMapConvert(params);
+              return qcor::qsim::ModelBuilder::createModel(type, nativeHetMap);
+            },
+            "Create a model of a supported type.");
+    py::enum_<qcor::qsim::ModelBuilder::ModelType>(m, "ModelType")
+        .value("Heisenberg", qcor::qsim::ModelBuilder::ModelType::Heisenberg)
+        .export_values();
     // CostFunctionEvaluator bindings
     py::class_<qcor::qsim::CostFunctionEvaluator,
                std::shared_ptr<qcor::qsim::CostFunctionEvaluator>,
