@@ -27,7 +27,7 @@ int main(int argc, char **argv) {
   auto problemModel = qsim::ModelBuilder::createModel(observable, H);
   // Trotter step = 3fs, number of steps = 100 -> end time = 300fs
   auto workflow = qsim::getWorkflow(
-      "td-evolution", {{"method", "trotter"}, {"dt", 3.0}, {"steps", 100}});
+      "td-evolution", {{"dt", 3.0}, {"steps", 100}});
 
   // Result should contain the observable expectation value along Trotter steps.
   auto result = workflow->execute(problemModel);
