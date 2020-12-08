@@ -49,6 +49,18 @@ class CostFunctionEvaluator : public Identifiable {
 public:
   // Evaluate the cost
   virtual double evaluate(std::shared_ptr<CompositeInstruction> state_prep) = 0;
+  // Batching evaluation: observing multiple kernels in batches.
+  // E.g. for non-vqe cases (Trotter), we have all kernels ready for observable evaluation
+  virtual std::vector<double> evaluate(
+      std::vector<std::shared_ptr<CompositeInstruction>> state_prep_circuits) {
+    // Default is one-by-one, subclass to provide batching if supported.
+    std::vector<double> result;
+    for (auto &circuit : state_prep_circuits) {
+      result.emplace_back(evaluate(circuit));
+    }
+    return result;
+  }
+  
   virtual bool initialize(Observable *observable,
                           const HeterogeneousMap &params = {});
 

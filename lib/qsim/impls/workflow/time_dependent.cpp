@@ -1,6 +1,7 @@
 #include "time_dependent.hpp"
 #include "qsim_utils.hpp"
 #include "xacc_service.hpp"
+#include "xacc.hpp"
 
 namespace qcor {
 namespace qsim {
@@ -29,11 +30,12 @@ TimeDependentWorkflow::execute(const QuantumSimulationModel &model) {
   // A TD workflow: stepping through Trotter steps,
   // compute expectations at each step.
   double currentTime = t_0;
-  std::vector<double> resultExpectationValues;
   std::shared_ptr<CompositeInstruction> totalCirc;
   // Just support Trotter for now
   // TODO: support different methods:
   auto method = xacc::getService<AnsatzGenerator>("trotter");
+  // List of all circuits to evaluate:
+  std::vector<std::shared_ptr<CompositeInstruction>> allCircuits;
   for (;;) {
     // Evaluate the time-dependent Hamiltonian:
     auto ham_t = ham_func(currentTime);
@@ -54,16 +56,16 @@ TimeDependentWorkflow::execute(const QuantumSimulationModel &model) {
       totalCirc->addInstructions(stepAnsatz.circuit->getInstructions());
     }
     // std::cout << totalCirc->toString() << "\n";
-    // Evaluate the expectation after these Trotter steps:
-    const double ham_expect = evaluator->evaluate(totalCirc);
-    resultExpectationValues.emplace_back(ham_expect);
-
+    // Add the circuit for this time step to the list for later execution    
+    allCircuits.emplace_back(xacc::ir::asComposite(totalCirc->clone()));
     currentTime += dt;
     if (currentTime > t_final) {
       break;
     }
   }
 
+  // Evaluate exp-val at all timesteps
+  auto resultExpectationValues = evaluator->evaluate(allCircuits);
   result.insert("exp-vals", resultExpectationValues);
   return result;
 }
