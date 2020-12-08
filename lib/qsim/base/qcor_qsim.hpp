@@ -91,9 +91,11 @@ public:
     double Jy = 0.0;
     double Jz = 0.0;
     double h_ext = 0.0;
+    // Support for H_BAR normalization
+    double H_BAR = 1.0;
     // "X", "Y", or "Z"
     std::string ext_dir = "Z";
-    size_t num_spins = 2;
+    int num_spins = 2;
     std::vector<int> initial_spins;
     // Time-dependent freq.
     // Default to using the cosine function.
