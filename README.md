@@ -9,7 +9,6 @@
 QCOR is a C++ language extension and associated compiler implementation
 for hybrid quantum-classical programming.
 
-
 Documentation
 -------------
 
