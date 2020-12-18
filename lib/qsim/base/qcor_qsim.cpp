@@ -50,12 +50,50 @@ ModelBuilder::createModel(ModelType type, const HeterogeneousMap &params) {
     }
 
     QuantumSimulationModel model;
-    // Observable = average magnetization
-    auto observable = new qcor::PauliOperator;
-    for (int i = 0; i < hs_model->num_spins; ++i) {
-      (*observable) += ((1.0/hs_model->num_spins) * Z(i));
+
+    // Handle custom observable:
+    qcor::Observable *model_observable = nullptr;
+    // Get QCOR Pauli Op first (if any)
+    if (params.keyExists<qcor::PauliOperator>("observable")) {
+      static auto cached_pauli = params.get<qcor::PauliOperator>("observable");
+      model_observable = &cached_pauli;
     }
-    model.observable = observable;
+    // Generic qcor::Observable
+    else if (params.pointerLikeExists<qcor::Observable>("observable")) {
+      model_observable = params.getPointerLike<qcor::Observable>("observable");
+    }
+    else {
+      const std::vector<std::string> SUPPORTED_OBS{"average_magnetization",
+                                                   "staggered_magnetization"};
+      std::string observable_type = "average_magnetization";
+      if (params.stringExists("observable")) {
+        observable_type = params.getString("observable");
+      }
+
+      if (!xacc::container::contains(SUPPORTED_OBS, observable_type)) {
+        qcor::error("Unknown observable type: " + observable_type);
+      }
+
+      auto observable = new qcor::PauliOperator;
+      if (observable_type == "average_magnetization") {
+        for (int i = 0; i < hs_model->num_spins; ++i) {
+          (*observable) += ((1.0 / hs_model->num_spins) * Z(i));
+        }
+      }
+      else if (observable_type == "staggered_magnetization") {
+        double coeff = 1.0;
+        for (int i = 0; i < hs_model->num_spins; ++i) {
+          (*observable) += ((coeff / hs_model->num_spins) * Z(i));
+          // Alternate the sign
+          coeff = -coeff;
+        }
+      }
+
+      model_observable = observable;
+    }
+
+    assert(model_observable);
+    model.observable = model_observable;
     qsim::TdObservable H = [&](double t) {
       qcor::PauliOperator tdOp;
       for (int i = 0; i < hs_model->num_spins - 1; ++i) {
