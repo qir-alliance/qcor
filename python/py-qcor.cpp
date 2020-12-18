@@ -661,7 +661,15 @@ PYBIND11_MODULE(_pyqcor, m) {
         qsim, "QuantumSimulationModel",
         "The QuantumSimulationModel captures the quantum simulation problem "
         "description.")
-        .def(py::init<>());
+        .def(py::init<>())
+        .def(
+            "__str__",
+            [](qcor::qsim::QuantumSimulationModel &self) {
+              std::stringstream ss;
+              ss << "{ observable: " << self.observable->toString() << "}";
+              return ss.str();
+            },
+            "");
 
     // ModelBuilder bindings:
     py::class_<qcor::qsim::ModelBuilder>(
