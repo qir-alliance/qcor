@@ -18,6 +18,10 @@ Employing the QCOR just-in-time (qjit) compilation features, we can wrap QCOR in
 
 `qsim_qite_simple.py` qsim example of QITE (Quantum Imaginary Time Evolution) routine for a simple Hamiltonian.
 
+`qsim_adapt_openfermion.py` qsim example of Adapt-VQE routine for a simple FermionOperator Hamiltonian.
+
+`qsim_heisenberg_model.py` qsim example of time-dependent simulation for a general Heisenberg Hamiltonian.
+
 `vqe_qcor_spec.py` example of VQE using `taskInitiate` for asynchronous execution of quantum-classical hybrid computations. 
 
 `pyscf_qubit_tapering.py` example of using the QCOR `OperatorTransform`, specifically running [Qubit Tapering](https://arxiv.org/abs/1701.08213) followed by VQE using the QSim library.
