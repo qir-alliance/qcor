@@ -49,6 +49,8 @@ AdaptVqeWorkflow::execute(const QuantumSimulationModel &model) {
   auto opt_val = (*buffer)["opt-val"].as<double>();
   auto opt_params = (*buffer)["opt-params"].as<std::vector<double>>();
   auto opt_ansatz = (*buffer)["opt-ansatz"].as<std::vector<int>>();
+  auto final_ansatz_name = (*buffer)["final-ansatz"].as<std::string>();
+  auto finalCircuit = xacc::getCompiled(final_ansatz_name);
 
   return {
       {"opt-val", opt_val},
@@ -56,6 +58,7 @@ AdaptVqeWorkflow::execute(const QuantumSimulationModel &model) {
       {"energy", opt_val},
       {"opt-params", opt_params},
       {"opt-ansatz", opt_ansatz},
+      {"circuit", finalCircuit}
   };
 }
 } // namespace qsim

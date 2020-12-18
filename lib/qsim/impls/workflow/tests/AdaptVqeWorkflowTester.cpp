@@ -34,16 +34,17 @@ TEST(AdaptVqeWorkflowTester, checkSimple) {
 
   FermionOperator H_vqe;
   H_vqe.fromString(str);
-  std::cout << H_vqe.toString() << "\n";
+  // std::cout << H_vqe.toString() << "\n";
   xacc::internal_compiler::qpu = xacc::getAccelerator("qsim");
   auto problemModel = qsim::ModelBuilder::createModel(&H_vqe);
   auto optimizer = createOptimizer("nlopt", {{"nlopt-optimizer", "l-bfgs"}, {"stopval", -1.137}});
   auto workflow = qsim::getWorkflow("adapt", {{"optimizer", optimizer},
                                               {"pool", pool_vqe},
                                               {"n-electrons", nElectrons}});
-  set_verbose(true);
   auto result = workflow->execute(problemModel);
   std::cout << "Final energy: " << result.get<double>("energy") << "\n";
+  auto final_ansatz = result.getPointerLike<xacc::CompositeInstruction>("circuit");
+  std::cout << "HOWDY: \n" << final_ansatz->toString() << "\n";
 }
 
 int main(int argc, char **argv) {
