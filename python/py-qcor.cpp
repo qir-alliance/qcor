@@ -688,7 +688,19 @@ PYBIND11_MODULE(_pyqcor, m) {
               return std::move(model);
             },
             "")
-
+        .def(
+            "createModel",
+            [](py::object py_kernel, py::object &py_obs, const int n_params) {
+              qcor::qsim::QuantumSimulationModel model;
+              static auto obs = convertToQCOROperator(py_obs);
+              auto nq = obs->nBits();
+              auto kernel_functor = std::make_shared<qcor::PyKernelFunctor>(
+                  py_kernel, nq, n_params);
+              model.observable = obs.get();
+              model.user_defined_ansatz = kernel_functor;
+              return std::move(model);
+            },
+            "")
         .def(
             "createModel",
             [](py::object py_kernel, qcor::PauliOperator &obs,
@@ -731,6 +743,15 @@ PYBIND11_MODULE(_pyqcor, m) {
             "createModel",
             [](qcor::PauliOperator &obs) {
               return qcor::qsim::ModelBuilder::createModel(obs);
+            },
+            "")
+        .def(
+            "createModel",
+            [](py::object &py_obs) {
+              qcor::qsim::QuantumSimulationModel model;
+              static auto obs = convertToQCOROperator(py_obs);
+              model.observable = obs.get();
+              return std::move(model);
             },
             "")
         .def(

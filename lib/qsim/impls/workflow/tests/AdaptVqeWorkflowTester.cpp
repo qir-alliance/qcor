@@ -37,7 +37,7 @@ TEST(AdaptVqeWorkflowTester, checkSimple) {
   // std::cout << H_vqe.toString() << "\n";
   xacc::internal_compiler::qpu = xacc::getAccelerator("qsim");
   auto problemModel = qsim::ModelBuilder::createModel(&H_vqe);
-  auto optimizer = createOptimizer("nlopt", {{"nlopt-optimizer", "l-bfgs"}, {"stopval", -1.137}});
+  auto optimizer = createOptimizer("nlopt", {{"nlopt-optimizer", "l-bfgs"}});
   auto workflow = qsim::getWorkflow("adapt", {{"optimizer", optimizer},
                                               {"pool", pool_vqe},
                                               {"n-electrons", nElectrons}});
