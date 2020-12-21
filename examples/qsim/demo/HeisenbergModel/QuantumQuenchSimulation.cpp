@@ -63,7 +63,7 @@ int main(int argc, char **argv) {
 
   // Result should contain the observable expectation value along Trotter steps.
   auto result = workflow->execute(problemModel);
-  // Get the observable values (average magnetization)
+  // Get the observable values (staggered magnetization)
   const auto obsVals = result.get<std::vector<double>>("exp-vals");
 
   // Print out for debugging:
