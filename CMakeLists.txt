@@ -3,6 +3,28 @@ if(${CMAKE_VERSION} VERSION_LESS 3.12)
     cmake_policy(VERSION ${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION})
 endif()
 
+
+if(POLICY CMP0068)
+  cmake_policy(SET CMP0068 NEW)
+  set(CMAKE_BUILD_WITH_INSTALL_NAME_DIR ON)
+endif()
+
+if(POLICY CMP0075)
+  cmake_policy(SET CMP0075 NEW)
+endif()
+
+if(POLICY CMP0077)
+  cmake_policy(SET CMP0077 NEW)
+endif()
+
+if(POLICY CMP0057)
+  cmake_policy(SET CMP0057 NEW)
+endif()
+
+if(POLICY CMP0074)
+  cmake_policy(SET CMP0074 NEW)
+endif()
+
 if (NOT XACC_DIR)
   set(XACC_DIR "$ENV{HOME}/.xacc")
 endif()
@@ -15,7 +37,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE TRUE)
 set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cmake/Modules)
 
-project(qcor LANGUAGES CXX)
+project(qcor LANGUAGES CXX C)
 
 option(QCOR_BUILD_TESTS "Build qcor tests" OFF)
 
@@ -27,8 +49,8 @@ if(GIT_FOUND AND EXISTS "${CMAKE_SOURCE_DIR}/.git")
   message( STATUS "QCOR GIT hash: ${QCOR_BUILD_VERSION}")
 endif()
 
-find_package(Clang 10.0.0 REQUIRED)
 find_package(XACC REQUIRED)
+find_package(Clang 10.0.0 REQUIRED)
 
 configure_file("${CMAKE_SOURCE_DIR}/cmake/qcor_config.hpp.in"
                "${CMAKE_BINARY_DIR}/qcor_config.hpp")
@@ -38,6 +60,7 @@ add_subdirectory(handlers)
 add_subdirectory(runtime)
 add_subdirectory(tools)
 add_subdirectory(lib)
+add_subdirectory(mlir)
 
 if (QCOR_BUILD_TESTS)
   add_subdirectory(examples)
