@@ -2,12 +2,14 @@ link_directories(${XACC_ROOT}/lib)
 
 get_property(dialect_libs GLOBAL PROPERTY MLIR_DIALECT_LIBS)
 get_property(conversion_libs GLOBAL PROPERTY MLIR_CONVERSION_LIBS)
+message(STATUS "DIALECT LIBS: ${dialect_libs}")
 set(LIBS
         ${dialect_libs}
         ${conversion_libs}
         MLIROptLib
         quantum-dialect
         MLIRTargetLLVMIR
+        MLIRExecutionEngine
         )
 
 add_llvm_executable(QasmTester QasmTester.cpp)

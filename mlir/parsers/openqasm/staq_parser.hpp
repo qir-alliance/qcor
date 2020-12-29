@@ -9,6 +9,7 @@
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/Verifier.h"
 #include "parser/parser.hpp"
+#include "quantum_dialect.hpp"
 
 using namespace staq::ast;
 
@@ -18,6 +19,7 @@ class StaqToMLIR : public staq::ast::Visitor {
  protected:
   mlir::ModuleOp theModule;
   mlir::OpBuilder builder;
+  std::map<std::string, mlir::quantum::QallocOp> qubit_allocations;
 
  public:
   StaqToMLIR(mlir::MLIRContext &context);

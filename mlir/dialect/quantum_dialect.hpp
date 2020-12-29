@@ -21,74 +21,53 @@ class QuantumDialect : public mlir::Dialect {
   static llvm::StringRef getDialectNamespace() { return "quantum"; }
 };
 class InstOpAdaptor {
- public:
-  InstOpAdaptor(::mlir::ValueRange values,
-                ::mlir::DictionaryAttr attrs = nullptr);
-  InstOpAdaptor(InstOp &op);
+public:
+  InstOpAdaptor(::mlir::ValueRange values, ::mlir::DictionaryAttr attrs = nullptr);
+  InstOpAdaptor(InstOp&op);
   std::pair<unsigned, unsigned> getODSOperandIndexAndLength(unsigned index);
   ::mlir::ValueRange getODSOperands(unsigned index);
+  ::mlir::ValueRange qubits();
   ::mlir::StringAttr name();
-  ::mlir::DenseElementsAttr qreg_names();
-  ::mlir::DenseIntElementsAttr qubits();
   ::mlir::DenseElementsAttr params();
   ::mlir::LogicalResult verify(::mlir::Location loc);
 
- private:
+private:
   ::mlir::ValueRange odsOperands;
   ::mlir::DictionaryAttr odsAttrs;
 };
-class InstOp
-    : public ::mlir::Op<
-          InstOp, ::mlir::OpTrait::ZeroRegion, ::mlir::OpTrait::ZeroResult,
-          ::mlir::OpTrait::ZeroSuccessor, ::mlir::OpTrait::ZeroOperands> {
- public:
+class InstOp : public ::mlir::Op<InstOp, ::mlir::OpTrait::ZeroRegion, ::mlir::OpTrait::ZeroResult, ::mlir::OpTrait::ZeroSuccessor, ::mlir::OpTrait::VariadicOperands> {
+public:
   using Op::Op;
   using Op::print;
   using Adaptor = InstOpAdaptor;
   static ::llvm::StringRef getOperationName();
   std::pair<unsigned, unsigned> getODSOperandIndexAndLength(unsigned index);
   ::mlir::Operation::operand_range getODSOperands(unsigned index);
+  ::mlir::Operation::operand_range qubits();
+  ::mlir::MutableOperandRange qubitsMutable();
   std::pair<unsigned, unsigned> getODSResultIndexAndLength(unsigned index);
   ::mlir::Operation::result_range getODSResults(unsigned index);
   ::mlir::StringAttr nameAttr();
   ::llvm::StringRef name();
-  ::mlir::DenseElementsAttr qreg_namesAttr();
-  ::mlir::DenseElementsAttr qreg_names();
-  ::mlir::DenseIntElementsAttr qubitsAttr();
-  ::mlir::DenseIntElementsAttr qubits();
   ::mlir::DenseElementsAttr paramsAttr();
-  ::mlir::DenseElementsAttr params();
+  ::llvm::Optional< ::mlir::DenseElementsAttr > params();
   void nameAttr(::mlir::StringAttr attr);
-  void qreg_namesAttr(::mlir::DenseElementsAttr attr);
-  void qubitsAttr(::mlir::DenseIntElementsAttr attr);
   void paramsAttr(::mlir::DenseElementsAttr attr);
-  static void build(::mlir::OpBuilder &odsBuilder,
-                    ::mlir::OperationState &odsState, ::mlir::StringAttr name,
-                    ::mlir::DenseElementsAttr qreg_names,
-                    ::mlir::DenseIntElementsAttr qubits,
-                    ::mlir::DenseElementsAttr params);
-  static void build(::mlir::OpBuilder &odsBuilder,
-                    ::mlir::OperationState &odsState,
-                    ::mlir::TypeRange resultTypes, ::mlir::StringAttr name,
-                    ::mlir::DenseElementsAttr qreg_names,
-                    ::mlir::DenseIntElementsAttr qubits,
-                    ::mlir::DenseElementsAttr params);
-  static void build(::mlir::OpBuilder &odsBuilder,
-                    ::mlir::OperationState &odsState, ::llvm::StringRef name,
-                    ::mlir::DenseElementsAttr qreg_names,
-                    ::mlir::DenseIntElementsAttr qubits,
-                    ::mlir::DenseElementsAttr params);
-  static void build(::mlir::OpBuilder &odsBuilder,
-                    ::mlir::OperationState &odsState,
-                    ::mlir::TypeRange resultTypes, ::llvm::StringRef name,
-                    ::mlir::DenseElementsAttr qreg_names,
-                    ::mlir::DenseIntElementsAttr qubits,
-                    ::mlir::DenseElementsAttr params);
-  static void build(::mlir::OpBuilder &, ::mlir::OperationState &odsState,
-                    ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands,
-                    ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
+  static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::StringAttr name, ::mlir::ValueRange qubits, /*optional*/::mlir::DenseElementsAttr params);
+  static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::StringAttr name, ::mlir::ValueRange qubits, /*optional*/::mlir::DenseElementsAttr params);
+  static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::llvm::StringRef name, ::mlir::ValueRange qubits, /*optional*/::mlir::DenseElementsAttr params);
+  static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::llvm::StringRef name, ::mlir::ValueRange qubits, /*optional*/::mlir::DenseElementsAttr params);
+  static void build(::mlir::OpBuilder &, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
   ::mlir::LogicalResult verify();
 };
+} // namespace quantum
+} // namespace mlir
+namespace mlir {
+namespace quantum {
+
+//===----------------------------------------------------------------------===//
+// ::mlir::quantum::QallocOp declarations
+//===----------------------------------------------------------------------===//
 
 class QallocOpAdaptor {
 public:
@@ -104,7 +83,7 @@ private:
   ::mlir::ValueRange odsOperands;
   ::mlir::DictionaryAttr odsAttrs;
 };
-class QallocOp : public ::mlir::Op<QallocOp, ::mlir::OpTrait::ZeroRegion, ::mlir::OpTrait::ZeroResult, ::mlir::OpTrait::ZeroSuccessor, ::mlir::OpTrait::ZeroOperands> {
+class QallocOp : public ::mlir::Op<QallocOp, ::mlir::OpTrait::ZeroRegion, ::mlir::OpTrait::OneResult, ::mlir::OpTrait::ZeroSuccessor, ::mlir::OpTrait::ZeroOperands> {
 public:
   using Op::Op;
   using Op::print;
@@ -114,19 +93,28 @@ public:
   ::mlir::Operation::operand_range getODSOperands(unsigned index);
   std::pair<unsigned, unsigned> getODSResultIndexAndLength(unsigned index);
   ::mlir::Operation::result_range getODSResults(unsigned index);
+  ::mlir::Value qubits();
   ::mlir::IntegerAttr sizeAttr();
   ::llvm::APInt size();
   ::mlir::StringAttr nameAttr();
   ::llvm::StringRef name();
   void sizeAttr(::mlir::IntegerAttr attr);
   void nameAttr(::mlir::StringAttr attr);
-  static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::IntegerAttr size, ::mlir::StringAttr name);
+  static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::Type qubits, ::mlir::IntegerAttr size, ::mlir::StringAttr name);
   static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::IntegerAttr size, ::mlir::StringAttr name);
-  static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::IntegerAttr size, ::llvm::StringRef name);
+  static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::Type qubits, ::mlir::IntegerAttr size, ::llvm::StringRef name);
   static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::IntegerAttr size, ::llvm::StringRef name);
   static void build(::mlir::OpBuilder &, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
   ::mlir::LogicalResult verify();
 };
+} // namespace quantum
+} // namespace mlir
+namespace mlir {
+namespace quantum {
+
+//===----------------------------------------------------------------------===//
+// ::mlir::quantum::ReturnOp declarations
+//===----------------------------------------------------------------------===//
 
 class ReturnOpAdaptor {
 public:
@@ -162,8 +150,8 @@ public:
   void getEffects(::mlir::SmallVectorImpl<::mlir::SideEffects::EffectInstance<::mlir::MemoryEffects::Effect>> &effects);
 
     bool hasOperand() { return getNumOperands() != 0; }
+  
 };
-
 }  // namespace quantum
 }  // namespace mlir
 
