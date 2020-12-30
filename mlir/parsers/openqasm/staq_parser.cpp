@@ -1,4 +1,3 @@
-
 #include "staq_parser.hpp"
 
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
@@ -6,6 +5,10 @@
 #include "mlir/Dialect/Vector/VectorOps.h"
 
 namespace qasm_parser {
+
+void StaqToMLIR::visit(Program &prog) {
+  prog.foreach_stmt([this](auto &stmt) { stmt.accept(*this); });
+}
 
 StaqToMLIR::StaqToMLIR(mlir::MLIRContext &context) : builder(&context) {
   theModule = mlir::ModuleOp::create(builder.getUnknownLoc());
@@ -25,22 +28,11 @@ void StaqToMLIR::addReturn() {
   builder.create<mlir::ReturnOp>(builder.getUnknownLoc());
 }
 
-void StaqToMLIR::visit(VarAccess &) {}
-// Expressions
-void StaqToMLIR::visit(BExpr &) {}
-void StaqToMLIR::visit(UExpr &) {}
-void StaqToMLIR::visit(PiExpr &) {}
-void StaqToMLIR::visit(IntExpr &) {}
-void StaqToMLIR::visit(RealExpr &r) {}
-void StaqToMLIR::visit(VarExpr &v) {}
-void StaqToMLIR::visit(ResetStmt &) {}
-void StaqToMLIR::visit(IfStmt &) {}
-void StaqToMLIR::visit(BarrierGate &) {}
 void StaqToMLIR::visit(GateDecl &) {}
-void StaqToMLIR::visit(OracleDecl &) {}
+
 void StaqToMLIR::visit(RegisterDecl &d) {
   if (d.is_quantum()) {
-    std::uint64_t size = d.size();
+    std::int64_t size = d.size();
     auto name = d.id();
 
     auto pos = d.pos();
@@ -64,11 +56,6 @@ void StaqToMLIR::visit(RegisterDecl &d) {
   }
 }
 
-void StaqToMLIR::visit(AncillaDecl &) {}
-void StaqToMLIR::visit(Program &prog) {
-  // Program body
-  prog.foreach_stmt([this](auto &stmt) { stmt.accept(*this); });
-}
 void StaqToMLIR::visit(MeasureStmt &m) {
   auto pos = m.pos();
   auto line = pos.get_linenum();
@@ -79,10 +66,8 @@ void StaqToMLIR::visit(MeasureStmt &m) {
       builder.getFileLineColLoc(builder.getIdentifier(fname), line, col);
 
   auto str_attr = builder.getStringAttr("mz");
+
   // params
-  auto dataType = mlir::VectorType::get({1}, builder.getF64Type());
-  std::vector<double> v{0.0};
-  auto params_arr_ref = llvm::makeArrayRef(v);
   mlir::DenseElementsAttr params_dataAttribute;
 
   std::vector<mlir::Value> qubits_for_inst;
@@ -154,11 +139,8 @@ void StaqToMLIR::visit(CNOTGate &g) {
   auto str_attr = builder.getStringAttr("cx");
 
   // params
-  // auto dataType = mlir::VectorType::get({1}, builder.getF64Type());
-  // std::vector<double> v{0.0};
-  // auto params_arr_ref = llvm::makeArrayRef(v);
   mlir::DenseElementsAttr params_dataAttribute;
-  
+
   // ctrl qbits
   std::vector<mlir::Value> qubits_for_inst;
   auto qreg_ctrl_var_name = g.ctrl().var();
@@ -218,7 +200,7 @@ void StaqToMLIR::visit(DeclaredGate &g) {
     auto params_arr_ref = llvm::makeArrayRef(v);
     params_dataAttribute =
         mlir::DenseElementsAttr::get(dataType, params_arr_ref);
-  } 
+  }
 
   // qbits
   std::vector<mlir::Value> qubits_for_inst;

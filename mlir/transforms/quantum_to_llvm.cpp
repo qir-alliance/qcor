@@ -1,4 +1,5 @@
 #include "quantum_to_llvm.hpp"
+#include "quantum_dialect.hpp"
 
 #include <iostream>
 
@@ -11,28 +12,18 @@
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/raw_ostream.h"
-#include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
-#include "mlir/Conversion/SCFToStandard/SCFToStandard.h"
 #include "mlir/Conversion/StandardToLLVM/ConvertStandardToLLVM.h"
 #include "mlir/Conversion/StandardToLLVM/ConvertStandardToLLVMPass.h"
-#include "mlir/Conversion/VectorToLLVM/ConvertVectorToLLVM.h"
-#include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
-#include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
-#include "mlir/ExecutionEngine/ExecutionEngine.h"
-#include "mlir/ExecutionEngine/OptUtils.h"
+
 #include "mlir/IR/AsmState.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/Verifier.h"
 #include "mlir/InitAllDialects.h"
 #include "mlir/Parser.h"
-#include "mlir/Pass/Pass.h"
-#include "mlir/Pass/PassManager.h"
-#include "mlir/Target/LLVMIR.h"
-#include "mlir/Transforms/DialectConversion.h"
-#include "mlir/Transforms/Passes.h"
+
 namespace {
 using namespace mlir;
 std::map<std::string, std::string> inst_map{{"cx", "cnot"}, {"measure", "mz"}};
@@ -159,7 +150,7 @@ class InstOpLowering : public ConversionPattern {
       }
 
       // Need a Int64Type for each qubit argument
-      for (int i = 0; i < operands.size(); i++) {
+      for (std::size_t i = 0; i < operands.size(); i++) {
         auto qubit_index_type =
             LLVM::LLVMType::getInt64Ty(context).getPointerTo();
         tmp_arg_types.push_back(qubit_index_type);
@@ -181,7 +172,7 @@ class InstOpLowering : public ConversionPattern {
     std::vector<mlir::Value> func_args;
     if (instOp.params()) {
       auto params = instOp.params().getValue();
-      for (std::uint64_t i = 0; i < params.getNumElements(); i++) {
+      for (std::uint64_t i = 0; i < params.size(); i++) {
         auto param_double =
             params.template getValue<double>(llvm::makeArrayRef({i}));
         std::cout << "HELLO inst_name: " << inst_name << ", " << param_double
@@ -206,7 +197,7 @@ class InstOpLowering : public ConversionPattern {
       ret_type = LLVM::LLVMType::getInt64Ty(context);
     }
 
-    auto qinst_qir_call = rewriter.create<mlir::CallOp>(
+    rewriter.create<mlir::CallOp>(
         loc, q_symbol_ref, ret_type, llvm::makeArrayRef(func_args));
 
     // Notify the rewriter that this operation has been removed.

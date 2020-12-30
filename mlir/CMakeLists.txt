@@ -15,12 +15,14 @@ include(TableGen)
 include(AddLLVM)
 include(AddMLIR)
 include(HandleLLVMOptions)
-message(STATUS "MLIR HELLO ${LLVM_INCLUDE_DIRS}")
+
 include_directories(${LLVM_INCLUDE_DIRS})
 include_directories(${MLIR_INCLUDE_DIRS})
 include_directories(${PROJECT_SOURCE_DIR}/include)
 include_directories(${PROJECT_BINARY_DIR}/include)
 link_directories(${LLVM_BUILD_LIBRARY_DIR})
+
+get_filename_component(MLIR_INSTALL_DIR "${MLIR_DIR}/../../.." ABSOLUTE)
 
 add_subdirectory(dialect)
 add_subdirectory(parsers)

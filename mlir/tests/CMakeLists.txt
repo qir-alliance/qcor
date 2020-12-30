@@ -25,5 +25,5 @@ llvm_update_compile_flags(QasmTester)
 target_link_libraries(QasmTester PUBLIC quantum-to-llvm-lowering staq-mlir-visitor )
 
 set_target_properties(QasmTester
-                        PROPERTIES INSTALL_RPATH "/home/cades/.mlir/lib:${CMAKE_BINARY_DIR}/mlir/parsers/openqasm:${CMAKE_BINARY_DIR}/lib")
+                        PROPERTIES INSTALL_RPATH "${MLIR_INSTALL_DIR}/lib:${CMAKE_BINARY_DIR}/mlir/parsers/openqasm:${CMAKE_BINARY_DIR}/lib")
 mlir_check_all_link_libraries(QasmTester)
