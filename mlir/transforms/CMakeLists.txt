@@ -11,6 +11,7 @@ set(LIBS
         quantum-dialect
         MLIROptLib
         MLIRTargetLLVMIR
+        MLIRExecutionEngine
         )
 
 add_mlir_library(${LIBRARY_NAME} SHARED ${SRC} LINK_LIBS PUBLIC ${LIBS})

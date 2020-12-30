@@ -24,6 +24,6 @@ link_directories(${LLVM_BUILD_LIBRARY_DIR})
 
 add_subdirectory(dialect)
 add_subdirectory(parsers)
-#add_subdirectory(transforms)
+add_subdirectory(transforms)
 
 add_subdirectory(tests)
