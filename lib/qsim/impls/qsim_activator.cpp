@@ -10,6 +10,7 @@
 #include "workflow/qite.hpp"
 #include "workflow/time_dependent.hpp"
 #include "workflow/vqe.hpp"
+#include "workflow/adapt.hpp"
 
 namespace qcor {
 namespace qsim {
@@ -48,6 +49,8 @@ public:
         std::make_shared<qsim::QiteWorkflow>());
     context.RegisterService<qsim::QuantumSimulationWorkflow>(
         std::make_shared<qsim::IterativeQpeWorkflow>());
+    context.RegisterService<qsim::QuantumSimulationWorkflow>(
+        std::make_shared<qsim::AdaptVqeWorkflow>());
     // Cost evaluators
     context.RegisterService<qsim::CostFunctionEvaluator>(
         std::make_shared<qsim::PartialTomoObjFuncEval>());

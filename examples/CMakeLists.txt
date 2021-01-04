@@ -21,3 +21,8 @@ add_test(NAME qrt_ftqc_steane_qec_std_lib COMMAND ${CMAKE_BINARY_DIR}/qcor -c -q
 add_test(NAME qsim_vqe COMMAND ${CMAKE_BINARY_DIR}/qcor ${CMAKE_CURRENT_SOURCE_DIR}/qsim/VqeWithAnsatzCircuit.cpp)
 add_test(NAME qsim_trotter COMMAND ${CMAKE_BINARY_DIR}/qcor ${CMAKE_CURRENT_SOURCE_DIR}/qsim/TrotterTdWorkflow.cpp)
 add_test(NAME qsim_iqpe_vqe COMMAND ${CMAKE_BINARY_DIR}/qcor ${CMAKE_CURRENT_SOURCE_DIR}/qsim/IterativeQpeVqe.cpp)
+add_test(NAME qsim_adapt_vqe COMMAND ${CMAKE_BINARY_DIR}/qcor ${CMAKE_CURRENT_SOURCE_DIR}/qsim/AdaptVqeWorkflow.cpp)
+add_test(NAME qsim_qaoa COMMAND ${CMAKE_BINARY_DIR}/qcor ${CMAKE_CURRENT_SOURCE_DIR}/qsim/QaoaWorkflow.cpp)
+add_test(NAME qsim_qite COMMAND ${CMAKE_BINARY_DIR}/qcor ${CMAKE_CURRENT_SOURCE_DIR}/qsim/QiteWorkflow.cpp)
+add_test(NAME qsim_heisenberg COMMAND ${CMAKE_BINARY_DIR}/qcor ${CMAKE_CURRENT_SOURCE_DIR}/qsim/TdWorkflowHeisenbergModel.cpp)
+add_test(NAME qsim_verified_qpe COMMAND ${CMAKE_BINARY_DIR}/qcor ${CMAKE_CURRENT_SOURCE_DIR}/qsim/VerifiedQuantumPhaseEstimation.cpp)

@@ -80,7 +80,7 @@ class KernelArgDictToHeterogeneousMap {
 
 // Add type name to this list to support receiving from Python.
 using PyHeterogeneousMapTypes =
-    xacc::Variant<bool, int, double, std::string,
+    xacc::Variant<bool, int, double, std::string, std::vector<int>,
                   std::shared_ptr<qcor::Optimizer>, std::vector<double>, std::vector<std::vector<double>>>;
 using PyHeterogeneousMap = std::map<std::string, PyHeterogeneousMapTypes>;
 
@@ -661,7 +661,15 @@ PYBIND11_MODULE(_pyqcor, m) {
         qsim, "QuantumSimulationModel",
         "The QuantumSimulationModel captures the quantum simulation problem "
         "description.")
-        .def(py::init<>());
+        .def(py::init<>())
+        .def(
+            "__str__",
+            [](qcor::qsim::QuantumSimulationModel &self) {
+              std::stringstream ss;
+              ss << "{ observable: " << self.observable->toString() << "}";
+              return ss.str();
+            },
+            "");
 
     // ModelBuilder bindings:
     py::class_<qcor::qsim::ModelBuilder>(
@@ -688,7 +696,19 @@ PYBIND11_MODULE(_pyqcor, m) {
               return std::move(model);
             },
             "")
-
+        .def(
+            "createModel",
+            [](py::object py_kernel, py::object &py_obs, const int n_params) {
+              qcor::qsim::QuantumSimulationModel model;
+              static auto obs = convertToQCOROperator(py_obs);
+              auto nq = obs->nBits();
+              auto kernel_functor = std::make_shared<qcor::PyKernelFunctor>(
+                  py_kernel, nq, n_params);
+              model.observable = obs.get();
+              model.user_defined_ansatz = kernel_functor;
+              return std::move(model);
+            },
+            "")
         .def(
             "createModel",
             [](py::object py_kernel, qcor::PauliOperator &obs,
@@ -731,6 +751,15 @@ PYBIND11_MODULE(_pyqcor, m) {
             "createModel",
             [](qcor::PauliOperator &obs) {
               return qcor::qsim::ModelBuilder::createModel(obs);
+            },
+            "")
+        .def(
+            "createModel",
+            [](py::object &py_obs) {
+              qcor::qsim::QuantumSimulationModel model;
+              static auto obs = convertToQCOROperator(py_obs);
+              model.observable = obs.get();
+              return std::move(model);
             },
             "")
         .def(
