@@ -9,7 +9,7 @@ TEST(QiteWorkflowTester, checkSimple) {
   xacc::internal_compiler::qpu = xacc::getAccelerator("qpp");
   const int nbSteps = 25;
   const double stepSize = 0.1;
-  auto problemModel = qsim::ModelBuilder::createModel(&observable);
+  auto problemModel = qsim::ModelFactory::createModel(&observable);
   auto workflow =
       qsim::getWorkflow("qite", {{"steps", nbSteps}, {"step-size", stepSize}});
   auto result = workflow->execute(problemModel);

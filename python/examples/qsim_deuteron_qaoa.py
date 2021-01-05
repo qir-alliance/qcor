@@ -6,7 +6,7 @@ from qcor import *
 H = -2.1433 * X(0) * X(1) - 2.1433 * \
     Y(0) * Y(1) + .21829 * Z(0) - 6.125 * Z(1) + 5.907
 
-problemModel = qsim.ModelBuilder.createModel(H)
+problemModel = qsim.ModelFactory.createModel(H)
       
 # Create the NLOpt derivative free optimizer
 optimizer = createOptimizer('nlopt')

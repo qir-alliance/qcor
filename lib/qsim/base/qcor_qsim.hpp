@@ -95,7 +95,7 @@ struct QuantumSimulationModel {
 
 // Generic model builder (factory)
 // Create a model which capture the problem description.
-class ModelBuilder {
+class ModelFactory {
 public:
   // Generic Heisenberg model
   struct HeisenbergModel {

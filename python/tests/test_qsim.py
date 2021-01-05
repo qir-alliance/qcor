@@ -13,7 +13,7 @@ class TestWorkflows(unittest.TestCase):
 
       # Observable = average magnetization
       observable = (1.0 / 3.0) * (Z(0) + Z(1) + Z(2))
-      problemModel = qsim.ModelBuilder.createModel(observable, td_hamiltonian)
+      problemModel = qsim.ModelFactory.createModel(observable, td_hamiltonian)
       nbSteps = 100
       workflow = qsim.getWorkflow(
         "td-evolution", {"dt": 3.0, "steps": nbSteps})
@@ -36,7 +36,7 @@ class TestWorkflows(unittest.TestCase):
 
       num_qubits = 2
       num_params = 1
-      problemModel = qsim.ModelBuilder.createModel(ansatz, H, num_qubits, num_params)
+      problemModel = qsim.ModelFactory.createModel(ansatz, H, num_qubits, num_params)
       
       optimizer = createOptimizer('nlopt')
       

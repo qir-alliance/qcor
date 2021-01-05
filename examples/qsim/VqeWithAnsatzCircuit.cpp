@@ -20,7 +20,7 @@ int main(int argc, char **argv) {
   const auto num_qubits = 2;
   const auto num_params = 1;
   auto problemModel =
-      qsim::ModelBuilder::createModel(ansatz, H, num_qubits, num_params);
+      qsim::ModelFactory::createModel(ansatz, H, num_qubits, num_params);
   auto optimizer = createOptimizer("nlopt");
   // Instantiate a VQE workflow with the nlopt optimizer
   auto workflow = qsim::getWorkflow("vqe", {{"optimizer", optimizer}});

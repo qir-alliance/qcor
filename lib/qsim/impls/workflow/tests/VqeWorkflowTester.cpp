@@ -18,7 +18,7 @@ TEST(VqeWorkflowTest, checkInputComposite) {
   auto kernel = tmp->getComposites()[0];
   auto H = 5.907 - 2.1433 * X(0) * X(1) - 2.143 * Y(0) * Y(1) + 0.21829 * Z(0) -
            6.125 * Z(1);
-  auto problemModel = qsim::ModelBuilder::createModel(kernel, H);
+  auto problemModel = qsim::ModelFactory::createModel(kernel, H);
   auto optimizer = createOptimizer("nlopt");
   // Instantiate a VQE workflow with the nlopt optimizer
   auto workflow = qsim::getWorkflow("vqe", {{"optimizer", optimizer}});
