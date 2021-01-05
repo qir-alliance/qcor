@@ -33,6 +33,12 @@ class StaqToMLIR : public staq::ast::Visitor {
   mlir::Block * main_entry_point;
   std::vector<std::string> function_names;
   
+  mlir::Type qubit_type;
+  mlir::Type array_type;
+  mlir::Type result_type;
+  
+  std::map<std::pair<std::string, std::uint64_t>, mlir::Value> extracted_qubits;
+
  public:
   StaqToMLIR(mlir::MLIRContext &context);
   mlir::ModuleOp module() {return theModule;}
