@@ -1,4 +1,6 @@
 
+#include <fstream>
+
 #include "llvm/Support/TargetSelect.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
@@ -7,42 +9,39 @@
 #include "mlir/ExecutionEngine/OptUtils.h"
 #include "quantum_to_llvm.hpp"
 #include "staq_parser.hpp"
+#include "tools/ast_printer.hpp"
 
 using namespace mlir;
 using namespace staq;
 
+namespace cl = llvm::cl;
+
+static cl::opt<std::string> inputFilename(cl::Positional,
+                                          cl::desc("<input openqasm file>"),
+                                          cl::init("-"),
+                                          cl::value_desc("filename"));
+
 int main(int argc, char **argv) {
   llvm::cl::ParseCommandLineOptions(argc, argv, "openqasm compiler\n");
 
-  std::string lineText = R"#(OPENQASM 2.0;
-include "qelib1.inc";
-qreg q[2];
-h q[0];
-cx q[0], q[1];
-CX q[1], q[0];
-U(1.1,2.2,3.3) q[1];
-rx(2.333) q[0];
-gate foo q {
-  ry(3.3) q;
-}
-foo q[0];
-qreg r[3];
-ccx r[0], r[1], r[2];
-creg c[2];
-measure q -> c;
-)#";
+  llvm::StringRef ref(inputFilename);
+  std::ifstream t(ref.str());
+  std::string qasm_src((std::istreambuf_iterator<char>(t)),
+                       std::istreambuf_iterator<char>());
 
-  std::cout << "Original:\n" << lineText << "\n";
+//   std::cout << "Original:\n" << qasm_src << "\n";
   // Parse the OpenQasm with Staq
   ast::ptr<ast::Program> prog;
   try {
-    prog = parser::parse_string(lineText);
-    transformations::inline_ast(*prog);
+    prog = parser::parse_string(qasm_src);
+    // transformations::inline_ast(*prog);
     transformations::desugar(*prog);
   } catch (std::exception &e) {
     std::stringstream ss;
     std::cout << e.what() << "\n";
   }
+
+  tools::print_tree(*prog, std::cout);
 
   std::cout << "After parsing:\n" << *prog << "\n";
   mlir::MLIRContext context;
@@ -66,14 +65,14 @@ measure q -> c;
     std::cout << "Pass Manager Failed\n";
     return 1;
   }
-  std::cout << "Lowered to LLVM MLIR Dialect:\n";
-  module_op->dump();
+//   std::cout << "Lowered to LLVM MLIR Dialect:\n";
+//   module_op->dump();
 
   // Now lower MLIR to LLVM IR
   llvm::LLVMContext llvmContext;
   auto llvmModule = mlir::translateModuleToLLVMIR(module, llvmContext);
-  std::cout << "Lowered to LLVM IR:\n";
-  llvmModule->dump();
+//   std::cout << "Lowered to LLVM IR:\n";
+//   llvmModule->dump();
 
   // Optimize the LLVM IR
   llvm::InitializeNativeTarget();
@@ -83,9 +82,28 @@ measure q -> c;
     llvm::errs() << "Failed to optimize LLVM IR " << err << "\n";
     return -1;
   }
-  std::cout << "Optimized LLVM IR:\n";
+//   std::cout << "Optimized LLVM IR:\n";
   llvmModule->dump();
 
-  
+
   return 0;
 }
+
+
+
+// declare i64 @__quantum__qis__mz(i64* %q) 
+// declare void @__quantum__qis__cnot(Qubit* %ctrl, Qubit* %tgt) 
+// declare void @__quantum__qis__h(Qubit* %q) 
+// declare Qubit* @__quantum__rt__array_get_element_ptr_1d(Qubit* %qreg, i64 %idx)
+// declare Qubit* @__quantum__rt__qubit_allocate_array(i64 %size, ...) 
+
+// define void @main() {
+//   %1 = call Qubit* @__quantum__rt__qubit_allocate_array(i64 2)
+//   %2 = call Qubit* @__quantum__rt__array_get_element_ptr_1d(Qubit* %1, i64 0)
+//   call void @__quantum__qis__h(Qubit* %2)
+//   %3 = call Qubit* @__quantum__rt__array_get_element_ptr_1d(Qubit* %1, i64 1)
+//   tail void @__quantum__qis__cnot(Qubit* %2, Qubit* %3)
+//   %4 = call i64 @__quantum__qis__mz(Qubit* %2)
+//   %5 = call i64 @__quantum__qis__mz(Qubit* %3)
+//   ret void
+// }

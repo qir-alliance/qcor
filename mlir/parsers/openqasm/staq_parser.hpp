@@ -1,4 +1,6 @@
 #pragma once
+
+// Turn off Staq warnings
 #pragma GCC diagnostic ignored "-Wsuggest-override"
 #pragma GCC diagnostic ignored "-Wdeprecated-copy"
 #pragma GCC diagnostic ignored "-Wunused-function"
@@ -26,7 +28,11 @@ class StaqToMLIR : public staq::ast::Visitor {
   mlir::ModuleOp theModule;
   mlir::OpBuilder builder;
   std::map<std::string, mlir::quantum::QallocOp> qubit_allocations;
-
+  bool in_sub_kernel = false;
+  std::map<std::string, mlir::Value> temporary_sub_kernel_args;
+  mlir::Block * main_entry_point;
+  std::vector<std::string> function_names;
+  
  public:
   StaqToMLIR(mlir::MLIRContext &context);
   mlir::ModuleOp module() {return theModule;}

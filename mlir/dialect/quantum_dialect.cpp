@@ -12,6 +12,7 @@ namespace quantum {
 QuantumDialect::QuantumDialect(mlir::MLIRContext *ctx)
     : mlir::Dialect(getDialectNamespace(), ctx, TypeID::get<QuantumDialect>()) {
   addOperations<InstOp, QallocOp, ReturnOp>();
+  addTypes<QubitType>();
 }
 InstOpAdaptor::InstOpAdaptor(::mlir::ValueRange values,
                              ::mlir::DictionaryAttr attrs)

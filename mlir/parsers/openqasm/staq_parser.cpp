@@ -19,16 +19,72 @@ StaqToMLIR::StaqToMLIR(mlir::MLIRContext &context) : builder(&context) {
   auto func_type = builder.getFunctionType(arg_types, llvm::None);
   auto proto = mlir::FuncOp::create(builder.getUnknownLoc(), "main", func_type);
   mlir::FuncOp function(proto);
-  auto &entryBlock = *function.addEntryBlock();
+  main_entry_point = function.addEntryBlock();
+  auto &entryBlock = *main_entry_point;
   builder.setInsertionPointToStart(&entryBlock);
   theModule.push_back(function);
+  function_names.push_back("main");
 }
 
 void StaqToMLIR::addReturn() {
   builder.create<mlir::ReturnOp>(builder.getUnknownLoc());
+
+  std::vector<llvm::StringRef> tmp(function_names.begin(), function_names.end());
+  
+  auto function_names_datatype =
+      mlir::VectorType::get({function_names.size()}, builder.getI64Type());
+  auto function_names_ref = llvm::makeArrayRef(tmp);
+  auto attrs = mlir::DenseStringElementsAttr::get(function_names_datatype,
+                                                  function_names_ref);
+
+  mlir::Identifier id =
+      mlir::Identifier::get("quantum.internal_functions", builder.getContext());
+
+  theModule.setAttrs(
+      llvm::makeArrayRef({mlir::NamedAttribute(std::make_pair(id, attrs))}));
 }
 
-void StaqToMLIR::visit(GateDecl &) {}
+void StaqToMLIR::visit(GateDecl &gate_function) {
+  auto name = gate_function.id();
+  static std::vector<std::string> builtins{
+      "u3", "u2",   "u1",  "cx",  "id",  "u0",  "x",   "y",  "z",
+      "h",  "s",    "sdg", "t",   "tdg", "rx",  "ry",  "rz", "cz",
+      "cy", "swap", "ch",  "ccx", "crz", "cu1", "cu2", "cu3"};
+  if (std::find(builtins.begin(), builtins.end(), name) == builtins.end()) {
+    std::vector<mlir::Type> arg_types;
+
+    function_names.push_back(name);
+
+    auto n_args = gate_function.q_params().size();
+    for (std::size_t i = 0; i < n_args; i++) {
+      arg_types.push_back(builder.getI64Type());
+    }
+
+    auto func_type = builder.getFunctionType(arg_types, llvm::None);
+    auto proto = mlir::FuncOp::create(builder.getUnknownLoc(), name, func_type);
+    mlir::FuncOp function(proto);
+    auto &entryBlock = *function.addEntryBlock();
+    builder.setInsertionPointToStart(&entryBlock);
+
+    auto arguments = entryBlock.getArguments();
+
+    for (std::size_t i = 0; i < n_args; i++) {
+      auto argument = arguments[i];
+      auto arg_name = gate_function.q_params()[i];
+      temporary_sub_kernel_args.insert({arg_name, argument});
+    }
+    in_sub_kernel = true;
+
+    gate_function.foreach_stmt([this](Gate &g) { g.accept(*this); });
+
+    in_sub_kernel = false;
+    temporary_sub_kernel_args.clear();
+    builder.create<mlir::ReturnOp>(builder.getUnknownLoc());
+    theModule.push_back(function);
+
+    builder.setInsertionPointToStart(main_entry_point);
+  }
+}
 
 void StaqToMLIR::visit(RegisterDecl &d) {
   if (d.is_quantum()) {
@@ -210,14 +266,20 @@ void StaqToMLIR::visit(DeclaredGate &g) {
       // throw an error
     }
 
-    auto qubits = qubit_allocations[qreg_var_name].qubits();
+    if (!in_sub_kernel) {
+      auto qubits = qubit_allocations[qreg_var_name].qubits();
 
-    std::uint64_t qidx = g.qarg(i).offset().value();
-    auto integer_attr = mlir::IntegerAttr::get(builder.getI64Type(), qidx);
-    mlir::Value pos = builder.create<mlir::ConstantOp>(location, integer_attr);
-    mlir::Value qbit_value =
-        builder.create<mlir::vector::ExtractElementOp>(location, qubits, pos);
-    qubits_for_inst.push_back(qbit_value);
+      std::uint64_t qidx = g.qarg(i).offset().value();
+      auto integer_attr = mlir::IntegerAttr::get(builder.getI64Type(), qidx);
+      mlir::Value pos =
+          builder.create<mlir::ConstantOp>(location, integer_attr);
+      mlir::Value qbit_value =
+          builder.create<mlir::vector::ExtractElementOp>(location, qubits, pos);
+      qubits_for_inst.push_back(qbit_value);
+    } else {
+      auto qubit_kernel_arg = temporary_sub_kernel_args[qreg_var_name];
+      qubits_for_inst.push_back(qubit_kernel_arg);
+    }
   }
 
   builder.create<mlir::quantum::InstOp>(location, str_attr,

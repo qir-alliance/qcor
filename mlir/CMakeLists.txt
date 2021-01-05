@@ -27,5 +27,5 @@ get_filename_component(MLIR_INSTALL_DIR "${MLIR_DIR}/../../.." ABSOLUTE)
 add_subdirectory(dialect)
 add_subdirectory(parsers)
 add_subdirectory(transforms)
-
+add_subdirectory(tools)
 add_subdirectory(tests)
