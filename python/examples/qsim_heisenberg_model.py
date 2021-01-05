@@ -7,7 +7,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # Demonstrate Heisenberg model (ArQTiC format) input
-problemModel = qsim.ModelBuilder.createModel(ModelType.Heisenberg, {'Jz': 0.01183898,
+problemModel = qsim.ModelFactory.createModel(ModelType.Heisenberg, {'Jz': 0.01183898,
                                                        'h_ext': 0.01183898,
                                                        'freq': 0.0048,
                                                        'ext_dir': 'X',

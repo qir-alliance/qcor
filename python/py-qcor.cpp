@@ -671,16 +671,16 @@ PYBIND11_MODULE(_pyqcor, m) {
             },
             "");
 
-    // ModelBuilder bindings:
-    py::class_<qcor::qsim::ModelBuilder>(
-        qsim, "ModelBuilder",
-        "The ModelBuilder interface provides methods to "
+    // ModelFactory bindings:
+    py::class_<qcor::qsim::ModelFactory>(
+        qsim, "ModelFactory",
+        "The ModelFactory interface provides methods to "
         "construct qsim problem models.")
         .def(py::init<>())
         .def(
             "createModel",
             [](qcor::PauliOperator &obs, qcor::qsim::TdObservable ham_func) {
-              return qcor::qsim::ModelBuilder::createModel(obs, ham_func);
+              return qcor::qsim::ModelFactory::createModel(obs, ham_func);
             },
             "Return the Model for a time-dependent problem.")
         .def(
@@ -750,7 +750,7 @@ PYBIND11_MODULE(_pyqcor, m) {
         .def(
             "createModel",
             [](qcor::PauliOperator &obs) {
-              return qcor::qsim::ModelBuilder::createModel(obs);
+              return qcor::qsim::ModelFactory::createModel(obs);
             },
             "")
         .def(
@@ -764,14 +764,14 @@ PYBIND11_MODULE(_pyqcor, m) {
             "")
         .def(
             "createModel",
-            [](qcor::qsim::ModelBuilder::ModelType type,
+            [](qcor::qsim::ModelFactory::ModelType type,
                PyHeterogeneousMap &params) {
               auto nativeHetMap = heterogeneousMapConvert(params);
-              return qcor::qsim::ModelBuilder::createModel(type, nativeHetMap);
+              return qcor::qsim::ModelFactory::createModel(type, nativeHetMap);
             },
             "Create a model of a supported type.");
-    py::enum_<qcor::qsim::ModelBuilder::ModelType>(m, "ModelType")
-        .value("Heisenberg", qcor::qsim::ModelBuilder::ModelType::Heisenberg)
+    py::enum_<qcor::qsim::ModelFactory::ModelType>(m, "ModelType")
+        .value("Heisenberg", qcor::qsim::ModelFactory::ModelType::Heisenberg)
         .export_values();
     // CostFunctionEvaluator bindings
     py::class_<qcor::qsim::CostFunctionEvaluator,

@@ -19,7 +19,7 @@ observable = (1.0 / 3.0) * (Z(0) + Z(1) + Z(2))
 
 # Example: build model and TD workflow for Fig. 2 of
 # https://journals.aps.org/prb/pdf/10.1103/PhysRevB.101.184305
-problemModel = qsim.ModelBuilder.createModel(observable, td_hamiltonian)
+problemModel = qsim.ModelFactory.createModel(observable, td_hamiltonian)
 # TD workflow with hyper-parameters: 
 # Trotter step = 3fs, number of steps = 100 -> end time = 300fs
 workflow = qsim.getWorkflow(

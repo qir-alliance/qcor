@@ -11,7 +11,7 @@ int main(int argc, char **argv) {
   // Number of QITE time steps and step size
   const int nbSteps = 25;
   const double stepSize = 0.1;
-  auto problemModel = qsim::ModelBuilder::createModel(ham);
+  auto problemModel = qsim::ModelFactory::createModel(ham);
   auto workflow =
       qsim::getWorkflow("qite", {{"steps", nbSteps}, {"step-size", stepSize}});
   auto result = workflow->execute(problemModel);

@@ -7,7 +7,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # Heisenberg quench model input
-problemModel = qsim.ModelBuilder.createModel(ModelType.Heisenberg, {'Jx': 1.0,
+problemModel = qsim.ModelFactory.createModel(ModelType.Heisenberg, {'Jx': 1.0,
                                                                     'Jy': 1.0,
                                                                     'Jz': 0.2,
                                                                     'h_ext': 0.0,

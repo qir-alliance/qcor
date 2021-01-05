@@ -18,7 +18,7 @@ void executePassManager(
 }
 
 QuantumSimulationModel
-ModelBuilder::createModel(Observable *obs, TdObservable td_ham,
+ModelFactory::createModel(Observable *obs, TdObservable td_ham,
                           const HeterogeneousMap &params) {
   QuantumSimulationModel model;
   model.observable = obs;
@@ -27,7 +27,7 @@ ModelBuilder::createModel(Observable *obs, TdObservable td_ham,
 }
 
 QuantumSimulationModel
-ModelBuilder::createModel(Observable *obs, const HeterogeneousMap &params) {
+ModelFactory::createModel(Observable *obs, const HeterogeneousMap &params) {
   QuantumSimulationModel model;
   model.observable = obs;
   model.hamiltonian = [&](double t) {
@@ -37,7 +37,7 @@ ModelBuilder::createModel(Observable *obs, const HeterogeneousMap &params) {
 }
 
 QuantumSimulationModel
-ModelBuilder::createModel(ModelType type, const HeterogeneousMap &params) {
+ModelFactory::createModel(ModelType type, const HeterogeneousMap &params) {
   if (type == ModelType::Heisenberg) {
     // Static internal HeisenbergModel struct
     // (keep alive to form time-depenedent Hamiltonian operator)
@@ -154,7 +154,7 @@ ModelBuilder::createModel(ModelType type, const HeterogeneousMap &params) {
 }
 
 QuantumSimulationModel
-ModelBuilder::createModel(const std::string &format, const std::string &data,
+ModelFactory::createModel(const std::string &format, const std::string &data,
                           const HeterogeneousMap &params) {
   QuantumSimulationModel model;
   // TODO:
@@ -182,7 +182,7 @@ getObjEvaluator(Observable *observable, const std::string &name,
   return nullptr;
 }
 
-void ModelBuilder::HeisenbergModel::fromDict(const HeterogeneousMap &params) {
+void ModelFactory::HeisenbergModel::fromDict(const HeterogeneousMap &params) {
   const auto getKeyIfExists = [&params](auto &modelVar,
                                         const std::string &keyName) {
     using ValType = typename std::remove_reference_t<decltype(modelVar)>;

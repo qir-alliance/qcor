@@ -15,7 +15,7 @@ nbSteps = 25
 stepSize = 0.1
 
 # Create the problem model
-problemModel = qsim.ModelBuilder.createModel(H)
+problemModel = qsim.ModelFactory.createModel(H)
 
 # Create the QITE workflow
 workflow = qsim.getWorkflow('qite', {'steps': nbSteps, 'step-size': stepSize})

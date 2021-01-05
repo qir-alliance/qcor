@@ -38,7 +38,7 @@ int main(int argc, char **argv) {
   std::cout << "Running QSim for a quenching model with " << n_spins
             << " spins and g = " << g << "\n";
   std::cout << "dt " << dt << "; number of steps = " << n_steps << "\n";
-  using ModelType = qcor::qsim::ModelBuilder::ModelType;
+  using ModelType = qcor::qsim::ModelFactory::ModelType;
   // Initial spin state: Neel state
   std::vector<int> initial_spins;
   for (int i = 0; i < n_spins; ++i) {
@@ -46,7 +46,7 @@ int main(int argc, char **argv) {
     initial_spins.emplace_back(i % 2);
   }
 
-  auto problemModel = qsim::ModelBuilder::createModel(
+  auto problemModel = qsim::ModelFactory::createModel(
       ModelType::Heisenberg, {{"Jx", 1.0},
                               {"Jy", 1.0},
                               // Jz == g parameter

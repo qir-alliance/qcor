@@ -22,7 +22,7 @@ int main(int argc, char **argv) {
   auto H = 5.907 - 2.1433 * X(0) * X(1) - 2.143 * Y(0) * Y(1) + 0.21829 * Z(0) -
            6.125 * Z(1);
   auto problemModel =
-      qsim::ModelBuilder::createModel(eigen_state_prep, H, 2, 0);
+      qsim::ModelFactory::createModel(eigen_state_prep, H, 2, 0);
 
   // Instantiate an IQPE workflow
   auto workflow =

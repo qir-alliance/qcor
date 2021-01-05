@@ -31,7 +31,7 @@ int main(int argc, char **argv) {
 
   // Example: build model and TD workflow for Fig. 2 of
   // https://journals.aps.org/prb/pdf/10.1103/PhysRevB.101.184305
-  auto problemModel = qsim::ModelBuilder::createModel(observable, H);
+  auto problemModel = qsim::ModelFactory::createModel(observable, H);
   // Trotter step = 3fs, number of steps = 100 -> end time = 300fs
   // Request the Verified QPE observable evaluator:
   auto vqpeEvaluator =

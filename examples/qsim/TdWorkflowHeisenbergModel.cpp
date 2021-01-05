@@ -7,7 +7,7 @@
 /// $ qcor -qpu qpp TdWorkflowHeisenbergModel.cpp
 /// $ ./a.out
 int main(int argc, char **argv) {
-  using ModelType = qcor::qsim::ModelBuilder::ModelType;
+  using ModelType = qcor::qsim::ModelFactory::ModelType;
 
   // Example ArQTiC input:
   // *Jz 
@@ -22,7 +22,7 @@ int main(int argc, char **argv) {
   // X
   // *num_spins
   // 3
-  auto problemModel = qsim::ModelBuilder::createModel(ModelType::Heisenberg,
+  auto problemModel = qsim::ModelFactory::createModel(ModelType::Heisenberg,
                                                       {{"Jz", 0.01183898},
                                                        {"h_ext", 0.01183898},
                                                        {"freq", 0.0048},

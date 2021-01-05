@@ -17,7 +17,7 @@ def ansatz(q : qreg, theta : float):
 # prep circuit, Hamiltonian and note how many qubits
 # and variational parameters 
 num_params = 1
-problemModel = qsim.ModelBuilder.createModel(ansatz, H, num_params)
+problemModel = qsim.ModelFactory.createModel(ansatz, H, num_params)
       
 # Create the NLOpt derivative free optimizer
 optimizer = createOptimizer('nlopt')

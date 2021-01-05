@@ -32,7 +32,7 @@ int main(int argc, char **argv) {
 
   FermionOperator H_vqe;
   H_vqe.fromString(str);
-  auto problemModel = qsim::ModelBuilder::createModel(&H_vqe);
+  auto problemModel = qsim::ModelFactory::createModel(&H_vqe);
   auto optimizer = createOptimizer("nlopt", {{"nlopt-optimizer", "l-bfgs"}});
   const int nElectrons = 2;
   const auto pool_vqe = "qubit-pool";

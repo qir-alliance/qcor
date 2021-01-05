@@ -24,7 +24,7 @@ int main(int argc, char **argv) {
 
   // Example: build model and TD workflow for Fig. 2 of
   // https://journals.aps.org/prb/pdf/10.1103/PhysRevB.101.184305
-  auto problemModel = qsim::ModelBuilder::createModel(observable, H);
+  auto problemModel = qsim::ModelFactory::createModel(observable, H);
   // Trotter step = 3fs, number of steps = 100 -> end time = 300fs
   auto workflow = qsim::getWorkflow(
       "td-evolution", {{"dt", 3.0}, {"steps", 100}});

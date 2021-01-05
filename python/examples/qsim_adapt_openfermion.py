@@ -26,7 +26,7 @@ H=  FOp('', 0.7080240981) + FOp('1^ 2^ 1 2', -0.165606823582) + FOp('1^ 0^ 0 1',
     FOp('0^ 1^ 0 1', -0.120200490713) + FOp('1^ 0^ 1 0', -0.120200490713) 
 
 # Create a QSim problem model for the OpenFermion Hamiltonian
-problemModel = qsim.ModelBuilder.createModel(H)
+problemModel = qsim.ModelFactory.createModel(H)
       
 # Create the Adapt-VQE workflow
 nElectrons = 2
