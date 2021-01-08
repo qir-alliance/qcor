@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import argparse, sys, os, glob, subprocess, mimetypes, re
+import argparse, sys, os, glob, subprocess, mimetypes, re, pathlib
 
 def main(argv=None):
     compiler = '@CLANG_EXECUTABLE@'
@@ -285,7 +285,28 @@ def main(argv=None):
             fileType = mimetypes.guess_type(filename)[0]
             if fileType == 'text/x-c++src':
                 break
-                
+        if os.path.isfile(arg) and os.path.splitext(arg)[1] == '.qasm':
+            fileType = 'openqasm'
+            filename = arg
+        
+    if fileType == 'openqasm':
+        # Convert to MLIR and then to LLVM QIR
+        base_name = os.path.splitext(filename)[0]
+        ll_file_name = base_name + '.ll'
+        bc_file_name = base_name + '.bc'
+        object_file_name = base_name+'.o'
+        result = subprocess.run(['@CMAKE_INSTALL_PREFIX@/bin/qcor-qasm', filename], check=True)
+        llvm_bin_path = str(pathlib.Path(compiler).parent)
+        result = subprocess.run([llvm_bin_path+'/llvm-as', ll_file_name, '-o', bc_file_name ], check=True)
+        result = subprocess.run([llvm_bin_path+'/llc', '-filetype=obj', bc_file_name ], check=True)
+        baseLibs = ['@CMAKE_INSTALL_PREFIX@/lib/objects/qir-qrt/qir-qrt.cpp.o'] + baseLibs
+        sys.argv.remove(filename)
+        sys.argv.append(base_name+'.o')
+        fileType = None
+        filename = None
+
+
+    # exit(0)           
     # If it is a C++ file
     if fileType == 'text/x-c++src':
         fileIdx = sys.argv[1:].index(filename)

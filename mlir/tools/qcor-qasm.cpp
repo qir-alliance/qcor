@@ -12,6 +12,7 @@
 #include "quantum_to_llvm.hpp"
 #include "staq_parser.hpp"
 #include "tools/ast_printer.hpp"
+#include "mlir/IR/AsmState.h"
 
 using namespace mlir;
 using namespace staq;
@@ -78,6 +79,8 @@ mlir::OwningModuleRef loadMLIR(mlir::MLIRContext &context) {
 }
 
 int main(int argc, char **argv) {
+  mlir::registerAsmPrinterCLOptions();
+  mlir::registerMLIRContextCLOptions();
   llvm::cl::ParseCommandLineOptions(argc, argv, "openqasm compiler\n");
 
   mlir::MLIRContext context;
@@ -86,8 +89,8 @@ int main(int argc, char **argv) {
 
   auto module = loadMLIR(context);
 
-  std::cout << "MLIR + Quantum Dialect:\n";
-  module->dump();
+  // std::cout << "MLIR + Quantum Dialect:\n";
+  // module->dump();
 
   // Create the PassManager for lowering to LLVM MLIR and run it
   mlir::PassManager pm(&context);
@@ -97,13 +100,13 @@ int main(int argc, char **argv) {
     std::cout << "Pass Manager Failed\n";
     return 1;
   }
-  std::cout << "Lowered to LLVM MLIR Dialect:\n";
-  module_op->dump();
+  // std::cout << "Lowered to LLVM MLIR Dialect:\n";
+  // module_op->dump();
 
   // Now lower MLIR to LLVM IR
   llvm::LLVMContext llvmContext;
   auto llvmModule = mlir::translateModuleToLLVMIR(*module, llvmContext);
-  std::cout << "\nLowered to LLVM IR:\n";
+  // std::cout << "\nLowered to LLVM IR:\n";
 
   // Optimize the LLVM IR
   llvm::InitializeNativeTarget();
@@ -114,7 +117,19 @@ int main(int argc, char **argv) {
     return -1;
   }
   //   std::cout << "Optimized LLVM IR:\n";
-  llvmModule->dump();
+  // llvmModule->dump();
+
+  std::string s;
+  llvm::raw_string_ostream os(s);
+  llvmModule->print(os, nullptr, false, true);
+  os.flush();
+
+  // std::cout << "P HERE\n" << s << "\n";
+
+  std::string file_name = "bell.ll";
+  std::ofstream out_file(file_name);
+  out_file << s;
+  out_file.close();
 
   return 0;
 }

@@ -552,5 +552,35 @@ void QallocOp::build(::mlir::OpBuilder &, ::mlir::OperationState &odsState, ::ml
   }
   return ::mlir::success();
 }
+
+static mlir::ParseResult parseQallocOp(mlir::OpAsmParser &parser,
+                                       mlir::OperationState &result) {
+  // SmallVector<mlir::OpAsmParser::OperandType, 2> operands;
+  // llvm::SMLoc operandsLoc = parser.getCurrentLocation();
+  Type type;
+  if (//parser.parseOperandList(operands, /*requiredOperandCount=*/2) ||
+      parser.parseOptionalAttrDict(result.attributes) ||
+      parser.parseColonType(type))
+    return mlir::failure();
+
+  // If the type is a function type, it contains the input and result types of
+  // this operation.
+  // if (FunctionType funcType = type.dyn_cast<FunctionType>()) {
+  //   if (parser.resolveOperands(operands, funcType.getInputs(), operandsLoc,
+  //                              result.operands))
+  //     return mlir::failure();
+  //   result.addTypes(funcType.getResults());
+  //   return mlir::success();
+  // }
+
+  // Otherwise, the parsed type is the type of both operands and results.
+  // if (parser.resolveOperands(operands, type, result.operands))
+  //   return mlir::failure();
+  result.addTypes(type);
+  return mlir::success();
+}
+::mlir::ParseResult QallocOp::parse(::mlir::OpAsmParser &parser, ::mlir::OperationState &result) {
+  return ::parseQallocOp(parser, result);
+}
 }  // namespace quantum
 }  // namespace mlir
