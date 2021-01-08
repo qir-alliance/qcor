@@ -1,6 +1,6 @@
 from qcor import * 
 
-# Solving deuteron problem using qsim QAOA
+# Solving deuteron problem using QuaSiMo QAOA
 
 # Define the deuteron hamiltonian 
 H = -2.1433 * X(0) * X(1) - 2.1433 * \
