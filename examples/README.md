@@ -28,7 +28,7 @@ Here we show a few examples of QCOR programs. These exampls highlight many aspec
 
 `qpe/` showcases examples for [quantum phase estimation](https://en.wikipedia.org/wiki/Quantum_phase_estimation_algorithm) algorithm. Files Requiring quantum runtime library (qrt), compile with: `qcor -o qpe -qpu qpp -shots 1024 -qrt qpe_example_qrt.cpp`
 
-`qsim/` a suite of examples employing the "Quantum Simulation Model" with qcor.  
+`quasimo/` a suite of examples employing the "Quantum Simulation Modeling" library with qcor.  
 
 `simple/` highlights core features and functionality of QCOR programs running straightforward quantum computing schemes. Reccomended starting point for new users. 
 

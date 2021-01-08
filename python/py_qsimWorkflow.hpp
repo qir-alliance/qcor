@@ -12,7 +12,7 @@
 
 namespace py = pybind11;
 namespace qcor {
-namespace qsim {
+namespace QuaSiMo {
 class PyQuantumSimulationWorkflow : public QuantumSimulationWorkflow {
   const std::string name() const override {
     PYBIND11_OVERLOAD_PURE(const std::string, QuantumSimulationWorkflow, name);
@@ -30,5 +30,5 @@ class PyQuantumSimulationWorkflow : public QuantumSimulationWorkflow {
     PYBIND11_OVERLOAD_PURE(bool, QuantumSimulationWorkflow, initialize);
   }
 };
-} // namespace qsim
+} // namespace QuaSiMo
 } // namespace qcor
