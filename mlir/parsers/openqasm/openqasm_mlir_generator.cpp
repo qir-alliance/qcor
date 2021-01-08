@@ -1,29 +1,17 @@
-#include "staq_parser.hpp"
+#include "openqasm_mlir_generator.hpp"
 
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/Vector/VectorOps.h"
 
-namespace qasm_parser {
+namespace qcor {
 
-void StaqToMLIR::visit(Program &prog) {
+void OpenQasmMLIRGenerator::visit(Program &prog) {
   prog.foreach_stmt([this](auto &stmt) { stmt.accept(*this); });
 }
 
-StaqToMLIR::StaqToMLIR(mlir::MLIRContext &context) : builder(&context) {
-  theModule = mlir::ModuleOp::create(builder.getUnknownLoc());
-
-  // This is a generic function, the return type will be inferred later.
-  // Arguments type are uniformly unranked tensors.
-  llvm::SmallVector<mlir::Type, 4> arg_types;
-  auto func_type = builder.getFunctionType(arg_types, llvm::None);
-  auto proto = mlir::FuncOp::create(builder.getUnknownLoc(), "main", func_type);
-  mlir::FuncOp function(proto);
-  main_entry_point = function.addEntryBlock();
-  auto &entryBlock = *main_entry_point;
-  builder.setInsertionPointToStart(&entryBlock);
-  theModule.push_back(function);
-  function_names.push_back("main");
+void OpenQasmMLIRGenerator::initialize_mlirgen() {
+  m_module = mlir::ModuleOp::create(builder.getUnknownLoc());
 
   llvm::StringRef qubit_type_name("Qubit"), array_type_name("Array"),
       result_type_name("Result");
@@ -31,16 +19,66 @@ StaqToMLIR::StaqToMLIR(mlir::MLIRContext &context) : builder(&context) {
   qubit_type = mlir::OpaqueType::get(dialect, qubit_type_name, &context);
   array_type = mlir::OpaqueType::get(dialect, array_type_name, &context);
   result_type = mlir::OpaqueType::get(dialect, result_type_name, &context);
+  auto int_type = builder.getI32Type();
+  auto argv_type =
+      mlir::OpaqueType::get(dialect, llvm::StringRef("ArgvType"), &context);
+
+  std::vector<mlir::Type> arg_types_vec;//{int_type, argv_type};
+  llvm::SmallVector<mlir::Type, 4> arg_types;
+  auto func_type =
+      builder.getFunctionType(llvm::makeArrayRef(arg_types_vec), llvm::None);//int_type);
+  auto proto = mlir::FuncOp::create(builder.getUnknownLoc(), "main", func_type);
+  mlir::FuncOp function(proto);
+  main_entry_block = function.addEntryBlock();
+  auto &entryBlock = *main_entry_block;
+  builder.setInsertionPointToStart(&entryBlock);
+  m_module.push_back(function);
+  function_names.push_back("main");
+
+  // call to quantum.init(argc, argv);
+  std::vector<mlir::Value> main_args;
+  for (auto arg : entryBlock.getArguments()) {
+    main_args.push_back(arg);
+  }
+
+  // builder.create<mlir::quantum::QRTInitOp>(builder.getUnknownLoc(), main_args[0], main_args[1]);
+
 }
 
-void StaqToMLIR::addReturn() {
-  builder.create<mlir::ReturnOp>(builder.getUnknownLoc());
+void OpenQasmMLIRGenerator::mlirgen(const std::string &src) {
+  using namespace staq;
+  ast::ptr<ast::Program> prog;
+  try {
+    prog = parser::parse_string(src);
+    // transformations::inline_ast(*prog);
+    transformations::desugar(*prog);
+  } catch (std::exception &e) {
+    std::stringstream ss;
+    std::cout << e.what() << "\n";
+  }
+
+  visit(*prog);
+  return;
+}
+
+void OpenQasmMLIRGenerator::finalize_mlirgen() {
+  // FIXME Need to deallocate any allocated qalloc results.
+  for (auto &[qreg_name, qalloc_op] : qubit_allocations) {
+    builder.create<mlir::quantum::DeallocOp>(builder.getUnknownLoc(),
+                                             qalloc_op);
+  }
+
+  // auto integer_attr = mlir::IntegerAttr::get(builder.getI64Type(), 0);
+  // mlir::Value ret_zero =
+  //     builder.create<mlir::ConstantOp>(builder.getUnknownLoc(), integer_attr);
+
+  builder.create<mlir::ReturnOp>(builder.getUnknownLoc());//, ret_zero);
 
   std::vector<llvm::StringRef> tmp(function_names.begin(),
                                    function_names.end());
 
-  auto function_names_datatype =
-      mlir::VectorType::get({function_names.size()}, builder.getI64Type());
+  auto function_names_datatype = mlir::VectorType::get(
+      {static_cast<std::int64_t>(function_names.size())}, builder.getI64Type());
   auto function_names_ref = llvm::makeArrayRef(tmp);
   auto attrs = mlir::DenseStringElementsAttr::get(function_names_datatype,
                                                   function_names_ref);
@@ -48,11 +86,11 @@ void StaqToMLIR::addReturn() {
   mlir::Identifier id =
       mlir::Identifier::get("quantum.internal_functions", builder.getContext());
 
-  theModule.setAttrs(
+  m_module.setAttrs(
       llvm::makeArrayRef({mlir::NamedAttribute(std::make_pair(id, attrs))}));
 }
 
-void StaqToMLIR::visit(GateDecl &gate_function) {
+void OpenQasmMLIRGenerator::visit(GateDecl &gate_function) {
   auto name = gate_function.id();
   static std::vector<std::string> builtins{
       "u3", "u2",   "u1",  "cx",  "id",  "u0",  "x",   "y",  "z",
@@ -88,13 +126,13 @@ void StaqToMLIR::visit(GateDecl &gate_function) {
     in_sub_kernel = false;
     temporary_sub_kernel_args.clear();
     builder.create<mlir::ReturnOp>(builder.getUnknownLoc());
-    theModule.push_back(function);
+    m_module.push_back(function);
 
-    builder.setInsertionPointToStart(main_entry_point);
+    builder.setInsertionPointToStart(main_entry_block);
   }
 }
 
-void StaqToMLIR::visit(RegisterDecl &d) {
+void OpenQasmMLIRGenerator::visit(RegisterDecl &d) {
   if (d.is_quantum()) {
     std::int64_t size = d.size();
     auto name = d.id();
@@ -117,7 +155,7 @@ void StaqToMLIR::visit(RegisterDecl &d) {
   }
 }
 
-void StaqToMLIR::visit(MeasureStmt &m) {
+void OpenQasmMLIRGenerator::visit(MeasureStmt &m) {
   auto pos = m.pos();
   auto line = pos.get_linenum();
   auto col = pos.get_column();
@@ -158,7 +196,7 @@ void StaqToMLIR::visit(MeasureStmt &m) {
                                         llvm::makeArrayRef(qubits_for_inst),
                                         params_dataAttribute);
 }
-void StaqToMLIR::visit(UGate &u) {
+void OpenQasmMLIRGenerator::visit(UGate &u) {
   auto pos = u.pos();
   auto line = pos.get_linenum();
   auto col = pos.get_column();
@@ -205,7 +243,7 @@ void StaqToMLIR::visit(UGate &u) {
       llvm::makeArrayRef(qubits_for_inst), params_dataAttribute);
 }
 
-void StaqToMLIR::visit(CNOTGate &g) {
+void OpenQasmMLIRGenerator::visit(CNOTGate &g) {
   auto pos = g.pos();
   auto line = pos.get_linenum();
   auto col = pos.get_column();
@@ -275,36 +313,9 @@ void StaqToMLIR::visit(CNOTGate &g) {
   builder.create<mlir::quantum::InstOp>(
       location, mlir::NoneType::get(builder.getContext()), str_attr,
       llvm::makeArrayRef(qubits_for_inst), params_dataAttribute);
-
-  // std::uint64_t qidx = g.ctrl().offset().value();
-  // auto integer_attr = mlir::IntegerAttr::get(builder.getI64Type(), qidx);
-  // mlir::Value pos2 = builder.create<mlir::ConstantOp>(location,
-  // integer_attr); mlir::Value ctrl_qbit_value =
-  //     builder.create<mlir::vector::ExtractElementOp>(location, qubits, pos2);
-  // qubits_for_inst.push_back(ctrl_qbit_value);
-
-  // // tgt qubit
-  // auto qreg_tgt_var_name = g.tgt().var();
-  // if (!qubit_allocations.count(qreg_tgt_var_name)) {
-  //   // throw an error
-  // }
-
-  // auto tgt_qubits = qubit_allocations[qreg_tgt_var_name].qubits();
-
-  // std::uint64_t qidxt = g.tgt().offset().value();
-  // auto integer_attrt = mlir::IntegerAttr::get(builder.getI64Type(), qidxt);
-  // mlir::Value post = builder.create<mlir::ConstantOp>(location,
-  // integer_attrt); mlir::Value tgt_qbit_value =
-  // builder.create<mlir::vector::ExtractElementOp>(
-  //     location, tgt_qubits, post);
-  // qubits_for_inst.push_back(tgt_qbit_value);
-
-  //   builder.create<mlir::quantum::InstOp>(location, str_attr,
-  //                                         llvm::makeArrayRef(qubits_for_inst),
-  //                                         params_dataAttribute);
 }
-//   void visit(BarrierGate&) = 0;
-void StaqToMLIR::visit(DeclaredGate &g) {
+
+void OpenQasmMLIRGenerator::visit(DeclaredGate &g) {
   auto pos = g.pos();
   auto line = pos.get_linenum();
   auto col = pos.get_column();
@@ -367,4 +378,4 @@ void StaqToMLIR::visit(DeclaredGate &g) {
       llvm::makeArrayRef(qubits_for_inst), params_dataAttribute);
 }
 
-}  // namespace qasm_parser
+}  // namespace qcor

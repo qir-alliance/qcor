@@ -43,4 +43,6 @@ Array* __quantum__rt__qubit_allocate_array(uint64_t idx);
 // Array functions
 int8_t * __quantum__rt__array_get_element_ptr_1d(Array* q,
                                                       uint64_t idx);
+void __quantum__rt__qubit_release_array(Array* q);
+
 }

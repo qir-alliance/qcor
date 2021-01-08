@@ -22,7 +22,7 @@ bool isOpaqueTypeWithName(mlir::Type type, std::string dialect, std::string type
 }
 QuantumDialect::QuantumDialect(mlir::MLIRContext *ctx)
     : mlir::Dialect(getDialectNamespace(), ctx, TypeID::get<QuantumDialect>()) {
-  addOperations<InstOp, QallocOp, ExtractQubitOp>();
+  addOperations<InstOp, QallocOp, ExtractQubitOp, DeallocOp, QRTInitOp>();
 }
 ExtractQubitOpAdaptor::ExtractQubitOpAdaptor(::mlir::ValueRange values, ::mlir::DictionaryAttr attrs)  : odsOperands(values), odsAttrs(attrs) {
 
@@ -393,6 +393,125 @@ void InstOp::build(::mlir::OpBuilder &, ::mlir::OperationState &odsState, ::mlir
   return ::mlir::success();
 }
 
+QRTInitOpAdaptor::QRTInitOpAdaptor(::mlir::ValueRange values, ::mlir::DictionaryAttr attrs)  : odsOperands(values), odsAttrs(attrs) {
+
+}
+
+QRTInitOpAdaptor::QRTInitOpAdaptor(QRTInitOp&op)  : odsOperands(op->getOperands()), odsAttrs(op->getAttrDictionary()) {
+
+}
+
+std::pair<unsigned, unsigned> QRTInitOpAdaptor::getODSOperandIndexAndLength(unsigned index) {
+  return {index, 1};
+}
+
+::mlir::ValueRange QRTInitOpAdaptor::getODSOperands(unsigned index) {
+  auto valueRange = getODSOperandIndexAndLength(index);
+  return {std::next(odsOperands.begin(), valueRange.first),
+           std::next(odsOperands.begin(), valueRange.first + valueRange.second)};
+}
+
+::mlir::Value QRTInitOpAdaptor::argc() {
+  return *getODSOperands(0).begin();
+}
+
+::mlir::Value QRTInitOpAdaptor::argv() {
+  return *getODSOperands(1).begin();
+}
+
+::mlir::LogicalResult QRTInitOpAdaptor::verify(::mlir::Location loc) {
+  return ::mlir::success();
+}
+
+::llvm::StringRef QRTInitOp::getOperationName() {
+  return "quantum.init";
+}
+
+std::pair<unsigned, unsigned> QRTInitOp::getODSOperandIndexAndLength(unsigned index) {
+  return {index, 1};
+}
+
+::mlir::Operation::operand_range QRTInitOp::getODSOperands(unsigned index) {
+  auto valueRange = getODSOperandIndexAndLength(index);
+  return {std::next(getOperation()->operand_begin(), valueRange.first),
+           std::next(getOperation()->operand_begin(), valueRange.first + valueRange.second)};
+}
+
+::mlir::Value QRTInitOp::argc() {
+  return *getODSOperands(0).begin();
+}
+
+::mlir::Value QRTInitOp::argv() {
+  return *getODSOperands(1).begin();
+}
+
+::mlir::MutableOperandRange QRTInitOp::argcMutable() {
+  auto range = getODSOperandIndexAndLength(0);
+  return ::mlir::MutableOperandRange(getOperation(), range.first, range.second);
+}
+
+::mlir::MutableOperandRange QRTInitOp::argvMutable() {
+  auto range = getODSOperandIndexAndLength(1);
+  return ::mlir::MutableOperandRange(getOperation(), range.first, range.second);
+}
+
+std::pair<unsigned, unsigned> QRTInitOp::getODSResultIndexAndLength(unsigned index) {
+  return {index, 1};
+}
+
+::mlir::Operation::result_range QRTInitOp::getODSResults(unsigned index) {
+  auto valueRange = getODSResultIndexAndLength(index);
+  return {std::next(getOperation()->result_begin(), valueRange.first),
+           std::next(getOperation()->result_begin(), valueRange.first + valueRange.second)};
+}
+
+void QRTInitOp::build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::Value argc, ::mlir::Value argv) {
+  odsState.addOperands(argc);
+  odsState.addOperands(argv);
+}
+
+void QRTInitOp::build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::Value argc, ::mlir::Value argv) {
+  odsState.addOperands(argc);
+  odsState.addOperands(argv);
+  assert(resultTypes.size() == 0u && "mismatched number of results");
+  odsState.addTypes(resultTypes);
+}
+
+void QRTInitOp::build(::mlir::OpBuilder &, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes) {
+  assert(operands.size() == 2u && "mismatched number of parameters");
+  odsState.addOperands(operands);
+  odsState.addAttributes(attributes);
+  assert(resultTypes.size() == 0u && "mismatched number of return types");
+  odsState.addTypes(resultTypes);
+}
+
+::mlir::LogicalResult QRTInitOp::verify() {
+  if (failed(QRTInitOpAdaptor(*this).verify(this->getLoc()))) return ::mlir::failure();
+  {
+    unsigned index = 0; (void)index;
+    auto valueGroup0 = getODSOperands(0);
+    for (::mlir::Value v : valueGroup0) {
+      (void)v;
+      if (!((v.getType().isInteger(32)))) {
+        return emitOpError("operand #") << index << " must be 32-bit integer, but got " << v.getType();
+      }
+      ++index;
+    }
+    auto valueGroup1 = getODSOperands(1);
+    for (::mlir::Value v : valueGroup1) {
+      (void)v;
+      if (!((isOpaqueTypeWithName(v.getType(), "quantum", "ArgvType")))) {
+        return emitOpError("operand #") << index << " must be opaque argv type, but got " << v.getType();
+      }
+      ++index;
+    }
+  }
+  {
+    unsigned index = 0; (void)index;
+  }
+  return ::mlir::success();
+}
+
 } // namespace quantum
 } // namespace mlir
 namespace mlir {
@@ -549,6 +668,103 @@ void QallocOp::build(::mlir::OpBuilder &, ::mlir::OperationState &odsState, ::ml
       }
       ++index;
     }
+  }
+  return ::mlir::success();
+}
+
+DeallocOpAdaptor::DeallocOpAdaptor(::mlir::ValueRange values, ::mlir::DictionaryAttr attrs)  : odsOperands(values
+), odsAttrs(attrs) {
+
+}
+
+DeallocOpAdaptor::DeallocOpAdaptor(DeallocOp&op)  : odsOperands(op->getOperands()), odsAttrs(op->getAttrDictionary()) {
+
+}
+
+std::pair<unsigned, unsigned> DeallocOpAdaptor::getODSOperandIndexAndLength(unsigned index) {
+  return {index, 1};
+}
+
+::mlir::ValueRange DeallocOpAdaptor::getODSOperands(unsigned index) {
+  auto valueRange = getODSOperandIndexAndLength(index);
+  return {std::next(odsOperands.begin(), valueRange.first),
+           std::next(odsOperands.begin(), valueRange.first + valueRange.second)};
+}
+
+::mlir::Value DeallocOpAdaptor::qubits() {
+  return *getODSOperands(0).begin();
+}
+
+::mlir::LogicalResult DeallocOpAdaptor::verify(::mlir::Location loc) {
+  return ::mlir::success();
+}
+
+::llvm::StringRef DeallocOp::getOperationName() {
+  return "quantum.dealloc";
+}
+
+std::pair<unsigned, unsigned> DeallocOp::getODSOperandIndexAndLength(unsigned index) {
+  return {index, 1};
+}
+
+::mlir::Operation::operand_range DeallocOp::getODSOperands(unsigned index) {
+  auto valueRange = getODSOperandIndexAndLength(index);
+  return {std::next(getOperation()->operand_begin(), valueRange.first),
+           std::next(getOperation()->operand_begin(), valueRange.first + valueRange.second)};
+}
+
+::mlir::Value DeallocOp::qubits() {
+  return *getODSOperands(0).begin();
+}
+
+::mlir::MutableOperandRange DeallocOp::qubitsMutable() {
+  auto range = getODSOperandIndexAndLength(0);
+  return ::mlir::MutableOperandRange(getOperation(), range.first, range.second);
+}
+
+std::pair<unsigned, unsigned> DeallocOp::getODSResultIndexAndLength(unsigned index) {
+  return {index, 1};
+}
+
+::mlir::Operation::result_range DeallocOp::getODSResults(unsigned index) {
+  auto valueRange = getODSResultIndexAndLength(index);
+  return {std::next(getOperation()->result_begin(), valueRange.first),
+           std::next(getOperation()->result_begin(), valueRange.first + valueRange.second)};
+}
+
+void DeallocOp::build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::Value qubits) {
+  odsState.addOperands(qubits);
+}
+
+void DeallocOp::build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::Value qubits) {
+  odsState.addOperands(qubits);
+  assert(resultTypes.size() == 0u && "mismatched number of results");
+  odsState.addTypes(resultTypes);
+}
+
+void DeallocOp::build(::mlir::OpBuilder &, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes) {
+  assert(operands.size() == 1u && "mismatched number of parameters");
+  odsState.addOperands(operands);
+  odsState.addAttributes(attributes);
+  assert(resultTypes.size() == 0u && "mismatched number of return types");
+  odsState.addTypes(resultTypes);
+}
+
+::mlir::LogicalResult DeallocOp::verify() {
+  if (failed(DeallocOpAdaptor(*this).verify(this->getLoc()))) return ::mlir::failure();
+  {
+    unsigned index = 0; (void)index;
+    auto valueGroup0 = getODSOperands(0);
+    for (::mlir::Value v : valueGroup0) {
+      (void)v;
+      if (!((isOpaqueTypeWithName(v.getType(), "quantum", "Array")))) {
+        return emitOpError("operand #") << index << " must be opaque array type, but got " << v.getType();
+      }
+      ++index;
+    }
+  }
+  {
+    unsigned index = 0; (void)index;
   }
   return ::mlir::success();
 }

@@ -113,10 +113,82 @@ class QallocOpLowering : public ConversionPattern {
   }
 };
 
+// declare void @__quantum__rt__qubit_release_array(%Array*)
+class DeallocOpLowering : public ConversionPattern {
+ protected:
+  // Constant string for runtime function name
+  inline static const std::string qir_qubit_array_deallocate =
+      "__quantum__rt__qubit_release_array";
+  // Rudimentary symbol table, seen variables
+  std::map<std::string, mlir::Value> &variables;
+
+  // %Array* @__quantum__rt__qubit_allocate_array(i64 %nQubits)
+ public:
+  // Constructor, store seen variables
+  explicit DeallocOpLowering(MLIRContext *context,
+                             std::map<std::string, mlir::Value> &vars)
+      : ConversionPattern(mlir::quantum::DeallocOp::getOperationName(), 1,
+                          context),
+        variables(vars) {}
+
+  // Match any Operation that is the QallocOp
+  LogicalResult matchAndRewrite(
+      Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const override {
+    // Local Declarations, get location, parentModule
+    // and the context
+    auto loc = op->getLoc();
+    ModuleOp parentModule = op->getParentOfType<ModuleOp>();
+    auto context = parentModule->getContext();
+
+    // First step is to get a reference to the Symbol Reference for the
+    // qalloc QIR runtime function, this will only declare it once and reuse
+    // each time it is seen
+    FlatSymbolRefAttr symbol_ref;
+    if (parentModule.lookupSymbol<LLVM::LLVMFuncOp>(
+            qir_qubit_array_deallocate)) {
+      symbol_ref = SymbolRefAttr::get(qir_qubit_array_deallocate, context);
+    } else {
+      // prototype is (Array*) -> void
+      auto void_type = LLVM::LLVMType::getVoidTy(context);
+      auto array_qbit_type = get_quantum_type("Array", context).getPointerTo();
+      auto dealloc_ftype =
+          LLVM::LLVMType::getFunctionTy(void_type, array_qbit_type, false);
+
+      // Insert the function declaration
+      PatternRewriter::InsertionGuard insertGuard(rewriter);
+      rewriter.setInsertionPointToStart(parentModule.getBody());
+      rewriter.create<LLVM::LLVMFuncOp>(
+          parentModule->getLoc(), qir_qubit_array_deallocate, dealloc_ftype);
+      symbol_ref =
+          mlir::SymbolRefAttr::get(qir_qubit_array_deallocate, context);
+    }
+
+    // Get as a QallocOp, get its allocatino size and qreg variable name
+    auto deallocOp = cast<mlir::quantum::DeallocOp>(op);
+    auto qubits_value = deallocOp.qubits();
+    auto qreg_name_attr = qubits_value.getDefiningOp()->getAttr("name");
+    auto name = qreg_name_attr.cast<::mlir::StringAttr>().getValue();
+    auto qubits = variables[name.str()];
+
+    // create a CallOp for the new quantum runtime de-allocation
+    // function.
+    rewriter.create<mlir::CallOp>(loc, symbol_ref,
+                                  LLVM::LLVMType::getVoidTy(context),
+                                  ArrayRef<Value>({qubits}));
+
+    // Remove the old QuantumDialect QallocOp
+    rewriter.eraseOp(op);
+
+    return success();
+  }
+};
+
 class QubitFuncArgConverter : public ConversionPattern {
  protected:
   std::unique_ptr<mlir::TypeConverter> my_tc;
   MLIRContext *context;
+
  public:
   explicit QubitFuncArgConverter(MLIRContext *ctx)
       : ConversionPattern(mlir::FuncOp::getOperationName(), 1, ctx),
@@ -127,7 +199,7 @@ class QubitFuncArgConverter : public ConversionPattern {
         auto casted = type.cast<mlir::OpaqueType>();
         if (casted.getTypeData() == "Qubit") {
           return get_quantum_type("Qubit", this->context).getPointerTo();
-        } 
+        }
       }
       return llvm::None;
     });
@@ -232,7 +304,7 @@ class InstOpLowering : public ConversionPattern {
     for (auto operand : operands) {
       // The Operand points to the vector::ExtractElementOp that produces the
       // qubit Value, get that Operation
-  
+
       auto extract_op =
           operand.getDefiningOp<quantum::ExtractQubitOp>().getOperation();
       if (!extract_op) {
@@ -475,6 +547,7 @@ void QuantumToLLVMLoweringPass::runOnOperation() {
   patterns.insert<InstOpLowering>(&getContext(), variables, qubit_extract_map);
   patterns.insert<ExtractQubitOpConversion>(&getContext(), typeConverter,
                                             variables, qubit_extract_map);
+  patterns.insert<DeallocOpLowering>(&getContext(), variables);
 
   // We want to completely lower to LLVM, so we use a `FullConversion`. This
   // ensures that only legal operations will remain after the conversion.

@@ -7,41 +7,37 @@
 
 #include "ast/ast.hpp"
 #include "ast/traversal.hpp"
-#include "mlir/IR/Attributes.h"
-#include "mlir/IR/Builders.h"
-#include "mlir/IR/BuiltinOps.h"
-#include "mlir/IR/BuiltinTypes.h"
-#include "mlir/IR/MLIRContext.h"
-#include "mlir/IR/Verifier.h"
+#include "mlir_generator.hpp"
+#include "optimization/simplify.hpp"
 #include "parser/parser.hpp"
 #include "quantum_dialect.hpp"
-#include "optimization/simplify.hpp"
 #include "transformations/desugar.hpp"
 #include "transformations/inline.hpp"
 
 using namespace staq::ast;
 
-namespace qasm_parser {
+namespace qcor {
 
-class StaqToMLIR : public staq::ast::Visitor {
+class OpenQasmMLIRGenerator : public qcor::QuantumMLIRGenerator,
+                   public staq::ast::Visitor {
  protected:
-  mlir::ModuleOp theModule;
-  mlir::OpBuilder builder;
   std::map<std::string, mlir::quantum::QallocOp> qubit_allocations;
   bool in_sub_kernel = false;
   std::map<std::string, mlir::Value> temporary_sub_kernel_args;
-  mlir::Block * main_entry_point;
   std::vector<std::string> function_names;
-  
+
   mlir::Type qubit_type;
   mlir::Type array_type;
   mlir::Type result_type;
-  
+
   std::map<std::pair<std::string, std::uint64_t>, mlir::Value> extracted_qubits;
 
  public:
-  StaqToMLIR(mlir::MLIRContext &context);
-  mlir::ModuleOp module() {return theModule;}
+  OpenQasmMLIRGenerator(mlir::MLIRContext &context) : QuantumMLIRGenerator(context){}
+  void initialize_mlirgen() override;
+  void mlirgen(const std::string& src) override;
+  void finalize_mlirgen() override;
+
   void visit(VarAccess &) override {}
   void visit(BExpr &) override {}
   void visit(UExpr &) override {}
@@ -63,4 +59,4 @@ class StaqToMLIR : public staq::ast::Visitor {
   void visit(DeclaredGate &g) override;
   void addReturn();
 };
-}  // namespace qasm_parser
+}  // namespace qcor
