@@ -23,10 +23,10 @@ void OpenQasmMLIRGenerator::initialize_mlirgen() {
   auto argv_type =
       mlir::OpaqueType::get(dialect, llvm::StringRef("ArgvType"), &context);
 
-  std::vector<mlir::Type> arg_types_vec;//{int_type, argv_type};
-  llvm::SmallVector<mlir::Type, 4> arg_types;
+  std::vector<mlir::Type> arg_types_vec{int_type, argv_type};
+  // llvm::SmallVector<mlir::Type, 4> arg_types;
   auto func_type =
-      builder.getFunctionType(llvm::makeArrayRef(arg_types_vec), llvm::None);//int_type);
+      builder.getFunctionType(llvm::makeArrayRef(arg_types_vec), int_type);
   auto proto = mlir::FuncOp::create(builder.getUnknownLoc(), "main", func_type);
   mlir::FuncOp function(proto);
   main_entry_block = function.addEntryBlock();
@@ -34,15 +34,6 @@ void OpenQasmMLIRGenerator::initialize_mlirgen() {
   builder.setInsertionPointToStart(&entryBlock);
   m_module.push_back(function);
   function_names.push_back("main");
-
-  // call to quantum.init(argc, argv);
-  std::vector<mlir::Value> main_args;
-  for (auto arg : entryBlock.getArguments()) {
-    main_args.push_back(arg);
-  }
-
-  // builder.create<mlir::quantum::QRTInitOp>(builder.getUnknownLoc(), main_args[0], main_args[1]);
-
 }
 
 void OpenQasmMLIRGenerator::mlirgen(const std::string &src) {
@@ -68,11 +59,14 @@ void OpenQasmMLIRGenerator::finalize_mlirgen() {
                                              qalloc_op);
   }
 
-  // auto integer_attr = mlir::IntegerAttr::get(builder.getI64Type(), 0);
-  // mlir::Value ret_zero =
-  //     builder.create<mlir::ConstantOp>(builder.getUnknownLoc(), integer_attr);
+  builder.create<mlir::quantum::QRTFinalizeOp>(builder.getUnknownLoc());
+  
+  auto integer_attr = mlir::IntegerAttr::get(builder.getI32Type(), 0);
+  mlir::Value ret_zero =
+      builder.create<mlir::ConstantOp>(builder.getUnknownLoc(),
+      integer_attr);
 
-  builder.create<mlir::ReturnOp>(builder.getUnknownLoc());//, ret_zero);
+  builder.create<mlir::ReturnOp>(builder.getUnknownLoc(), ret_zero);
 
   std::vector<llvm::StringRef> tmp(function_names.begin(),
                                    function_names.end());
@@ -145,6 +139,12 @@ void OpenQasmMLIRGenerator::visit(RegisterDecl &d) {
     auto location =
         builder.getFileLineColLoc(builder.getIdentifier(fname), line, col);
 
+    if (is_first_inst && !in_sub_kernel) {
+      auto main_args = main_entry_block->getArguments();
+      builder.create<mlir::quantum::QRTInitOp>(location, main_args[0],
+                                               main_args[1]);
+      is_first_inst = false;
+    }
     auto integer_type = builder.getI64Type();
     auto integer_attr = mlir::IntegerAttr::get(integer_type, size);
 
@@ -205,6 +205,14 @@ void OpenQasmMLIRGenerator::visit(UGate &u) {
   auto location =
       builder.getFileLineColLoc(builder.getIdentifier(fname), line, col);
 
+  if (is_first_inst && !in_sub_kernel) {
+    auto main_args = main_entry_block->getArguments();
+
+    builder.create<mlir::quantum::QRTInitOp>(location, main_args[0],
+                                             main_args[1]);
+    is_first_inst = false;
+  }
+
   auto str_attr = builder.getStringAttr("u3");
   // params
   auto dataType = mlir::VectorType::get({3}, builder.getF64Type());
@@ -252,6 +260,13 @@ void OpenQasmMLIRGenerator::visit(CNOTGate &g) {
   auto location =
       builder.getFileLineColLoc(builder.getIdentifier(fname), line, col);
 
+  if (is_first_inst && !in_sub_kernel) {
+    auto main_args = main_entry_block->getArguments();
+
+    builder.create<mlir::quantum::QRTInitOp>(location, main_args[0],
+                                             main_args[1]);
+    is_first_inst = false;
+  }
   auto str_attr = builder.getStringAttr("cx");
 
   // params
@@ -323,6 +338,14 @@ void OpenQasmMLIRGenerator::visit(DeclaredGate &g) {
       pos.get_filename().empty() ? "<builtin_str>" : pos.get_filename();
   auto location =
       builder.getFileLineColLoc(builder.getIdentifier(fname), line, col);
+
+  if (is_first_inst && !in_sub_kernel) {
+    auto main_args = main_entry_block->getArguments();
+
+    builder.create<mlir::quantum::QRTInitOp>(location, main_args[0],
+                                             main_args[1]);
+    is_first_inst = false;
+  }
 
   auto str_attr = builder.getStringAttr(g.name());
 

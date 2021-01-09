@@ -184,22 +184,172 @@ class DeallocOpLowering : public ConversionPattern {
   }
 };
 
-class QubitFuncArgConverter : public ConversionPattern {
+class QRTInitOpLowering : public ConversionPattern {
+ protected:
+  // Constant string for runtime function name
+  inline static const std::string qir_qrt_initialize =
+      "__quantum__rt__initialize";
+  // Rudimentary symbol table, seen variables
+  std::map<std::string, mlir::Value> &variables;
+
+  // %Array* @__quantum__rt__qubit_allocate_array(i64 %nQubits)
+ public:
+  // Constructor, store seen variables
+  explicit QRTInitOpLowering(MLIRContext *context,
+                             std::map<std::string, mlir::Value> &vars)
+      : ConversionPattern(mlir::quantum::QRTInitOp::getOperationName(), 1,
+                          context),
+        variables(vars) {}
+
+  // Match any Operation that is the QallocOp
+  LogicalResult matchAndRewrite(
+      Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const override {
+    // Local Declarations, get location, parentModule
+    // and the context
+    auto loc = op->getLoc();
+    ModuleOp parentModule = op->getParentOfType<ModuleOp>();
+    auto context = parentModule->getContext();
+
+    // First step is to get a reference to the Symbol Reference for the
+    // qalloc QIR runtime function, this will only declare it once and reuse
+    // each time it is seen
+    FlatSymbolRefAttr symbol_ref;
+    if (parentModule.lookupSymbol<LLVM::LLVMFuncOp>(
+            qir_qrt_initialize)) {
+      symbol_ref = SymbolRefAttr::get(qir_qrt_initialize, context);
+    } else {
+      // prototype is (Array*) -> void
+      auto int_type = LLVM::LLVMType::getInt32Ty(context);
+      auto array_qbit_type = get_quantum_type("Array", context).getPointerTo();
+      std::vector<LLVM::LLVMType> arg_types{
+          LLVM::LLVMType::getInt32Ty(context),
+          LLVM::LLVMType::getInt8PtrTy(context).getPointerTo()};
+      auto init_ftype = LLVM::LLVMType::getFunctionTy(
+          int_type, llvm::makeArrayRef(arg_types), false);
+
+      // Insert the function declaration
+      PatternRewriter::InsertionGuard insertGuard(rewriter);
+      rewriter.setInsertionPointToStart(parentModule.getBody());
+      rewriter.create<LLVM::LLVMFuncOp>(
+          parentModule->getLoc(), qir_qrt_initialize, init_ftype);
+      symbol_ref =
+          mlir::SymbolRefAttr::get(qir_qrt_initialize, context);
+    }
+
+    // auto initOp = cast<mlir::quantum::QRTInitOp>(op);
+    // auto parentFunc = op->getParentOfType<LLVM::LLVMFuncOp>();
+    // parentFunc.dump();
+    // auto args = parentFunc.body().getArguments();
+    // std::cout << "HERE:\n";
+    // args[0].dump();
+    // args[1].dump();
+    // create a CallOp for the new quantum runtime initialize
+    // function.
+    rewriter.create<mlir::CallOp>(
+        loc, symbol_ref, LLVM::LLVMType::getInt32Ty(context),
+        ArrayRef<Value>({variables["main_argc"], variables["main_argv"]}));
+
+    // Remove the old QuantumDialect QallocOp
+    rewriter.eraseOp(op);
+
+    return success();
+  }
+};
+
+class QRTFinalizeOpLowering : public ConversionPattern {
+ protected:
+  // Constant string for runtime function name
+  inline static const std::string qir_qrt_finalize =
+      "__quantum__rt__finalize";
+  // Rudimentary symbol table, seen variables
+  std::map<std::string, mlir::Value> &variables;
+
+  // %Array* @__quantum__rt__qubit_allocate_array(i64 %nQubits)
+ public:
+  // Constructor, store seen variables
+  explicit QRTFinalizeOpLowering(MLIRContext *context,
+                             std::map<std::string, mlir::Value> &vars)
+      : ConversionPattern(mlir::quantum::QRTFinalizeOp::getOperationName(), 1,
+                          context),
+        variables(vars) {}
+
+  // Match any Operation that is the QallocOp
+  LogicalResult matchAndRewrite(
+      Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const override {
+    // Local Declarations, get location, parentModule
+    // and the context
+    auto loc = op->getLoc();
+    ModuleOp parentModule = op->getParentOfType<ModuleOp>();
+    auto context = parentModule->getContext();
+
+    // First step is to get a reference to the Symbol Reference for the
+    // qalloc QIR runtime function, this will only declare it once and reuse
+    // each time it is seen
+    FlatSymbolRefAttr symbol_ref;
+    if (parentModule.lookupSymbol<LLVM::LLVMFuncOp>(
+            qir_qrt_finalize)) {
+      symbol_ref = SymbolRefAttr::get(qir_qrt_finalize, context);
+    } else {
+      // prototype is () -> void
+      auto void_type = LLVM::LLVMType::getVoidTy(context);
+      std::vector<LLVM::LLVMType> arg_types;
+      auto init_ftype = LLVM::LLVMType::getFunctionTy(
+          void_type, llvm::makeArrayRef(arg_types), false);
+
+      // Insert the function declaration
+      PatternRewriter::InsertionGuard insertGuard(rewriter);
+      rewriter.setInsertionPointToStart(parentModule.getBody());
+      rewriter.create<LLVM::LLVMFuncOp>(
+          parentModule->getLoc(), qir_qrt_finalize, init_ftype);
+      symbol_ref =
+          mlir::SymbolRefAttr::get(qir_qrt_finalize, context);
+    }
+
+    // auto initOp = cast<mlir::quantum::QRTInitOp>(op);
+    // auto parentFunc = op->getParentOfType<LLVM::LLVMFuncOp>();
+    // parentFunc.dump();
+    // auto args = parentFunc.body().getArguments();
+    // std::cout << "HERE:\n";
+    // args[0].dump();
+    // args[1].dump();
+    // create a CallOp for the new quantum runtime initialize
+    // function.
+    rewriter.create<mlir::CallOp>(
+        loc, symbol_ref, LLVM::LLVMType::getVoidTy(context),
+        ArrayRef<Value>({}));
+
+    // Remove the old QuantumDialect QallocOp
+    rewriter.eraseOp(op);
+
+    return success();
+  }
+};
+
+class QuantumFuncArgConverter : public ConversionPattern {
  protected:
   std::unique_ptr<mlir::TypeConverter> my_tc;
   MLIRContext *context;
+  std::map<std::string, mlir::Value> &variables;
 
  public:
-  explicit QubitFuncArgConverter(MLIRContext *ctx)
+  explicit QuantumFuncArgConverter(MLIRContext *ctx,
+                                   std::map<std::string, mlir::Value> &vars)
       : ConversionPattern(mlir::FuncOp::getOperationName(), 1, ctx),
-        context(ctx) {
+        context(ctx),
+        variables(vars) {
     my_tc = std::make_unique<mlir::TypeConverter>();
     my_tc->addConversion([this](mlir::Type type) -> mlir::Optional<mlir::Type> {
       if (type.isa<mlir::OpaqueType>()) {
         auto casted = type.cast<mlir::OpaqueType>();
         if (casted.getTypeData() == "Qubit") {
           return get_quantum_type("Qubit", this->context).getPointerTo();
-        }
+        } else if (casted.getTypeData() == "ArgvType") {
+          return LLVM::LLVMType::getInt8PtrTy(context).getPointerTo();
+        } 
+      } else if (type.isa<mlir::IntegerType>()) {
+        return LLVM::LLVMType::getInt32Ty(this->context);
       }
       return llvm::None;
     });
@@ -214,6 +364,32 @@ class QubitFuncArgConverter : public ConversionPattern {
     auto funcOp = cast<mlir::FuncOp>(op);
     auto ftype = funcOp.type().cast<FunctionType>();
 
+    auto func_name = funcOp.getName().str();
+
+    if (func_name == "main") {
+      auto charstarstar = LLVM::LLVMType::getInt8PtrTy(context).getPointerTo();
+      std::vector<LLVM::LLVMType> tmp_arg_types{
+          LLVM::LLVMType::getInt32Ty(context), charstarstar};
+
+      auto new_main_signature = LLVM::LLVMType::getFunctionTy(
+          LLVM::LLVMType::getInt32Ty(context),
+          llvm::makeArrayRef(tmp_arg_types), false);
+
+      auto newFuncOp = rewriter.create<LLVM::LLVMFuncOp>(loc, funcOp.sym_name(),
+                                                         new_main_signature);
+      rewriter.inlineRegionBefore(funcOp.getBody(), newFuncOp.getBody(),
+                                  newFuncOp.end());
+      rewriter.convertRegionTypes(&newFuncOp.getBody(), *typeConverter);
+
+      auto args = newFuncOp.body().getArguments();
+      variables.insert({"main_argc", args[0]});
+      variables.insert({"main_argv", args[1]});
+
+      rewriter.eraseOp(op);
+      return success();
+    }
+
+    // Not main, sub quantum kernel, convert Qubit to Qubit*
     if (ftype.getNumInputs() > 0) {
       std::vector<LLVM::LLVMType> tmp_arg_types;
       for (unsigned i = 0; i < ftype.getNumInputs(); i++) {
@@ -542,12 +718,14 @@ void QuantumToLLVMLoweringPass::runOnOperation() {
   std::map<mlir::Operation *, std::string> qubit_extract_map;
 
   // Add our custom conversion passes
-  patterns.insert<QubitFuncArgConverter>(&getContext());
+  patterns.insert<QuantumFuncArgConverter>(&getContext(), variables);
   patterns.insert<QallocOpLowering>(&getContext(), variables);
   patterns.insert<InstOpLowering>(&getContext(), variables, qubit_extract_map);
   patterns.insert<ExtractQubitOpConversion>(&getContext(), typeConverter,
                                             variables, qubit_extract_map);
   patterns.insert<DeallocOpLowering>(&getContext(), variables);
+  patterns.insert<QRTInitOpLowering>(&getContext(), variables);
+  patterns.insert<QRTFinalizeOpLowering>(&getContext(), variables);
 
   // We want to completely lower to LLVM, so we use a `FullConversion`. This
   // ensures that only legal operations will remain after the conversion.

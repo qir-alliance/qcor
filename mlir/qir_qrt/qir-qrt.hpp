@@ -25,7 +25,8 @@ extern unsigned long allocated_qbits;
 extern bool initialized;
 
 void initialize();
-void __quantum__rt__initialize(int argc, char** argv);
+void __quantum__rt__initialize(int argc, int8_t** argv);
+void __quantum__rt__finalize();
 
 void __quantum__qis__cnot(Qubit* src, Qubit* tgt);
 void __quantum__qis__h(Qubit* q);

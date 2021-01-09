@@ -12,11 +12,24 @@ Result ResultOne = 1;
 unsigned long allocated_qbits = 0;
 std::shared_ptr<xacc::AcceleratorBuffer> qbits;
 std::shared_ptr<xacc::Accelerator> qpu;
+std::string qpu_name = "qpp";
 
 std::vector<std::unique_ptr<Array>> allocated_arrays;
 
 bool initialized = false;
-void __quantum__rt__initialize(int argc, char** argv);
+void __quantum__rt__initialize(int argc, int8_t** argv) {
+  
+  char ** casted = reinterpret_cast<char**>(argv);
+  std::vector<std::string> args(casted, casted+argc);
+
+  for (auto [i, arg] : qcor::enumerate(args)) {
+    if (arg == "-qpu") {
+      qpu_name = args[i+1];
+    }
+  }
+
+  initialize();
+}
 
 void initialize() {
   if (!initialized) {
@@ -24,7 +37,8 @@ void initialize() {
     // qcor::set_verbose(true);
     xacc::internal_compiler::__qrt_env = "ftqc";
     xacc::Initialize();
-    auto qpu = xacc::getAccelerator("aer");
+    std::cout << "[qir-qrt] Running on " << qpu_name << " backend.\n";
+    auto qpu = xacc::getAccelerator(qpu_name);
     xacc::internal_compiler::qpu = qpu;
     ::quantum::qrt_impl = xacc::getService<::quantum::QuantumRuntime>(
         xacc::internal_compiler::__qrt_env);
@@ -34,18 +48,14 @@ void initialize() {
 }
 
 void __quantum__qis__cnot(Qubit* src, Qubit* tgt) {
-  initialize();
-  // printf("[qir-qrt] Applying CNOT %lu %lu \n", src->second,
-  // tgt->second);
-  std::size_t src_copy = *src;  // src->second;
-  std::size_t tgt_copy = *tgt;  // tgt->second;
+  std::size_t src_copy = reinterpret_cast<std::size_t>(src);
+  std::size_t tgt_copy = reinterpret_cast<std::size_t>(tgt);
+  printf("[qir-qrt] Applying CX %lu, %lu\n", src_copy, tgt_copy);
   ::quantum::cnot({"q", src_copy}, {"q", tgt_copy});
 }
 
 void __quantum__qis__h(Qubit* q) {
-  initialize();
-  std::size_t qcopy = reinterpret_cast<std::size_t>(q);  // q->second;
-
+  std::size_t qcopy = reinterpret_cast<std::size_t>(q); 
   printf("[qir-qrt] Applying H %lu\n", qcopy);
   ::quantum::h({"q", qcopy});
 }
@@ -138,4 +148,8 @@ void __quantum__rt__qubit_release_array(Array* q) {
       array_ptr->clear();
     }
   }
+}
+
+void __quantum__rt__finalize() {
+  std::cout << "[qir-qrt] Running finalization routine.\n";
 }

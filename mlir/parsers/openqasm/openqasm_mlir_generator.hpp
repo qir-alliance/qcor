@@ -5,6 +5,7 @@
 #pragma GCC diagnostic ignored "-Wdeprecated-copy"
 #pragma GCC diagnostic ignored "-Wunused-function"
 
+#include "mlir/IR/Region.h"
 #include "ast/ast.hpp"
 #include "ast/traversal.hpp"
 #include "mlir_generator.hpp"
@@ -25,6 +26,7 @@ class OpenQasmMLIRGenerator : public qcor::QuantumMLIRGenerator,
   bool in_sub_kernel = false;
   std::map<std::string, mlir::Value> temporary_sub_kernel_args;
   std::vector<std::string> function_names;
+  bool is_first_inst = true;
 
   mlir::Type qubit_type;
   mlir::Type array_type;

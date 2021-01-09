@@ -60,7 +60,7 @@ int main(int argc, char **argv) {
   auto module = loadMLIR(context);
 
   // std::cout << "MLIR + Quantum Dialect:\n";
-  module->dump();
+  // module->dump();
 
   // Create the PassManager for lowering to LLVM MLIR and run it
   mlir::PassManager pm(&context);
@@ -84,6 +84,7 @@ int main(int argc, char **argv) {
     return -1;
   }
 
+  // llvmModule->dump();
   // Write to an ll file
   std::string s;
   llvm::raw_string_ostream os(s);
