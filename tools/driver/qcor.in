@@ -295,7 +295,7 @@ def main(argv=None):
         ll_file_name = base_name + '.ll'
         bc_file_name = base_name + '.bc'
         object_file_name = base_name+'.o'
-        result = subprocess.run(['@CMAKE_INSTALL_PREFIX@/bin/qcor-qasm', filename], check=True)
+        result = subprocess.run(['@CMAKE_INSTALL_PREFIX@/bin/qcor-mlir-tool', filename], check=True)
         llvm_bin_path = str(pathlib.Path(compiler).parent)
         result = subprocess.run([llvm_bin_path+'/llvm-as', ll_file_name, '-o', bc_file_name ], check=True)
         result = subprocess.run([llvm_bin_path+'/llc', '-filetype=obj', bc_file_name ], check=True)

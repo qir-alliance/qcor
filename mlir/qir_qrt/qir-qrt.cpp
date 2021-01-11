@@ -13,18 +13,31 @@ unsigned long allocated_qbits = 0;
 std::shared_ptr<xacc::AcceleratorBuffer> qbits;
 std::shared_ptr<xacc::Accelerator> qpu;
 std::string qpu_name = "qpp";
-
+enum QRT_MODE { FTQC, NISQ };
+QRT_MODE mode;
 std::vector<std::unique_ptr<Array>> allocated_arrays;
+int shots = 1024;
+bool verbose = false;
 
 bool initialized = false;
 void __quantum__rt__initialize(int argc, int8_t** argv) {
-  
-  char ** casted = reinterpret_cast<char**>(argv);
-  std::vector<std::string> args(casted, casted+argc);
+  char** casted = reinterpret_cast<char**>(argv);
+  std::vector<std::string> args(casted, casted + argc);
 
+  mode = QRT_MODE::FTQC;
   for (auto [i, arg] : qcor::enumerate(args)) {
     if (arg == "-qpu") {
-      qpu_name = args[i+1];
+      qpu_name = args[i + 1];
+    } else if (arg == "-qrt") {
+      mode = args[i + 1] == "nisq" ? QRT_MODE::NISQ : QRT_MODE::FTQC;
+    } else if (arg == "-shots") {
+      shots = std::stoi(args[i+1]);
+    } else if (arg == "-v") {
+      verbose = true;
+    } else if (arg == "-verbose") {
+      verbose = true;
+    } else if (arg == "--verbose") {
+      verbose = true;
     }
   }
 
@@ -33,12 +46,20 @@ void __quantum__rt__initialize(int argc, int8_t** argv) {
 
 void initialize() {
   if (!initialized) {
-    printf("[qir-qrt] Initializing FTQC runtime...\n");
+    if(verbose) printf("[qir-qrt] Initializing FTQC runtime...\n");
     // qcor::set_verbose(true);
     xacc::internal_compiler::__qrt_env = "ftqc";
     xacc::Initialize();
-    std::cout << "[qir-qrt] Running on " << qpu_name << " backend.\n";
-    auto qpu = xacc::getAccelerator(qpu_name);
+    if (verbose) std::cout << "[qir-qrt] Running on " << qpu_name << " backend.\n";
+    std::shared_ptr<xacc::Accelerator> qpu;
+
+    if (mode == QRT_MODE::NISQ) {
+      xacc::internal_compiler::__qrt_env = "nisq";
+      qpu = xacc::getAccelerator(qpu_name, {{"shots", shots}});
+    } else {
+      qpu = xacc::getAccelerator(qpu_name);
+    }
+
     xacc::internal_compiler::qpu = qpu;
     ::quantum::qrt_impl = xacc::getService<::quantum::QuantumRuntime>(
         xacc::internal_compiler::__qrt_env);
@@ -50,48 +71,74 @@ void initialize() {
 void __quantum__qis__cnot(Qubit* src, Qubit* tgt) {
   std::size_t src_copy = reinterpret_cast<std::size_t>(src);
   std::size_t tgt_copy = reinterpret_cast<std::size_t>(tgt);
-  printf("[qir-qrt] Applying CX %lu, %lu\n", src_copy, tgt_copy);
+  if(verbose) printf("[qir-qrt] Applying CX %lu, %lu\n", src_copy, tgt_copy);
   ::quantum::cnot({"q", src_copy}, {"q", tgt_copy});
 }
 
 void __quantum__qis__h(Qubit* q) {
-  std::size_t qcopy = reinterpret_cast<std::size_t>(q); 
-  printf("[qir-qrt] Applying H %lu\n", qcopy);
+  std::size_t qcopy = reinterpret_cast<std::size_t>(q);
+  if(verbose) printf("[qir-qrt] Applying H %lu\n", qcopy);
   ::quantum::h({"q", qcopy});
 }
 
-// void __quantum__qis__s(Qubit* q) {
-//   initialize();
-//   printf("[qir-qrt] Applying S %lu\n", q);
-//   ::quantum::s({"q", q});
-// }
+void __quantum__qis__s(Qubit* q) {
+  std::size_t qcopy = reinterpret_cast<std::size_t>(q);
+  if(verbose) printf("[qir-qrt] Applying S %lu\n", qcopy);
+  ::quantum::s({"q", qcopy});
+}
 
-// void __quantum__qis__x(Qubit* q) {
-//   initialize();
-//   printf("[qir-qrt] Applying X %lu\n", q);
-//   ::quantum::x({"q", q});
-// }
-// void __quantum__qis__z(Qubit* q) {
-//   initialize();
-//   printf("[qir-qrt] Applying Z %lu\n", q);
-//   ::quantum::z({"q", q});
-// }
+void __quantum__qis__sdg(Qubit* q) {
+  std::size_t qcopy = reinterpret_cast<std::size_t>(q);
+  if(verbose) printf("[qir-qrt] Applying Sdg %lu\n", qcopy);
+  ::quantum::sdg({"q", qcopy});
+}
+void __quantum__qis__t(Qubit* q) {
+  std::size_t qcopy = reinterpret_cast<std::size_t>(q);
+  if(verbose) printf("[qir-qrt] Applying T %lu\n", qcopy);
+  ::quantum::t({"q", qcopy});
+}
+void __quantum__qis__tdg(Qubit* q) {
+  std::size_t qcopy = reinterpret_cast<std::size_t>(q);
+  if(verbose) printf("[qir-qrt] Applying Tdg %lu\n", qcopy);
+  ::quantum::tdg({"q", qcopy});
+}
 
-// void __quantum__qis__rx(double x, Qubit* q) {
-//   initialize();
-//   printf("[qir-qrt] Applying Rx(%f) %lu\n", x, q);
-//   ::quantum::rx({"q", q}, x);
-// }
+void __quantum__qis__x(Qubit* q) {
+  std::size_t qcopy = reinterpret_cast<std::size_t>(q);
+  if(verbose) printf("[qir-qrt] Applying X %lu\n", qcopy);
+  ::quantum::x({"q", qcopy});
+}
+void __quantum__qis__y(Qubit* q) {
+  std::size_t qcopy = reinterpret_cast<std::size_t>(q);
+  if(verbose) printf("[qir-qrt] Applying Y %lu\n", qcopy);
+  ::quantum::y({"q", qcopy});
+}
+void __quantum__qis__z(Qubit* q) {
+  std::size_t qcopy = reinterpret_cast<std::size_t>(q);
+  if(verbose) printf("[qir-qrt] Applying Z %lu\n", qcopy);
+  ::quantum::z({"q", qcopy});
+}
 
-// void __quantum__qis__rz(double x, Qubit* q) {
-//   initialize();
-//   printf("[qir-qrt] Applying Rz(%f) %lu\n", x, q);
-//   ::quantum::rz({"q", q}, x);
-// }
+void __quantum__qis__rx(double x, Qubit* q) {
+  std::size_t qcopy = reinterpret_cast<std::size_t>(q);
+  if(verbose) printf("[qir-qrt] Applying Rx(%f) %lu\n", x, qcopy);
+  ::quantum::rx({"q", qcopy}, x);
+}
+
+void __quantum__qis__ry(double x, Qubit* q) {
+  std::size_t qcopy = reinterpret_cast<std::size_t>(q);
+  if(verbose) printf("[qir-qrt] Applying Ry(%f) %lu\n", x, qcopy);
+  ::quantum::ry({"q", qcopy}, x);
+}
+
+void __quantum__qis__rz(double x, Qubit* q) {
+  std::size_t qcopy = reinterpret_cast<std::size_t>(q);
+  if(verbose) printf("[qir-qrt] Applying Rz(%f) %lu\n", x, qcopy);
+  ::quantum::rz({"q", qcopy}, x);
+}
 
 Result* __quantum__qis__mz(Qubit* q) {
-  initialize();
-  printf("[qir-qrt] Measuring qubit %lu\n", reinterpret_cast<std::size_t>(q));
+  if(verbose) printf("[qir-qrt] Measuring qubit %lu\n", reinterpret_cast<std::size_t>(q));
   std::size_t qcopy = reinterpret_cast<std::size_t>(q);
 
   if (!qbits) {
@@ -100,13 +147,12 @@ Result* __quantum__qis__mz(Qubit* q) {
 
   ::quantum::set_current_buffer(qbits.get());
   auto bit = ::quantum::mz({"q", qcopy});
-  printf("[qir-qrt] Result was %d.\n", bit);
+  if (mode == QRT_MODE::FTQC) if(verbose) printf("[qir-qrt] Result was %d.\n", bit);
   return bit ? &ResultOne : &ResultZero;
 }
 
 Array* __quantum__rt__qubit_allocate_array(uint64_t size) {
-  initialize();
-  printf("[qir-qrt] Allocating qubit array of size %lu.\n", size);
+  if(verbose) printf("[qir-qrt] Allocating qubit array of size %lu.\n", size);
 
   auto new_array = std::make_unique<Array>(size);
   for (uint64_t i = 0; i < size; i++) {
@@ -117,7 +163,7 @@ Array* __quantum__rt__qubit_allocate_array(uint64_t size) {
 
   allocated_qbits = size;
   if (!qbits) {
-    qbits = std::make_shared<xacc::AcceleratorBuffer>(allocated_qbits);
+    qbits = std::make_shared<xacc::AcceleratorBuffer>(size);
     ::quantum::set_current_buffer(qbits.get());
   }
 
@@ -131,8 +177,7 @@ int8_t* __quantum__rt__array_get_element_ptr_1d(Array* q, uint64_t idx) {
   int8_t* ptr = arr[idx];
   Qubit* qq = reinterpret_cast<Qubit*>(ptr);
 
-  printf("[qir-qrt] Returning qubit array element %lu, idx=%lu.\n",
-         *qq, idx);
+  if(verbose) printf("[qir-qrt] Returning qubit array element %lu, idx=%lu.\n", *qq, idx);
   return ptr;
 }
 
@@ -141,7 +186,8 @@ void __quantum__rt__qubit_release_array(Array* q) {
     if (allocated_arrays[i].get() == q) {
       auto& array_ptr = allocated_arrays[i];
       auto array_size = array_ptr->size();
-      printf("[qir-qrt] deallocating the qubit array of size %lu\n", array_size);
+      if(verbose) printf("[qir-qrt] deallocating the qubit array of size %lu\n",
+             array_size);
       for (int k = 0; k < array_size; k++) {
         delete (*array_ptr)[k];
       }
@@ -151,5 +197,13 @@ void __quantum__rt__qubit_release_array(Array* q) {
 }
 
 void __quantum__rt__finalize() {
-  std::cout << "[qir-qrt] Running finalization routine.\n";
+  if (verbose) std::cout << "[qir-qrt] Running finalization routine.\n";
+  if (mode == QRT_MODE::NISQ) {
+    ::quantum::submit(qbits.get());
+    auto counts = qbits->getMeasurementCounts();
+    std::cout << "Observed Counts:\n";
+    for (auto [bits, count] : counts) {
+      qcor::print(bits, ":", count);
+    }
+  }
 }

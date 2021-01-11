@@ -24,6 +24,17 @@ static cl::opt<std::string> inputFilename(cl::Positional,
                                           cl::init("-"),
                                           cl::value_desc("filename"));
 namespace {
+enum Action {
+  None,
+  DumpMLIR,
+  DumpLLVMIR
+};
+}
+static cl::opt<enum Action> emitAction(
+    "emit", cl::desc("Select the kind of output desired"),
+    cl::values(clEnumValN(DumpMLIR, "mlir", "output the MLIR dump")),
+    cl::values(clEnumValN(DumpLLVMIR, "llvm", "output the LLVM IR dump")));
+namespace {
 enum InputType { QASM };
 }
 static cl::opt<enum InputType> inputType(
@@ -60,7 +71,10 @@ int main(int argc, char **argv) {
   auto module = loadMLIR(context);
 
   // std::cout << "MLIR + Quantum Dialect:\n";
-  // module->dump();
+  if (emitAction == Action::DumpMLIR) {
+    module->dump();
+    return 0;
+  }
 
   // Create the PassManager for lowering to LLVM MLIR and run it
   mlir::PassManager pm(&context);
@@ -82,6 +96,11 @@ int main(int argc, char **argv) {
   if (auto err = optPipeline(llvmModule.get())) {
     llvm::errs() << "Failed to optimize LLVM IR " << err << "\n";
     return -1;
+  }
+
+  if (emitAction == Action::DumpLLVMIR) {
+    llvmModule->dump();
+    return 0;
   }
 
   // llvmModule->dump();

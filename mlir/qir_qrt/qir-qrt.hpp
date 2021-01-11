@@ -30,12 +30,18 @@ void __quantum__rt__finalize();
 
 void __quantum__qis__cnot(Qubit* src, Qubit* tgt);
 void __quantum__qis__h(Qubit* q);
-// void __quantum__qis__s(Qubit* q);
-// void __quantum__qis__x(Qubit* q);
-// void __quantum__qis__z(Qubit* q);
+void __quantum__qis__s(Qubit* q);
+void __quantum__qis__sdg(Qubit* q);
+void __quantum__qis__t(Qubit* q);
+void __quantum__qis__tdg(Qubit* q);
 
-// void __quantum__qis__rx(double x, Qubit* q);
-// void __quantum__qis__rz(double x, Qubit* q);
+void __quantum__qis__x(Qubit* q);
+void __quantum__qis__y(Qubit* q);
+void __quantum__qis__z(Qubit* q);
+
+void __quantum__qis__rx(double x, Qubit* q);
+void __quantum__qis__ry(double x, Qubit* q);
+void __quantum__qis__rz(double x, Qubit* q);
 
 Result* __quantum__qis__mz(Qubit* q);
 

@@ -27,6 +27,7 @@ class OpenQasmMLIRGenerator : public qcor::QuantumMLIRGenerator,
   std::map<std::string, mlir::Value> temporary_sub_kernel_args;
   std::vector<std::string> function_names;
   bool is_first_inst = true;
+  bool add_main = true;
 
   mlir::Type qubit_type;
   mlir::Type array_type;
@@ -60,5 +61,33 @@ class OpenQasmMLIRGenerator : public qcor::QuantumMLIRGenerator,
   void visit(CNOTGate &cx) override;
   void visit(DeclaredGate &g) override;
   void addReturn();
+};
+class CountGateDecls : public staq::ast::Visitor {
+private: 
+  std::size_t& count;
+public:
+  std::vector<std::string> gates_to_inline;
+
+  CountGateDecls(std::size_t& c) :count(c){}
+  void visit(VarAccess &) override {}
+  void visit(BExpr &) override {}
+  void visit(UExpr &) override {}
+  void visit(PiExpr &) override {}
+  void visit(IntExpr &) override {}
+  void visit(RealExpr &r) override {}
+  void visit(VarExpr &v) override {}
+  void visit(ResetStmt &) override {}
+  void visit(IfStmt &) override {}
+  void visit(BarrierGate &) override {}
+  void visit(GateDecl &g) override;
+  void visit(OracleDecl &) override {}
+  void visit(RegisterDecl &) override{}
+  void visit(AncillaDecl &) override {}
+  void visit(Program &prog) override{}
+  void visit(MeasureStmt &m) override{}
+  void visit(UGate &u) override{}
+  void visit(CNOTGate &cx) override{}
+  void visit(DeclaredGate &g) override{}
+  
 };
 }  // namespace qcor

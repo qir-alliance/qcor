@@ -6,13 +6,50 @@
 
 namespace qcor {
 
-void OpenQasmMLIRGenerator::visit(Program &prog) {
-  prog.foreach_stmt([this](auto &stmt) { stmt.accept(*this); });
+std::set<std::string_view> default_inline_overrides{
+    "x",  "y",  "z",  "h",  "s",  "sdg",  "t", "tdg",
+    "rx", "ry", "rz", "cz", "cy", "swap", "cx"};
+
+static std::vector<std::string> builtins{
+    "u3", "u2",   "u1",  "cx",  "id",  "u0",  "x",   "y",  "z",
+    "h",  "s",    "sdg", "t",   "tdg", "rx",  "ry",  "rz", "cz",
+    "cy", "swap", "ch",  "ccx", "crz", "cu1", "cu2", "cu3"};
+
+static std::vector<std::string> search_for_inliner{
+    "u3", "u2",   "u1",  "cx",  "id",  "u0",  "x",   "y",  "z",
+    "h",  "s",    "sdg", "t",   "tdg", "rx",  "ry",  "rz", "cz",
+    "cy", "swap"};
+
+void CountGateDecls::visit(GateDecl &g) { 
+  auto name = g.id();
+  if (std::find(builtins.begin(), builtins.end(), name) == builtins.end()) {
+    gates_to_inline.push_back(name);
+  }
+  count++; 
 }
 
-void OpenQasmMLIRGenerator::initialize_mlirgen() {
+void OpenQasmMLIRGenerator::visit(Program &prog) {
+  // How many statements are there (starts with 25)
+  auto n_stmts = prog.body().size();
+  // How many gatedecls are there?
+  std::size_t n_gate_decls = 0;
+  CountGateDecls count_gate_decls(n_gate_decls);
+  prog.foreach_stmt([&](auto &stmt) { stmt.accept(count_gate_decls); });
+
+  for(auto& g : count_gate_decls.gates_to_inline) {
+    default_inline_overrides.insert(g);
+  }
+
+  // INLINE any complex controlled gates from stdlib
+  staq::transformations::Inliner::config config;
+  config.overrides = default_inline_overrides;
+  staq::transformations::inline_ast(prog);
+
+  // If n_stmts > n_gate_decls, then we need a main function
+  add_main = (n_stmts > n_gate_decls);
   m_module = mlir::ModuleOp::create(builder.getUnknownLoc());
 
+  // Useful opaque type defs
   llvm::StringRef qubit_type_name("Qubit"), array_type_name("Array"),
       result_type_name("Result");
   mlir::Identifier dialect = mlir::Identifier::get("quantum", &context);
@@ -23,18 +60,23 @@ void OpenQasmMLIRGenerator::initialize_mlirgen() {
   auto argv_type =
       mlir::OpaqueType::get(dialect, llvm::StringRef("ArgvType"), &context);
 
-  std::vector<mlir::Type> arg_types_vec{int_type, argv_type};
-  // llvm::SmallVector<mlir::Type, 4> arg_types;
-  auto func_type =
-      builder.getFunctionType(llvm::makeArrayRef(arg_types_vec), int_type);
-  auto proto = mlir::FuncOp::create(builder.getUnknownLoc(), "main", func_type);
-  mlir::FuncOp function(proto);
-  main_entry_block = function.addEntryBlock();
-  auto &entryBlock = *main_entry_block;
-  builder.setInsertionPointToStart(&entryBlock);
-  m_module.push_back(function);
-  function_names.push_back("main");
+  if (add_main) {
+    std::vector<mlir::Type> arg_types_vec{int_type, argv_type};
+    auto func_type =
+        builder.getFunctionType(llvm::makeArrayRef(arg_types_vec), int_type);
+    auto proto =
+        mlir::FuncOp::create(builder.getUnknownLoc(), "main", func_type);
+    mlir::FuncOp function(proto);
+    main_entry_block = function.addEntryBlock();
+    auto &entryBlock = *main_entry_block;
+    builder.setInsertionPointToStart(&entryBlock);
+    m_module.push_back(function);
+    function_names.push_back("main");
+  }
+  prog.foreach_stmt([this](auto &stmt) { stmt.accept(*this); });
 }
+
+void OpenQasmMLIRGenerator::initialize_mlirgen() {}
 
 void OpenQasmMLIRGenerator::mlirgen(const std::string &src) {
   using namespace staq;
@@ -48,7 +90,59 @@ void OpenQasmMLIRGenerator::mlirgen(const std::string &src) {
     std::cout << e.what() << "\n";
   }
 
+  // Replace standard controlled gates with expanded versions
+  // First get mapping of gate name to composite gates
+  // auto tmp_prog = parser::parse_string(R"(OPENQASM 2.0;
+  // include "qelib1.inc";
+  // )");
+
+  // class CollectGateDecomps : public Traverse {
+  //  public:
+  //   std::map<std::string, std::list<std::unique_ptr<Gate>>> gate_decomps;
+
+  //       void
+  //       visit(GateDecl &gate) override {
+  //     if (gate.id() == "ccx") {
+  //       std::cout << "Found CCX\n";
+  //       gate.body();
+  //     }
+  //     gate_decomps.insert({gate.id(), gate.body()});
+  //   }
+  // };
+  // CollectGateDecomps collect;
+  // tmp_prog->foreach_stmt([&](auto &stmt) { stmt.accept(collect); });
+
+  // class BuildReplacerMap : public Traverse {
+  //  protected:
+  //   std::map<std::string, std::list<std::unique_ptr<Gate>>> &gate_decomps;
+
+  //  public:
+  //   std::unordered_map<int, std::list<std::unique_ptr<Gate>>> replacer_map;
+  //   BuildReplacerMap(
+  //       std::map<std::string, std::list<std::unique_ptr<Gate>>> &gd)
+  //       : gate_decomps(gd) {}
+
+  //   void visit(DeclaredGate &gate) {
+  //     auto name = gate.name();
+
+  //     if (name == "ccx") {
+  //       std::cout << "adding to replacer map for ccx\n";
+  //       auto uid = gate.uid();
+  //       // auto gates = ;
+  //       if (!replacer_map.count(uid)) {
+  //       replacer_map.insert({uid, std::move(gate_decomps[name])});
+  //       }
+  //     }
+  //   }
+  // };
+
+  // BuildReplacerMap replacer_builder(collect.gate_decomps);
+  // prog->foreach_stmt([&](auto &stmt) { stmt.accept(replacer_builder); });
+
+  // First, get uid of declared gate to replace
+
   visit(*prog);
+
   return;
 }
 
@@ -59,37 +153,36 @@ void OpenQasmMLIRGenerator::finalize_mlirgen() {
                                              qalloc_op);
   }
 
-  builder.create<mlir::quantum::QRTFinalizeOp>(builder.getUnknownLoc());
-  
-  auto integer_attr = mlir::IntegerAttr::get(builder.getI32Type(), 0);
-  mlir::Value ret_zero =
-      builder.create<mlir::ConstantOp>(builder.getUnknownLoc(),
-      integer_attr);
+  if (add_main) {
+    builder.create<mlir::quantum::QRTFinalizeOp>(builder.getUnknownLoc());
 
-  builder.create<mlir::ReturnOp>(builder.getUnknownLoc(), ret_zero);
+    auto integer_attr = mlir::IntegerAttr::get(builder.getI32Type(), 0);
+    mlir::Value ret_zero =
+        builder.create<mlir::ConstantOp>(builder.getUnknownLoc(), integer_attr);
 
-  std::vector<llvm::StringRef> tmp(function_names.begin(),
-                                   function_names.end());
+    builder.create<mlir::ReturnOp>(builder.getUnknownLoc(), ret_zero);
 
-  auto function_names_datatype = mlir::VectorType::get(
-      {static_cast<std::int64_t>(function_names.size())}, builder.getI64Type());
-  auto function_names_ref = llvm::makeArrayRef(tmp);
-  auto attrs = mlir::DenseStringElementsAttr::get(function_names_datatype,
-                                                  function_names_ref);
+    std::vector<llvm::StringRef> tmp(function_names.begin(),
+                                     function_names.end());
 
-  mlir::Identifier id =
-      mlir::Identifier::get("quantum.internal_functions", builder.getContext());
+    auto function_names_datatype = mlir::VectorType::get(
+        {static_cast<std::int64_t>(function_names.size())},
+        builder.getI64Type());
+    auto function_names_ref = llvm::makeArrayRef(tmp);
+    auto attrs = mlir::DenseStringElementsAttr::get(function_names_datatype,
+                                                    function_names_ref);
 
-  m_module.setAttrs(
-      llvm::makeArrayRef({mlir::NamedAttribute(std::make_pair(id, attrs))}));
+    mlir::Identifier id = mlir::Identifier::get("quantum.internal_functions",
+                                                builder.getContext());
+
+    m_module.setAttrs(
+        llvm::makeArrayRef({mlir::NamedAttribute(std::make_pair(id, attrs))}));
+  }
 }
 
 void OpenQasmMLIRGenerator::visit(GateDecl &gate_function) {
   auto name = gate_function.id();
-  static std::vector<std::string> builtins{
-      "u3", "u2",   "u1",  "cx",  "id",  "u0",  "x",   "y",  "z",
-      "h",  "s",    "sdg", "t",   "tdg", "rx",  "ry",  "rz", "cz",
-      "cy", "swap", "ch",  "ccx", "crz", "cu1", "cu2", "cu3"};
+
   if (std::find(builtins.begin(), builtins.end(), name) == builtins.end()) {
     std::vector<mlir::Type> arg_types;
 
@@ -122,7 +215,7 @@ void OpenQasmMLIRGenerator::visit(GateDecl &gate_function) {
     builder.create<mlir::ReturnOp>(builder.getUnknownLoc());
     m_module.push_back(function);
 
-    builder.setInsertionPointToStart(main_entry_block);
+    if (add_main) builder.setInsertionPointToStart(main_entry_block);
   }
 }
 
