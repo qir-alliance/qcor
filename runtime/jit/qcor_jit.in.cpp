@@ -255,11 +255,12 @@ class LLVMJIT {
           std::unique_ptr<LLVMContext> ctx = std::make_unique<LLVMContext>())
       : ObjectLayer(ES,
                     []() { return std::make_unique<SectionMemoryManager>(); }),
-        CompileLayer(ES, ObjectLayer, ConcurrentIRCompiler(std::move(JTMB))),
+        CompileLayer(ES, ObjectLayer,
+                     std::make_unique<ConcurrentIRCompiler>(std::move(JTMB))),
         DL(std::move(DL)),
         Mangle(ES, this->DL),
         Ctx(std::move(ctx)),
-        MainJD(ES.createJITDylib("<main>")) {
+        MainJD(ES.createBareJITDylib("<main>")) {
     MainJD.addGenerator(
         cantFail(DynamicLibrarySearchGenerator::GetForCurrentProcess(
             DL.getGlobalPrefix())));
@@ -294,17 +295,21 @@ class LLVMJIT {
   LLVMContext &getContext() { return *Ctx.getContext(); }
 
   Error addModule(std::unique_ptr<llvm::Module> M) {
-    // FIXME hook up to cmake
     MainJD.addGenerator(cantFail(DynamicLibrarySearchGenerator::Load(
-        "@XACC_ROOT@/lib/libxacc@CMAKE_SHARED_LIBRARY_SUFFIX@", DL.getGlobalPrefix())));
+        "@XACC_ROOT@/lib/libxacc@CMAKE_SHARED_LIBRARY_SUFFIX@",
+        DL.getGlobalPrefix())));
     MainJD.addGenerator(cantFail(DynamicLibrarySearchGenerator::Load(
-        "@CMAKE_INSTALL_PREFIX@/lib/libqrt@CMAKE_SHARED_LIBRARY_SUFFIX@", DL.getGlobalPrefix())));
+        "@CMAKE_INSTALL_PREFIX@/lib/libqrt@CMAKE_SHARED_LIBRARY_SUFFIX@",
+        DL.getGlobalPrefix())));
     MainJD.addGenerator(cantFail(DynamicLibrarySearchGenerator::Load(
-        "@CMAKE_INSTALL_PREFIX@/lib/libqcor@CMAKE_SHARED_LIBRARY_SUFFIX@", DL.getGlobalPrefix())));
+        "@CMAKE_INSTALL_PREFIX@/lib/libqcor@CMAKE_SHARED_LIBRARY_SUFFIX@",
+        DL.getGlobalPrefix())));
     MainJD.addGenerator(cantFail(DynamicLibrarySearchGenerator::Load(
-        "@XACC_ROOT@/lib/libCppMicroServices@CMAKE_SHARED_LIBRARY_SUFFIX@", DL.getGlobalPrefix())));
+        "@XACC_ROOT@/lib/libCppMicroServices@CMAKE_SHARED_LIBRARY_SUFFIX@",
+        DL.getGlobalPrefix())));
 
-    return CompileLayer.add(MainJD, ThreadSafeModule(std::move(M), Ctx));
+    auto rt = MainJD.getDefaultResourceTracker();
+    return CompileLayer.add(rt, ThreadSafeModule(std::move(M), Ctx));
   }
 
   Expected<JITEvaluatedSymbol> lookup(StringRef Name) {

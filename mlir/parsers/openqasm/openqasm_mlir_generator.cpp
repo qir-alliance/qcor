@@ -52,14 +52,14 @@ void OpenQasmMLIRGenerator::visit(Program &prog) {
   llvm::StringRef qubit_type_name("Qubit"), array_type_name("Array"),
       result_type_name("Result");
   mlir::Identifier dialect = mlir::Identifier::get("quantum", &context);
-  qubit_type = mlir::OpaqueType::get(dialect, qubit_type_name, &context);
-  array_type = mlir::OpaqueType::get(dialect, array_type_name, &context);
-  result_type = mlir::OpaqueType::get(dialect, result_type_name, &context);
+  qubit_type = mlir::OpaqueType::get(&context, dialect, qubit_type_name);
+  array_type = mlir::OpaqueType::get(&context, dialect, array_type_name);
+  result_type = mlir::OpaqueType::get(&context, dialect, result_type_name);
   auto int_type = builder.getI32Type();
   auto argv_type =
-      mlir::OpaqueType::get(dialect, llvm::StringRef("ArgvType"), &context);
+      mlir::OpaqueType::get(&context, dialect, llvm::StringRef("ArgvType"));
   auto qreg_type =
-      mlir::OpaqueType::get(dialect, llvm::StringRef("qreg"), &context);
+      mlir::OpaqueType::get(&context, dialect, llvm::StringRef("qreg"));
 
   if (add_main) {
     std::vector<mlir::Type> arg_types_vec2{};

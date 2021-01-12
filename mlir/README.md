@@ -8,6 +8,7 @@ mkdir llvm_mlir/build
 cd llvm_mlir/build
 cmake -G Ninja ../llvm \
    -DLLVM_ENABLE_PROJECTS=mlir \
+   -DBUILD_SHARED_LIBS=TRUE
    -DLLVM_BUILD_EXAMPLES=ON \
    -DLLVM_TARGETS_TO_BUILD="X86" \
    -DCMAKE_BUILD_TYPE=Release \
