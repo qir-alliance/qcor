@@ -63,3 +63,5 @@ internal_startup startup;
 } // namespace __internal__
 
 } // namespace qcor
+
+#define qcor_include_qasm(NAME) extern "C" void NAME(qreg);

@@ -109,6 +109,7 @@ void OpenQasmMLIRGenerator::visit(Program &prog) {
     builder.create<mlir::quantum::SetQregOp>(builder.getUnknownLoc(),
                                              tmp->getArguments()[0]);
     builder.create<mlir::CallOp>(builder.getUnknownLoc(), function2);
+    builder.create<mlir::quantum::QRTFinalizeOp>(builder.getUnknownLoc());
     builder.create<mlir::ReturnOp>(builder.getUnknownLoc(), llvm::None);
     builder.setInsertionPointToStart(save_main_entry_block);
 

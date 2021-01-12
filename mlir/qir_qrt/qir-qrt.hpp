@@ -12,7 +12,10 @@
 #pragma GCC diagnostic ignored "-Wsign-compare"
 
 extern "C" {
-    
+
+// FIXME - Qubit should be a struct that keeps track of idx
+// qreg name, array it comes from, and associated accelerator buffer
+
 using Qubit = uint64_t;
 using Result = uint64_t;
 using Array = std::vector<int8_t*>;
