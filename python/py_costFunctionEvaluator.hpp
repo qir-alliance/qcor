@@ -12,7 +12,7 @@
 
 namespace py = pybind11;
 namespace qcor {
-namespace qsim {
+namespace QuaSiMo {
 class PyCostFunctionEvaluator : public CostFunctionEvaluator {
   const std::string name() const override {
     PYBIND11_OVERLOAD_PURE(const std::string, CostFunctionEvaluator, name);
@@ -29,5 +29,5 @@ class PyCostFunctionEvaluator : public CostFunctionEvaluator {
     PYBIND11_OVERLOAD_PURE(bool, CostFunctionEvaluator, initialize);
   }
 };
-} // namespace qsim
+} // namespace QuaSiMo
 } // namespace qcor
