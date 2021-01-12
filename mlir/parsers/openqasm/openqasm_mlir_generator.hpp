@@ -5,9 +5,9 @@
 #pragma GCC diagnostic ignored "-Wdeprecated-copy"
 #pragma GCC diagnostic ignored "-Wunused-function"
 
-#include "mlir/IR/Region.h"
 #include "ast/ast.hpp"
 #include "ast/traversal.hpp"
+#include "mlir/IR/Region.h"
 #include "mlir_generator.hpp"
 #include "optimization/simplify.hpp"
 #include "parser/parser.hpp"
@@ -20,15 +20,15 @@ using namespace staq::ast;
 namespace qcor {
 
 class OpenQasmMLIRGenerator : public qcor::QuantumMLIRGenerator,
-                   public staq::ast::Visitor {
+                              public staq::ast::Visitor {
  protected:
   std::map<std::string, mlir::quantum::QallocOp> qubit_allocations;
   bool in_sub_kernel = false;
   std::map<std::string, mlir::Value> temporary_sub_kernel_args;
-  std::vector<std::string> function_names;
   bool is_first_inst = true;
   bool add_main = true;
-
+  std::string file_name = "main";
+  bool add_entry_point = true;
   mlir::Type qubit_type;
   mlir::Type array_type;
   mlir::Type result_type;
@@ -36,9 +36,11 @@ class OpenQasmMLIRGenerator : public qcor::QuantumMLIRGenerator,
   std::map<std::pair<std::string, std::uint64_t>, mlir::Value> extracted_qubits;
 
  public:
-  OpenQasmMLIRGenerator(mlir::MLIRContext &context) : QuantumMLIRGenerator(context){}
-  void initialize_mlirgen() override;
-  void mlirgen(const std::string& src) override;
+  OpenQasmMLIRGenerator(mlir::MLIRContext &context)
+      : QuantumMLIRGenerator(context) {}
+  void initialize_mlirgen(bool add_entry_point = true,
+                          const std::string file_name = "") override;
+  void mlirgen(const std::string &src) override;
   void finalize_mlirgen() override;
 
   void visit(VarAccess &) override {}
@@ -63,12 +65,13 @@ class OpenQasmMLIRGenerator : public qcor::QuantumMLIRGenerator,
   void addReturn();
 };
 class CountGateDecls : public staq::ast::Visitor {
-private: 
-  std::size_t& count;
-public:
+ private:
+  std::size_t &count;
+
+ public:
   std::vector<std::string> gates_to_inline;
 
-  CountGateDecls(std::size_t& c) :count(c){}
+  CountGateDecls(std::size_t &c) : count(c) {}
   void visit(VarAccess &) override {}
   void visit(BExpr &) override {}
   void visit(UExpr &) override {}
@@ -81,13 +84,12 @@ public:
   void visit(BarrierGate &) override {}
   void visit(GateDecl &g) override;
   void visit(OracleDecl &) override {}
-  void visit(RegisterDecl &) override{}
+  void visit(RegisterDecl &) override {}
   void visit(AncillaDecl &) override {}
-  void visit(Program &prog) override{}
-  void visit(MeasureStmt &m) override{}
-  void visit(UGate &u) override{}
-  void visit(CNOTGate &cx) override{}
-  void visit(DeclaredGate &g) override{}
-  
+  void visit(Program &prog) override {}
+  void visit(MeasureStmt &m) override {}
+  void visit(UGate &u) override {}
+  void visit(CNOTGate &cx) override {}
+  void visit(DeclaredGate &g) override {}
 };
 }  // namespace qcor

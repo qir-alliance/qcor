@@ -25,7 +25,7 @@ bool isOpaqueTypeWithName(mlir::Type type, std::string dialect,
 QuantumDialect::QuantumDialect(mlir::MLIRContext *ctx)
     : mlir::Dialect(getDialectNamespace(), ctx, TypeID::get<QuantumDialect>()) {
   addOperations<InstOp, QallocOp, ExtractQubitOp, DeallocOp, QRTInitOp,
-                QRTFinalizeOp>();
+                QRTFinalizeOp, SetQregOp>();
 }
 QRTFinalizeOpAdaptor::QRTFinalizeOpAdaptor(::mlir::ValueRange values,
                                            ::mlir::DictionaryAttr attrs)
@@ -999,6 +999,106 @@ static mlir::ParseResult parseQallocOp(mlir::OpAsmParser &parser,
 ::mlir::ParseResult QallocOp::parse(::mlir::OpAsmParser &parser,
                                     ::mlir::OperationState &result) {
   return ::parseQallocOp(parser, result);
+}
+
+//===----------------------------------------------------------------------===//
+// ::mlir::quantum::SetQregOp definitions
+//===----------------------------------------------------------------------===//
+
+SetQregOpAdaptor::SetQregOpAdaptor(::mlir::ValueRange values, ::mlir::DictionaryAttr attrs)  : odsOperands(values), odsAttrs(attrs) {
+
+}
+
+SetQregOpAdaptor::SetQregOpAdaptor(SetQregOp&op)  : odsOperands(op->getOperands()), odsAttrs(op->getAttrDictionary()) {
+
+}
+
+std::pair<unsigned, unsigned> SetQregOpAdaptor::getODSOperandIndexAndLength(unsigned index) {
+  return {index, 1};
+}
+
+::mlir::ValueRange SetQregOpAdaptor::getODSOperands(unsigned index) {
+  auto valueRange = getODSOperandIndexAndLength(index);
+  return {std::next(odsOperands.begin(), valueRange.first),
+           std::next(odsOperands.begin(), valueRange.first + valueRange.second)};
+}
+
+::mlir::Value SetQregOpAdaptor::qreg() {
+  return *getODSOperands(0).begin();
+}
+
+::mlir::LogicalResult SetQregOpAdaptor::verify(::mlir::Location loc) {
+  return ::mlir::success();
+}
+
+::llvm::StringRef SetQregOp::getOperationName() {
+  return "quantum.set_qreg";
+}
+
+std::pair<unsigned, unsigned> SetQregOp::getODSOperandIndexAndLength(unsigned index) {
+  return {index, 1};
+}
+
+::mlir::Operation::operand_range SetQregOp::getODSOperands(unsigned index) {
+  auto valueRange = getODSOperandIndexAndLength(index);
+  return {std::next(getOperation()->operand_begin(), valueRange.first),
+           std::next(getOperation()->operand_begin(), valueRange.first + valueRange.second)};
+}
+
+::mlir::Value SetQregOp::qreg() {
+  return *getODSOperands(0).begin();
+}
+
+::mlir::MutableOperandRange SetQregOp::qregMutable() {
+  auto range = getODSOperandIndexAndLength(0);
+  return ::mlir::MutableOperandRange(getOperation(), range.first, range.second);
+}
+
+std::pair<unsigned, unsigned> SetQregOp::getODSResultIndexAndLength(unsigned index) {
+  return {index, 1};
+}
+
+::mlir::Operation::result_range SetQregOp::getODSResults(unsigned index) {
+  auto valueRange = getODSResultIndexAndLength(index);
+  return {std::next(getOperation()->result_begin(), valueRange.first),
+           std::next(getOperation()->result_begin(), valueRange.first + valueRange.second)};
+}
+
+void SetQregOp::build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::Value qreg) {
+  odsState.addOperands(qreg);
+}
+
+void SetQregOp::build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::Value qreg) {
+  odsState.addOperands(qreg);
+  assert(resultTypes.size() == 0u && "mismatched number of results");
+  odsState.addTypes(resultTypes);
+}
+
+void SetQregOp::build(::mlir::OpBuilder &, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes) {
+  assert(operands.size() == 1u && "mismatched number of parameters");
+  odsState.addOperands(operands);
+  odsState.addAttributes(attributes);
+  assert(resultTypes.size() == 0u && "mismatched number of return types");
+  odsState.addTypes(resultTypes);
+}
+
+::mlir::LogicalResult SetQregOp::verify() {
+  if (failed(SetQregOpAdaptor(*this).verify(this->getLoc()))) return ::mlir::failure();
+  {
+    unsigned index = 0; (void)index;
+    auto valueGroup0 = getODSOperands(0);
+    for (::mlir::Value v : valueGroup0) {
+      (void)v;
+      if (!((isOpaqueTypeWithName(v.getType(), "quantum", "QregType")))) {
+        return emitOpError("operand #") << index << " must be opaque qreg type, but got " << v.getType();
+      }
+      ++index;
+    }
+  }
+  {
+    unsigned index = 0; (void)index;
+  }
+  return ::mlir::success();
 }
 }  // namespace quantum
 }  // namespace mlir

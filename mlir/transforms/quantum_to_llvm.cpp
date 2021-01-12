@@ -215,13 +215,11 @@ class QRTInitOpLowering : public ConversionPattern {
     // qalloc QIR runtime function, this will only declare it once and reuse
     // each time it is seen
     FlatSymbolRefAttr symbol_ref;
-    if (parentModule.lookupSymbol<LLVM::LLVMFuncOp>(
-            qir_qrt_initialize)) {
+    if (parentModule.lookupSymbol<LLVM::LLVMFuncOp>(qir_qrt_initialize)) {
       symbol_ref = SymbolRefAttr::get(qir_qrt_initialize, context);
     } else {
       // prototype is (Array*) -> void
       auto int_type = LLVM::LLVMType::getInt32Ty(context);
-      auto array_qbit_type = get_quantum_type("Array", context).getPointerTo();
       std::vector<LLVM::LLVMType> arg_types{
           LLVM::LLVMType::getInt32Ty(context),
           LLVM::LLVMType::getInt8PtrTy(context).getPointerTo()};
@@ -231,10 +229,9 @@ class QRTInitOpLowering : public ConversionPattern {
       // Insert the function declaration
       PatternRewriter::InsertionGuard insertGuard(rewriter);
       rewriter.setInsertionPointToStart(parentModule.getBody());
-      rewriter.create<LLVM::LLVMFuncOp>(
-          parentModule->getLoc(), qir_qrt_initialize, init_ftype);
-      symbol_ref =
-          mlir::SymbolRefAttr::get(qir_qrt_initialize, context);
+      rewriter.create<LLVM::LLVMFuncOp>(parentModule->getLoc(),
+                                        qir_qrt_initialize, init_ftype);
+      symbol_ref = mlir::SymbolRefAttr::get(qir_qrt_initialize, context);
     }
 
     // auto initOp = cast<mlir::quantum::QRTInitOp>(op);
@@ -260,8 +257,7 @@ class QRTInitOpLowering : public ConversionPattern {
 class QRTFinalizeOpLowering : public ConversionPattern {
  protected:
   // Constant string for runtime function name
-  inline static const std::string qir_qrt_finalize =
-      "__quantum__rt__finalize";
+  inline static const std::string qir_qrt_finalize = "__quantum__rt__finalize";
   // Rudimentary symbol table, seen variables
   std::map<std::string, mlir::Value> &variables;
 
@@ -269,7 +265,7 @@ class QRTFinalizeOpLowering : public ConversionPattern {
  public:
   // Constructor, store seen variables
   explicit QRTFinalizeOpLowering(MLIRContext *context,
-                             std::map<std::string, mlir::Value> &vars)
+                                 std::map<std::string, mlir::Value> &vars)
       : ConversionPattern(mlir::quantum::QRTFinalizeOp::getOperationName(), 1,
                           context),
         variables(vars) {}
@@ -288,8 +284,7 @@ class QRTFinalizeOpLowering : public ConversionPattern {
     // qalloc QIR runtime function, this will only declare it once and reuse
     // each time it is seen
     FlatSymbolRefAttr symbol_ref;
-    if (parentModule.lookupSymbol<LLVM::LLVMFuncOp>(
-            qir_qrt_finalize)) {
+    if (parentModule.lookupSymbol<LLVM::LLVMFuncOp>(qir_qrt_finalize)) {
       symbol_ref = SymbolRefAttr::get(qir_qrt_finalize, context);
     } else {
       // prototype is () -> void
@@ -301,10 +296,78 @@ class QRTFinalizeOpLowering : public ConversionPattern {
       // Insert the function declaration
       PatternRewriter::InsertionGuard insertGuard(rewriter);
       rewriter.setInsertionPointToStart(parentModule.getBody());
-      rewriter.create<LLVM::LLVMFuncOp>(
-          parentModule->getLoc(), qir_qrt_finalize, init_ftype);
-      symbol_ref =
-          mlir::SymbolRefAttr::get(qir_qrt_finalize, context);
+      rewriter.create<LLVM::LLVMFuncOp>(parentModule->getLoc(),
+                                        qir_qrt_finalize, init_ftype);
+      symbol_ref = mlir::SymbolRefAttr::get(qir_qrt_finalize, context);
+    }
+
+    // auto initOp = cast<mlir::quantum::QRTInitOp>(op);
+    // auto parentFunc = op->getParentOfType<LLVM::LLVMFuncOp>();
+    // parentFunc.dump();
+    // auto args = parentFunc.body().getArguments();
+    // std::cout << "HERE:\n";
+    // args[0].dump();
+    // args[1].dump();
+    // create a CallOp for the new quantum runtime initialize
+    // function.
+    rewriter.create<mlir::CallOp>(loc, symbol_ref,
+                                  LLVM::LLVMType::getVoidTy(context),
+                                  ArrayRef<Value>({}));
+
+    // Remove the old QuantumDialect QallocOp
+    rewriter.eraseOp(op);
+
+    return success();
+  }
+};
+
+class SetQregOpLowering : public ConversionPattern {
+ protected:
+  // Constant string for runtime function name
+  inline static const std::string qir_qrt_finalize =
+      "__quantum__rt__set_external_qreg";
+  // Rudimentary symbol table, seen variables
+  std::map<std::string, mlir::Value> &variables;
+
+  // %Array* @__quantum__rt__qubit_allocate_array(i64 %nQubits)
+ public:
+  // Constructor, store seen variables
+  explicit SetQregOpLowering(MLIRContext *context,
+                             std::map<std::string, mlir::Value> &vars)
+      : ConversionPattern(mlir::quantum::SetQregOp::getOperationName(), 1,
+                          context),
+        variables(vars) {}
+
+  // Match any Operation that is the QallocOp
+  LogicalResult matchAndRewrite(
+      Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const override {
+    // Local Declarations, get location, parentModule
+    // and the context
+    auto loc = op->getLoc();
+    ModuleOp parentModule = op->getParentOfType<ModuleOp>();
+    auto context = parentModule->getContext();
+
+    // First step is to get a reference to the Symbol Reference for the
+    // qalloc QIR runtime function, this will only declare it once and reuse
+    // each time it is seen
+    FlatSymbolRefAttr symbol_ref;
+    if (parentModule.lookupSymbol<LLVM::LLVMFuncOp>(qir_qrt_finalize)) {
+      symbol_ref = SymbolRefAttr::get(qir_qrt_finalize, context);
+    } else {
+      // prototype is () -> void
+      auto void_type = LLVM::LLVMType::getVoidTy(context);
+      std::vector<LLVM::LLVMType> arg_types{
+          get_quantum_type("qreg", context).getPointerTo()};
+      auto init_ftype = LLVM::LLVMType::getFunctionTy(
+          void_type, llvm::makeArrayRef(arg_types), false);
+
+      // Insert the function declaration
+      PatternRewriter::InsertionGuard insertGuard(rewriter);
+      rewriter.setInsertionPointToStart(parentModule.getBody());
+      rewriter.create<LLVM::LLVMFuncOp>(parentModule->getLoc(),
+                                        qir_qrt_finalize, init_ftype);
+      symbol_ref = mlir::SymbolRefAttr::get(qir_qrt_finalize, context);
     }
 
     // auto initOp = cast<mlir::quantum::QRTInitOp>(op);
@@ -318,7 +381,7 @@ class QRTFinalizeOpLowering : public ConversionPattern {
     // function.
     rewriter.create<mlir::CallOp>(
         loc, symbol_ref, LLVM::LLVMType::getVoidTy(context),
-        ArrayRef<Value>({}));
+        ArrayRef<Value>({variables["_incoming_qreg_variable"]}));
 
     // Remove the old QuantumDialect QallocOp
     rewriter.eraseOp(op);
@@ -347,7 +410,9 @@ class QuantumFuncArgConverter : public ConversionPattern {
           return get_quantum_type("Qubit", this->context).getPointerTo();
         } else if (casted.getTypeData() == "ArgvType") {
           return LLVM::LLVMType::getInt8PtrTy(context).getPointerTo();
-        } 
+        } else if (casted.getTypeData() == "qreg") {
+          return get_quantum_type("qreg", this->context).getPointerTo();
+        }
       } else if (type.isa<mlir::IntegerType>()) {
         return LLVM::LLVMType::getInt32Ty(this->context);
       }
@@ -379,13 +444,45 @@ class QuantumFuncArgConverter : public ConversionPattern {
                                                          new_main_signature);
       rewriter.inlineRegionBefore(funcOp.getBody(), newFuncOp.getBody(),
                                   newFuncOp.end());
-      rewriter.convertRegionTypes(&newFuncOp.getBody(), *typeConverter);
+      if (failed(rewriter.convertRegionTypes(&newFuncOp.getBody(),
+                                             *typeConverter))) {
+        return failure();
+      }
+      // rewriter.convertRegionTypes(&newFuncOp.getBody(), *typeConverter);
 
       auto args = newFuncOp.body().getArguments();
       variables.insert({"main_argc", args[0]});
       variables.insert({"main_argv", args[1]});
 
       rewriter.eraseOp(op);
+      return success();
+    }
+
+    if (ftype.getNumInputs() == 1 &&
+        ftype.getInput(0).isa<mlir::OpaqueType>() &&
+        ftype.getInput(0).cast<mlir::OpaqueType>().getTypeData() == "qreg") {
+      std::vector<LLVM::LLVMType> tmp_arg_types{
+          get_quantum_type("qreg", context).getPointerTo()};
+
+      auto new_func_signature = LLVM::LLVMType::getFunctionTy(
+          LLVM::LLVMType::getVoidTy(context), llvm::makeArrayRef(tmp_arg_types),
+          false);
+
+      auto newFuncOp = rewriter.create<LLVM::LLVMFuncOp>(loc, funcOp.sym_name(),
+                                                         new_func_signature);
+
+      rewriter.inlineRegionBefore(funcOp.getBody(), newFuncOp.getBody(),
+                                  newFuncOp.end());
+
+      if (failed(rewriter.convertRegionTypes(&newFuncOp.getBody(),
+                                             *typeConverter))) {
+        return failure();
+      }
+
+      rewriter.eraseOp(op);
+      auto arg = newFuncOp.body().getArguments()[0];
+
+      variables.insert({"_incoming_qreg_variable", arg});
       return success();
     }
 
@@ -406,8 +503,11 @@ class QuantumFuncArgConverter : public ConversionPattern {
 
       rewriter.inlineRegionBefore(funcOp.getBody(), newFuncOp.getBody(),
                                   newFuncOp.end());
-      rewriter.convertRegionTypes(&newFuncOp.getBody(), *typeConverter);
-
+      // rewriter.convertRegionTypes(&newFuncOp.getBody(), *typeConverter);
+      if (failed(rewriter.convertRegionTypes(&newFuncOp.getBody(),
+                                             *typeConverter))) {
+        return failure();
+      }
       rewriter.eraseOp(op);
       return success();
     }
@@ -428,15 +528,19 @@ class InstOpLowering : public ConversionPattern {
   // corresponding qreg variable name they represent
   std::map<mlir::Operation *, std::string> &qubit_extract_map;
 
+  std::vector<std::string> &module_function_names;
+
  public:
   // The Constructor, store the variables and qubit extract op map
   explicit InstOpLowering(MLIRContext *context,
                           std::map<std::string, mlir::Value> &vars,
-                          std::map<mlir::Operation *, std::string> &qem)
+                          std::map<mlir::Operation *, std::string> &qem,
+                          std::vector<std::string> &f_names)
       : ConversionPattern(mlir::quantum::InstOp::getOperationName(), 1,
                           context),
         variables(vars),
-        qubit_extract_map(qem) {}
+        qubit_extract_map(qem),
+        module_function_names(f_names) {}
 
   // Match and replace all InstOps
   LogicalResult matchAndRewrite(
@@ -446,15 +550,6 @@ class InstOpLowering : public ConversionPattern {
     auto loc = op->getLoc();
     ModuleOp parentModule = op->getParentOfType<ModuleOp>();
     auto context = parentModule->getContext();
-
-    auto attributes = parentModule.getAttrs();
-    llvm::ArrayRef<llvm::StringRef> module_function_names;
-    for (auto a : attributes) {
-      if (a.first.str() == "quantum.internal_functions") {
-        auto attributes = a.second.cast<DenseStringElementsAttr>();
-        module_function_names = attributes.getRawStringData();
-      }
-    }
 
     // Now get Instruction name and its quantum runtime function name
     auto instOp = cast<mlir::quantum::InstOp>(op);
@@ -720,7 +815,9 @@ void QuantumToLLVMLoweringPass::runOnOperation() {
   // Add our custom conversion passes
   patterns.insert<QuantumFuncArgConverter>(&getContext(), variables);
   patterns.insert<QallocOpLowering>(&getContext(), variables);
-  patterns.insert<InstOpLowering>(&getContext(), variables, qubit_extract_map);
+  patterns.insert<InstOpLowering>(&getContext(), variables, qubit_extract_map,
+                                  function_names);
+  patterns.insert<SetQregOpLowering>(&getContext(), variables);
   patterns.insert<ExtractQubitOpConversion>(&getContext(), typeConverter,
                                             variables, qubit_extract_map);
   patterns.insert<DeallocOpLowering>(&getContext(), variables);

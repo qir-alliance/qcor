@@ -15,6 +15,7 @@ class QuantumMLIRGenerator {
   mlir::ModuleOp m_module;
   mlir::OpBuilder builder;
   mlir::Block* main_entry_block;
+  std::vector<std::string> function_names;
 
  public:
   QuantumMLIRGenerator(mlir::MLIRContext& ctx) : context(ctx), builder(&ctx) {}
@@ -24,7 +25,8 @@ class QuantumMLIRGenerator {
   // mlir using the quantum dialect. This may also be used for
   // introducing any initialization operations before
   // generation of the rest of the mlir code.
-  virtual void initialize_mlirgen() = 0;
+  virtual void initialize_mlirgen(bool add_entry_point = true,
+                                  const std::string file_name = "") = 0;
 
   // This method can be implemented by subclasses to map a
   // quantum code in a subclass-specific source language to
@@ -35,6 +37,8 @@ class QuantumMLIRGenerator {
   mlir::OwningModuleRef get_module() {
     return mlir::OwningModuleRef(mlir::OwningOpRef<mlir::ModuleOp>(m_module));
   }
+
+  std::vector<std::string> seen_function_names() { return function_names; }
 
   // Finalize method, override to provide any end operations
   // to the module (like a return_op).

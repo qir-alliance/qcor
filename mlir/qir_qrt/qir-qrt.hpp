@@ -1,5 +1,7 @@
 #include <memory>
 #include <vector>
+#include "qalloc.hpp"
+
 #pragma GCC diagnostic ignored "-Wignored-qualifiers"
 #pragma GCC diagnostic ignored "-Wreorder"
 #pragma GCC diagnostic ignored "-Wunused-function"
@@ -15,10 +17,8 @@ using Qubit = uint64_t;
 using Result = uint64_t;
 using Array = std::vector<int8_t*>;
 using TupleHeader = int *;
+using qreg = xacc::internal_compiler::qreg;
 
-// using ArrayStorage = std::vector<std::shared_ptr<Array>>;
-
-// extern ArrayStorage array_storage;
 extern Result ResultZero;
 extern Result ResultOne;
 extern unsigned long allocated_qbits;
@@ -27,6 +27,8 @@ extern bool initialized;
 void initialize();
 void __quantum__rt__initialize(int argc, int8_t** argv);
 void __quantum__rt__finalize();
+
+void __quantum__rt__set_external_qreg(qreg* q);
 
 void __quantum__qis__cnot(Qubit* src, Qubit* tgt);
 void __quantum__qis__h(Qubit* q);

@@ -15,8 +15,10 @@ struct QuantumToLLVMLoweringPass
     : public PassWrapper<QuantumToLLVMLoweringPass, OperationPass<ModuleOp>> {
   void getDependentDialects(DialectRegistry &registry) const override;
   void runOnOperation() final;
+  private:
+  std::vector<std::string>& function_names;
  public:
-  QuantumToLLVMLoweringPass() = default;
+  QuantumToLLVMLoweringPass(std::vector<std::string>& f_names) :function_names(f_names) {}
 };
 
 }  // namespace qcor

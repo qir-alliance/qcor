@@ -68,6 +68,10 @@ void initialize() {
   }
 }
 
+void __quantum__rt__set_external_qreg(qreg* q) {
+
+}
+
 void __quantum__qis__cnot(Qubit* src, Qubit* tgt) {
   std::size_t src_copy = reinterpret_cast<std::size_t>(src);
   std::size_t tgt_copy = reinterpret_cast<std::size_t>(tgt);

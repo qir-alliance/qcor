@@ -10,8 +10,8 @@
 #include "mlir/ExecutionEngine/OptUtils.h"
 #include "mlir/IR/AsmState.h"
 #include "mlir/Parser.h"
-#include "quantum_to_llvm.hpp"
 #include "openqasm_mlir_generator.hpp"
+#include "quantum_to_llvm.hpp"
 #include "tools/ast_printer.hpp"
 
 using namespace mlir;
@@ -23,12 +23,11 @@ static cl::opt<std::string> inputFilename(cl::Positional,
                                           cl::desc("<input openqasm file>"),
                                           cl::init("-"),
                                           cl::value_desc("filename"));
+cl::opt<bool> noEntryPoint("no-entrypoint",
+                           cl::desc("Do not add main() to compiled output."));
+
 namespace {
-enum Action {
-  None,
-  DumpMLIR,
-  DumpLLVMIR
-};
+enum Action { None, DumpMLIR, DumpLLVMIR };
 }
 static cl::opt<enum Action> emitAction(
     "emit", cl::desc("Select the kind of output desired"),
@@ -42,7 +41,8 @@ static cl::opt<enum InputType> inputType(
     cl::values(clEnumValN(QASM, "qasm",
                           "load the input file as a qasm source.")));
 
-mlir::OwningModuleRef loadMLIR(mlir::MLIRContext &context) {
+mlir::OwningModuleRef loadMLIR(mlir::MLIRContext &context,
+                               std::vector<std::string> &function_names) {
   llvm::StringRef ref(inputFilename);
   std::ifstream t(ref.str());
   std::string qasm_src((std::istreambuf_iterator<char>(t)),
@@ -52,9 +52,13 @@ mlir::OwningModuleRef loadMLIR(mlir::MLIRContext &context) {
   // llvm::StringRef(inputFilename).endswith(".qasm")
   // or llvm::StringRef(inputFilename).endswith(".quil")
   qcor::OpenQasmMLIRGenerator mlir_generator(context);
-  mlir_generator.initialize_mlirgen();
+  bool addEntryPoint = !noEntryPoint;
+  mlir_generator.initialize_mlirgen(
+      addEntryPoint,
+      llvm::StringRef(inputFilename).split(StringRef(".")).first.str());
   mlir_generator.mlirgen(qasm_src);
   mlir_generator.finalize_mlirgen();
+  function_names = mlir_generator.seen_function_names();
   return mlir_generator.get_module();
 }
 
@@ -68,7 +72,8 @@ int main(int argc, char **argv) {
   context.loadDialect<mlir::quantum::QuantumDialect, mlir::StandardOpsDialect,
                       mlir::vector::VectorDialect>();
 
-  auto module = loadMLIR(context);
+  std::vector<std::string> unique_function_names;
+  auto module = loadMLIR(context, unique_function_names);
 
   // std::cout << "MLIR + Quantum Dialect:\n";
   if (emitAction == Action::DumpMLIR) {
@@ -78,7 +83,8 @@ int main(int argc, char **argv) {
 
   // Create the PassManager for lowering to LLVM MLIR and run it
   mlir::PassManager pm(&context);
-  pm.addPass(std::make_unique<qcor::QuantumToLLVMLoweringPass>());
+  pm.addPass(
+      std::make_unique<qcor::QuantumToLLVMLoweringPass>(unique_function_names));
   auto module_op = (*module).getOperation();
   if (mlir::failed(pm.run(module_op))) {
     std::cout << "Pass Manager Failed\n";
@@ -111,7 +117,7 @@ int main(int argc, char **argv) {
   os.flush();
   auto file_name =
       llvm::StringRef(inputFilename).split(StringRef(".")).first.str();
-  std::ofstream out_file(file_name+".ll");
+  std::ofstream out_file(file_name + ".ll");
   out_file << s;
   out_file.close();
 

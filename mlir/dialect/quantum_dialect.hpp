@@ -12,6 +12,7 @@ class DeallocOp;
 class ExtractQubitOp;
 class QRTInitOp;
 class QRTFinalizeOp;
+class SetQregOp;
 }  // namespace quantum
 }  // namespace mlir
 
@@ -323,6 +324,37 @@ class DeallocOp
   static void build(::mlir::OpBuilder &, ::mlir::OperationState &odsState,
                     ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands,
                     ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
+  ::mlir::LogicalResult verify();
+};
+
+class SetQregOpAdaptor {
+public:
+  SetQregOpAdaptor(::mlir::ValueRange values, ::mlir::DictionaryAttr attrs = nullptr);
+  SetQregOpAdaptor(SetQregOp&op);
+  std::pair<unsigned, unsigned> getODSOperandIndexAndLength(unsigned index);
+  ::mlir::ValueRange getODSOperands(unsigned index);
+  ::mlir::Value qreg();
+  ::mlir::LogicalResult verify(::mlir::Location loc);
+
+private:
+  ::mlir::ValueRange odsOperands;
+  ::mlir::DictionaryAttr odsAttrs;
+};
+class SetQregOp : public ::mlir::Op<SetQregOp, ::mlir::OpTrait::ZeroRegion, ::mlir::OpTrait::ZeroResult, ::mlir::OpTrait::ZeroSuccessor, ::mlir::OpTrait::OneOperand> {
+public:
+  using Op::Op;
+  using Op::print;
+  using Adaptor = SetQregOpAdaptor;
+  static ::llvm::StringRef getOperationName();
+  std::pair<unsigned, unsigned> getODSOperandIndexAndLength(unsigned index);
+  ::mlir::Operation::operand_range getODSOperands(unsigned index);
+  ::mlir::Value qreg();
+  ::mlir::MutableOperandRange qregMutable();
+  std::pair<unsigned, unsigned> getODSResultIndexAndLength(unsigned index);
+  ::mlir::Operation::result_range getODSResults(unsigned index);
+  static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::Value qreg);
+  static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::Value qreg);
+  static void build(::mlir::OpBuilder &, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
   ::mlir::LogicalResult verify();
 };
 }  // namespace quantum

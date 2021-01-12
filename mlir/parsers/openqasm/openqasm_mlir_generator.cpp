@@ -16,16 +16,15 @@ static std::vector<std::string> builtins{
     "cy", "swap", "ch",  "ccx", "crz", "cu1", "cu2", "cu3"};
 
 static std::vector<std::string> search_for_inliner{
-    "u3", "u2",   "u1",  "cx",  "id",  "u0",  "x",   "y",  "z",
-    "h",  "s",    "sdg", "t",   "tdg", "rx",  "ry",  "rz", "cz",
-    "cy", "swap"};
+    "u3", "u2",  "u1", "cx",  "id", "u0", "x",  "y",  "z",  "h",
+    "s",  "sdg", "t",  "tdg", "rx", "ry", "rz", "cz", "cy", "swap"};
 
-void CountGateDecls::visit(GateDecl &g) { 
+void CountGateDecls::visit(GateDecl &g) {
   auto name = g.id();
   if (std::find(builtins.begin(), builtins.end(), name) == builtins.end()) {
     gates_to_inline.push_back(name);
   }
-  count++; 
+  count++;
 }
 
 void OpenQasmMLIRGenerator::visit(Program &prog) {
@@ -36,7 +35,7 @@ void OpenQasmMLIRGenerator::visit(Program &prog) {
   CountGateDecls count_gate_decls(n_gate_decls);
   prog.foreach_stmt([&](auto &stmt) { stmt.accept(count_gate_decls); });
 
-  for(auto& g : count_gate_decls.gates_to_inline) {
+  for (auto &g : count_gate_decls.gates_to_inline) {
     default_inline_overrides.insert(g);
   }
 
@@ -59,24 +58,77 @@ void OpenQasmMLIRGenerator::visit(Program &prog) {
   auto int_type = builder.getI32Type();
   auto argv_type =
       mlir::OpaqueType::get(dialect, llvm::StringRef("ArgvType"), &context);
+  auto qreg_type =
+      mlir::OpaqueType::get(dialect, llvm::StringRef("qreg"), &context);
 
   if (add_main) {
-    std::vector<mlir::Type> arg_types_vec{int_type, argv_type};
-    auto func_type =
-        builder.getFunctionType(llvm::makeArrayRef(arg_types_vec), int_type);
-    auto proto =
-        mlir::FuncOp::create(builder.getUnknownLoc(), "main", func_type);
-    mlir::FuncOp function(proto);
-    main_entry_block = function.addEntryBlock();
-    auto &entryBlock = *main_entry_block;
-    builder.setInsertionPointToStart(&entryBlock);
-    m_module.push_back(function);
-    function_names.push_back("main");
+    std::vector<mlir::Type> arg_types_vec2{};
+    auto func_type2 =
+        builder.getFunctionType(llvm::makeArrayRef(arg_types_vec2), llvm::None);
+    auto proto2 = mlir::FuncOp::create(
+        builder.getUnknownLoc(), "__internal_mlir_" + file_name, func_type2);
+    mlir::FuncOp function2(proto2);
+    auto save_main_entry_block = function2.addEntryBlock();
+
+    if (add_entry_point) {
+      std::vector<mlir::Type> arg_types_vec{int_type, argv_type};
+      auto func_type =
+          builder.getFunctionType(llvm::makeArrayRef(arg_types_vec), int_type);
+      auto proto =
+          mlir::FuncOp::create(builder.getUnknownLoc(), "main", func_type);
+      mlir::FuncOp function(proto);
+      main_entry_block = function.addEntryBlock();
+      auto &entryBlock = *main_entry_block;
+      builder.setInsertionPointToStart(&entryBlock);
+
+      auto main_args = main_entry_block->getArguments();
+      builder.create<mlir::quantum::QRTInitOp>(builder.getUnknownLoc(),
+                                               main_args[0], main_args[1]);
+
+      // call the function from main, run finalize, and return 0
+      builder.create<mlir::CallOp>(builder.getUnknownLoc(), function2);
+      builder.create<mlir::quantum::QRTFinalizeOp>(builder.getUnknownLoc());
+      is_first_inst = false;
+      auto integer_attr = mlir::IntegerAttr::get(builder.getI32Type(), 0);
+      mlir::Value ret_zero = builder.create<mlir::ConstantOp>(
+          builder.getUnknownLoc(), integer_attr);
+      builder.create<mlir::ReturnOp>(builder.getUnknownLoc(), ret_zero);
+      m_module.push_back(function);
+      function_names.push_back("main");
+    }
+
+    std::vector<mlir::Type> arg_types_vec3{qreg_type};
+    auto func_type3 =
+        builder.getFunctionType(llvm::makeArrayRef(arg_types_vec3), llvm::None);
+    auto proto3 =
+        mlir::FuncOp::create(builder.getUnknownLoc(), file_name, func_type3);
+    mlir::FuncOp function3(proto3);
+
+    auto tmp = function3.addEntryBlock();
+    builder.setInsertionPointToStart(tmp);
+    builder.create<mlir::quantum::SetQregOp>(builder.getUnknownLoc(),
+                                             tmp->getArguments()[0]);
+    builder.create<mlir::CallOp>(builder.getUnknownLoc(), function2);
+    builder.create<mlir::ReturnOp>(builder.getUnknownLoc(), llvm::None);
+    builder.setInsertionPointToStart(save_main_entry_block);
+
+    m_module.push_back(function2);
+    m_module.push_back(function3);
+    function_names.push_back("__internal_mlir_" + file_name);
+    function_names.push_back(file_name);
+
+    main_entry_block = save_main_entry_block;
+
+    // Create function_name(opaque.qreg q), setup main to call it
   }
   prog.foreach_stmt([this](auto &stmt) { stmt.accept(*this); });
 }
 
-void OpenQasmMLIRGenerator::initialize_mlirgen() {}
+void OpenQasmMLIRGenerator::initialize_mlirgen(bool _add_entry_point,
+                                               const std::string function) {
+  file_name = function;
+  add_entry_point = _add_entry_point;
+}
 
 void OpenQasmMLIRGenerator::mlirgen(const std::string &src) {
   using namespace staq;
@@ -89,57 +141,6 @@ void OpenQasmMLIRGenerator::mlirgen(const std::string &src) {
     std::stringstream ss;
     std::cout << e.what() << "\n";
   }
-
-  // Replace standard controlled gates with expanded versions
-  // First get mapping of gate name to composite gates
-  // auto tmp_prog = parser::parse_string(R"(OPENQASM 2.0;
-  // include "qelib1.inc";
-  // )");
-
-  // class CollectGateDecomps : public Traverse {
-  //  public:
-  //   std::map<std::string, std::list<std::unique_ptr<Gate>>> gate_decomps;
-
-  //       void
-  //       visit(GateDecl &gate) override {
-  //     if (gate.id() == "ccx") {
-  //       std::cout << "Found CCX\n";
-  //       gate.body();
-  //     }
-  //     gate_decomps.insert({gate.id(), gate.body()});
-  //   }
-  // };
-  // CollectGateDecomps collect;
-  // tmp_prog->foreach_stmt([&](auto &stmt) { stmt.accept(collect); });
-
-  // class BuildReplacerMap : public Traverse {
-  //  protected:
-  //   std::map<std::string, std::list<std::unique_ptr<Gate>>> &gate_decomps;
-
-  //  public:
-  //   std::unordered_map<int, std::list<std::unique_ptr<Gate>>> replacer_map;
-  //   BuildReplacerMap(
-  //       std::map<std::string, std::list<std::unique_ptr<Gate>>> &gd)
-  //       : gate_decomps(gd) {}
-
-  //   void visit(DeclaredGate &gate) {
-  //     auto name = gate.name();
-
-  //     if (name == "ccx") {
-  //       std::cout << "adding to replacer map for ccx\n";
-  //       auto uid = gate.uid();
-  //       // auto gates = ;
-  //       if (!replacer_map.count(uid)) {
-  //       replacer_map.insert({uid, std::move(gate_decomps[name])});
-  //       }
-  //     }
-  //   }
-  // };
-
-  // BuildReplacerMap replacer_builder(collect.gate_decomps);
-  // prog->foreach_stmt([&](auto &stmt) { stmt.accept(replacer_builder); });
-
-  // First, get uid of declared gate to replace
 
   visit(*prog);
 
@@ -154,29 +155,7 @@ void OpenQasmMLIRGenerator::finalize_mlirgen() {
   }
 
   if (add_main) {
-    builder.create<mlir::quantum::QRTFinalizeOp>(builder.getUnknownLoc());
-
-    auto integer_attr = mlir::IntegerAttr::get(builder.getI32Type(), 0);
-    mlir::Value ret_zero =
-        builder.create<mlir::ConstantOp>(builder.getUnknownLoc(), integer_attr);
-
-    builder.create<mlir::ReturnOp>(builder.getUnknownLoc(), ret_zero);
-
-    std::vector<llvm::StringRef> tmp(function_names.begin(),
-                                     function_names.end());
-
-    auto function_names_datatype = mlir::VectorType::get(
-        {static_cast<std::int64_t>(function_names.size())},
-        builder.getI64Type());
-    auto function_names_ref = llvm::makeArrayRef(tmp);
-    auto attrs = mlir::DenseStringElementsAttr::get(function_names_datatype,
-                                                    function_names_ref);
-
-    mlir::Identifier id = mlir::Identifier::get("quantum.internal_functions",
-                                                builder.getContext());
-
-    m_module.setAttrs(
-        llvm::makeArrayRef({mlir::NamedAttribute(std::make_pair(id, attrs))}));
+    builder.create<mlir::ReturnOp>(builder.getUnknownLoc(), llvm::None);
   }
 }
 
@@ -232,12 +211,12 @@ void OpenQasmMLIRGenerator::visit(RegisterDecl &d) {
     auto location =
         builder.getFileLineColLoc(builder.getIdentifier(fname), line, col);
 
-    if (is_first_inst && !in_sub_kernel) {
-      auto main_args = main_entry_block->getArguments();
-      builder.create<mlir::quantum::QRTInitOp>(location, main_args[0],
-                                               main_args[1]);
-      is_first_inst = false;
-    }
+    // if (is_first_inst && !in_sub_kernel) {
+    //   auto main_args = main_entry_block->getArguments();
+    //   builder.create<mlir::quantum::QRTInitOp>(location, main_args[0],
+    //                                            main_args[1]);
+    //   is_first_inst = false;
+    // }
     auto integer_type = builder.getI64Type();
     auto integer_attr = mlir::IntegerAttr::get(integer_type, size);
 
@@ -298,13 +277,13 @@ void OpenQasmMLIRGenerator::visit(UGate &u) {
   auto location =
       builder.getFileLineColLoc(builder.getIdentifier(fname), line, col);
 
-  if (is_first_inst && !in_sub_kernel) {
-    auto main_args = main_entry_block->getArguments();
+  // if (is_first_inst && !in_sub_kernel) {
+  //   auto main_args = main_entry_block->getArguments();
 
-    builder.create<mlir::quantum::QRTInitOp>(location, main_args[0],
-                                             main_args[1]);
-    is_first_inst = false;
-  }
+  //   builder.create<mlir::quantum::QRTInitOp>(location, main_args[0],
+  //                                            main_args[1]);
+  //   is_first_inst = false;
+  // }
 
   auto str_attr = builder.getStringAttr("u3");
   // params
@@ -353,13 +332,13 @@ void OpenQasmMLIRGenerator::visit(CNOTGate &g) {
   auto location =
       builder.getFileLineColLoc(builder.getIdentifier(fname), line, col);
 
-  if (is_first_inst && !in_sub_kernel) {
-    auto main_args = main_entry_block->getArguments();
+  // if (is_first_inst && !in_sub_kernel) {
+  //   auto main_args = main_entry_block->getArguments();
 
-    builder.create<mlir::quantum::QRTInitOp>(location, main_args[0],
-                                             main_args[1]);
-    is_first_inst = false;
-  }
+  //   builder.create<mlir::quantum::QRTInitOp>(location, main_args[0],
+  //                                            main_args[1]);
+  //   is_first_inst = false;
+  // }
   auto str_attr = builder.getStringAttr("cx");
 
   // params
@@ -432,13 +411,13 @@ void OpenQasmMLIRGenerator::visit(DeclaredGate &g) {
   auto location =
       builder.getFileLineColLoc(builder.getIdentifier(fname), line, col);
 
-  if (is_first_inst && !in_sub_kernel) {
-    auto main_args = main_entry_block->getArguments();
+  // if (is_first_inst && !in_sub_kernel) {
+  //   auto main_args = main_entry_block->getArguments();
 
-    builder.create<mlir::quantum::QRTInitOp>(location, main_args[0],
-                                             main_args[1]);
-    is_first_inst = false;
-  }
+  //   builder.create<mlir::quantum::QRTInitOp>(location, main_args[0],
+  //                                            main_args[1]);
+  //   is_first_inst = false;
+  // }
 
   auto str_attr = builder.getStringAttr(g.name());
 
