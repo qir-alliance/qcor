@@ -2,4 +2,5 @@
 
 set +x 
 
-ln -s /usr/local/xacc/bin/qcor /usr/bin/
+ln -s /usr/local/aideqc/qcor/bin/qcor /usr/bin/
+ln -s /usr/local/aideqc/qcor/bin/qcor-mlir-tool /usr/bin/
