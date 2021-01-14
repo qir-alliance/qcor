@@ -102,9 +102,9 @@ set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA "${CMAKE_SOURCE_DIR}/scripts/debian/posti
 
 #dependencies for this service menu
 if (${QCOR_CPACK_DEB_PLATFORM} STREQUAL "bionic")
-set(CPACK_DEBIAN_PACKAGE_DEPENDS "xacc, clang-syntax-handler")
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "xacc, aideqc-llvm")
 elseif(${QCOR_CPACK_DEB_PLATFORM} STREQUAL "focal")
- set(CPACK_DEBIAN_PACKAGE_DEPENDS "xacc, clang-syntax-handler")
+ set(CPACK_DEBIAN_PACKAGE_DEPENDS "xacc, aideqc-llvm")
 endif()
 set(CPACK_DEBIAN_PACKAGE_PRIORITY "optional")
 set(CPACK_DEBIAN_PACKAGE_SECTION "base")

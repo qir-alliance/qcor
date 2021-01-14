@@ -57,11 +57,11 @@ docker run_macosx_catalina_bottles:
   script:
   - ssh catalina-ci "PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin bash run_bottle_build.sh $AIDEQC_ACCESS_TOKEN $JFROG_API_KEY"
   
-docker run_macosx_mojave_bottles:
-  stage: deploy
-  only:
-    - schedules
-  tags: 
-    - osx
-  script:
-  - ssh mojave-ci "PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin bash run_bottle_build.sh $AIDEQC_ACCESS_TOKEN $JFROG_API_KEY"
+# docker run_macosx_mojave_bottles:
+#   stage: deploy
+#   only:
+#     - schedules
+#   tags: 
+#     - osx
+#   script:
+#   - ssh mojave-ci "PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin bash run_bottle_build.sh $AIDEQC_ACCESS_TOKEN $JFROG_API_KEY"
