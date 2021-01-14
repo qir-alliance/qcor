@@ -10,13 +10,17 @@ Employing the QCOR just-in-time (qjit) compilation features, we can wrap QCOR in
 
 `qaoa_circuit.py` shows an implementation of the Quantum Approximate Eigensolver circuit and args translation functor in Python.
 
-`qsim_example.py`shows workflow of quantum simulation (qsim) routines in qcor.
+`quasimo_example.py` shows QuaSiMo workflow of quantum simulation routines in qcor.
 
-`qsim_vqe.py` qsim example of VQE routine for Deuteron Hamiltonian.
+`quasimo_vqe.py` QuaSiMo example of VQE routine for Deuteron Hamiltonian.
 
-`qsim_deuteron_qaoa.py` qsim example of QAOA routine for Deuteron Hamiltonian.
+`quasimo_deuteron_qaoa.py` QuaSiMo example of QAOA routine for Deuteron Hamiltonian.
 
-`qsim_qite_simple.py` qsim example of QITE (Quantum Imaginary Time Evolution) routine for a simple Hamiltonian.
+`quasimo_qite_simple.py` QuaSiMo example of QITE (Quantum Imaginary Time Evolution) routine for a simple Hamiltonian.
+
+`quasimo_adapt_openfermion.py` QuaSiMo example of Adapt-VQE routine for a simple FermionOperator Hamiltonian.
+
+`quasimo_heisenberg_model.py` QuaSiMo example of time-dependent simulation for a general Heisenberg Hamiltonian.
 
 `vqe_qcor_spec.py` example of VQE using `taskInitiate` for asynchronous execution of quantum-classical hybrid computations. 
 
