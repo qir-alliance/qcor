@@ -27,12 +27,13 @@ cl::opt<bool> noEntryPoint("no-entrypoint",
                            cl::desc("Do not add main() to compiled output."));
 
 namespace {
-enum Action { None, DumpMLIR, DumpLLVMIR };
+enum Action { None, DumpMLIR, DumpMLIRLLVM, DumpLLVMIR };
 }
 static cl::opt<enum Action> emitAction(
     "emit", cl::desc("Select the kind of output desired"),
     cl::values(clEnumValN(DumpMLIR, "mlir", "output the MLIR dump")),
-    cl::values(clEnumValN(DumpLLVMIR, "llvm", "output the LLVM IR dump")));
+    cl::values(clEnumValN(DumpLLVMIR, "llvm", "output the LLVM IR dump")),
+    cl::values(clEnumValN(DumpMLIRLLVM, "mlir-llvm", "output the MLIR LLVM Dialect dump")));
 namespace {
 enum InputType { QASM };
 }
@@ -89,6 +90,11 @@ int main(int argc, char **argv) {
   if (mlir::failed(pm.run(module_op))) {
     std::cout << "Pass Manager Failed\n";
     return 1;
+  }
+
+  if (emitAction == Action::DumpMLIRLLVM) {
+    module->dump();
+    return 0;
   }
 
   // Now lower MLIR to LLVM IR
