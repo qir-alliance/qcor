@@ -34,6 +34,12 @@ class TestKernelJIT(unittest.TestCase):
         self.assertAlmostEqual(energy, -1.74, places=1)
 
     def test_rewrite_decompose(self):
+        try:
+           import numpy as np
+        except:
+            print('No numpy, cant run test_rewrite_decompose')
+            return
+
         set_qpu('qpp', {'shots':1024})
         @qjit
         def foo(q : qreg):
@@ -104,6 +110,12 @@ class TestKernelJIT(unittest.TestCase):
         self.assertTrue(counts['001'] == 1024)
     
     def test_more_decompose(self):
+        try:
+           import numpy as np
+        except:
+            print('No numpy, cant run test_more_decompose')
+            return
+
         set_qpu('qpp', {'shots':1024})
        
         @qjit
