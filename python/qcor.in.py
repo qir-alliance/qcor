@@ -403,6 +403,8 @@ class qjit(object):
             self.src, self.sorted_kernel_dep, self.extra_cpp_code, extra_headers)
         self._qjit.write_cache()
         self.__compiled__kernels.append(self.function.__name__)
+        # Always elevate the QJIT object to global scope
+        globals()[self.function.__name__] = self
         return
 
     # Static list of all kernels compiled
