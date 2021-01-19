@@ -17,6 +17,14 @@ List = typing.List
 Tuple = typing.Tuple
 MethodType = types.MethodType
 
+# Static cache of all Python QJIT objects that have been created.
+# There seems to be a bug when a Python interpreter tried to create a new QJIT
+# *after* a previous QJIT is destroyed.
+# Note: this could only occur when QJIT kernels were declared in local scopes.
+# i.e. multiple kernels all declared in global scope don't have this issue.
+# Hence, to be safe, we cache all the QJIT objects ever created until QCOR module is unloaded.
+QJIT_OBJ_CACHE = []
+
 PauliOperator = xacc.quantum.PauliOperator
 FermionOperator = xacc.quantum.FermionOperator 
 FLOAT_REF = typing.NewType('value', float)
@@ -403,8 +411,7 @@ class qjit(object):
             self.src, self.sorted_kernel_dep, self.extra_cpp_code, extra_headers)
         self._qjit.write_cache()
         self.__compiled__kernels.append(self.function.__name__)
-        # Always elevate the QJIT object to global scope
-        globals()[self.function.__name__] = self
+        QJIT_OBJ_CACHE.append(self)
         return
 
     # Static list of all kernels compiled
