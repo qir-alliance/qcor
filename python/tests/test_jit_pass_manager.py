@@ -23,19 +23,18 @@ class TestKernelJIT(unittest.TestCase):
         self.assertTrue(len(placement_names) > 0)   
         print(placement_names)
 
-    # Don't run this test since it requires remote IBM access.
-    # def test_placement(self):
-    #     @qjit
-    #     def test2(q : qreg):
-    #         CX(q[0], q[3])
-        
-    #     set_qpu('ibm:ibmqx2')
-    #     set_placement('swap-shortest-path')
-    #     q = qalloc(5)
-    #     comp = test2.extract_composite(q)
-    #     print(comp)
-    #     # This becomes 1 SWAP + 1 CNOT => 4 CNOT's
-    #     self.assertEqual(comp.nInstructions(), 4)    
+    def test_placement(self):
+        @qjit
+        def test2(q : qreg):
+            CX(q[0], q[3])
+        # Define a connectivity topology
+        set_qpu('qpp', { 'connectivity': [[0,1], [0,2], [1,2], [2,3], [2,4], [3,4]] })
+        set_placement('swap-shortest-path')
+        q = qalloc(5)
+        comp = test2.extract_composite(q)
+        print(comp)
+        # This becomes 1 SWAP + 1 CNOT => 4 CNOT's
+        self.assertEqual(comp.nInstructions(), 4)    
 
 if __name__ == '__main__':
   unittest.main()
