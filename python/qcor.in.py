@@ -1,4 +1,4 @@
-import sys
+import sys,  atexit
 
 if '@QCOR_APPEND_PLUGIN_PATH@':
     sys.argv += ['__internal__add__plugin__path', '@QCOR_APPEND_PLUGIN_PATH@']
@@ -24,6 +24,9 @@ MethodType = types.MethodType
 # i.e. multiple kernels all declared in global scope don't have this issue.
 # Hence, to be safe, we cache all the QJIT objects ever created until QCOR module is unloaded.
 QJIT_OBJ_CACHE = []
+@atexit.register
+def clear_qjit_cache():
+    QJIT_OBJ_CACHE = []
 
 PauliOperator = xacc.quantum.PauliOperator
 FermionOperator = xacc.quantum.FermionOperator 
