@@ -312,8 +312,6 @@ def main(argv=None):
         fileType = None
         filename = None
 
-
-    # exit(0)           
     # If it is a C++ file
     if fileType == 'text/x-c++src':
         fileIdx = sys.argv[1:].index(filename)
