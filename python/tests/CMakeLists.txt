@@ -5,11 +5,25 @@ add_test (NAME qcor_quasimo_python_bindings
 set_tests_properties(qcor_quasimo_python_bindings
     PROPERTIES ENVIRONMENT "PYTHONPATH=${CMAKE_INSTALL_PREFIX}:$ENV{PYTHONPATH}")
 
-add_test (NAME qcor_simple_kernel_jit_python
- COMMAND ${Python_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test_kernel_jit.py 
+add_test (NAME qcor_python_jit_simple
+ COMMAND ${Python_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test_jit_simple.py 
  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
 )
-set_tests_properties(qcor_simple_kernel_jit_python
+set_tests_properties(qcor_python_jit_simple
+   PROPERTIES ENVIRONMENT "PYTHONPATH=${CMAKE_INSTALL_PREFIX}:$ENV{PYTHONPATH}")
+
+add_test (NAME qcor_python_jit_nested_kernels
+ COMMAND ${Python_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test_jit_nested.py 
+ WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+)
+set_tests_properties(qcor_python_jit_nested_kernels
+   PROPERTIES ENVIRONMENT "PYTHONPATH=${CMAKE_INSTALL_PREFIX}:$ENV{PYTHONPATH}")
+
+add_test (NAME qcor_python_jit_decompose
+ COMMAND ${Python_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test_jit_decompose.py 
+ WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+)
+set_tests_properties(qcor_python_jit_decompose
    PROPERTIES ENVIRONMENT "PYTHONPATH=${CMAKE_INSTALL_PREFIX}:$ENV{PYTHONPATH}")
 
 add_test (NAME qcor_test_qcor_spec_api
@@ -25,3 +39,10 @@ add_test (NAME qcor_kernel_ftqc_python
 )
 set_tests_properties(qcor_kernel_ftqc_python
    PROPERTIES ENVIRONMENT "PYTHONPATH=${CMAKE_INSTALL_PREFIX}:$ENV{PYTHONPATH}")
+
+add_test (NAME qcor_python_jit_pass_manager
+   COMMAND ${Python_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test_jit_pass_manager.py
+   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+ )
+ set_tests_properties(qcor_python_jit_pass_manager
+     PROPERTIES ENVIRONMENT "PYTHONPATH=${CMAKE_INSTALL_PREFIX}:$ENV{PYTHONPATH}")

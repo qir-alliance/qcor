@@ -81,7 +81,9 @@ class KernelArgDictToHeterogeneousMap {
 // Add type name to this list to support receiving from Python.
 using PyHeterogeneousMapTypes =
     xacc::Variant<bool, int, double, std::string, std::vector<int>,
-                  std::shared_ptr<qcor::Optimizer>, std::vector<double>, std::vector<std::vector<double>>>;
+                  std::vector<std::pair<int, int>>,
+                  std::shared_ptr<qcor::Optimizer>, std::vector<double>,
+                  std::vector<std::vector<double>>>;
 using PyHeterogeneousMap = std::map<std::string, PyHeterogeneousMapTypes>;
 
 // Helper to convert a Python *dict* (as a map of variants) into a native
@@ -447,6 +449,46 @@ PYBIND11_MODULE(_pyqcor, m) {
       },
       py::arg("name"), py::arg("p") = PyHeterogeneousMap(),
       "Set the QPU backend.");
+
+  m.def(
+      "set_opt_level",
+      [](int level) { xacc::internal_compiler::__opt_level = level; },
+      py::arg("level"), "Set QCOR runtime optimization level.");
+
+  m.def(
+      "add_pass",
+      [](const std::string &pass_name) {
+        // Note: we expect __user_opt_passes to be a comma-separated list of
+        // pass names.
+        if (xacc::internal_compiler::__user_opt_passes.empty()) {
+          xacc::internal_compiler::__user_opt_passes = pass_name;
+        } else {
+          xacc::internal_compiler::__user_opt_passes += ("," + pass_name);
+        }
+      },
+      py::arg("pass_name"),
+      "Add an optimization pass to be run by the PassManager.");
+
+  m.def(
+      "get_placement_names",
+      []() {
+        std::vector<std::string> result;
+        auto ir_transforms = xacc::getServices<xacc::IRTransformation>();
+        for (const auto &plugin : ir_transforms) {
+          if (plugin->type() == xacc::IRTransformationType::Placement) {
+            result.emplace_back(plugin->name());
+          }
+        }
+        return result;
+      },
+      "Get names of all available placement plugins.");
+
+  m.def(
+      "set_placement",
+      [](const std::string &placement_name) {
+        xacc::internal_compiler::__placement_name = placement_name;
+      },
+      py::arg("placement_name"), "Set the placement strategy.");
 
   m.def("qalloc", &::qalloc, py::return_value_policy::reference, "");
   py::class_<xacc::internal_compiler::qreg>(m, "qreg", "")
