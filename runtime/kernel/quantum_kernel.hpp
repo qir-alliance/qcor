@@ -2,6 +2,7 @@
 
 #include "qcor_utils.hpp"
 #include "qrt.hpp"
+#include "qcor_observable.hpp"
 
 namespace qcor {
 enum class QrtType { NISQ, FTQC };
@@ -213,6 +214,53 @@ class QuantumKernel {
     return visitor.getMat();
   }
 
+  static double observe(Observable& obs, Args... args) {
+    // instantiate and don't let it call the destructor
+    Derived derived(args...);
+    derived.disable_destructor = true;
+
+    // run the operator()(args...) call to get the the functor
+    // as a CompositeInstruction (derived.parent_kernel)
+    derived(args...);
+
+    auto instructions = derived.parent_kernel->getInstructions();
+    // Assert that we don't have measurement
+    if (!std::all_of(
+            instructions.cbegin(), instructions.cend(),
+            [](const auto &inst) { return inst->name() != "Measure"; })) {
+      error(
+          "Unable to observe kernels that already have Measure operations.");
+    }
+
+    // Will fail to compile if more than one qreg is passed.
+    std::tuple<Args...> tmp(std::forward_as_tuple(args...));
+    auto q = std::get<qreg>(tmp);
+    return qcor::observe(derived.parent_kernel, obs, q);
+  }
+
+  static double observe(std::shared_ptr<Observable> obs, Args... args) {
+    // instantiate and don't let it call the destructor
+    Derived derived(args...);
+    derived.disable_destructor = true;
+
+    // run the operator()(args...) call to get the the functor
+    // as a CompositeInstruction (derived.parent_kernel)
+    derived(args...);
+
+    auto instructions = derived.parent_kernel->getInstructions();
+    // Assert that we don't have measurement
+    if (!std::all_of(
+            instructions.cbegin(), instructions.cend(),
+            [](const auto &inst) { return inst->name() != "Measure"; })) {
+      error(
+          "Unable to observe kernels that already have Measure operations.");
+    }
+
+    // Will fail to compile if more than one qreg is passed.
+    std::tuple<Args...> tmp(std::forward_as_tuple(args...));
+    auto q = std::get<qreg>(tmp);
+    return qcor::observe(derived.parent_kernel, obs, q);
+  }
   virtual ~QuantumKernel() {}
 };
 

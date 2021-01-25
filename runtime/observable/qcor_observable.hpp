@@ -48,8 +48,9 @@ auto observe(void (*quantum_kernel_functor)(
   // all quantum instructions to the parent kernel
   quantum_kernel_functor(program, args...);
   return [program, obs](Args... args) {
-    // Get the first argument, which should be a qreg
-    auto q = std::get<0>(std::forward_as_tuple(args...));
+    // Get qreg arg, will fail if more than one
+    std::tuple<Args...> tmp(std::forward_as_tuple(args...));
+    auto q = std::get<qreg>(tmp);
 
     // Observe the program
     auto programs = obs->observe(program);
@@ -76,9 +77,10 @@ auto observe(void (*quantum_kernel_functor)(
   // all quantum instructions to the parent kernel
   quantum_kernel_functor(program, args...);
   return [program, &obs](Args... args) {
-    // Get the first argument, which should be a qreg
-    auto q = std::get<0>(std::forward_as_tuple(args...));
-
+    // Get the qreg argument. will fail if more than 1 passed
+    std::tuple<Args...> tmp(std::forward_as_tuple(args...));
+    auto q = std::get<qreg>(tmp);
+    
     // Observe the program
     auto programs = obs.observe(program);
 

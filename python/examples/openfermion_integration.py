@@ -18,7 +18,9 @@ H = FOp('', 0.0002899) + FOp('0^ 0', -.43658) + \
 n_params = 1
 obj = createObjectiveFunction(ansatz, H, n_params)
 
-# Run full optimization
+# Create the COBYLA Optimizer
 optimizer = createOptimizer('nlopt')
+
+# Run the full optimization
 results = optimizer.optimize(obj)
 print(results)
