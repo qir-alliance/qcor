@@ -110,7 +110,7 @@ void OpenQasmMLIRGenerator::visit(Program &prog) {
                                              tmp->getArguments()[0]);
     builder.create<mlir::CallOp>(builder.getUnknownLoc(), function2);
     builder.create<mlir::quantum::QRTFinalizeOp>(builder.getUnknownLoc());
-    builder.create<mlir::ReturnOp>(builder.getUnknownLoc(), llvm::None);
+    builder.create<mlir::ReturnOp>(builder.getUnknownLoc(), llvm::ArrayRef<mlir::Value>());
     builder.setInsertionPointToStart(save_main_entry_block);
 
     m_module.push_back(function2);
@@ -156,7 +156,9 @@ void OpenQasmMLIRGenerator::finalize_mlirgen() {
   }
 
   if (add_main) {
-    builder.create<mlir::ReturnOp>(builder.getUnknownLoc(), llvm::None);
+    // builder.create<mlir::ReturnOp>(builder.getUnknownLoc(), llvm::None);
+        builder.create<mlir::ReturnOp>(builder.getUnknownLoc(), llvm::ArrayRef<mlir::Value>());
+
   }
 }
 

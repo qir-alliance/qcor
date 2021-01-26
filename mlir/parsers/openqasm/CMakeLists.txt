@@ -12,4 +12,4 @@ target_include_directories(
   ${LIBRARY_NAME}
   PUBLIC . .. ../../dialect ${XACC_ROOT}/include/staq/include ${XACC_ROOT}/include/staq/libs)
 
-target_link_libraries(${LIBRARY_NAME} PUBLIC quantum-dialect MLIRVector MLIRStandard)
+target_link_libraries(${LIBRARY_NAME} PUBLIC quantum-dialect MLIRIR MLIRLLVMIR MLIRVector MLIRStandard)
