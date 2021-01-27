@@ -291,7 +291,8 @@ double PhaseEstimationObjFuncEval::evaluate(
     for (const auto &[ampl, phase] : pronyFit) {
       const double freq = -std::arg(phase) * SAMPLING_FREQ;
       // Normalize
-      const double amplitude = std::abs(ampl) / sumA;
+      const bool isZeroOverZero = (std::abs(sumA) < 1e-12) && (std::abs(ampl) < 1e-12);
+      const double amplitude = isZeroOverZero ? 1.0 : std::abs(ampl) / sumA;
       xacc::info("A = " + std::to_string(amplitude) +
                  "; Freq = " + std::to_string(freq));
       // Generic expectation value estimation (Eq. 22)
