@@ -144,7 +144,7 @@ class NISQ : public ::quantum::QuantumRuntime {
 
   void exp(qreg q, const double theta,
            std::shared_ptr<xacc::Observable> Hptr_input) override {
-    std::unordered_map<std::string, xacc::quantum::Term> terms;
+    std::map<std::string, xacc::quantum::Term> terms;
 
     auto obs_str = Hptr_input->toString();
     auto fermi_to_pauli = xacc::getService<xacc::ObservableTransform>("jw");
