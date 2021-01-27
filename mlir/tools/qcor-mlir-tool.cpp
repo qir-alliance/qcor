@@ -53,10 +53,10 @@ mlir::OwningModuleRef loadMLIR(mlir::MLIRContext &context,
   // llvm::StringRef(inputFilename).endswith(".qasm")
   // or llvm::StringRef(inputFilename).endswith(".quil")
   qcor::OpenQasmMLIRGenerator mlir_generator(context);
+  auto function_name = llvm::sys::path::filename(inputFilename).split(StringRef(".")).first.str();
   bool addEntryPoint = !noEntryPoint;
   mlir_generator.initialize_mlirgen(
-      addEntryPoint,
-      llvm::StringRef(inputFilename).split(StringRef(".")).first.str());
+      addEntryPoint,function_name); // FIXME HANDLE RELATIVE PATH
   mlir_generator.mlirgen(qasm_src);
   mlir_generator.finalize_mlirgen();
   function_names = mlir_generator.seen_function_names();
@@ -70,8 +70,7 @@ int main(int argc, char **argv) {
                                     "qcor quantum assembly compiler\n");
 
   mlir::MLIRContext context;
-  context.loadDialect<mlir::quantum::QuantumDialect, mlir::StandardOpsDialect,
-                      mlir::vector::VectorDialect>();
+  context.loadDialect<mlir::quantum::QuantumDialect, mlir::StandardOpsDialect>();
 
   std::vector<std::string> unique_function_names;
   auto module = loadMLIR(context, unique_function_names);
