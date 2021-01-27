@@ -1,7 +1,5 @@
 
 #include <fstream>
-#pragma GCC diagnostic ignored "-Wpessimizing-move"
-
 #include "llvm/Support/TargetSelect.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
@@ -13,6 +11,7 @@
 #include "openqasm_mlir_generator.hpp"
 #include "quantum_to_llvm.hpp"
 #include "tools/ast_printer.hpp"
+#include "Quantum/QuantumDialect.h"
 
 using namespace mlir;
 using namespace staq;

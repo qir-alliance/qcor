@@ -8,7 +8,7 @@ get_property(conversion_libs GLOBAL PROPERTY MLIR_CONVERSION_LIBS)
 set(LIBS
         ${dialect_libs}
         ${conversion_libs}
-        quantum-dialect
+        MLIRQuantum
         MLIROptLib
         MLIRTargetLLVMIR
         MLIRExecutionEngine
@@ -20,6 +20,6 @@ target_compile_features(${LIBRARY_NAME}
                         cxx_std_17)
 target_include_directories(
   ${LIBRARY_NAME}
-  PUBLIC . ../dialect)
+  PUBLIC . ../dialect/include ${CMAKE_BINARY_DIR}/mlir/dialect/include)
 
 #target_link_libraries(${LIBRARY_NAME} PUBLIC ${LIBS})

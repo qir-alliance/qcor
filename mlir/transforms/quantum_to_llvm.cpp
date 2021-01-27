@@ -21,7 +21,6 @@
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/Verifier.h"
 #include "mlir/InitAllDialects.h"
-#include "quantum_dialect.hpp"
 
 namespace {
 using namespace mlir;

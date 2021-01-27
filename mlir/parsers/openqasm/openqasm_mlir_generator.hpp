@@ -11,7 +11,7 @@
 #include "mlir_generator.hpp"
 #include "optimization/simplify.hpp"
 #include "parser/parser.hpp"
-#include "quantum_dialect.hpp"
+#include "Quantum/QuantumOps.h"
 #include "transformations/desugar.hpp"
 #include "transformations/inline.hpp"
 

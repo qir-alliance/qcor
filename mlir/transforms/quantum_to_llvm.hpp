@@ -6,6 +6,7 @@
 #include "mlir/Target/LLVMIR.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/Passes.h"
+#include "Quantum/QuantumOps.h"
 
 using namespace mlir;
 
