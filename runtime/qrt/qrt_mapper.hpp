@@ -53,7 +53,20 @@ public:
   qrt_mapper(const std::string &top_level_kernel_name)
       : kernelName(top_level_kernel_name) {}
   qrt_mapper() = default;
-  
+
+  // Workaround cross-boundary (dlopen) dynamic type-casting issue (Apple Clang)
+  // Construct the RTTI pointer offset map as fallback for dynamic_cast.
+  virtual std::unordered_map<std::string, ptrdiff_t>
+  getVisitorRttiMap() const override {
+    // Currently, looks like only xacc::InstructionVisitor<Circuit> is having
+    // this issue, but, technically, we can add all types here if needed to.
+    static const std::unordered_map<std::string, ptrdiff_t> result{
+        {typeid(Circuit).name(),
+         ComputePointerOffset<qrt_mapper,
+                              xacc::InstructionVisitor<Circuit>>()}};
+    return result;
+  }
+
   auto get_new_src() { return ss.str(); }
   // One-qubit gates
   void visit(Hadamard &h) override { addOneQubitGate("h", h); }
