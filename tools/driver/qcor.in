@@ -4,14 +4,17 @@ import argparse, sys, os, glob, subprocess, mimetypes, re, pathlib
 def main(argv=None):
     compiler = '@CLANG_EXECUTABLE@'
     verbose=False
-    baseLibs = ['-rdynamic', '-Wl,-rpath,@XACC_ROOT@/lib:@CMAKE_INSTALL_PREFIX@/lib:@LLVM_INSTALL_PREFIX@/lib',
+    baseLibs = ['-rdynamic', '-Wl,-rpath,@XACC_ROOT@/lib:@CMAKE_INSTALL_PREFIX@/lib:@LLVM_INSTALL_PREFIX@/lib:@CMAKE_INSTALL_PREFIX@/clang-plugins',
                             '-L', '@CMAKE_INSTALL_PREFIX@/lib','-lqcor', '-lqrt', '-lqcor-hybrid', '-lqcor-quasimo', '-lqcor-jit', '-lqir-qrt',
-                             '-L', '@XACC_ROOT@/lib', '-lxacc', '-lCppMicroServices',
-                            '-lxacc-quantum-gate',
+                             '-L', '@XACC_ROOT@/lib', '-lxacc', '-lCppMicroServices', '-lxacc-quantum-gate',
                             '-lxacc-pauli', '-lxacc-fermion', '-lpthread']
 
     baseIncludes = ['-I', '@XACC_ROOT@/include/xacc', '-I', '@CMAKE_INSTALL_PREFIX@/include/qcor', '-I', '@XACC_ROOT@/include/quantum/gate', '-I', '@XACC_ROOT@/include/eigen']
-    defaultFlags = ['-std=c++17', '-fplugin=@CMAKE_INSTALL_PREFIX@/clang-plugins/libqcor-syntax-handler.so']
+    defaultFlags = ['-std=c++17', '-fplugin=@CMAKE_INSTALL_PREFIX@/clang-plugins/libqcor-syntax-handler@CMAKE_SHARED_LIBRARY_SUFFIX@']
+
+    extra_headers = '@QCOR_EXTRA_HEADERS@'.replace('"','')
+    for path in extra_headers.split(';'):
+        baseIncludes += ['-I', path]
 
     # This flag is primarily for our testers to point to the 
     # qcor syntax handler before make install is called
@@ -20,7 +23,7 @@ def main(argv=None):
         pth = sys.argv[idx+1]
         sys.argv.remove(pth)
         sys.argv.remove('-internal-syntax-handler-plugin-path')
-        defaultFlags = ['-std=c++17', '-fplugin='+pth+'/libqcor-syntax-handler.so']
+        defaultFlags = ['-std=c++17', '-fplugin='+pth+'/libqcor-syntax-handler@CMAKE_SHARED_LIBRARY_SUFFIX@']
 
     # Need to know if this is compile-only
     compileOnly = '-c' in sys.argv[1:]
@@ -40,7 +43,7 @@ def main(argv=None):
         parser.add_argument('-I',action='append',nargs=1, metavar=('header_file.hpp'),help='specify additional headers to add to the include search path.')
         parser.add_argument('-L',action='append',nargs=1,metavar=('/path/to/libs'),help='specifiy additional linker search paths.')
         parser.add_argument('-l',action='append',nargs=1,metavar=('lib_name'),help='specifiy additional libraries to link.')
-        parser.add_argument('-opt', nargs=1, help='specify optimization level for quantum circuit optimization.')
+        parser.add_argument('-opt', nargs=1, help='specify level of quantum circuit optimization (1 or 2).')
         parser.add_argument('-print-opt-stats', help='print circuit optimization pass statistics.')
         parser.add_argument('-set-credentials', nargs=1, help='set api key and other credential information for remote qpu.\nMust provide at least -key KEY arguments. For IBM also specify -hub HUB -group GROUP -project PROJECT.')
         parser.add_argument('-print-credentials', nargs=1, help='print remote api credentials for given qpu name.')
@@ -205,10 +208,6 @@ def main(argv=None):
     if verbose:
         sHandlerArgs += ['-Xclang', '-plugin-arg-qcor-args', '-Xclang', '-qcor-verbose']
 
-    if '-print-qir' in sys.argv[1:]:
-        sys.argv.remove('-print-qir')
-        sHandlerArgs += ['-Xclang', '-load', '-Xclang', '@CMAKE_INSTALL_PREFIX@/qopt-plugins/libprint_llvm_qir.so']
-
     # Optimization level for flattened (runtime) kernel
     # Default: 0 (no optimization)
     qrtOptLevel = 0
@@ -313,7 +312,7 @@ def main(argv=None):
         filename = None
 
     # If it is a C++ file
-    if fileType == 'text/x-c++src':
+    if 'text/x-c' in fileType:
         fileIdx = sys.argv[1:].index(filename)
         tmpFileName = os.path.basename(filename)
 
