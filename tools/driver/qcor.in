@@ -312,7 +312,7 @@ def main(argv=None):
         filename = None
 
     # If it is a C++ file
-    if 'text/x-c' in fileType:
+    if fileType != None and 'text/x-c' in fileType:
         fileIdx = sys.argv[1:].index(filename)
         tmpFileName = os.path.basename(filename)
 
