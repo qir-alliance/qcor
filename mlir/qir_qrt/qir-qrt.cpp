@@ -7,6 +7,8 @@
 #include "xacc.hpp"
 #include "xacc_internal_compiler.hpp"
 #include "xacc_service.hpp"
+#include "qcor_config.hpp"
+#include "xacc_config.hpp"
 
 Result ResultZero = 0;
 Result ResultOne = 1;
@@ -52,7 +54,25 @@ void initialize() {
     if (verbose) printf("[qir-qrt] Initializing FTQC runtime...\n");
     // qcor::set_verbose(true);
     xacc::internal_compiler::__qrt_env = "ftqc";
-    xacc::Initialize();
+    
+    // if XACC_INSTALL_DIR != XACC_ROOT
+    // then we need to pass --xacc-root-path XACC_ROOT
+    //
+    // Example - we are on Rigetti QCS and can't install via sudo
+    // so we dpkg -x xacc to a user directory, but deb package
+    // expects to be extracted to /usr/local/xacc, and xacc_config.hpp
+    // points to that /usr/local/xacc. Therefore ServiceRegistry fails
+    // to load plugins and libs, unless we change rootPath.
+    std::string xacc_config_install_dir = std::string(XACC_INSTALL_DIR);
+    std::string qcor_config_xacc_root = std::string(XACC_ROOT);
+    if (xacc_config_install_dir != qcor_config_xacc_root) {
+      std::vector<std::string> cmd_line{"--xacc-root-path",
+                                      qcor_config_xacc_root};
+      xacc::Initialize(cmd_line);
+    } else {
+      xacc::Initialize();
+    }
+
     if (verbose)
       std::cout << "[qir-qrt] Running on " << qpu_name << " backend.\n";
     std::shared_ptr<xacc::Accelerator> qpu;
