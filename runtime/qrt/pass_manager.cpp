@@ -1,14 +1,16 @@
 #include "pass_manager.hpp"
-#include "InstructionIterator.hpp"
-#include "xacc.hpp"
-#include "xacc_service.hpp"
-#include "xacc_internal_compiler.hpp"
+
 #include <iomanip>
 #include <numeric>
+
+#include "InstructionIterator.hpp"
+#include "xacc.hpp"
+#include "xacc_internal_compiler.hpp"
+#include "xacc_service.hpp"
 namespace {
-std::string
-printGateCountComparison(const std::unordered_map<std::string, int> &before,
-                         const std::unordered_map<std::string, int> &after) {
+std::string printGateCountComparison(
+    const std::unordered_map<std::string, int> &before,
+    const std::unordered_map<std::string, int> &after) {
   std::stringstream stream;
   const size_t nbColumns = 3;
   const size_t columnWidth = 8;
@@ -38,30 +40,31 @@ printGateCountComparison(const std::unordered_map<std::string, int> &before,
   stream << std::string(totalWidth, '-') << "\n";
   return stream.str();
 }
-} // namespace
+}  // namespace
 
 namespace qcor {
 namespace internal {
 PassManager::PassManager(int level, const std::vector<int> &qubitMap,
                          const std::string &placementName)
-  : m_level(level), m_qubitMap(qubitMap), m_placement(placementName) {}
+    : m_level(level), m_qubitMap(qubitMap), m_placement(placementName) {}
 
-PassStat PassManager::runPass(const std::string &passName, std::shared_ptr<xacc::CompositeInstruction> program) {
+PassStat PassManager::runPass(
+    const std::string &passName,
+    std::shared_ptr<xacc::CompositeInstruction> program) {
   PassStat stat;
   stat.passName = passName;
   // Counts gate before:
   stat.gateCountBefore = PassStat::countGates(program);
   xacc::ScopeTimer timer(passName, false);
 
-  if (!xacc::hasService<xacc::IRTransformation>(passName)
-      && !xacc::hasContributedService<xacc::IRTransformation>(passName)) {
+  if (!xacc::hasService<xacc::IRTransformation>(passName) &&
+      !xacc::hasContributedService<xacc::IRTransformation>(passName)) {
     // Graciously ignores passes which cannot be located.
     // Returns empty stats
     return stat;
   }
 
-  auto xaccOptTransform =
-      xacc::getIRTransformation(passName);
+  auto xaccOptTransform = xacc::getIRTransformation(passName);
   if (xaccOptTransform) {
     xaccOptTransform->apply(program, nullptr);
   }
@@ -94,7 +97,8 @@ std::vector<PassStat> PassManager::optimize(
   return passData;
 }
 
-void PassManager::applyPlacement(std::shared_ptr<xacc::CompositeInstruction> program) const {
+void PassManager::applyPlacement(
+    std::shared_ptr<xacc::CompositeInstruction> program) const {
   const std::string placementName = [&]() -> std::string {
     // If the qubit-map was provided, always use default-placement
     if (!m_qubitMap.empty()) {
@@ -103,21 +107,24 @@ void PassManager::applyPlacement(std::shared_ptr<xacc::CompositeInstruction> pro
     // Use the specified placement if any.
     // Note: placement will only be activated if the accelerator
     // has a connectivity graph.
-    return m_placement.empty() ? DEFAULT_PLACEMENT : m_placement;
+    return m_placement.empty()
+               ? xacc::internal_compiler::qpu->defaultPlacementTransformation()
+               : m_placement;
   }();
-  
-  if (!xacc::hasService<xacc::IRTransformation>(placementName)
-      && !xacc::hasContributedService<xacc::IRTransformation>(placementName)) {
+
+  if (!xacc::hasService<xacc::IRTransformation>(placementName) &&
+      !xacc::hasContributedService<xacc::IRTransformation>(placementName)) {
     // Graciously ignores services which cannot be located.
     return;
   }
 
   auto irt = xacc::getIRTransformation(placementName);
   if (irt->type() == xacc::IRTransformationType::Placement &&
-    xacc::internal_compiler::qpu &&
-    !xacc::internal_compiler::qpu->getConnectivity().empty()) {
+      xacc::internal_compiler::qpu &&
+      !xacc::internal_compiler::qpu->getConnectivity().empty()) {
     if (placementName == "default-placement") {
-      irt->apply(program, xacc::internal_compiler::qpu, {{"qubit-map", m_qubitMap}});
+      irt->apply(program, xacc::internal_compiler::qpu,
+                 {{"qubit-map", m_qubitMap}});
     } else {
       irt->apply(program, xacc::internal_compiler::qpu);
     }
@@ -169,5 +176,5 @@ std::string PassStat::toString(bool shortForm) const {
   return ss.str();
 }
 
-} // namespace internal
-} // namespace qcor
+}  // namespace internal
+}  // namespace qcor
