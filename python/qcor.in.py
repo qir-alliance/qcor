@@ -615,25 +615,30 @@ class KernelBuilder(object):
     ghz(q)
     print(q.counts())
 
+    If you do not provide a qreg argument to the constructor (py_args_dict) 
+    we will assume a single qreg named q.
     """
     def __init__(self, py_args_dict : dict = {}):
         self.kernel_args = py_args_dict 
+        # Returns list of tuples, (name, nRequiredBits, isParameterized)
         all_instructions = internal_get_all_instructions()
         self.qjit_str = ''
         self.qreg_name = 'q'
-        TAB = '    '
+        self.TAB = '    '
 
         for instruction in all_instructions:
             isParameterized = instruction[2]
             n_bits = instruction[1]
             name = instruction[0]
+
+            # Only consider instructions without parameters for now
             if not instruction[2]:
                 # No parameters...
                 # set it as a method on this class
                 qbits_str = ','.join(['q{}'.format(i) for i in range(n_bits)])
                 new_func_str = 'def {}(self, {}):\n'.format(instruction[0].lower(),qbits_str)
                 qbit_str = ','.join([])
-                new_func_str += TAB +"self.qjit_str += '    {}(".format(name)+','.join(
+                new_func_str += self.TAB +"self.qjit_str += '    {}(".format(name)+','.join(
                     ["{}[{{}}]".format(self.qreg_name) for i in range(n_bits)])+")\\n'.format({})".format(qbits_str)
                 # print(new_func_str)
                 result = {}
@@ -641,8 +646,8 @@ class KernelBuilder(object):
                 setattr(KernelBuilder, instruction[0].lower(), result[instruction[0].lower()])
 
     def measure_all(self):
-        self.qjit_str += '    for i in range({}.size()):\n'.format(self.qreg_name)
-        self.qjit_str += '        Measure({}[i])\n'.format(self.qreg_name)
+        self.qjit_str += self.TAB + 'for i in range({}.size()):\n'.format(self.qreg_name)
+        self.qjit_str += self.TAB+self.TAB+'Measure({}[i])\n'.format(self.qreg_name)
 
     def create(self):
         # print(self.qjit_str)
