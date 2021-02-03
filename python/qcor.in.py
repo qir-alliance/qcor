@@ -1,4 +1,4 @@
-import xacc, sys,  atexit
+import xacc, sys, uuid, atexit
 
 if '@QCOR_APPEND_PLUGIN_PATH@':
     sys.argv += ['__internal__add__plugin__path', '@QCOR_APPEND_PLUGIN_PATH@']
@@ -651,10 +651,14 @@ class KernelBuilder(object):
 
     def create(self):
         # print(self.qjit_str)
+        kernel_name = '__internal_qjit_kernelbuilder_kernel_'+str(uuid.uuid4()).replace('-','_')
+        if inspect.stack()[-1].code_context is not None:
+            kernel_name = inspect.stack()[-1].code_context[0].split(' = ')[0]
+
         result = globals()
-        exec('def test(q : qreg):\n'+self.qjit_str, result)
+        exec('def {}(q : qreg):\n'.format(kernel_name)+self.qjit_str, result)
         # print(result)
-        function = result['test']
+        function = result[kernel_name]
         _qjit = qjit(function, __internal_fbody_src_provided__ = self.qjit_str)
         return _qjit
         
