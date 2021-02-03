@@ -150,6 +150,8 @@ using GradientEvaluator =
 
 namespace __internal__ {
 
+std::string translate(const std::string compiler, std::shared_ptr<CompositeInstruction> program);
+
 void append_plugin_path(const std::string path);
 
 // Internal function for creating a CompositeInstruction, this lets us

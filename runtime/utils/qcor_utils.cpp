@@ -21,6 +21,9 @@ std::shared_ptr<xacc::CompositeInstruction> compile(const std::string &src) {
 }
 
 namespace __internal__ {
+std::string translate(const std::string compiler, std::shared_ptr<CompositeInstruction> program) {
+  return xacc::getCompiler(compiler)->translate(program);
+}
 
 void append_plugin_path(const std::string path) {
   xacc::addPluginSearchPath(path);

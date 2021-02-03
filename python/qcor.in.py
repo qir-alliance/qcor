@@ -1,9 +1,7 @@
-import sys,  atexit
+import xacc, sys,  atexit
 
 if '@QCOR_APPEND_PLUGIN_PATH@':
     sys.argv += ['__internal__add__plugin__path', '@QCOR_APPEND_PLUGIN_PATH@']
-
-import xacc
 
 from _pyqcor import *
 import inspect, ast
@@ -197,7 +195,10 @@ class qjit(object):
         self.extra_cpp_code = ''
 
         # Get the kernel function body as a string
-        fbody_src = '\n'.join(inspect.getsource(self.function).split('\n')[2:])
+        if '__internal_fbody_src_provided__' in kwargs:
+            fbody_src = kwargs['__internal_fbody_src_provided__']
+        else:
+            fbody_src = '\n'.join(inspect.getsource(self.function).split('\n')[2:])
 
         # Get the arg variable names and their types
         self.arg_names, _, _, _, _, _, self.type_annotations = inspect.getfullargspec(
@@ -594,6 +595,64 @@ class qjit(object):
 
         return
 
+class KernelBuilder(object):
+    """
+    The QCOR KernelBuilder is a high-level data structure that enables the 
+    development of qcor quantum kernels programmatically in Python. Example usage:
+
+    from qcor import * 
+
+    nq = 10
+    builder = KernelBuilder() 
+
+    builder.h(0)
+    for i in range(nq-1):
+        builder.cnot(i, i+1)
+    builder.measure_all()
+    ghz = builder.create()
+
+    q = qalloc(nq)
+    ghz(q)
+    print(q.counts())
+
+    """
+    def __init__(self, py_args_dict : dict = {}):
+        self.kernel_args = py_args_dict 
+        all_instructions = internal_get_all_instructions()
+        self.qjit_str = ''
+        self.qreg_name = 'q'
+        TAB = '    '
+
+        for instruction in all_instructions:
+            isParameterized = instruction[2]
+            n_bits = instruction[1]
+            name = instruction[0]
+            if not instruction[2]:
+                # No parameters...
+                # set it as a method on this class
+                qbits_str = ','.join(['q{}'.format(i) for i in range(n_bits)])
+                new_func_str = 'def {}(self, {}):\n'.format(instruction[0].lower(),qbits_str)
+                qbit_str = ','.join([])
+                new_func_str += TAB +"self.qjit_str += '    {}(".format(name)+','.join(
+                    ["{}[{{}}]".format(self.qreg_name) for i in range(n_bits)])+")\\n'.format({})".format(qbits_str)
+                # print(new_func_str)
+                result = {}
+                exec (new_func_str.strip(), result)
+                setattr(KernelBuilder, instruction[0].lower(), result[instruction[0].lower()])
+
+    def measure_all(self):
+        self.qjit_str += '    for i in range({}.size()):\n'.format(self.qreg_name)
+        self.qjit_str += '        Measure({}[i])\n'.format(self.qreg_name)
+
+    def create(self):
+        # print(self.qjit_str)
+        result = globals()
+        exec('def test(q : qreg):\n'+self.qjit_str, result)
+        # print(result)
+        function = result['test']
+        _qjit = qjit(function, __internal_fbody_src_provided__ = self.qjit_str)
+        return _qjit
+        
 
 # Must have qpu in the init kwargs
 # defaults to qpp, but will search for -qpu flag

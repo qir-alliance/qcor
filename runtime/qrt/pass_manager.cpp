@@ -105,6 +105,7 @@ void PassManager::applyPlacement(
       return "default-placement";
     }
     // Use the specified placement if any.
+    // Fall back on QPU specified placement if no placement specified by user
     // Note: placement will only be activated if the accelerator
     // has a connectivity graph.
     return m_placement.empty()

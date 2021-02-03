@@ -694,6 +694,17 @@ PYBIND11_MODULE(_pyqcor, m) {
       },
       "");
 
+  m.def("internal_get_all_instructions", []() -> std::vector<py::tuple> {
+    auto insts =  xacc::getServices<xacc::Instruction>();
+    std::vector<py::tuple> ret;
+    for (auto inst : insts) {
+      if (!inst->isComposite()) {
+        ret.push_back(py::make_tuple(inst->name(), inst->nRequiredBits(), inst->isParameterized()));
+      }
+    }
+    return ret;
+  });
+
   // QuaSiMo sub-module bindings:
   {
     py::module qsim = m.def_submodule("QuaSiMo", "QCOR's python QuaSiMo submodule");

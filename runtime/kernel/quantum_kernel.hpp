@@ -79,6 +79,14 @@ class QuantumKernel {
     os << derived.parent_kernel->toString() << "\n";
   }
 
+  static void print_kernel(Args... args) {
+    Derived derived(args...);
+    derived.disable_destructor = true;
+    derived(args...);
+    xacc::internal_compiler::execute_pass_manager();
+    std::cout << derived.parent_kernel->toString() << "\n";
+  }
+
   // Static method to query how many instructions are in this kernel
   static std::size_t n_instructions(Args... args) {
     Derived derived(args...);
@@ -232,6 +240,8 @@ class QuantumKernel {
           "Unable to observe kernels that already have Measure operations.");
     }
 
+    xacc::internal_compiler::execute_pass_manager();
+
     // Will fail to compile if more than one qreg is passed.
     std::tuple<Args...> tmp(std::forward_as_tuple(args...));
     auto q = std::get<qreg>(tmp);
@@ -256,11 +266,22 @@ class QuantumKernel {
           "Unable to observe kernels that already have Measure operations.");
     }
 
+    xacc::internal_compiler::execute_pass_manager();
+
     // Will fail to compile if more than one qreg is passed.
     std::tuple<Args...> tmp(std::forward_as_tuple(args...));
     auto q = std::get<qreg>(tmp);
     return qcor::observe(derived.parent_kernel, obs, q);
   }
+
+  static std::string openqasm(Args... args) {
+    Derived derived(args...);
+    derived.disable_destructor = true;
+    derived(args...);
+    xacc::internal_compiler::execute_pass_manager();
+    return __internal__::translate("staq", derived.parent_kernel);
+  }
+
   virtual ~QuantumKernel() {}
 };
 
