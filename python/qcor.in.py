@@ -1,7 +1,9 @@
-import xacc, sys, uuid, atexit
+import sys, uuid, atexit
 
 if '@QCOR_APPEND_PLUGIN_PATH@':
     sys.argv += ['__internal__add__plugin__path', '@QCOR_APPEND_PLUGIN_PATH@']
+
+import xacc 
 
 from _pyqcor import *
 import inspect, ast
