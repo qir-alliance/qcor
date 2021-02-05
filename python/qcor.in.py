@@ -1,4 +1,4 @@
-import sys, uuid, atexit
+import sys, uuid, atexit, hashlib
 
 if '@QCOR_APPEND_PLUGIN_PATH@':
     sys.argv += ['__internal__add__plugin__path', '@QCOR_APPEND_PLUGIN_PATH@']
@@ -624,6 +624,7 @@ class KernelBuilder(object):
         self.kernel_args = kwargs['kernel_args'] if 'kernel_args' in kwargs else {}
         # Returns list of tuples, (name, nRequiredBits, isParameterized)
         all_instructions = internal_get_all_instructions()
+        all_instructions = [element for element in all_instructions if element[0] != 'Measure']
         self.qjit_str = ''
         self.qreg_name = 'q'
         self.TAB = '    '
@@ -642,8 +643,12 @@ class KernelBuilder(object):
         for arg in args:
             if isinstance(arg, str):
                 params.append(str(arg))
+                if str(arg) not in self.kernel_args:
+                    self.kernel_args[str(arg)] = float
             elif isinstance(arg, tuple):
                 params.append(arg[0]+'['+str(arg[1])+']')
+                if arg[0] not in self.kernel_args:
+                    self.kernel_args[arg[0]] = List[float]
             else:
                 print('[KernelBuilder Error] Invalid parameter type.')
                 exit(1)
@@ -657,15 +662,70 @@ class KernelBuilder(object):
         self.qjit_str += self.TAB+'{}({}, {{}})\\n'.format({}, params_str)
 '''.format(name.lower(), qbits_str, isParameterized, name.lower(), name, qbits_indexed, qbits_str, name, qbits_indexed, qbits_str)
             # print(new_func_str)
-            result = {}
+            result = globals()
             exec (new_func_str.strip(), result)
             setattr(KernelBuilder, instruction[0].lower(), result[instruction[0].lower()])
-    
+
     def measure_all(self):
         self.qjit_str += self.TAB + 'for i in range({}.size()):\n'.format(self.qreg_name)
         self.qjit_str += self.TAB+self.TAB+'Measure({}[i])\n'.format(self.qreg_name)
 
-    # def measure(self, qbits):
+    def measure(self, qbit): 
+        if isinstance(qbit, range):
+            qbit = list(qbit)
+        if isinstance(qbit, list):
+            for i in qbit:
+                self.measure(i)
+            # self.qjit_str += self.TAB + 'qbits = {}'.format(qbit)
+            # self.qjit_str += self.TAB+'for i in range(qbits):\n'.format(qbit)
+            # self.qjit_str += self.TAB+self.TAB+'Measure({}[i])\n'.format(self.qreg_name)
+        elif isinstance(qbit, int):
+            self.qjit_str += self.TAB+'Measure({}[{}])\n'.format(self.qreg_name, qbit)
+        else:
+            print('[KernelBuilder] invalid input to measure {}'.format(qbit))
+            exit(1)
+
+    # Synthesis from matrix, or from matrix generator
+    # can provide method = [qsearch,qfast,kak, etc.]
+    def synthesize(self, **kwargs):
+        method = ''
+        if 'method' in kwargs:
+            method = kwargs['method']
+
+        if 'unitary' not in kwargs:
+            print('[KernelBuilder Error] Please pass unitary=matrix_var kwarg.')
+        
+        unitary = kwargs['unitary']
+
+        if hasattr(unitary, '__call__'):
+            fbody_src = '\n'.join(inspect.getsource(unitary).split('\n')[1:])
+            hash_object = hashlib.md5(fbody_src.encode('utf-8'))
+            arg_names, _, _, _, _, _, type_annotations = inspect.getfullargspec(unitary)
+
+            # add arguments if not in self.kernel_args
+            for arg, t in type_annotations.items():
+                if arg not in self.kernel_args:
+                    # print('[KernelBuilder] Found argument in unitary generator that is unknown ({}). Adding it to the kernel args.'.format(arg))
+                    self.kernel_args[arg] = t
+
+
+            mat_var_name = '__internal_matrix_data_'+str(hash_object.hexdigest())
+            self.qjit_str += self.TAB + 'with decompose(q{}) as {}:\n'.format(','+method if method!='' else method, mat_var_name)
+            for line in fbody_src.split('\n'):
+                line = ' '.join(line.split())
+                if 'return' in line:
+                    line = line.replace('return', mat_var_name+' =')
+                self.qjit_str += self.TAB + self.TAB + line + '\n'
+
+        elif hasattr(unitary, '__iter__'):
+            unitary_str = ' ; '.join([str(row).replace('[','').replace(']','').replace(' ', ', ') for row in unitary])
+            hash_object = hashlib.md5(unitary_str.encode('utf-8'))
+            mat_var_name = '__internal_matrix_data_'+str(hash_object.hexdigest())
+            self.qjit_str += self.TAB + 'with decompose(q) as {}:\n'.format(mat_var_name)
+            self.qjit_str += self.TAB+self.TAB+'{} = np.matrix("{}")\n'.format(mat_var_name, unitary_str)
+        else:
+            print('[KernelBuilder Error] Cannot parse this type of unitary matrix')
+            exit(1)
 
     def create(self):
         # print(self.qjit_str)

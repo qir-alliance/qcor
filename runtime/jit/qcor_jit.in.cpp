@@ -347,6 +347,24 @@ QJIT::QJIT() {
 }
 void QJIT::write_cache() {
   std::string cache_file_loc = qjit_cache_path + "/qjit_cache.json";
+
+  // MAKE SURE WE DONT OVERWRITE
+  // read in any existing data, and merge
+  std::ifstream cache_file(cache_file_loc);
+  std::string cache_file_contents((std::istreambuf_iterator<char>(cache_file)),
+                                  std::istreambuf_iterator<char>());
+  if (!cache_file_contents.empty()) {
+    auto cache_json = nlohmann::json::parse(cache_file_contents);
+    auto jit_cache = cache_json["jit_cache"];
+    std::map<std::size_t, std::string> tmp;
+    for (auto &element : jit_cache) {
+      auto key_val = element.get<std::pair<std::size_t, std::string>>();
+      tmp.insert(key_val);
+    }
+    cached_kernel_codes.merge(tmp);
+  }
+  /////
+
   nlohmann::json j;
   j["jit_cache"] = cached_kernel_codes;
   auto str = j.dump();
