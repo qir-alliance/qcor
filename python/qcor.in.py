@@ -498,6 +498,7 @@ class qjit(object):
         """
         Convert the quantum kernel into an XACC CompositeInstruction
         """
+        assert len(args) == len(self.arg_names), "Cannot create CompositeInstruction, you did not provided the correct kernel arguments."
         # Create a dictionary for the function arguments
         args_dict = {}
         for i, arg_name in enumerate(self.arg_names):
@@ -541,12 +542,31 @@ class qjit(object):
         return self._qjit.internal_as_unitary(self.function.__name__, args_dict)
     
     def ctrl(self, *args):
-        print('This is an internal API call and will be translated to C++ via the QJIT.\nIt can only be called from within another quantum kernel.')
-        exit(1)
+        assert False, 'This is an internal API call and will be translated to C++ via the QJIT.\nIt can only be called from within another quantum kernel.'
 
     def adjoint(self, *args):
-        print('This is an internal API call and will be translated to C++ via the QJIT.\nIt can only be called from within another quantum kernel.')
-        exit(1)
+        assert False, 'This is an internal API call and will be translated to C++ via the QJIT.\nIt can only be called from within another quantum kernel.'
+
+    def mlir(self, *args, **kwargs):
+        assert len(args) == len(self.arg_names), "Cannot generate MLIR, you did not provided the correct concrete kernel arguments."
+        open_qasm_str = self.openqasm(*args)
+        return openqasm_to_mlir(open_qasm_str, self.kernel_name(), 
+                        kwargs['add_entry_point'] if 'add_entry_point' in kwargs else True)
+    
+    def llvm_mlir(self, *args, **kwargs):
+        assert len(args) == len(self.arg_names), "Cannot generate LLVM MLIR, you did not provided the correct concrete kernel arguments."
+        open_qasm_str = self.openqasm(*args)
+        return openqasm_to_llvm_mlir(open_qasm_str, self.kernel_name(), 
+                        kwargs['add_entry_point'] if 'add_entry_point' in kwargs else True)
+
+    def llvm_ir(self, *args, **kwargs):
+        assert len(args) == len(self.arg_names), "Cannot generate LLVM IR, you did not provided the correct concrete kernel arguments."
+        open_qasm_str = self.openqasm(*args)
+        return openqasm_to_llvm_ir(open_qasm_str, self.kernel_name(), 
+                        kwargs['add_entry_point'] if 'add_entry_point' in kwargs else True)
+
+    def qir(self, *args, **kwargs):
+        return llvm_ir(*args, **kwargs)
 
     def __call__(self, *args):
         """

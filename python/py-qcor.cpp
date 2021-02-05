@@ -12,6 +12,7 @@
 #include "py_costFunctionEvaluator.hpp"
 #include "py_qsimWorkflow.hpp"
 #include "qcor_jit.hpp"
+#include "qcor_mlir_api.hpp"
 #include "qcor_observable.hpp"
 #include "qrt.hpp"
 #include "xacc.hpp"
@@ -29,7 +30,7 @@ struct type_caster<Variant<Ts...>> : variant_caster<Variant<Ts...>> {};
 template <>
 struct visit_helper<Variant> {
   template <typename... Args>
-  static auto call(Args &&... args) -> decltype(mpark::visit(args...)) {
+  static auto call(Args &&...args) -> decltype(mpark::visit(args...)) {
     return mpark::visit(args...);
   }
 };
@@ -41,7 +42,7 @@ struct type_caster<mpark::variant<Ts...>>
 template <>
 struct visit_helper<mpark::variant> {
   template <typename... Args>
-  static auto call(Args &&... args) -> decltype(mpark::visit(args...)) {
+  static auto call(Args &&...args) -> decltype(mpark::visit(args...)) {
     return mpark::visit(args...);
   }
 };
@@ -517,7 +518,8 @@ PYBIND11_MODULE(_pyqcor, m) {
           "internal_python_jit_compile",
           [](qcor::QJIT &qjit, const std::string src,
              const std::vector<std::string> &dependency = {},
-             const std::string &extra_cpp_code = "", std::vector<std::string> extra_headers = {}) {
+             const std::string &extra_cpp_code = "",
+             std::vector<std::string> extra_headers = {}) {
             bool turn_on_hetmap_kernel_ctor = true;
             qjit.jit_compile(src, turn_on_hetmap_kernel_ctor, dependency,
                              extra_cpp_code, extra_headers);
@@ -540,7 +542,7 @@ PYBIND11_MODULE(_pyqcor, m) {
             qjit.invoke_with_hetmap(name, m);
           },
           "")
-          
+
       .def("extract_composite",
            [](qcor::QJIT &qjit, const std::string name, KernelArgDict args) {
              xacc::HeterogeneousMap m;
@@ -695,19 +697,42 @@ PYBIND11_MODULE(_pyqcor, m) {
       "");
 
   m.def("internal_get_all_instructions", []() -> std::vector<py::tuple> {
-    auto insts =  xacc::getServices<xacc::Instruction>();
+    auto insts = xacc::getServices<xacc::Instruction>();
     std::vector<py::tuple> ret;
     for (auto inst : insts) {
       if (!inst->isComposite()) {
-        ret.push_back(py::make_tuple(inst->name(), inst->nRequiredBits(), inst->isParameterized()));
+        ret.push_back(py::make_tuple(inst->name(), inst->nRequiredBits(),
+                                     inst->isParameterized()));
       }
     }
     return ret;
   });
 
+  m.def("openqasm_to_mlir",
+        [](const std::string &oqasm_src, const std::string &kernel_name,
+           bool add_entry_point) {
+          return qcor::mlir_compile("openqasm", oqasm_src, kernel_name,
+                                    qcor::OutputType::MLIR, add_entry_point);
+        });
+
+  m.def("openqasm_to_llvm_mlir", [](const std::string &oqasm_src,
+                                    const std::string &kernel_name,
+                                    bool add_entry_point) {
+    return qcor::mlir_compile("openqasm", oqasm_src, kernel_name,
+                              qcor::OutputType::LLVMMLIR, add_entry_point);
+  });
+  
+  m.def("openqasm_to_llvm_ir",
+        [](const std::string &oqasm_src, const std::string &kernel_name,
+           bool add_entry_point) {
+          return qcor::mlir_compile("openqasm", oqasm_src, kernel_name,
+                                    qcor::OutputType::LLVMIR, add_entry_point);
+        });
+
   // QuaSiMo sub-module bindings:
   {
-    py::module qsim = m.def_submodule("QuaSiMo", "QCOR's python QuaSiMo submodule");
+    py::module qsim =
+        m.def_submodule("QuaSiMo", "QCOR's python QuaSiMo submodule");
 
     // QuantumSimulationModel bindings:
     py::class_<qcor::QuaSiMo::QuantumSimulationModel>(
@@ -820,7 +845,8 @@ PYBIND11_MODULE(_pyqcor, m) {
             [](qcor::QuaSiMo::ModelFactory::ModelType type,
                PyHeterogeneousMap &params) {
               auto nativeHetMap = heterogeneousMapConvert(params);
-              return qcor::QuaSiMo::ModelFactory::createModel(type, nativeHetMap);
+              return qcor::QuaSiMo::ModelFactory::createModel(type,
+                                                              nativeHetMap);
             },
             "Create a model of a supported type.");
     py::enum_<qcor::QuaSiMo::ModelFactory::ModelType>(m, "ModelType")
@@ -850,7 +876,9 @@ PYBIND11_MODULE(_pyqcor, m) {
     qsim.def(
         "getObjEvaluator",
         [](qcor::PauliOperator &obs, const std::string &name = "default",
-           py::dict p = {}) { return qcor::QuaSiMo::getObjEvaluator(obs, name); },
+           py::dict p = {}) {
+          return qcor::QuaSiMo::getObjEvaluator(obs, name);
+        },
         py::arg("obs"), py::arg("name") = "default", py::arg("p") = py::dict(),
         py::return_value_policy::reference,
         "Return the CostFunctionEvaluator.");

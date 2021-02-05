@@ -29,3 +29,50 @@ add_subdirectory(parsers)
 add_subdirectory(transforms)
 add_subdirectory(qir_qrt)
 add_subdirectory(tools)
+
+set(LIBRARY_NAME qcor-mlir-api)
+
+file(GLOB SRC *.cpp)
+
+get_property(dialect_libs GLOBAL PROPERTY MLIR_DIALECT_LIBS)
+get_property(conversion_libs GLOBAL PROPERTY MLIR_CONVERSION_LIBS)
+set(LIBS
+        ${dialect_libs}
+        ${conversion_libs}
+        MLIRQuantum
+        MLIROptLib
+        MLIRTargetLLVMIR
+        MLIRExecutionEngine
+        MLIRStandard
+        openqasm-mlir-generator
+        quantum-to-llvm-lowering
+        )
+
+add_mlir_library(${LIBRARY_NAME} SHARED ${SRC} LINK_LIBS PUBLIC ${LIBS})
+target_compile_options(${LIBRARY_NAME} PUBLIC "-fexceptions")
+
+#add_library(${LIBRARY_NAME} SHARED ${SRC})
+target_compile_features(${LIBRARY_NAME} 
+                        PUBLIC
+                        cxx_std_17)
+
+target_include_directories(
+  ${LIBRARY_NAME}
+  PUBLIC . dialect/include ${CMAKE_BINARY_DIR}/mlir/dialect/include) 
+
+#get_property(dialect_libs GLOBAL PROPERTY MLIR_DIALECT_LIBS)
+#target_link_libraries(${LIBRARY_NAME} PUBLIC MLIRQuantum MLIRIR MLIRStandard ${dialect_libs} MLIROptLib openqasm-mlir-generator quantum-to-llvm-lowering)
+
+if(APPLE)
+  set_target_properties(${LIBRARY_NAME}
+                        PROPERTIES INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib;${MLIR_INSTALL_DIR}/lib;${LLVM_INSTALL_PREFIX}/lib")
+  set_target_properties(${LIBRARY_NAME}
+                        PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
+else()
+  set_target_properties(${LIBRARY_NAME}
+                        PROPERTIES INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib:${MLIR_INSTALL_DIR}/lib:${LLVM_INSTALL_PREFIX}/lib")
+  set_target_properties(${LIBRARY_NAME} PROPERTIES LINK_FLAGS "-shared")
+endif()
+
+install(TARGETS ${LIBRARY_NAME} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
+
