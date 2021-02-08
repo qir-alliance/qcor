@@ -696,14 +696,33 @@ class KernelBuilder(object):
         if isinstance(qbit, list):
             for i in qbit:
                 self.measure(i)
-            # self.qjit_str += self.TAB + 'qbits = {}'.format(qbit)
-            # self.qjit_str += self.TAB+'for i in range(qbits):\n'.format(qbit)
-            # self.qjit_str += self.TAB+self.TAB+'Measure({}[i])\n'.format(self.qreg_name)
         elif isinstance(qbit, int):
             self.qjit_str += self.TAB+'Measure({}[{}])\n'.format(self.qreg_name, qbit)
         else:
             print('[KernelBuilder] invalid input to measure {}'.format(qbit))
             exit(1)
+
+    def exp(self, variable, op : xacc.Observable):
+        params_str = ''
+        if isinstance(variable, str):
+            params_str = variable
+            if str(variable) not in self.kernel_args:
+                self.kernel_args[str(variable)] = float
+        elif isinstance(variable, tuple):
+            params_str = variable[0]+'['+str(variable[1])+']'
+            if variable[0] not in self.kernel_args:
+                self.kernel_args[variable[0]] = List[float]
+        else:
+            print('[KernelBuilder Error] Invalid exp() parameter type.')
+            exit(1)
+
+        op_str = op.toString()
+        op_type = 'fermion' if '^' in op_str else 'pauli'
+        hash_object = hashlib.md5(op_str.encode('utf-8'))
+        op_var_name = '__internal_op_var_'+str(hash_object.hexdigest())
+        self.qjit_str += self.TAB+"{} = _internal_python_createObservable(\"{}\", \"{}\")\n".format(op_var_name, op_type, op_str)
+        self.qjit_str += self.TAB+'exp_i_theta({}, {}, {})\n'.format(self.qreg_name, params_str, op_var_name)
+   
 
     # Synthesis from matrix, or from matrix generator
     # can provide method = [qsearch,qfast,kak, etc.]
@@ -764,7 +783,7 @@ class KernelBuilder(object):
 
         args_str = 'q : qreg, ' + ', '.join(k+' : '+allowed_type_map[str(v)] for k,v in self.kernel_args.items())
         func = 'def {}({}):\n'.format(kernel_name, args_str)+self.qjit_str
-        # print(func)
+        print(func)
         result = globals()
         exec(func, result)
         # print(result)

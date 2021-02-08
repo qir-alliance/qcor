@@ -22,8 +22,12 @@ PauliOperator operator-(PauliOperator &op, double coeff) {
   return -1.0 * coeff + op;
 }
 
-FermionOperator adag(int idx) {return FermionOperator(xacc::quantum::Operators{{idx, true}});};
-FermionOperator a(int idx) {return FermionOperator(xacc::quantum::Operators{{idx, false}});};
+FermionOperator adag(int idx) {
+  return FermionOperator(xacc::quantum::Operators{{idx, true}});
+};
+FermionOperator a(int idx) {
+  return FermionOperator(xacc::quantum::Operators{{idx, false}});
+};
 
 PauliOperator X(int idx) { return PauliOperator({{idx, "X"}}); }
 
@@ -120,7 +124,13 @@ std::shared_ptr<Observable> operatorTransform(const std::string &type,
   return xacc::getService<xacc::ObservableTransform>(type)->transform(op);
 }
 
+std::shared_ptr<Observable> _internal_python_createObservable(
+    const std::string &name, const std::string &repr) {
+  return createOperator(name, repr);
+}
+
 namespace __internal__ {
+
 std::vector<std::shared_ptr<xacc::CompositeInstruction>> observe(
     std::shared_ptr<xacc::Observable> obs,
     std::shared_ptr<CompositeInstruction> program) {
