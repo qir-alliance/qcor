@@ -723,7 +723,15 @@ class KernelBuilder(object):
         self.qjit_str += self.TAB+"{} = _internal_python_createObservable(\"{}\", \"{}\")\n".format(op_var_name, op_type, op_str)
         self.qjit_str += self.TAB+'exp_i_theta({}, {}, {})\n'.format(self.qreg_name, params_str, op_var_name)
    
+    def from_qasm(self, qasm_str):
+        xacc_ir = xacc.getCompiler('staq').compile(qasm_str).getComposites()[0]
+        pyxasm = xacc.getCompiler('pyxasm').translate(xacc_ir, {'qreg_name':self.qreg_name, 'tab_prepend':self.TAB})
+        processed_str = pyxasm        
+        self.qjit_str += processed_str
 
+    def from_qiskit(self, qk_circ):
+        return self.from_qasm(qk_circ.qasm())
+    
     # Synthesis from matrix, or from matrix generator
     # can provide method = [qsearch,qfast,kak, etc.]
     def synthesize(self, **kwargs):
@@ -781,9 +789,10 @@ class KernelBuilder(object):
         if inspect.stack()[-1].code_context is not None:
             kernel_name = inspect.stack()[-1].code_context[0].split(' = ')[0]
 
-        args_str = 'q : qreg, ' + ', '.join(k+' : '+allowed_type_map[str(v)] for k,v in self.kernel_args.items())
+        # FIXME optionally add , if we have kernel_args
+        args_str = 'q : qreg'+ (', ' if len(self.kernel_args) else '') + ', '.join(k+' : '+allowed_type_map[str(v)] for k,v in self.kernel_args.items())
         func = 'def {}({}):\n'.format(kernel_name, args_str)+self.qjit_str
-        print(func)
+        # print(func)
         result = globals()
         exec(func, result)
         # print(result)
