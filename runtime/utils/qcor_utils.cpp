@@ -21,7 +21,8 @@ std::shared_ptr<xacc::CompositeInstruction> compile(const std::string &src) {
 }
 
 namespace __internal__ {
-std::string translate(const std::string compiler, std::shared_ptr<CompositeInstruction> program) {
+std::string translate(const std::string compiler,
+                      std::shared_ptr<CompositeInstruction> program) {
   return xacc::getCompiler(compiler)->translate(program);
 }
 
@@ -238,13 +239,28 @@ void KernelToUnitaryVisitor::visit(T &t) {
 void KernelToUnitaryVisitor::visit(Tdg &tdg) {
   m_circuitMat = singleQubitGateExpand(Tdg_Mat, tdg.bits()[0]) * m_circuitMat;
 }
-void KernelToUnitaryVisitor::visit(CPhase &cphase) {xacc::error("Need to implement CPhase gate to matrix.");}
+void KernelToUnitaryVisitor::visit(CPhase &cphase) {
+  xacc::error("Need to implement CPhase gate to matrix.");
+}
 
 void KernelToUnitaryVisitor::visit(Measure &measure) {}
 void KernelToUnitaryVisitor::visit(Identity &i) {}
 void KernelToUnitaryVisitor::visit(U &u) {
-  xacc::error("We don't support U3 gate to matrix.");
+  double in_theta = u.getParameter(0).as<double>();
+  double in_phi = u.getParameter(1).as<double>();
+  double in_lambda = u.getParameter(2).as<double>();
+
+  MatrixXcd u_mat(2, 2);
+  u_mat << std::cos(in_theta / 2.0),
+      -std::exp(std::complex<double>(0, in_lambda)) * std::sin(in_theta / 2.0),
+      std::exp(std::complex<double>(0, in_phi)) * std::sin(in_theta / 2.0),
+      std::exp(std::complex<double>(0, in_phi + in_lambda)) *
+          std::cos(in_theta / 2.0);
+  m_circuitMat = singleQubitGateExpand(u_mat, u.bits()[0]) * m_circuitMat;
+
+  // xacc::error("We don't support U3 gate to matrix.");
 }
+
 void KernelToUnitaryVisitor::visit(IfStmt &ifStmt) {}
 // Identifiable Impl
 MatrixXcd KernelToUnitaryVisitor::getMat() const { return m_circuitMat; }

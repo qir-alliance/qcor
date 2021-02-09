@@ -48,8 +48,8 @@ public:
           "QCOR VQE Error - could not initialize internal xacc vqe algorithm.");
     }
 
-    auto tmp_child = qalloc(qreg.size());
-    auto val = vqe->execute(xacc::as_shared_ptr(tmp_child.results()), {})[0];
+    auto tmp_child = std::make_shared<xacc::AcceleratorBuffer>("temp_vqe_child", qreg.size());
+    auto val = vqe->execute(tmp_child, {})[0];
     double std_dev = 0.0;
     if (options.keyExists<int>("vqe-gather-statistics")) {
       std::vector<double> all_energies;
@@ -76,7 +76,7 @@ public:
     }
     
     // want to store parameters, have to do it here
-    for (auto &child : tmp_child.results()->getChildren()) {
+    for (auto &child : tmp_child->getChildren()) {
       child->addExtraInfo("parameters", current_iterate_parameters);
       auto tmp = current_iterate_parameters;
       tmp.push_back(val);
@@ -85,9 +85,10 @@ public:
         child->addExtraInfo("qcor-energy-stddev", std_dev);
       }
       child->addExtraInfo("iteration", current_iteration);
+      qreg.results()->appendChild(child->name(), child);
     }
     current_iteration++;
-    qreg.addChild(tmp_child);
+    // qreg.addChild(tmp_child);
 
     if (!dx.empty() && options.stringExists("gradient-strategy")) {
       // Compute the gradient

@@ -187,9 +187,16 @@ std::shared_ptr<qcor::Observable> convertToQCOROperator(
       }
       return qcor::createOperator(ss.str());
     }
+  } else if (py::hasattr(op, "toString") && py::hasattr(op, "observe")) {
+    auto string_rep = op.attr("toString");
+    auto op_str = string_rep().cast<std::string>();
+    if (op_str.find("^") != std::string::npos) {
+      return qcor::createOperator("fermion", op_str);
+    } else {
+      return qcor::createOperator(op_str);
+    }
   } else {
     // throw an error
-    std::cout << "THrowing an error\n";
     qcor::error(
         "Invalid python object passed as a QCOR Operator/Observable. "
         "Currently, we only accept OpenFermion datastructures.");
@@ -228,6 +235,8 @@ class PyObjectiveFunction : public qcor::ObjectiveFunction {
     // Set the OptFunction dimensions
     _dim = n_dim;
 
+    qreg = ::qalloc(qq.nBits());
+
     // Set the helper objective
     helper = xacc::getService<qcor::ObjectiveFunction>(helper_name);
 
@@ -257,6 +266,7 @@ class PyObjectiveFunction : public qcor::ObjectiveFunction {
       : py_kernel(q) {
     // Set the OptFunction dimensions
     _dim = n_dim;
+    qreg = ::qalloc(qq->nBits());
 
     // Set the helper objective
     helper = xacc::getService<qcor::ObjectiveFunction>(helper_name);
@@ -285,7 +295,8 @@ class PyObjectiveFunction : public qcor::ObjectiveFunction {
   double operator()(const KernelArgDict args, std::vector<double> &dx) {
     std::function<std::shared_ptr<CompositeInstruction>(std::vector<double>)>
         kernel_evaluator = [&](std::vector<double> x) {
-          qreg = ::qalloc(observable->nBits());
+          // qreg = ::qalloc(observable->nBits());
+          // std::cout << "Allocating " << qreg.name() << "\n";
           auto _args =
               py_kernel.attr("translate")(qreg, x).cast<KernelArgDict>();
           // Map the kernel args to a hetmap
@@ -315,7 +326,7 @@ class PyObjectiveFunction : public qcor::ObjectiveFunction {
     helper->update_current_iterate_parameters(x);
 
     // Translate x into kernel args
-    qreg = ::qalloc(observable->nBits());
+    // qreg = ::qalloc(observable->nBits());
     auto args = py_kernel.attr("translate")(qreg, x).cast<KernelArgDict>();
     // args will be a dictionary, arg_name to arg
     return operator()(args, dx);
@@ -326,6 +337,8 @@ class PyObjectiveFunction : public qcor::ObjectiveFunction {
     throw std::bad_function_call();
     return 0.0;
   }
+
+  xacc::internal_compiler::qreg get_qreg() override { return qreg; }
 };
 
 // PyKernelFunctor is a subtype of KernelFunctor from the qsim library
@@ -497,6 +510,10 @@ PYBIND11_MODULE(_pyqcor, m) {
       .def("print", &xacc::internal_compiler::qreg::print, "")
       .def("counts", &xacc::internal_compiler::qreg::counts, "")
       .def("exp_val_z", &xacc::internal_compiler::qreg::exp_val_z, "")
+      .def("results", [](xacc::internal_compiler::qreg& q){
+        auto buffer = q.results_shared();
+        return buffer;
+      }, "")
       .def(
           "getInformation",
           [](xacc::internal_compiler::qreg &q, const std::string &key) {
@@ -588,7 +605,8 @@ PYBIND11_MODULE(_pyqcor, m) {
             auto val = obj(x, dx);
             return std::make_pair(val, dx);
           },
-          "");
+          "")
+      .def("get_qreg", &qcor::ObjectiveFunction::get_qreg, "");
 
   m.def(
       "createObjectiveFunction",
