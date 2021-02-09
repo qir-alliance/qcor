@@ -33,6 +33,15 @@ FermionOperator = xacc.quantum.FermionOperator
 FLOAT_REF = typing.NewType('value', float)
 INT_REF = typing.NewType('value', int)
 
+typing_to_simple_map = {'<class \'_pyqcor.qreg\'>': 'qreg',
+                            '<class \'float\'>': 'float', 'typing.List[float]': 'List[float]',
+                            '<class \'int\'>': 'int', 'typing.List[int]': 'List[int]',
+                            '<class \'_pyxacc.quantum.PauliOperator\'>': 'PauliOperator',
+                            '<class \'_pyxacc.quantum.FermionOperator\'>': 'FermionOperator',
+                            'typing.List[typing.Tuple[int, int]]': 'List[Tuple[int,int]]',
+                            'typing.List[_pyxacc.quantum.PauliOperator]': 'List[PauliOperator]',
+                            'typing.List[_pyxacc.quantum.FermionOperator]': 'List[FermionOperator]'}
+
 # Need to add a few extra header paths 
 # for the clang code-gen mechanism. Mac OS X will 
 # need QCOR_EXTRA_HEADERS, all will need the 
@@ -722,10 +731,19 @@ class KernelBuilder(object):
         op_var_name = '__internal_op_var_'+str(hash_object.hexdigest())
         self.qjit_str += self.TAB+"{} = _internal_python_createObservable(\"{}\", \"{}\")\n".format(op_var_name, op_type, op_str)
         self.qjit_str += self.TAB+'exp_i_theta({}, {}, {})\n'.format(self.qreg_name, params_str, op_var_name)
-   
+
+    def invoke(self, kernel_function : qjit):
+        arg_names, _, _, _, _, _, type_annotations = inspect.getfullargspec(
+            kernel_function)
+        args_dict = {k:v for k,v in kernel_function.type_annotations.items() if str(typing_to_simple_map[str(v)]) != 'qreg'}
+        self.kernel_args = {**args_dict, **self.kernel_args}
+        self.qjit_str+= self.TAB+'{}({}, {})\n'.format(kernel_function.kernel_name(), self.qreg_name, ','.join(list(self.kernel_args.keys())))
+
     def from_qasm(self, qasm_str):
         xacc_ir = xacc.getCompiler('staq').compile(qasm_str).getComposites()[0]
-        pyxasm = xacc.getCompiler('pyxasm').translate(xacc_ir, {'qreg_name':self.qreg_name, 'tab_prepend':self.TAB})
+        pyxasm = xacc.getCompiler('pyxasm').translate(xacc_ir)
+        pyxasm = pyxasm.replace('__translate_qrg__', self.qreg_name)
+        pyxasm = '\n'.join(self.TAB+line for line in pyxasm.split('\n'))
         processed_str = pyxasm        
         self.qjit_str += processed_str
 
@@ -776,21 +794,15 @@ class KernelBuilder(object):
 
     def create(self):
         # print(self.qjit_str)
-        allowed_type_map = {'<class \'_pyqcor.qreg\'>': 'qreg',
-                                     '<class \'float\'>': 'float', 'typing.List[float]': 'List[float]',
-                                     '<class \'int\'>': 'int', 'typing.List[int]': 'List[int]',
-                                     '<class \'_pyxacc.quantum.PauliOperator\'>': 'PauliOperator',
-                                     '<class \'_pyxacc.quantum.FermionOperator\'>': 'FermionOperator',
-                                     'typing.List[typing.Tuple[int, int]]': 'List[Tuple[int,int]]',
-                                     'typing.List[_pyxacc.quantum.PauliOperator]': 'List[PauliOperator]',
-                                     'typing.List[_pyxacc.quantum.FermionOperator]': 'List[FermionOperator]'}
 
         kernel_name = '__internal_qjit_kernelbuilder_kernel_'+str(uuid.uuid4()).replace('-','_')
-        if inspect.stack()[-1].code_context is not None:
-            kernel_name = inspect.stack()[-1].code_context[0].split(' = ')[0]
+        for element in inspect.stack():
+            if len(element.code_context) and element.code_context[0] != None:
+                if '.create()' in element.code_context[0]:
+                    kernel_name = element.code_context[0].strip().split(' = ')[0]
 
         # FIXME optionally add , if we have kernel_args
-        args_str = 'q : qreg'+ (', ' if len(self.kernel_args) else '') + ', '.join(k+' : '+allowed_type_map[str(v)] for k,v in self.kernel_args.items())
+        args_str = 'q : qreg'+ (', ' if len(self.kernel_args) else '') + ', '.join(k+' : '+typing_to_simple_map[str(v)] for k,v in self.kernel_args.items())
         func = 'def {}({}):\n'.format(kernel_name, args_str)+self.qjit_str
         # print(func)
         result = globals()

@@ -19,6 +19,12 @@ set_tests_properties(qcor_python_jit_simple
 #set_tests_properties(qcor_python_jit_nested_kernels
 #   PROPERTIES ENVIRONMENT "PYTHONPATH=${CMAKE_INSTALL_PREFIX}:$ENV{PYTHONPATH}")
 
+#add_test (NAME qcor_python_kernel_builder
+# COMMAND ${Python_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test_kernel_builder.py 
+# WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+#set_tests_properties(qcor_python_kernel_builder
+#   PROPERTIES ENVIRONMENT "PYTHONPATH=${CMAKE_INSTALL_PREFIX}:$ENV{PYTHONPATH}")
+
 add_test (NAME qcor_python_jit_decompose
  COMMAND ${Python_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test_jit_decompose.py 
  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
