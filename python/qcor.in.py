@@ -800,6 +800,7 @@ class KernelBuilder(object):
             if len(element.code_context) and element.code_context[0] != None:
                 if '.create()' in element.code_context[0]:
                     kernel_name = element.code_context[0].strip().split(' = ')[0]
+                    break
 
         # FIXME optionally add , if we have kernel_args
         args_str = 'q : qreg'+ (', ' if len(self.kernel_args) else '') + ', '.join(k+' : '+typing_to_simple_map[str(v)] for k,v in self.kernel_args.items())
