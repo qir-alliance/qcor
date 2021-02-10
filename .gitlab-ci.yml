@@ -15,26 +15,6 @@ docker build_master:
   - git config remote.aideqcqcor.url >&- || git remote add -t master aideqcqcor https://amccaskey:$AIDEQC_ACCESS_TOKEN@github.com/aide-qc/qcor
   - git push -f aideqcqcor HEAD:master
   - git remote remove aideqcqcor
-  # - git clone https://github.com/aide-qc/homebrew-deploy && cd homebrew-deploy 
-  # - wget https://github.com/ornl-qci/qcor/tarball/master && mv master qcor.tar.gz 
-  # - export src_sha=$(sha256sum qcor.tar.gz | cut -d " " -f 1)
-  # - sed -i "0,/sha256 \".*\"/s//sha256 \"$src_sha\" /" Formula/qcor.rb
-  # - git add Formula/qcor.rb
-  # - git commit -m "updating sha256 for qcor homebrew formula"
-  # - git config remote.aideqchbdeploy.url >&- || git remote add -t master aideqchbdeploy https://amccaskey:$AIDEQC_ACCESS_TOKEN@github.com/aide-qc/homebrew-deploy
-  # - git push -f aideqchbdeploy HEAD:master
-  # - git remote remove aideqchbdeploy
-
-docker run_docker_deploy:
-  stage: deploy
-  only:
-   - schedules
-  script:
-  - cd docker/deploy/dev && docker build -t qcor/qcor . --no-cache
-  - echo "$REGISTRY_PASSWORD" | docker login -u qcor --password-stdin
-  - docker push qcor/qcor
-  - docker system prune -f
-  - docker rmi -f qcor/qcor 
 
 # builds xacc and qcor bottles nightly
 docker run_brew_linux_bottles:
@@ -66,11 +46,3 @@ docker run_macosx_mojave_bottles:
   script:
   - ssh mojave-ci "PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin bash run_bottle_build.sh $AIDEQC_ACCESS_TOKEN $JFROG_API_KEY"
   
-# docker run_macosx_mojave_bottles:
-#   stage: deploy
-#   only:
-#     - schedules
-#   tags: 
-#     - osx
-#   script:
-#   - ssh mojave-ci "PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin bash run_bottle_build.sh $AIDEQC_ACCESS_TOKEN $JFROG_API_KEY"
