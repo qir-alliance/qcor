@@ -30,4 +30,4 @@ Employing the QCOR just-in-time (qjit) compilation features, we can wrap QCOR in
 
 `vqe_ftqc.py` example demonstrating VQE algorithm using the ftqc runtime. 
 
-`unitary.py` example demonstrating circuit synthesis language extension.
+`unitary.py`, `qcor_qsearch.py` and `qcor_qfactor.py`: examples demonstrating circuit synthesis language extension.
