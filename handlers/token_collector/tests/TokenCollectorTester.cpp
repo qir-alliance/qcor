@@ -4,6 +4,8 @@
 #include "clang/Sema/DeclSpec.h"
 #include "gtest/gtest.h"
 #include <xacc.hpp>
+#include "xacc_config.hpp"
+#include "qcor_config.hpp"
 
 TEST(TokenCollectorTester, checkSimple) {
 
@@ -165,6 +167,11 @@ quantum::mz(qb[i]);
             results);
 }
 int main(int argc, char **argv) {
+  std::string xacc_config_install_dir = std::string(XACC_INSTALL_DIR);
+  std::string qcor_root = std::string(QCOR_INSTALL_DIR);
+  if (xacc_config_install_dir != qcor_root) {
+    xacc::addPluginSearchPath(std::string(QCOR_INSTALL_DIR) + "/plugins");
+  }
   xacc::Initialize();
   ::testing::InitGoogleTest(&argc, argv);
   auto ret = RUN_ALL_TESTS();

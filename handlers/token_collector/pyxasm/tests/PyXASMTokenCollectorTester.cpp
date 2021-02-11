@@ -5,6 +5,8 @@
 #include "test_utils.hpp"
 #include "token_collector.hpp"
 #include "xacc_service.hpp"
+#include "qcor_config.hpp"
+#include "xacc_config.hpp"
 
 TEST(PyXASMTokenCollectorTester, checkSimple) {
   LexerHelper helper;
@@ -74,6 +76,11 @@ quantum::x(qb[i]);
 }
 
 int main(int argc, char **argv) {
+  std::string xacc_config_install_dir = std::string(XACC_INSTALL_DIR);
+  std::string qcor_root = std::string(QCOR_INSTALL_DIR);
+  if (xacc_config_install_dir != qcor_root) {
+    xacc::addPluginSearchPath(std::string(QCOR_INSTALL_DIR) + "/plugins");
+  }
   xacc::Initialize();
   ::testing::InitGoogleTest(&argc, argv);
   auto ret = RUN_ALL_TESTS();

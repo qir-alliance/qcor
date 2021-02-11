@@ -1,19 +1,20 @@
-#include "test_utils.hpp"
-#include "token_collector.hpp"
-#include "xacc_service.hpp"
 #include "clang/Sema/DeclSpec.h"
 #include "gtest/gtest.h"
-#include <xacc.hpp>
+#include "qcor_config.hpp"
+#include "test_utils.hpp"
+#include "token_collector.hpp"
+#include "xacc.hpp"
+#include "xacc_config.hpp"
+#include "xacc_service.hpp"
 
 TEST(XASMTokenCollectorTester, checkSimple) {
-
   LexerHelper helper;
 
-  auto [tokens, PP] =
-      helper.Lex("H(q[0]);\nCX(q[0],q[1]);\nRy(q[3], theta);\nRx(q[0], "
-                 "2.2);\nfor (int i = 0; i < "
-                 "q.size(); i++) {\n  Measure(q[i]);\n}\nexp_i_theta(q, theta, "
-                 "observable);\n");
+  auto [tokens, PP] = helper.Lex(
+      "H(q[0]);\nCX(q[0],q[1]);\nRy(q[3], theta);\nRx(q[0], "
+      "2.2);\nfor (int i = 0; i < "
+      "q.size(); i++) {\n  Measure(q[i]);\n}\nexp_i_theta(q, theta, "
+      "observable);\n");
 
   clang::CachedTokens cached;
   for (auto &t : tokens) {
@@ -39,7 +40,6 @@ quantum::exp(q, theta, observable);
 }
 
 TEST(XASMTokenCollectorTester, checkComplexQaoa) {
-
   LexerHelper helper;
 
   auto [tokens, PP] = helper.Lex(R"#(// Local Declarations
@@ -118,7 +118,13 @@ beta_counter ++ ;
 }
 
 int main(int argc, char **argv) {
+  std::string xacc_config_install_dir = std::string(XACC_INSTALL_DIR);
+  std::string qcor_root = std::string(QCOR_INSTALL_DIR);
+  if (xacc_config_install_dir != qcor_root) {
+    xacc::addPluginSearchPath(std::string(QCOR_INSTALL_DIR) + "/plugins");
+  }
   xacc::Initialize();
+
   ::testing::InitGoogleTest(&argc, argv);
   auto ret = RUN_ALL_TESTS();
   xacc::Finalize();
