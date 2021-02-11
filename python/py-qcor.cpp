@@ -12,7 +12,10 @@
 #include "py_costFunctionEvaluator.hpp"
 #include "py_qsimWorkflow.hpp"
 #include "qcor_jit.hpp"
+#ifdef QCOR_BUILD_MLIR_PYTHON_API
 #include "qcor_mlir_api.hpp"
+#endif 
+
 #include "qcor_observable.hpp"
 #include "qrt.hpp"
 #include "xacc.hpp"
@@ -726,6 +729,7 @@ PYBIND11_MODULE(_pyqcor, m) {
     return ret;
   });
 
+#ifdef QCOR_BUILD_MLIR_PYTHON_API
   m.def("openqasm_to_mlir",
         [](const std::string &oqasm_src, const std::string &kernel_name,
            bool add_entry_point) {
@@ -746,6 +750,7 @@ PYBIND11_MODULE(_pyqcor, m) {
           return qcor::mlir_compile("openqasm", oqasm_src, kernel_name,
                                     qcor::OutputType::LLVMIR, add_entry_point);
         });
+#endif 
 
   // QuaSiMo sub-module bindings:
   {

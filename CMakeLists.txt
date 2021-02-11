@@ -60,7 +60,10 @@ add_subdirectory(handlers)
 add_subdirectory(runtime)
 add_subdirectory(tools)
 add_subdirectory(lib)
-add_subdirectory(mlir)
+
+if (NOT ${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+  add_subdirectory(mlir)
+endif()
 
 if (QCOR_BUILD_TESTS)
   add_subdirectory(examples)

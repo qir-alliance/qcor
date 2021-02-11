@@ -14,6 +14,10 @@ if (NOT ${XACC_ROOT} MATCHES ${CMAKE_INSTALL_PREFIX})
   set (QCOR_APPEND_PLUGIN_PATH "${CMAKE_INSTALL_PREFIX}/plugins")
 endif()
 
+if (NOT ${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+  add_definitions(-DQCOR_BUILD_MLIR_PYTHON_API)
+endif()
+
 configure_file(qcor.in.py
             ${CMAKE_BINARY_DIR}/qcor.py)
 
@@ -24,7 +28,12 @@ target_include_directories(${LIBRARY_NAME} PUBLIC . ${CMAKE_SOURCE_DIR}/runtime/
                                           ${Python_INCLUDE_DIRS}
                                           ${XACC_ROOT}/include/pybind11/include)
 set_target_properties(${LIBRARY_NAME} PROPERTIES PREFIX "")
-target_link_libraries(${LIBRARY_NAME} PUBLIC qcor qcor-quasimo qcor-jit qcor-mlir-api xacc::xacc)
+
+if (NOT ${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+  target_link_libraries(${LIBRARY_NAME} PUBLIC qcor qcor-quasimo qcor-jit qcor-mlir-api xacc::xacc)
+else()
+  target_link_libraries(${LIBRARY_NAME} PUBLIC qcor qcor-quasimo qcor-jit xacc::xacc)
+endif()
 
 if(APPLE)
    set_target_properties(${LIBRARY_NAME} PROPERTIES INSTALL_RPATH "@loader_path/lib")
