@@ -11,7 +11,7 @@ RUN yarn --cache-folder ./ycache && rm -rf ./ycache && \
 EXPOSE 3000
 ENV SHELL=/bin/bash \
     THEIA_DEFAULT_PLUGINS=local-dir:/home/dev/plugins
-ENV PYTHONPATH "${PYTHONPATH}:/usr/local/xacc:/root/.local/lib/python3.6/site-packages/psi4/lib"
+ENV PYTHONPATH "${PYTHONPATH}:/usr/local/aideqc/qcor:/root/.local/lib/python3.6/site-packages/psi4/lib"
 
 ENTRYPOINT [ "yarn", "theia", "start", "/home/dev", "--hostname=0.0.0.0" ]
 

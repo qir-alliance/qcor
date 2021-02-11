@@ -36,6 +36,7 @@ def main(argv=None):
         parser.add_argument('-v', metavar='',
                         help='turn on qcor verbose mode - prints actual clang calls plus extra info while compiling.')
         parser.add_argument('-qpu', metavar=('name[:backend]'), help='specify quantum backend name. this corresponds to the name of an xacc accelerator (plus optional backend name).\nExamples include qcs:Aspen-4-2Q-H, ibm:ibmq_valencia, tnqvm, etc.')
+        parser.add_argument('-qpu-config',help='specify file name containing backend qpu configuration.')
         parser.add_argument('-shots', metavar=('n_shots'), nargs=1,help='provide the number of shots to execute on shot-enabled backend.')
         parser.add_argument('-c', metavar=('file.cpp'), help='specify compile-only, no library linking.\n$ qcor -c src.cpp [outputs src.o for future linking]\n')
         parser.add_argument('-o', metavar=('object.o'), help='provide the name of the object file (if compile only) or executable (if compile and link or just link).\n$ qcor -o out.o -c src.cpp\n$ qcor -o out.exe src.cpp\n')
@@ -184,10 +185,27 @@ def main(argv=None):
     # Get the QPU Backend
     accName = ''
     if '-qpu' in sys.argv[1:]:
+        config_file = ''
+        if '-qpu-config' in sys.argv[1:]:
+            idx = sys.argv.index('-qpu-config')
+            config_file = sys.argv[idx+1]
+
         accidx = sys.argv.index('-qpu')
         accName = sys.argv[accidx+1]
         sys.argv.remove(accName)
         sys.argv.remove('-qpu')
+
+        if config_file:
+            # FIXME use absolute path name
+            if ']' in accName:
+                idx = accName.index(']')
+                accName = accName[:idx] + ',qcor_qpu_config:'+config_file+accName[idx:]
+                print(accName)
+            else:
+                accName += '[qcor_qpu_config:'+config_file+']'
+            sys.argv.remove(config_file)
+            sys.argv.remove('-qpu-config')
+
         sys.argv += ['-D__internal__qcor__compile__backend=\"'+accName+'\"']
         sHandlerArgs = ['-Xclang', '-plugin-arg-qcor-args', '-Xclang', '-qpu', '-Xclang', '-plugin-arg-qcor-args', '-Xclang', accName]
     else:
