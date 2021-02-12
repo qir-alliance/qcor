@@ -5,7 +5,7 @@ def main(argv=None):
     compiler = '@CLANG_EXECUTABLE@'
     verbose=False
     baseLibs = ['-rdynamic', '-Wl,-rpath,@XACC_ROOT@/lib:@CMAKE_INSTALL_PREFIX@/lib:@LLVM_INSTALL_PREFIX@/lib:@CMAKE_INSTALL_PREFIX@/clang-plugins',
-                            '-L', '@CMAKE_INSTALL_PREFIX@/lib','-lqcor', '-lqrt', '-lqcor-hybrid', '-lqcor-quasimo', '-lqcor-jit', '-lqir-qrt',
+                            '-L', '@CMAKE_INSTALL_PREFIX@/lib','-lqcor', '-lqrt', '-lqcor-hybrid', '-lqcor-quasimo', '-lqcor-jit',
                              '-L', '@XACC_ROOT@/lib', '-lxacc', '-lCppMicroServices', '-lxacc-quantum-gate',
                             '-lxacc-pauli', '-lxacc-fermion', '-lpthread']
     if '@CMAKE_SYSTEM_NAME@' != 'Darwin':
