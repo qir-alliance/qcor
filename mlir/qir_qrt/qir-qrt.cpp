@@ -24,6 +24,19 @@ bool verbose = false;
 bool external_qreg_provided = false;
 
 bool initialized = false;
+
+void print_help() {
+  std::cout << "QCOR QIR Runtime Help Menu\n\n";
+  std::cout << "optional arguments:\n";
+  std::cout << "  -qpu QPUNAME[:BACKEND] | example -qpu ibm:ibmq_vigo, -qpu aer:ibmq_vigo\n";
+  std::cout << "  -qrt QRT_MODE (can be nisq or ftqc) | example -qrt nisq\n";
+  std::cout << "  -shots NUMSHOTS (number of shots to use in nisq run)\n";
+  std::cout << "  -opt LEVEL | example -opt 1\n";
+  std::cout << "  -print-opt-stats (turn on printout of optimization statistics) \n";
+  std::cout << "  -v,-verbose,--verbose (run with printouts)\n\n";
+  exit(0);
+}
+
 void __quantum__rt__initialize(int argc, int8_t** argv) {
   char** casted = reinterpret_cast<char**>(argv);
   std::vector<std::string> args(casted, casted + argc);
@@ -43,6 +56,15 @@ void __quantum__rt__initialize(int argc, int8_t** argv) {
       verbose = true;
     } else if (arg == "--verbose") {
       verbose = true;
+    } else if (arg == "--help") {
+      print_help();
+    } else if (arg == "-h") {
+      print_help();
+    } else if (arg == "-opt") {
+      xacc::internal_compiler::__opt_level =
+        std::stoi(args[i+1]);
+    } else if (arg == "-print-opt-stats") {
+      xacc::internal_compiler::__print_opt_stats = true;
     }
   }
 
@@ -232,6 +254,7 @@ void __quantum__rt__qubit_release_array(Array* q) {
 void __quantum__rt__finalize() {
   if (verbose) std::cout << "[qir-qrt] Running finalization routine.\n";
   if (mode == QRT_MODE::NISQ) {
+    xacc::internal_compiler::execute_pass_manager();
     ::quantum::submit(qbits.get());
     auto counts = qbits->getMeasurementCounts();
     std::cout << "Observed Counts:\n";
@@ -239,6 +262,7 @@ void __quantum__rt__finalize() {
       std::cout << bits << " : " << count << "\n";
     }
   } else if (external_qreg_provided) {
+    xacc::internal_compiler::execute_pass_manager();
     ::quantum::submit(qbits.get());
   }
 }
