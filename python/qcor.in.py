@@ -696,6 +696,7 @@ class KernelBuilder(object):
             setattr(KernelBuilder, instruction[0].lower(), result[instruction[0].lower()])
 
     def measure_all(self):
+        self.qjit_str += '\n'
         self.qjit_str += self.TAB + 'for i in range({}.size()):\n'.format(self.qreg_name)
         self.qjit_str += self.TAB+self.TAB+'Measure({}[i])\n'.format(self.qreg_name)
 

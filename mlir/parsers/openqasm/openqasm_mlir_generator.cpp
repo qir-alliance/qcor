@@ -17,6 +17,98 @@ static std::vector<std::string> search_for_inliner{
     "u3", "u2",  "u1", "cx",  "id", "u0", "x",  "y",  "z",  "h",
     "s",  "sdg", "t",  "tdg", "rx", "ry", "rz", "cz", "cy", "swap"};
 
+static std::map<std::string, std::string> missing_builtins{
+    {"u", R"#(
+gate u(theta,phi,lambda) q { U(theta,phi,lambda) q; })#"},
+    {"p", R"#(gate p(theta) a
+{
+  rz(theta) a;
+})#"},
+    {"sx", R"#(gate sx a { sdg a; h a; sdg a; })#"},
+    {"sxdg", R"#(gate sxdg a { s a; h a; s a; })#"},
+    {"cswap", R"#(gate cswap a,b,c
+{
+  cx c,b;
+  ccx a,b,c;
+  cx c,b;
+})#"},
+    {"crx", R"#(gate crx(lambda) a,b
+{
+  u1(pi/2) b;
+  cx a,b;
+  u3(-lambda/2,0,0) b;
+  cx a,b;
+  u3(lambda/2,-pi/2,0) b;
+})#"},
+    {"cry", R"#(gate cry(lambda) a,b
+{
+  u3(lambda/2,0,0) b;
+  cx a,b;
+  u3(-lambda/2,0,0) b;
+  cx a,b;
+  ry(lambda) a;
+})#"},
+    {"cp", R"#(gate cp(lambda) a,b
+{
+  p(lambda/2) a;
+  cx a,b;
+  p(-lambda/2) b;
+  cx a,b;
+  p(lambda/2) b;
+})#"},
+    {"csx", R"#(gate csx a,b { h b; cu1(pi/2) a,b; h b; })#"},
+    {"cu", R"#(gate cu(theta,phi,lambda,gamma) c, t
+{ p(gamma) c;
+  p((lambda+phi)/2) c;
+  p((lambda-phi)/2) t;
+  cx c,t;
+  u(-theta/2,0,-(phi+lambda)/2) t;
+  cx c,t;
+  u(theta/2,phi,0) t;
+})#"},
+    {"rxx", R"#(gate rxx(theta) a,b
+{
+  u3(pi/2, theta, 0) a;
+  h b;
+  cx a,b;
+  u1(-theta) b;
+  cx a,b;
+  h b;
+  u2(-pi, pi-theta) a;
+})#"},
+    {"rzz", R"#(gate rzz(theta) a,b
+{
+  cx a,b;
+  u1(theta) b;
+  cx a,b;
+})#"},
+    {"rccx", R"#(gate rccx a,b,c
+{
+  u2(0,pi) c;
+  u1(pi/4) c;
+  cx b, c;
+  u1(-pi/4) c;
+  cx a, c;
+  u1(pi/4) c;
+  cx b, c;
+  u1(-pi/4) c;
+  u2(0,pi) c;
+})#"}};
+
+template <class Op>
+void split(const std::string &s, char delim, Op op) {
+  std::stringstream ss(s);
+  for (std::string item; std::getline(ss, item, delim);) {
+    *op++ = item;
+  }
+}
+
+inline std::vector<std::string> split(const std::string &s, char delim) {
+  std::vector<std::string> elems;
+  split(s, delim, std::back_inserter(elems));
+  return elems;
+}
+
 void CountGateDecls::visit(GateDecl &g) {
   auto name = g.id();
   if (std::find(builtins.begin(), builtins.end(), name) == builtins.end()) {
@@ -222,9 +314,54 @@ void OpenQasmMLIRGenerator::initialize_mlirgen(bool _add_entry_point,
 
 void OpenQasmMLIRGenerator::mlirgen(const std::string &src) {
   using namespace staq;
+
+  std::string src_copy = src;
+
+  // Make sure we have the preamble text
+  std::string preamble = "OPENQASM 2.0;";
+  auto preamble_start = src.find(preamble);
+  if (preamble_start == std::string::npos) {
+    std::cout << "[OpenQASM MLIR Gen] Error, no OPENQASM 2.0 preamble text.\n";
+    exit(1);
+  }
+
+  preamble = "include \"qelib1.inc\";";
+  preamble_start = src.find(preamble);
+  if (preamble_start == std::string::npos) {
+    std::cout << "[OpenQASM MLIR Gen] Error, no include \"qelib1.inc\" "
+                 "preamble text.\n";
+    exit(1);
+  }
+
+  // Add any required missing pre-defines that we 
+  // know the impl for.
+  std::vector<std::string> added;
+  std::string extra_insts = "\n";
+  bool hasMeasures = false;
+  auto lines = split(src, '\n');
+  for (auto line : lines) {
+    if (line.find("OPENQASM") == std::string::npos &&
+        line.find("include") == std::string::npos &&
+        line.find("measure") == std::string::npos &&
+        line.find("qreg") == std::string::npos &&
+        line.find("creg") == std::string::npos) {
+      auto inst_name = split(line, ' ')[0];
+      if (inst_name.find("(") != std::string::npos) {
+        inst_name = inst_name.substr(0, inst_name.find("("));
+      }
+      if (std::find(builtins.begin(), builtins.end(), inst_name) ==
+              builtins.end() &&
+          std::find(added.begin(), added.end(), inst_name) == added.end()) {
+        extra_insts += missing_builtins[inst_name] + "\n";
+        added.push_back(inst_name);
+      }
+    }
+  }
+  src_copy.insert(preamble_start+preamble.length(), extra_insts);
+
   ast::ptr<ast::Program> prog;
   try {
-    prog = parser::parse_string(src);
+    prog = parser::parse_string(src_copy);
     // transformations::inline_ast(*prog);
     transformations::desugar(*prog);
   } catch (std::exception &e) {

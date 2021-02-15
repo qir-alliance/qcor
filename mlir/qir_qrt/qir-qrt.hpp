@@ -47,6 +47,7 @@ void __quantum__qis__z(Qubit* q);
 void __quantum__qis__rx(double x, Qubit* q);
 void __quantum__qis__ry(double x, Qubit* q);
 void __quantum__qis__rz(double x, Qubit* q);
+void __quantum__qis__u3(double theta, double phi, double lambda, Qubit* q);
 
 Result* __quantum__qis__mz(Qubit* q);
 

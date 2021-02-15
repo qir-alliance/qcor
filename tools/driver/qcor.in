@@ -191,6 +191,9 @@ def main(argv=None):
         if '-qpu-config' in sys.argv[1:]:
             idx = sys.argv.index('-qpu-config')
             config_file = sys.argv[idx+1]
+            if not os.path.exists(config_file):
+                print('Invalid qpu config file path:', config_file)
+                exit(1)
 
         accidx = sys.argv.index('-qpu')
         accName = sys.argv[accidx+1]
@@ -198,11 +201,9 @@ def main(argv=None):
         sys.argv.remove('-qpu')
 
         if config_file:
-            # FIXME use absolute path name
             if ']' in accName:
                 idx = accName.index(']')
-                accName = accName[:idx] + ',qcor_qpu_config:'+config_file+accName[idx:]
-                print(accName)
+                accName = accName[:idx] + ',qcor_qpu_config:'+os.path.abspath(config_file)+accName[idx:]
             else:
                 accName += '[qcor_qpu_config:'+config_file+']'
             sys.argv.remove(config_file)
@@ -214,7 +215,7 @@ def main(argv=None):
         accName = 'qpp'
         sys.argv += ['-D__internal__qcor__compile__backend=\"'+accName+'\"']
         sHandlerArgs = ['-Xclang', '-plugin-arg-qcor-args', '-Xclang', '-qpu', '-Xclang', '-plugin-arg-qcor-args', '-Xclang', accName]
-        
+
     # Get the shots if necessary
     shots = 0
     if '-shots' in sys.argv[1:]:
@@ -377,7 +378,9 @@ def main(argv=None):
                 print(e.returncode)
                 return e.returncode
         else:
-            print('invalid command line arguments for qcor')
+            print('invalid command line arguments for qcor:')
+            print('source file name and type:', (None if filename == '' else filename), ',', (None if fileType == '' else fileType))
+            if verbose: print('current args: ', sys.argv)
             exit(1)
     else:
         # This is a .o file, so execute the link phase
