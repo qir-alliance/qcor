@@ -21,8 +21,8 @@ def ExtractQubitOp : QuantumOp<"extract", []> {
     let results = (outs QubitType:$qbit);
 }
 
-def InstOp : QuantumOp<"inst", []> {
-    let arguments = (ins StrAttr:$name, Variadic<QubitType>:$qubits, OptionalAttr<F64ElementsAttr>:$params);
+def InstOp : QuantumOp<"inst", [AttrSizedOperandSegments]> {
+    let arguments = (ins StrAttr:$name, Variadic<QubitType>:$qubits, Variadic<F64>:$params);
     let results = (outs Optional<I64>:$bit);
 }
 
