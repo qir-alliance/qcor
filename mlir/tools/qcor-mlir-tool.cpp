@@ -9,6 +9,7 @@
 #include "mlir/IR/AsmState.h"
 #include "mlir/Parser.h"
 #include "openqasm_mlir_generator.hpp"
+#include "openqasmv3_mlir_generator.hpp"
 #include "quantum_to_llvm.hpp"
 #include "tools/ast_printer.hpp"
 #include "Quantum/QuantumDialect.h"
@@ -51,7 +52,7 @@ mlir::OwningModuleRef loadMLIR(mlir::MLIRContext &context,
   // FIXME Make this an extension point
   // llvm::StringRef(inputFilename).endswith(".qasm")
   // or llvm::StringRef(inputFilename).endswith(".quil")
-  qcor::OpenQasmMLIRGenerator mlir_generator(context);
+  qcor::OpenQasmV3MLIRGenerator mlir_generator(context);
   auto function_name = llvm::sys::path::filename(inputFilename).split(StringRef(".")).first.str();
   bool addEntryPoint = !noEntryPoint;
   mlir_generator.initialize_mlirgen(

@@ -10,6 +10,8 @@
 #include "mlir/IR/AsmState.h"
 #include "mlir/Parser.h"
 #include "openqasm_mlir_generator.hpp"
+#include "openqasmv3_mlir_generator.hpp"
+
 #include "quantum_to_llvm.hpp"
 #include "tools/ast_printer.hpp"
 
@@ -32,6 +34,8 @@ const std::string mlir_compile(const std::string& src_language_type,
   std::shared_ptr<QuantumMLIRGenerator> mlir_generator;
   if (src_language_type == "openqasm") {
     mlir_generator = std::make_shared<OpenQasmMLIRGenerator>(context);
+  } else if (src_language_type == "qasm3") {
+    mlir_generator = std::make_shared<OpenQasmV3MLIRGenerator>(context);
   } else {
     std::cout << "No other mlir generators yet.\n";
     exit(1);

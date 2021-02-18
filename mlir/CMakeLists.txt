@@ -45,6 +45,7 @@ set(LIBS
         MLIRExecutionEngine
         MLIRStandard
         openqasm-mlir-generator
+        openqasmv3-mlir-generator
         quantum-to-llvm-lowering
         )
 
@@ -61,7 +62,7 @@ target_include_directories(
   PUBLIC . dialect/include ${CMAKE_BINARY_DIR}/mlir/dialect/include) 
 
 #get_property(dialect_libs GLOBAL PROPERTY MLIR_DIALECT_LIBS)
-#target_link_libraries(${LIBRARY_NAME} PUBLIC MLIRQuantum MLIRIR MLIRStandard ${dialect_libs} MLIROptLib openqasm-mlir-generator quantum-to-llvm-lowering)
+#target_link_libraries(${LIBRARY_NAME} PUBLIC MLIRQuantum MLIRIR MLIRStandard ${dialect_libs} MLIROptLib openqasm-mlir-generator openqasmv3-mlir-generator quantum-to-llvm-lowering)
 
 if(APPLE)
   set_target_properties(${LIBRARY_NAME}

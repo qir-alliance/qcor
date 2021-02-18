@@ -16,9 +16,19 @@ def QallocOp : QuantumOp<"qalloc", []> {
     let results = (outs ArrayType:$qubits);
 }
 
-def ExtractQubitOp : QuantumOp<"extract", []> {
+def ResultAllocOp : QuantumOp<"ralloc", []> {
+    let arguments = (ins AnyI64Attr:$size, StrAttr:$name);
+    let results = (outs ArrayType:$creg);
+}
+
+def ExtractQubitOp : QuantumOp<"qextract", []> {
     let arguments = (ins ArrayType:$qreg, I64:$idx);
     let results = (outs QubitType:$qbit);
+}
+
+def ExtractCbitOp : QuantumOp<"cextract", []> {
+    let arguments = (ins ArrayType:$creg, I64:$idx);
+    let results = (outs ResultType:$cbit);
 }
 
 def InstOp : QuantumOp<"inst", [AttrSizedOperandSegments]> {

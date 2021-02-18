@@ -1,1 +1,2 @@
-add_subdirectory(openqasm)
+add_subdirectory(openqasm_v2)
+add_subdirectory(openqasm_v3)
