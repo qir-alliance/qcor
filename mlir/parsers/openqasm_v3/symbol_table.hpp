@@ -3,8 +3,8 @@
 #include <map>
 #include <vector>
 
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "Quantum/QuantumOps.h"
+#include "mlir/Dialect/StandardOps/IR/Ops.h"
 
 namespace qcor {
 using SymbolTable = std::map<std::string, mlir::Value>;
@@ -18,7 +18,12 @@ class ScopedSymbolTable {
   std::size_t current_scope = 0;
   std::map<std::string, std::vector<std::string>> variable_attributes;
 
-  std::map<std::uint64_t, mlir::Value> constant_integer_values;
+  // key is (int, width)
+  std::map<std::pair<std::uint64_t, int>, mlir::Value> constant_integer_values;
+
+  mlir::Value last_value_added;
+
+  std::map<std::string, mlir::FuncOp> seen_functions;
 
  public:
   ScopedSymbolTable() {
@@ -53,21 +58,38 @@ class ScopedSymbolTable {
     scoped_symbol_tables.pop_back();
   }
 
-  bool has_constant_integer(std::uint64_t key) {
-      return constant_integer_values.count(key);
+  void add_seen_function(const std::string name, mlir::FuncOp function) {
+    seen_functions.insert({name, function});
+    return;
   }
 
-  void add_constant_integer(std::uint64_t key, mlir::Value constant_value) {
-      if (!constant_integer_values.count(key)) {
-          constant_integer_values.insert({key, constant_value});
-      }
-      return;
+  mlir::FuncOp get_seen_function(const std::string name) {
+    if (!seen_functions.count(name)) {
+      printErrorMessage(name + " is not a known function in the symbol table.");
+    }
+    return seen_functions[name];
   }
-  mlir::Value get_constant_integer(std::uint64_t key) {
-      if (!constant_integer_values.count(key)) {
-          printErrorMessage("constant integer " + std::to_string(key) + " is not in the symbol table.");
-      }
-      return constant_integer_values[key];
+
+  bool has_seen_function(const std::string name) {
+    return seen_functions.count(name);
+  }
+
+  bool has_constant_integer(std::uint64_t key, int width = 64) {
+    return constant_integer_values.count({key,width});
+  }
+
+  void add_constant_integer(std::uint64_t key, mlir::Value constant_value, int width = 64) {
+    if (!constant_integer_values.count({key,width})) {
+      constant_integer_values.insert({{key,width}, constant_value});
+    }
+    return;
+  }
+  mlir::Value get_constant_integer(std::uint64_t key, int width = 64) {
+    if (!has_constant_integer(key,width)) {
+      printErrorMessage("constant integer " + std::to_string(key) +
+                        " is not in the symbol table.");
+    }
+    return constant_integer_values[{key,width}];
   }
   bool is_allocation(const std::string variable_name) {
     return has_symbol(variable_name) &&
@@ -123,23 +145,35 @@ class ScopedSymbolTable {
 
     printErrorMessage("No variable " + variable_name +
                       " in scoped symbol table (provided scope = " +
-                      std::to_string(scope) + ").");
+                      std::to_string(scope) + "). Did you allocate it?");
   }
+
+  mlir::Value get_last_value_added() { return last_value_added; }
+
 
   // add the symbol to the given scope
   void add_symbol(const std::string variable_name, mlir::Value value,
                   const std::size_t scope,
-                  std::vector<std::string> var_attributes = {}) {
+                  std::vector<std::string> var_attributes = {},
+                  bool overwrite = false) {
     if (scope > current_scope) {
       printErrorMessage("Provided scope is greater than the current scope.\n");
     }
 
     if (has_symbol(variable_name)) {
-      printErrorMessage(variable_name + " is already in the symbol table.");
+      if (!overwrite) {
+        printErrorMessage(variable_name + " is already in the symbol table.");
+      } else {
+        scoped_symbol_tables[scope][variable_name] = value;
+        variable_attributes[variable_name] = var_attributes;
+        last_value_added = value;
+        return;
+      }
     }
 
     scoped_symbol_tables[scope].insert({variable_name, value});
     variable_attributes.insert({variable_name, var_attributes});
+    last_value_added = value;
   }
 
   // get symbol at the current scope, will search parent scopes
@@ -153,8 +187,8 @@ class ScopedSymbolTable {
 
   // add symbol to current scope
   void add_symbol(const std::string variable_name, mlir::Value value,
-                  std::vector<std::string> var_attributes = {}) {
-    add_symbol(variable_name, value, current_scope, var_attributes);
+                  std::vector<std::string> var_attributes = {}, bool overwrite = false) {
+    add_symbol(variable_name, value, current_scope, var_attributes, overwrite);
   }
 
   // add symbol to global scope
@@ -169,6 +203,6 @@ class ScopedSymbolTable {
   std::size_t get_parent_scope() {
     return current_scope >= 1 ? current_scope - 1 : 0;
   }
-  ~ScopedSymbolTable() {  }
+  ~ScopedSymbolTable() {}
 };
 }  // namespace qcor

@@ -44,6 +44,7 @@ set(LIBS
         MLIRTargetLLVMIR
         MLIRExecutionEngine
         MLIRStandard
+        MLIRAffine
         openqasm-mlir-generator
         openqasmv3-mlir-generator
         quantum-to-llvm-lowering

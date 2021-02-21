@@ -2,6 +2,7 @@
 #include <regex>
 
 #include "Quantum/QuantumOps.h"
+#include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/Builders.h"
@@ -29,15 +30,28 @@ class qasm3_visitor : public qasm3::qasm3BaseVisitor {
     mlir::Identifier dialect = mlir::Identifier::get("quantum", context);
     qubit_type = mlir::OpaqueType::get(context, dialect, qubit_type_name);
     array_type = mlir::OpaqueType::get(context, dialect, array_type_name);
-    result_type = mlir::OpaqueType::get(context, dialect, result_type_name);
+    result_type = mlir::IntegerType::get(
+        context, 1);  //::OpaqueType::get(context, dialect, result_type_name);
   }
 
   antlrcpp::Any visitQuantumDeclaration(
       qasm3Parser::QuantumDeclarationContext* context) override;
 
+  antlrcpp::Any visitQuantumGateCall(
+      qasm3Parser::QuantumGateCallContext* context) override;
+
+  antlrcpp::Any visitSubroutineCall(
+      qasm3Parser::SubroutineCallContext* context) override;
+
+  antlrcpp::Any visitQuantumMeasurement(
+      qasm3Parser::QuantumMeasurementContext* context) override;
+  antlrcpp::Any visitQuantumMeasurementAssignment(
+      qasm3Parser::QuantumMeasurementAssignmentContext* context) override;
+
   antlrcpp::Any visitSubroutineDefinition(
       qasm3Parser::SubroutineDefinitionContext* context) override;
-
+  antlrcpp::Any visitReturnStatement(
+      qasm3Parser::ReturnStatementContext* context) override;
   antlrcpp::Any visitBranchingStatement(
       qasm3Parser::BranchingStatementContext* context) override;
 
@@ -65,24 +79,18 @@ class qasm3_visitor : public qasm3::qasm3BaseVisitor {
 
   ScopedSymbolTable symbol_table;
 
-  // std::map<std::string, mlir::Value>& global_symbol_table;
-  std::map<std::string, mlir::FuncOp> seen_functions;
-
   bool at_global_scope = true;
+  bool subroutine_return_statment_added = false;
+  bool is_return_stmt = false;
 
   mlir::Type qubit_type;
   mlir::Type array_type;
   mlir::Type result_type;
 
   void update_symbol_table(const std::string& key, mlir::Value value,
-                           std::vector<std::string> variable_attributes = {}) {
-    if (symbol_table.has_symbol(key)) {
-      printErrorMessage(key +
-                            " has already been used as a variable name (it is "
-                            "in the symbol table)",
-                        value);
-    }
-    symbol_table.add_symbol(key, value, variable_attributes);
+                           std::vector<std::string> variable_attributes = {},
+                           bool overwrite = false) {
+    symbol_table.add_symbol(key, value, variable_attributes, overwrite);
     return;
   }
 
@@ -96,12 +104,8 @@ class qasm3_visitor : public qasm3::qasm3BaseVisitor {
       auto qubits = symbol_table.get_symbol(qreg_name)
                         .getDefiningOp<mlir::quantum::QallocOp>()
                         .qubits();
-      mlir::Value pos;
-      if (symbol_table.has_constant_integer(idx)) {
-        pos = symbol_table.get_constant_integer(idx);
-      } else {
-        pos = create_constant_integer_value(idx, location);
-      }
+      mlir::Value pos = get_or_create_constant_integer_value(idx, location);
+
       // auto pos = create_constant_integer_value(idx, location);
       auto value = builder.create<mlir::quantum::ExtractQubitOp>(
           location, qubit_type, qubits, pos);
@@ -110,12 +114,60 @@ class qasm3_visitor : public qasm3::qasm3BaseVisitor {
     }
   }
 
-  mlir::Value create_constant_integer_value(const std::size_t idx,
-                                            mlir::Location location) {
-    auto integer_attr = mlir::IntegerAttr::get(builder.getI64Type(), idx);
-    auto ret = builder.create<mlir::ConstantOp>(location, integer_attr);
-    symbol_table.add_constant_integer(idx, ret);
-    return ret;
+  mlir::Value get_or_create_constant_integer_value(const std::size_t idx,
+                                                   mlir::Location location,
+                                                   int width = 64) {
+    if (symbol_table.has_constant_integer(idx, width)) {
+      return symbol_table.get_constant_integer(idx, width);
+    } else {
+      auto integer_attr =
+          mlir::IntegerAttr::get(builder.getIntegerType(width), idx);
+
+      auto ret = builder.create<mlir::ConstantOp>(location, integer_attr);
+      symbol_table.add_constant_integer(idx, ret, width);
+      return ret;
+    }
+  }
+
+    mlir::Value get_or_create_constant_index_value(const std::size_t idx,
+                                                   mlir::Location location,
+                                                   int width = 64) {
+    auto constant_int = get_or_create_constant_integer_value(idx, location, width);
+    return builder.create<mlir::IndexCastOp>(
+        location, constant_int, builder.getIndexType());
+  }
+
+  // This function serves as a utility for creating a MemRef and
+  // corresponding AllocOp of a given 1d shape. It will also store
+  // initial values to all elements of the 1d array.
+  mlir::Value allocate_1d_memory_and_initialize(
+      mlir::Location location, int64_t shape, mlir::Type type,
+      std::vector<mlir::Value> initial_values,
+      llvm::ArrayRef<mlir::Value> initial_indices) {
+    if (shape != initial_indices.size()) {
+      printErrorMessage(
+          "Cannot allocate and initialize memory, shape and number of initial "
+          "value indices is incorrect");
+    }
+    llvm::ArrayRef<int64_t> shaperef{shape};
+
+    auto mem_type = mlir::MemRefType::get(shaperef, type);
+    mlir::Value allocation = builder.create<mlir::AllocaOp>(location, mem_type);
+    for (int i = 0; i < initial_values.size(); i++) {
+      builder.create<mlir::StoreOp>(location, initial_values[i],
+                                    allocation, initial_indices);  
+    }
+    return allocation;
+  }
+
+  mlir::Value allocate_1d_memory(mlir::Location location, int64_t shape,
+                                 mlir::Type type) {
+    llvm::ArrayRef<int64_t> shaperef{shape};
+
+    auto mem_type = mlir::MemRefType::get(shaperef, type);
+    mlir::Value allocation = builder.create<mlir::AllocOp>(location, mem_type);
+
+    return allocation;
   }
 };
 

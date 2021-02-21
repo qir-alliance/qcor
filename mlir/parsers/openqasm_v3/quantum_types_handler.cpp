@@ -46,12 +46,12 @@ antlrcpp::Any qasm3_visitor::visitQuantumDeclaration(
     if (context->quantumType()->getText() == "qubit" && size == 1) {
       // we have a single qubit, dont set it as an array in teh
       // symbol table, extract it and set it
-      mlir::Value pos;
-      if (symbol_table.has_constant_integer(0)) {
-          pos = symbol_table.get_constant_integer(0);
-      } else {
-          pos = create_constant_integer_value(0, location);
-      }
+      mlir::Value pos = get_or_create_constant_integer_value(0, location);
+
+      // Need to also store the qubit array for this single qubit
+      // so that we can deallocate later. 
+      update_symbol_table("__qcor__mlir__single_qubit_register_"+var_name, allocation);
+      
       allocation = builder.create<mlir::quantum::ExtractQubitOp>(
           location, qubit_type, allocation, pos);
     }

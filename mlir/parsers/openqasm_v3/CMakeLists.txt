@@ -17,7 +17,7 @@ target_include_directories(
   ${LIBRARY_NAME}
   PUBLIC . .. ../../dialect/include ${CMAKE_BINARY_DIR}/mlir/dialect/include ${XACC_ROOT}/include/antlr4-runtime generated)
 
-target_link_libraries(${LIBRARY_NAME} PUBLIC MLIRQuantum MLIRIR MLIRStandard ${ANTLR_LIB})
+target_link_libraries(${LIBRARY_NAME} PUBLIC MLIRQuantum MLIRIR MLIRStandard MLIRAffine ${ANTLR_LIB})
 
 
 if(APPLE)

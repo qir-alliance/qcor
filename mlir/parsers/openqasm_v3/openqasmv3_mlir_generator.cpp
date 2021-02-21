@@ -102,8 +102,8 @@ void OpenQasmV3MLIRGenerator::mlirgen(const std::string &src) {
   CommonTokenStream tokens(&lexer);
   qasm3Parser parser(&tokens);
 
-  // lexer.removeErrorListeners();
-  // parser.removeErrorListeners();
+  lexer.removeErrorListeners();
+  parser.removeErrorListeners();
 
   tree::ParseTree *tree = parser.program();
 

@@ -4,6 +4,7 @@
 #include "Quantum/QuantumDialect.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Vector/VectorOps.h"
 #include "mlir/ExecutionEngine/ExecutionEngine.h"
 #include "mlir/ExecutionEngine/OptUtils.h"
@@ -27,7 +28,7 @@ const std::string mlir_compile(const std::string& src_language_type,
 
   mlir::MLIRContext context;
   context
-      .loadDialect<mlir::quantum::QuantumDialect, mlir::StandardOpsDialect>();
+      .loadDialect<mlir::quantum::QuantumDialect, mlir::StandardOpsDialect, mlir::AffineDialect>();
 
   std::vector<std::string> unique_function_names;
 

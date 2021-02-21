@@ -34,7 +34,6 @@ antlrcpp::Any qasm3_visitor::visitBranchingStatement(
   // If we have a second program block then we have an else stmt
   builder.setInsertionPointToStart(elseBlock);
   if (context->programBlock().size() == 2) {
-    std::cout << "WE HAVE AN ELSE BLOCK\n";
     symbol_table.enter_new_scope();
     visitChildren(context->programBlock(1));
     symbol_table.exit_scope();

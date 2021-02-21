@@ -90,7 +90,7 @@ antlrcpp::Any qasm3_visitor::visitSingleDesignatorDeclaration(
   auto location = get_location(builder, file_name, context);
   auto type = context->singleDesignatorType()->getText();
   auto designator_expr = context->designator()->expression();
-  uint64_t idx;
+  uint64_t width_idx;
   {
     // I only want the IDX in TYPE[IDX], don't need to add it the
     // the current module... This will tell me the bit width
@@ -100,47 +100,41 @@ antlrcpp::Any qasm3_visitor::visitSingleDesignatorDeclaration(
     designator_exp_generator.visit(designator_expr);
     auto designator_value = designator_exp_generator.current_value;
 
-    idx = designator_value.getDefiningOp<mlir::ConstantOp>()
-              .getValue()
-              .cast<mlir::IntegerAttr>()
-              .getUInt();
+    width_idx = designator_value.getDefiningOp<mlir::ConstantOp>()
+                    .getValue()
+                    .cast<mlir::IntegerAttr>()
+                    .getUInt();
   }
-//   std::cout << "HELLO: " << idx << "\n";
 
-  auto element_zero_attr =
-      mlir::IntegerAttr::get(builder.getIntegerType(idx), 0);
   mlir::FloatAttr float_attr;
   mlir::Type float_type;
-  if (idx == 16) {
+  if (width_idx == 16) {
     float_type = mlir::FloatType::getF16(builder.getContext());
     float_attr = mlir::FloatAttr::get(float_type, 0.0);
 
-  } else if (idx == 32) {
+  } else if (width_idx == 32) {
     float_type = mlir::FloatType::getF32(builder.getContext());
     float_attr = mlir::FloatAttr::get(float_type, 0.0);
 
-  } else if (idx == 64) {
+  } else if (width_idx == 64) {
     float_type = mlir::FloatType::getF64(builder.getContext());
     float_attr = mlir::FloatAttr::get(float_type, 0.0);
 
   } else {
-    printErrorMessage("we only support 16, 32, and 64 floating point types.");
+    printErrorMessage(
+        "we only support 16, 32, and 64 integer and floating point types.");
   }
-  mlir::Value element_zero_val;
-  if (symbol_table.has_constant_integer(0)) {
-    element_zero_val = symbol_table.get_constant_integer(0);
-  } else {
-    element_zero_val = create_constant_integer_value(0, location);
-  }
-  //   builder.create<mlir::ConstantOp>(location, element_zero_attr);
+
+  // Create the zero int value
+  mlir::Value element_zero_val =
+      get_or_create_constant_integer_value(0, location, width_idx);
 
   mlir::Value init_val;
   std::string var_name;
   if (context->identifierList()) {
-    // we have a variable, no initialization
-    var_name = context->identifierList()->Identifier(0)->getText();
-    // std::cout << "varname; " << var_name << "\n";
+    // we have a variable, no initialization, so just set to zero
 
+    var_name = context->identifierList()->Identifier(0)->getText();
     if (type == "int" || type == "uint") {  // FIXME hack for now
       // Initialize to 0;
       init_val =
@@ -153,44 +147,48 @@ antlrcpp::Any qasm3_visitor::visitSingleDesignatorDeclaration(
   } else {
     // we have a variable = initial
     // set var_name and init_val
-    // std::cout << "printing here " << context->equalsAssignmentList()->getText()
+    // std::cout << "printing here " <<
+    // context->equalsAssignmentList()->getText()
     //           << "\n";
     auto easslist = context->equalsAssignmentList();
     auto ids = easslist->Identifier();
     if (ids.size() > 1) {
       printErrorMessage("we only support single equal assignments.");
     }
+
     var_name = ids[0]->getText();
     auto equals_expr = easslist->equalsExpression(0)->expression();
+
+    // Need to tell the expression_generator what type this
+    // variable is so that it will create
     qasm3_expression_generator equals_exp_generator(builder, symbol_table,
-                                                    file_name);
+                                                    file_name, width_idx);
     equals_exp_generator.visit(equals_expr);
     init_val = equals_exp_generator.current_value;
   }
 
   // create a variable allocation of given type
-  llvm::ArrayRef<int64_t> shape{1};
   mlir::Value allocation;
   if (type == "int" || type == "uint") {  // FIXME hack for now
-    auto int_type = mlir::MemRefType::get(shape, builder.getIntegerType(idx));
-    allocation = builder.create<mlir::AllocOp>(location, int_type);
-    builder.create<mlir::StoreOp>(
-        location, init_val, allocation,
-        llvm::makeArrayRef(std::vector<mlir::Value>{element_zero_val}));
+    // Create memory allocation of dimension 0, so just a scalar
+    // integer value of given width
+    auto tmp = get_or_create_constant_index_value(0, location);
+    allocation = allocate_1d_memory_and_initialize(
+        location, 1, builder.getIntegerType(width_idx),
+        std::vector<mlir::Value>{init_val},
+        llvm::makeArrayRef(std::vector<mlir::Value>{tmp}));
+
   } else if (type == "float" || type == "angle") {  // FIXME hack for now
-    auto float_type_mem = mlir::MemRefType::get(shape, float_type);
-    allocation = builder.create<mlir::AllocOp>(location, float_type_mem);
-    builder.create<mlir::StoreOp>(
-        location, init_val, allocation,
-        llvm::makeArrayRef(std::vector<mlir::Value>{element_zero_val}));
+    auto tmp = get_or_create_constant_index_value(0, location);
+    allocation = allocate_1d_memory_and_initialize(
+        location, 1, float_type, std::vector<mlir::Value>{init_val},
+        llvm::makeArrayRef(std::vector<mlir::Value>{tmp}));
   } else {
     printErrorMessage("Invalid type - " + type);
   }
 
+  // Save the allocation, the store op
   symbol_table.add_symbol(var_name, allocation);
-
-//   std::cout << "IS ALLOCATION: " << var_name << ", "
-//             << symbol_table.is_allocation(var_name) << "\n";
   return 0;
 }
 
@@ -208,27 +206,17 @@ antlrcpp::Any qasm3_visitor::visitNoDesignatorDeclaration(
         mlir::IntegerAttr::get(builder.getIntegerType(64), 0);
     auto element_false_attr = mlir::IntegerAttr::get(builder.getI1Type(), 0);
 
-    mlir::Value element_zero_val;
-    if (symbol_table.has_constant_integer(0)) {
-      element_zero_val = symbol_table.get_constant_integer(0);
-    } else {
-      element_zero_val = create_constant_integer_value(0, location);
-    }
-    // auto element_zero_val =
-    // builder.create<mlir::ConstantOp>(location, element_zero_attr);
-
     std::string var_name;
-    llvm::ArrayRef<int64_t> shape{1};
-    auto bool_type = mlir::MemRefType::get(shape, builder.getI1Type());
     mlir::Value allocation, init_val;
     if (auto ident_list = context->identifierList()) {
       var_name = ident_list->Identifier(0)->getText();
       init_val = builder.create<mlir::ConstantOp>(location, element_false_attr);
+
       // bool b;
-      allocation = builder.create<mlir::AllocOp>(location, bool_type);
-      builder.create<mlir::StoreOp>(
-          location, init_val, allocation,
-          llvm::makeArrayRef(std::vector<mlir::Value>{element_zero_val}));
+      auto tmp = get_or_create_constant_index_value(0, location);
+      allocation = allocate_1d_memory_and_initialize(
+          location, 1, builder.getI1Type(), std::vector<mlir::Value>{init_val},
+          llvm::makeArrayRef(std::vector<mlir::Value>{tmp}));
 
     } else {
       auto equals_assignment = context->equalsAssignmentList();
@@ -239,36 +227,53 @@ antlrcpp::Any qasm3_visitor::visitNoDesignatorDeclaration(
       }
       var_name = ids[0]->getText();
       auto equals_expr = equals_assignment->equalsExpression(0)->expression();
-      std::uint64_t idx;
-      {
-        mlir::OpBuilder tmpbuilder(builder.getContext());
-        qasm3_expression_generator equals_exp_generator(
-            tmpbuilder, symbol_table, file_name);
+      if (equals_expr->getText().find("bool") != std::string::npos) {
+        // This is a cast expr...
+        qasm3_expression_generator equals_exp_generator(builder, symbol_table,
+                                                        file_name);
         equals_exp_generator.visit(equals_expr);
-        auto tmp_init_val = equals_exp_generator.current_value;
-
-        // can set 1 or 0, so check the int value and then map to boolean i1
-        idx = tmp_init_val.getDefiningOp<mlir::ConstantOp>()
-                  .getValue()
-                  .cast<mlir::IntegerAttr>()
-                  .getUInt();
-      }
-      if (idx == 1) {
-        auto element_true_attr = mlir::IntegerAttr::get(builder.getI1Type(), 1);
-        init_val =
-            builder.create<mlir::ConstantOp>(location, element_true_attr);
-      } else if (idx == 0) {
-        init_val =
-            builder.create<mlir::ConstantOp>(location, element_false_attr);
+        init_val = equals_exp_generator.current_value;
       } else {
-        printErrorMessage("invalid value for bool type, must be 1 or 0.");
+        std::uint64_t idx;
+        {
+          mlir::OpBuilder tmpbuilder(builder.getContext());
+          qasm3_expression_generator equals_exp_generator(
+              tmpbuilder, symbol_table, file_name);
+          equals_exp_generator.visit(equals_expr);
+          auto tmp_init_val = equals_exp_generator.current_value;
+
+          if (auto tmp_op = tmp_init_val.getDefiningOp<mlir::ConstantOp>()) {
+            // can set 1 or 0, so check the int value and then map to boolean i1
+            idx = tmp_op.getValue().cast<mlir::IntegerAttr>().getUInt();
+          }
+        }
+
+        if (idx == 1) {
+          auto element_true_attr =
+              mlir::IntegerAttr::get(builder.getI1Type(), 1);
+          init_val =
+              builder.create<mlir::ConstantOp>(location, element_true_attr);
+        } else if (idx == 0) {
+          init_val =
+              builder.create<mlir::ConstantOp>(location, element_false_attr);
+        } else {
+          printErrorMessage("invalid value for bool type, must be 1 or 0.");
+        }
       }
 
       // bool b = 1;
-      allocation = builder.create<mlir::AllocOp>(location, bool_type);
-      builder.create<mlir::StoreOp>(
-          location, init_val, allocation,
-          llvm::makeArrayRef(std::vector<mlir::Value>{element_zero_val}));
+      auto tmp = get_or_create_constant_index_value(0, location);
+      llvm::ArrayRef<mlir::Value> zero_index(tmp);
+      // init_val for this cast op will be a memref, so we load
+      // the value from it
+      auto load = builder.create<mlir::LoadOp>(location, init_val, zero_index);
+      auto load_result = load.result();
+
+      // .. and then store that
+      allocation = allocate_1d_memory_and_initialize(
+          location, 1, builder.getI1Type(),
+          std::vector<mlir::Value>{load_result},
+          llvm::makeArrayRef(std::vector<mlir::Value>{tmp}));
     }
 
     // Add the boolean to the symbol table at current scope
@@ -302,27 +307,7 @@ antlrcpp::Any qasm3_visitor::visitBitDeclaration(
         size = std::stoi(exp_list->expression(0)->getText());
       }
 
-      auto integer_type = builder.getI64Type();
-      auto integer_attr = mlir::IntegerAttr::get(integer_type, size);
-
-      auto str_attr = builder.getStringAttr(var_name);
-      mlir::Value allocation = builder.create<mlir::quantum::ResultAllocOp>(
-          location, array_type, integer_attr, str_attr);
-
-      if (context->bitType()->getText() == "bit" && size == 1) {
-        // we have a single cbit, dont set it as an array in the
-        // symbol table, extract it and set it
-        mlir::Value pos;
-        if (symbol_table.has_constant_integer(0)) {
-          pos = symbol_table.get_constant_integer(0);
-        } else {
-          pos = create_constant_integer_value(0, location);
-        }
-
-        // auto pos = get_constant_integer_idx(0, location);
-        allocation = builder.create<mlir::quantum::ExtractCbitOp>(
-            location, qubit_type, allocation, pos);
-      }
+      auto allocation = allocate_1d_memory(location, size, result_type);
 
       update_symbol_table(var_name, allocation);
     }
@@ -367,40 +352,110 @@ antlrcpp::Any qasm3_visitor::visitClassicalAssignment(
                       ", it has been marked const.");
   }
 
-  std::cout << "TESTING " << var_name << ", " << ass_op->getText() << "\n";
-
-  qasm3_expression_generator exp_generator(builder, symbol_table, file_name);
-  exp_generator.visit(context->expression());
-  auto rhs = exp_generator.current_value;
+   
   auto lhs = symbol_table.get_symbol(var_name);
 
-  auto lhs_ptr = builder.create<mlir::LoadOp>(location, lhs);
-  mlir::Value current_value;
-  auto assignment_op = ass_op->getText();
-  if (assignment_op == "+=") {
-    if (lhs.getType().isa<mlir::FloatType>() ||
-        rhs.getType().isa<mlir::FloatType>()) {
-      current_value = builder.create<mlir::AddFOp>(location, lhs, rhs);
-    } else if (lhs.getType().isa<mlir::IntegerType>() &&
-               rhs.getType().isa<mlir::IntegerType>()) {
-      current_value = builder.create<mlir::AddIOp>(location, lhs, rhs);
+  auto width = lhs.getType()
+                   .cast<mlir::MemRefType>()
+                   .getElementType()
+                   .getIntOrFloatBitWidth();
+  qasm3_expression_generator exp_generator(builder, symbol_table, file_name,
+                                           width);
+  exp_generator.visit(context->expression());
+  auto rhs = exp_generator.current_value;
+  lhs.dump();
+  // Could be somethign like
+  // bit = subroutine_call(params) qbits...
+  if (auto call_op = rhs.getDefiningOp<mlir::CallOp>()) {
+    int bit_idx = 0;
+    if (auto index_list = context->indexIdentifier(0)->expressionList()) {
+      // Need to extract element from bit array to set it
+      auto idx_str = index_list->expression(0)->getText();
+      bit_idx = std::stoi(idx_str);
     }
-    builder.create<mlir::StoreOp>(location, current_value, lhs_ptr);
+
+    // Store the mz result into the bit_value
+    mlir::Value pos = get_or_create_constant_integer_value(bit_idx, location);
+
+    builder.create<mlir::StoreOp>(
+        location, rhs, lhs, llvm::makeArrayRef(std::vector<mlir::Value>{pos}));
+    return 0;
+
+  } else {
+    if (!lhs.getType().isa<mlir::MemRefType>()) {
+      printErrorMessage("cannot += to a lhs that is not a memreftype.");
+    }
+    auto lhs_type = lhs.getType().cast<mlir::MemRefType>().getElementType();
+
+    // Load the LHS, has to load an existing allocated value
+    // %2 = load i32, i32* %1
+    // Create the zero int value
+    llvm::ArrayRef<mlir::Value> zero_index(
+        get_or_create_constant_index_value(0, location));
+    auto load = builder.create<mlir::LoadOp>(location, lhs, zero_index);
+    auto load_result = load.result();
+
+    mlir::Value current_value;
+    auto assignment_op = ass_op->getText();
+    if (assignment_op == "+=") {
+      if (lhs_type.isa<mlir::FloatType>() ||
+          rhs.getType().isa<mlir::FloatType>()) {
+        current_value = builder.create<mlir::AddFOp>(location, lhs, rhs);
+      } else if (lhs_type.isa<mlir::IntegerType>() &&
+                 rhs.getType().isa<mlir::IntegerType>()) {
+        current_value =
+            builder.create<mlir::AddIOp>(location, load_result, rhs);
+      }
+
+      llvm::ArrayRef<mlir::Value> zero_index2(
+          get_or_create_constant_index_value(0, location));
+      builder.create<mlir::StoreOp>(location, current_value, lhs, zero_index2);
+
+    } else if (assignment_op == "-=") {
+      if (lhs_type.isa<mlir::FloatType>() ||
+          rhs.getType().isa<mlir::FloatType>()) {
+        current_value = builder.create<mlir::SubFOp>(location, lhs, rhs);
+      } else if (lhs_type.isa<mlir::IntegerType>() &&
+                 rhs.getType().isa<mlir::IntegerType>()) {
+        current_value =
+            builder.create<mlir::SubIOp>(location, load_result, rhs);
+      }
+
+      llvm::ArrayRef<mlir::Value> zero_index2(
+          get_or_create_constant_index_value(0, location));
+      builder.create<mlir::StoreOp>(location, current_value, lhs, zero_index2);
+
+    } else if (assignment_op == "*=") {
+      if (lhs_type.isa<mlir::FloatType>() ||
+          rhs.getType().isa<mlir::FloatType>()) {
+        current_value = builder.create<mlir::MulFOp>(location, lhs, rhs);
+      } else if (lhs_type.isa<mlir::IntegerType>() &&
+                 rhs.getType().isa<mlir::IntegerType>()) {
+        current_value =
+            builder.create<mlir::MulIOp>(location, load_result, rhs);
+      }
+
+      llvm::ArrayRef<mlir::Value> zero_index2(
+          get_or_create_constant_index_value(0, location));
+      builder.create<mlir::StoreOp>(location, current_value, lhs, zero_index2);
+    } else if (assignment_op == "/=") {
+      if (lhs_type.isa<mlir::FloatType>() ||
+          rhs.getType().isa<mlir::FloatType>()) {
+        current_value = builder.create<mlir::DivFOp>(location, lhs, rhs);
+      } else if (lhs_type.isa<mlir::IntegerType>() &&
+                 rhs.getType().isa<mlir::IntegerType>()) {
+        current_value =
+            builder.create<mlir::UnsignedDivIOp>(location, load_result, rhs);
+      }
+
+      llvm::ArrayRef<mlir::Value> zero_index2(
+          get_or_create_constant_index_value(0, location));
+      builder.create<mlir::StoreOp>(location, current_value, lhs, zero_index2);
+    } else {
+      printErrorMessage(ass_op->getText() + " not yet supported.");
+    }
   }
 
-  // if (ass_list->Identifier().size() > 1) {
-  //   printErrorMessage(
-  //       "we only support single const variable assignement at this
-  //       time.");
-  // }
-  // auto var_name = ass_list->Identifier(0)->getText();
-  // auto equals_expr = ass_list->equalsExpression(0);
-
-  // qasm3_expression_generator exp_generator(builder, symbol_table,
-  // file_name); exp_generator.visit(equals_expr); auto expr_value =
-  // exp_generator.current_value;
-
-  // update_symbol_table(var_name, expr_value);
   return 0;
 }
 }  // namespace qcor
