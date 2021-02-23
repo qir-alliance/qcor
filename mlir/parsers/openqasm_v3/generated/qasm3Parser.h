@@ -1133,9 +1133,9 @@ public:
     antlr4::tree::TerminalNode *MINUS();
     ExpressionTerminatorContext *expressionTerminator();
     BinaryOperatorContext *binaryOperator();
-    IncrementorContext *incrementor();
     antlr4::tree::TerminalNode *LBRACKET();
     antlr4::tree::TerminalNode *RBRACKET();
+    IncrementorContext *incrementor();
 
     virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
     virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;

@@ -10,30 +10,21 @@ def ResultType : OpaqueType<"quantum", "Result", "opaque result type">;
 def ArrayType : OpaqueType<"quantum", "Array", "opaque array type">;
 def ArgvType : OpaqueType<"quantum", "ArgvType", "opaque argv type">;
 def QregType : OpaqueType<"quantum", "QregType", "opaque qreg type">;
+def StringType : OpaqueType<"quantum", "StringType", "opaque string type">;
 
 def QallocOp : QuantumOp<"qalloc", []> {
     let arguments = (ins AnyI64Attr:$size, StrAttr:$name);
     let results = (outs ArrayType:$qubits);
 }
 
-def ResultAllocOp : QuantumOp<"ralloc", []> {
-    let arguments = (ins AnyI64Attr:$size, StrAttr:$name);
-    let results = (outs ArrayType:$creg);
-}
-
 def ExtractQubitOp : QuantumOp<"qextract", []> {
-    let arguments = (ins ArrayType:$qreg, I64:$idx);
+    let arguments = (ins ArrayType:$qreg, AnyInteger:$idx);
     let results = (outs QubitType:$qbit);
-}
-
-def ExtractCbitOp : QuantumOp<"cextract", []> {
-    let arguments = (ins ArrayType:$creg, I64:$idx);
-    let results = (outs ResultType:$cbit);
 }
 
 def InstOp : QuantumOp<"inst", [AttrSizedOperandSegments]> {
     let arguments = (ins StrAttr:$name, Variadic<QubitType>:$qubits, Variadic<F64>:$params);
-    let results = (outs Optional<I64>:$bit);
+    let results = (outs Optional<ResultType>:$bit);
 }
 
 def DeallocOp : QuantumOp<"dealloc", []> {
@@ -54,6 +45,16 @@ def QRTFinalizeOp : QuantumOp<"finalize", []> {
 def SetQregOp : QuantumOp<"set_qreg", []> {
     let arguments = (ins QregType:$qreg);
     let results = (outs);
+}
+
+def PrintOp : QuantumOp<"print", []> {
+    let arguments = (ins Variadic<AnyType>:$print_args);
+    let results = (outs);
+}
+
+def CreateStringLiteralOp : QuantumOp<"createString", []> {
+    let arguments = (ins StrAttr:$text, StrAttr:$varname);
+    let results = (outs StringType:$result);
 }
 
 #endif // Quantum_OPS

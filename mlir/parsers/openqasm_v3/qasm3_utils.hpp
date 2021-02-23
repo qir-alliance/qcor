@@ -31,7 +31,7 @@ mlir::Location get_location(mlir::OpBuilder builder,
                             const std::string& file_name,
                             antlr4::ParserRuleContext* context) ;
 
-inline std::vector<std::string> split(const std::string& s, char delim);
+std::vector<std::string> split(const std::string& s, char delim);
 extern std::map<std::string, mlir::CmpIPredicate> antlr_to_mlir_predicate;
 
 

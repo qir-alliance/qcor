@@ -44,10 +44,49 @@ antlrcpp::Any qasm3_visitor::visitSubroutineDefinition(
       auto type = arg->classicalType()->getText();
       if (type == "bit") {
         // result type
-
+        argument_types.push_back(result_type);
       } else if (type.find("bit") != std::string::npos &&
                  type.find("[") != std::string::npos) {
         // array type
+        auto start = type.find_first_of("[");
+        auto finish = type.find_first_of("]");
+        auto idx_str = type.substr(start + 1, finish - start - 1);
+
+        auto is_constant = [](const std::string idx_str) {
+          try {
+            std::stoi(idx_str);
+            return true;
+          } catch (std::exception& ex) {
+            return false;
+          }
+        };
+
+        mlir::Type mlir_type;
+        if (is_constant(idx_str)) {
+          auto bit_size = std::stoi(idx_str);
+          llvm::ArrayRef<int64_t> shaperef{bit_size};
+          mlir_type = mlir::MemRefType::get(shaperef, result_type);
+        } else {
+          // this is a variable idx size
+          if (!symbol_table.has_symbol(idx_str)) {
+            printErrorMessage(idx_str +
+                              " is not an allocated variable or constant.");
+          }
+          auto value = symbol_table.get_symbol(idx_str);
+          auto op = value.getDefiningOp<mlir::ConstantOp>();
+          if (op && op.getValue().isa<mlir::IntegerAttr>()) {
+            auto bit_size = op.getValue().cast<mlir::IntegerAttr>().getInt();
+            llvm::ArrayRef<int64_t> shaperef{bit_size};
+            mlir_type = mlir::MemRefType::get(shaperef, result_type);
+          } else {
+            printErrorMessage(
+                "The bit index for this subroutine argument must be a constant "
+                "integer type.");
+          }
+        }
+
+        argument_types.push_back(mlir_type);
+
       } else if (type == "bool") {
       } else if (type.find("uint") != std::string::npos) {
       } else if (type.find("int") != std::string::npos) {
@@ -77,6 +116,8 @@ antlrcpp::Any qasm3_visitor::visitSubroutineDefinition(
     }
   }
 
+  current_function_return_type = return_type;
+  
   auto main_block = builder.saveInsertionPoint();
 
   auto func_type = builder.getFunctionType(argument_types, return_type);
@@ -116,13 +157,36 @@ antlrcpp::Any qasm3_visitor::visitSubroutineDefinition(
 antlrcpp::Any qasm3_visitor::visitReturnStatement(
     qasm3Parser::ReturnStatementContext* context) {
   is_return_stmt = true;
-  visitChildren(context->statement());
+  auto location = get_location(builder, file_name, context);
+
+  auto ret_stmt = context->statement()->getText();
+  ret_stmt.erase(std::remove(ret_stmt.begin(), ret_stmt.end(), ';'),
+                 ret_stmt.end());
+
+  mlir::Value value;
+  if (symbol_table.has_symbol(ret_stmt)) {
+    value = symbol_table.get_symbol(ret_stmt);
+    // Actually return value if it is a bit[], 
+    // load and return if it is a bit
+    // printErrorMessage("Putting this here til I fix this");
+    if (!current_function_return_type.isa<mlir::MemRefType>()) {
+      // This is a bit and not a bit[]
+      auto tmp = get_or_create_constant_index_value(0, location);
+      llvm::ArrayRef<mlir::Value> zero_index(tmp);
+      value = builder.create<mlir::LoadOp>(location, value, zero_index);
+    }
+    
+  } else {
+    visitChildren(context->statement());
+
+    value = symbol_table.get_last_value_added();
+  }
   is_return_stmt = false;
 
-  auto value = symbol_table.get_last_value_added();
   builder.create<mlir::ReturnOp>(
       builder.getUnknownLoc(),
       llvm::makeArrayRef(std::vector<mlir::Value>{value}));
   subroutine_return_statment_added = true;
+  return 0;
 }
 }  // namespace qcor

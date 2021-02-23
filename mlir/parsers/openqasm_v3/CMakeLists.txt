@@ -12,10 +12,11 @@ add_library(${LIBRARY_NAME} SHARED ${SRC})
 target_compile_features(${LIBRARY_NAME} 
                         PUBLIC
                         cxx_std_17)
-target_compile_options(${LIBRARY_NAME} PUBLIC "-Wno-attributes -Wno-suggest-override")
+      
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-attributes -Wno-suggest-override -Wno-reorder -Wno-type-limits -Wno-unused-variable -Wno-unused-but-set-variable -Wno-sign-compare")
 target_include_directories(
   ${LIBRARY_NAME}
-  PUBLIC . .. ../../dialect/include ${CMAKE_BINARY_DIR}/mlir/dialect/include ${XACC_ROOT}/include/antlr4-runtime generated)
+  PUBLIC . .. ../../dialect/include ${CMAKE_BINARY_DIR}/mlir/dialect/include ${XACC_ROOT}/include/exprtk ${XACC_ROOT}/include/antlr4-runtime generated)
 
 target_link_libraries(${LIBRARY_NAME} PUBLIC MLIRQuantum MLIRIR MLIRStandard MLIRAffine ${ANTLR_LIB})
 

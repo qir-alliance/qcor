@@ -66,6 +66,29 @@ antlrcpp::Any qasm3_visitor::visitQuantumGateCall(
   return 0;
 }
 
+antlrcpp::Any qasm3_visitor::visitKernelCall(
+    qasm3Parser::KernelCallContext* context) {
+  auto location = get_location(builder, file_name, context);
+
+  if (context->Identifier()->getText() == "print") {
+    std::vector<mlir::Value> print_args;
+    auto expr_list = context->expressionList();
+    for (auto exp : expr_list->expression()) {
+      // auto exp_str = exp->getText();
+      qasm3_expression_generator exp_generator(builder, symbol_table,
+                                               file_name);
+      exp_generator.visit(exp);
+
+      auto arg = exp_generator.current_value;
+      print_args.push_back(arg);
+    }
+    builder.create<mlir::quantum::PrintOp>(location,
+                                           llvm::makeArrayRef(print_args));
+    return 0;
+  }
+
+  return 0;
+}
 antlrcpp::Any qasm3_visitor::visitSubroutineCall(
     qasm3Parser::SubroutineCallContext* context) {
   // subroutineCall
@@ -78,10 +101,24 @@ antlrcpp::Any qasm3_visitor::visitSubroutineCall(
     name = "cnot";
   }
 
+  if (name == "print") {
+    auto one_expr_list = context->expressionList()[0];
+    std::vector<mlir::Value> print_args;
+    qasm3_expression_generator exp_generator(builder, symbol_table, file_name);
+    exp_generator.visit(one_expr_list->expression()[0]);
+    auto arg = exp_generator.current_value;
+
+    print_args.push_back(arg);
+    builder.create<mlir::quantum::PrintOp>(location,
+                                           llvm::makeArrayRef(print_args));
+    return 0;
+  }
+
   if (symbol_table.has_seen_function(name)) {
-      // this is a custom function
-      std::cout << "HELLO THIS IS A CUSTOM FUNCTION SUBROUTINE CALL\n";
-      std::cout << context->getText() << "\n";
+    // this is a custom function
+    std::cout << "HELLO THIS IS A CUSTOM FUNCTION SUBROUTINE CALL\n";
+    std::cout << context->getText() << "\n";
+    printErrorMessage("Throwing this here to stop us.");
   }
   std::vector<mlir::Value> qbit_values, param_values;
 
@@ -107,8 +144,44 @@ antlrcpp::Any qasm3_visitor::visitSubroutineCall(
           expression->expression(0)->expressionTerminator()->getText();
       auto idx_str =
           expression->expression(1)->expressionTerminator()->getText();
-      auto qbit =
-          get_or_extract_qubit(qbit_var_name, std::stoi(idx_str), location);
+
+      auto qreg = symbol_table.get_symbol(qbit_var_name);
+
+      auto qalloc_op = qreg.getDefiningOp<mlir::quantum::QallocOp>();
+      // auto qubits = qalloc_op.qubits();
+
+      mlir::Value qbit;
+      if (symbol_table.has_symbol(idx_str)) {
+        // This is a variable qubit register index, see if its in the symbol
+        // table
+        auto idx = symbol_table.get_symbol(idx_str);
+        if (idx.getType().isa<mlir::MemRefType>() &&
+            idx.getType()
+                .cast<mlir::MemRefType>()
+                .getElementType()
+                .isa<mlir::IntegerType>() &&
+            idx.getType().cast<mlir::MemRefType>().getRank() == 1) {
+          // If this is a memref for an integer of rank 1,
+          // then it can be used as a qubit register index.
+          llvm::ArrayRef<mlir::Value> zero_index(
+              get_or_create_constant_index_value(0, location));
+          idx = builder.create<mlir::LoadOp>(location, idx, zero_index);
+        }
+        qbit = builder.create<mlir::quantum::ExtractQubitOp>(
+            location, qubit_type, qreg, idx);
+      } else {
+        if (qalloc_op) {
+          auto qreg_size = qalloc_op.size().getLimitedValue();
+
+          if (std::stoi(idx_str) >= qreg_size) {
+            printErrorMessage("Invalid qubit index: " + idx_str +
+                              " >= qubit register size " +
+                              std::to_string(qreg_size));
+          }
+        }
+        qbit =
+            get_or_extract_qubit(qbit_var_name, std::stoi(idx_str), location);
+      }
       qbit_values.push_back(qbit);
     } else {
       // this is a qubit

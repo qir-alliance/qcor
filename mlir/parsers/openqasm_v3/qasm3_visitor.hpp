@@ -2,6 +2,7 @@
 #include <regex>
 
 #include "Quantum/QuantumOps.h"
+#include "expression_handler.hpp"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/Attributes.h"
@@ -42,6 +43,8 @@ class qasm3_visitor : public qasm3::qasm3BaseVisitor {
 
   antlrcpp::Any visitSubroutineCall(
       qasm3Parser::SubroutineCallContext* context) override;
+antlrcpp::Any visitKernelCall(
+    qasm3Parser::KernelCallContext* context) override;
 
   antlrcpp::Any visitQuantumMeasurement(
       qasm3Parser::QuantumMeasurementContext* context) override;
@@ -54,6 +57,10 @@ class qasm3_visitor : public qasm3::qasm3BaseVisitor {
       qasm3Parser::ReturnStatementContext* context) override;
   antlrcpp::Any visitBranchingStatement(
       qasm3Parser::BranchingStatementContext* context) override;
+  antlrcpp::Any visitLoopStatement(
+      qasm3Parser::LoopStatementContext* context) override;
+  antlrcpp::Any visitControlDirective(
+      qasm3Parser::ControlDirectiveContext* context) override;
 
   // Classical type handling
   antlrcpp::Any visitConstantDeclaration(
@@ -65,6 +72,18 @@ class qasm3_visitor : public qasm3::qasm3BaseVisitor {
       qasm3Parser::NoDesignatorDeclarationContext* context) override;
   antlrcpp::Any visitBitDeclaration(
       qasm3Parser::BitDeclarationContext* context) override;
+
+  antlrcpp::Any visitExpression(
+      qasm3Parser::ExpressionContext* context) override {
+    if (context->incrementor()) {
+      qasm3_expression_generator exp_generator(builder, symbol_table,
+                                               file_name);
+      exp_generator.visit(context);
+      auto expr_value = exp_generator.current_value;
+      return 0;
+    }
+    return visitChildren(context);
+  }
   // --------//
 
   antlrcpp::Any visitClassicalAssignment(
@@ -83,6 +102,8 @@ class qasm3_visitor : public qasm3::qasm3BaseVisitor {
   bool subroutine_return_statment_added = false;
   bool is_return_stmt = false;
 
+  mlir::Type current_function_return_type;
+  
   mlir::Type qubit_type;
   mlir::Type array_type;
   mlir::Type result_type;
@@ -129,12 +150,13 @@ class qasm3_visitor : public qasm3::qasm3BaseVisitor {
     }
   }
 
-    mlir::Value get_or_create_constant_index_value(const std::size_t idx,
-                                                   mlir::Location location,
-                                                   int width = 64) {
-    auto constant_int = get_or_create_constant_integer_value(idx, location, width);
-    return builder.create<mlir::IndexCastOp>(
-        location, constant_int, builder.getIndexType());
+  mlir::Value get_or_create_constant_index_value(const std::size_t idx,
+                                                 mlir::Location location,
+                                                 int width = 64) {
+    auto constant_int =
+        get_or_create_constant_integer_value(idx, location, width);
+    return builder.create<mlir::IndexCastOp>(location, constant_int,
+                                             builder.getIndexType());
   }
 
   // This function serves as a utility for creating a MemRef and
@@ -154,8 +176,8 @@ class qasm3_visitor : public qasm3::qasm3BaseVisitor {
     auto mem_type = mlir::MemRefType::get(shaperef, type);
     mlir::Value allocation = builder.create<mlir::AllocaOp>(location, mem_type);
     for (int i = 0; i < initial_values.size(); i++) {
-      builder.create<mlir::StoreOp>(location, initial_values[i],
-                                    allocation, initial_indices);  
+      builder.create<mlir::StoreOp>(location, initial_values[i], allocation,
+                                    initial_indices);
     }
     return allocation;
   }

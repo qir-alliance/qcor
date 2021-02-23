@@ -352,7 +352,6 @@ antlrcpp::Any qasm3_visitor::visitClassicalAssignment(
                       ", it has been marked const.");
   }
 
-   
   auto lhs = symbol_table.get_symbol(var_name);
 
   auto width = lhs.getType()
@@ -363,7 +362,7 @@ antlrcpp::Any qasm3_visitor::visitClassicalAssignment(
                                            width);
   exp_generator.visit(context->expression());
   auto rhs = exp_generator.current_value;
-  lhs.dump();
+
   // Could be somethign like
   // bit = subroutine_call(params) qbits...
   if (auto call_op = rhs.getDefiningOp<mlir::CallOp>()) {
@@ -448,6 +447,11 @@ antlrcpp::Any qasm3_visitor::visitClassicalAssignment(
             builder.create<mlir::UnsignedDivIOp>(location, load_result, rhs);
       }
 
+      llvm::ArrayRef<mlir::Value> zero_index2(
+          get_or_create_constant_index_value(0, location));
+      builder.create<mlir::StoreOp>(location, current_value, lhs, zero_index2);
+    } else if (assignment_op == "^=") {
+      current_value = builder.create<mlir::XOrOp>(location, load_result, rhs);
       llvm::ArrayRef<mlir::Value> zero_index2(
           get_or_create_constant_index_value(0, location));
       builder.create<mlir::StoreOp>(location, current_value, lhs, zero_index2);

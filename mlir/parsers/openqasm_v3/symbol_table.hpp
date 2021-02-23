@@ -63,6 +63,20 @@ class ScopedSymbolTable {
     return;
   }
 
+  std::map<std::string, int64_t> get_constant_integer_variables() {
+    std::map<std::string, int64_t> ret;
+    for (int i = current_scope; i >= 0; i--) {
+      auto constant_ops = get_symbols_of_type_at_scope<mlir::ConstantOp>(i);
+      for (auto [var_name, op] : constant_ops) {
+        if (op.getValue().isa<mlir::IntegerAttr>()) {
+          ret.insert(
+              {var_name, op.getValue().cast<mlir::IntegerAttr>().getInt()});
+        }
+      }
+    }
+    return ret;
+  }
+
   mlir::FuncOp get_seen_function(const std::string name) {
     if (!seen_functions.count(name)) {
       printErrorMessage(name + " is not a known function in the symbol table.");
@@ -75,21 +89,22 @@ class ScopedSymbolTable {
   }
 
   bool has_constant_integer(std::uint64_t key, int width = 64) {
-    return constant_integer_values.count({key,width});
+    return constant_integer_values.count({key, width});
   }
 
-  void add_constant_integer(std::uint64_t key, mlir::Value constant_value, int width = 64) {
-    if (!constant_integer_values.count({key,width})) {
-      constant_integer_values.insert({{key,width}, constant_value});
+  void add_constant_integer(std::uint64_t key, mlir::Value constant_value,
+                            int width = 64) {
+    if (!constant_integer_values.count({key, width})) {
+      constant_integer_values.insert({{key, width}, constant_value});
     }
     return;
   }
   mlir::Value get_constant_integer(std::uint64_t key, int width = 64) {
-    if (!has_constant_integer(key,width)) {
+    if (!has_constant_integer(key, width)) {
       printErrorMessage("constant integer " + std::to_string(key) +
                         " is not in the symbol table.");
     }
-    return constant_integer_values[{key,width}];
+    return constant_integer_values[{key, width}];
   }
   bool is_allocation(const std::string variable_name) {
     return has_symbol(variable_name) &&
@@ -134,6 +149,19 @@ class ScopedSymbolTable {
     return ret;
   }
 
+  template <typename OpTy>
+  std::vector<std::pair<std::string, OpTy>> get_symbols_of_type_at_scope(
+      const std::size_t scope) {
+    std::vector<std::pair<std::string, OpTy>> ret;
+    for (auto& [var_name, value] : scoped_symbol_tables[scope]) {
+      auto op = value.template getDefiningOp<OpTy>();
+      if (op) {
+        ret.push_back({var_name, op});
+      }
+    }
+    return ret;
+  }
+
   // retrieve the symbol at the given scope, will search parent scopes
   mlir::Value get_symbol(const std::string variable_name,
                          const std::size_t scope) {
@@ -149,7 +177,6 @@ class ScopedSymbolTable {
   }
 
   mlir::Value get_last_value_added() { return last_value_added; }
-
 
   // add the symbol to the given scope
   void add_symbol(const std::string variable_name, mlir::Value value,
@@ -187,7 +214,8 @@ class ScopedSymbolTable {
 
   // add symbol to current scope
   void add_symbol(const std::string variable_name, mlir::Value value,
-                  std::vector<std::string> var_attributes = {}, bool overwrite = false) {
+                  std::vector<std::string> var_attributes = {},
+                  bool overwrite = false) {
     add_symbol(variable_name, value, current_scope, var_attributes, overwrite);
   }
 
