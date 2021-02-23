@@ -179,7 +179,9 @@ class NISQ : public ::quantum::QuantumRuntime {
     auto q_name = q.name();
     for (auto inst : terms) {
       auto spinInst = inst.second;
-
+      if (spinInst.isIdentity()) {
+        continue;
+      }
       // Get the individual pauli terms
       auto termsMap = std::get<2>(spinInst);
 
