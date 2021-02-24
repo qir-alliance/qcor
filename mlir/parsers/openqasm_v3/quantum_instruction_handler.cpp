@@ -89,6 +89,7 @@ antlrcpp::Any qasm3_visitor::visitKernelCall(
 
   return 0;
 }
+
 antlrcpp::Any qasm3_visitor::visitSubroutineCall(
     qasm3Parser::SubroutineCallContext* context) {
   // subroutineCall

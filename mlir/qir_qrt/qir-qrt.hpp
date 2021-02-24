@@ -17,7 +17,7 @@ extern "C" {
 // qreg name, array it comes from, and associated accelerator buffer
 
 using Qubit = uint64_t;
-using Result = uint64_t;
+using Result = bool;
 using Array = std::vector<int8_t*>;
 using TupleHeader = int *;
 using qreg = xacc::internal_compiler::qreg;

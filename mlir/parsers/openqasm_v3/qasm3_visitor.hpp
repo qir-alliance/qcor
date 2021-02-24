@@ -32,7 +32,7 @@ class qasm3_visitor : public qasm3::qasm3BaseVisitor {
     qubit_type = mlir::OpaqueType::get(context, dialect, qubit_type_name);
     array_type = mlir::OpaqueType::get(context, dialect, array_type_name);
     result_type = mlir::IntegerType::get(
-        context, 1);  //::OpaqueType::get(context, dialect, result_type_name);
+        context, 1);  
   }
 
   antlrcpp::Any visitQuantumDeclaration(

@@ -33,7 +33,24 @@ antlrcpp::Any qasm3_visitor::visitQuantumDeclaration(
     auto var_name = idx_identifier->Identifier()->getText();
     auto exp_list = idx_identifier->expressionList();
     if (exp_list) {
-      size = std::stoi(exp_list->expression(0)->getText());
+
+      try {
+        size = std::stoi(exp_list->expression(0)->getText());
+      } catch(...) {
+        // check if this is a constant expression
+        qasm3_expression_generator exp_generator(builder, symbol_table,
+                                               file_name);
+        exp_generator.visit(exp_list->expression(0));
+        auto arg = exp_generator.current_value;
+
+        if (auto constantOp = arg.getDefiningOp<mlir::ConstantOp>()) {
+          if (constantOp.getValue().isa<mlir::IntegerAttr>()) {
+            size = constantOp.getValue().cast<mlir::IntegerAttr>().getInt();
+          } else {
+            printErrorMessage("This variable qubit size must be a constant integer.");
+          }
+        }
+      }
     }
 
     auto integer_type = builder.getI64Type();

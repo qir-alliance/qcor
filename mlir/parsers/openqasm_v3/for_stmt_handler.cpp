@@ -187,6 +187,7 @@ antlrcpp::Any qasm3_visitor::visitLoopStatement(
       // Visit the for block
       visitChildren(program_block);
 
+      // builder.create<mlir::AffineYieldOp>(location);
       // Exit scope and restore insertion
       symbol_table.exit_scope();
       builder.restoreInsertionPoint(savept);

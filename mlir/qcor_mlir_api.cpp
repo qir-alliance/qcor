@@ -1,10 +1,11 @@
 #include "qcor_mlir_api.hpp"
 
-#include "llvm/Support/TargetSelect.h"
 #include "Quantum/QuantumDialect.h"
-#include "mlir/Dialect/LLVMIR/LLVMDialect.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "llvm/Support/TargetSelect.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
+#include "mlir/Dialect/LLVMIR/LLVMDialect.h"
+#include "mlir/Dialect/SCF/SCF.h"
+#include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/Vector/VectorOps.h"
 #include "mlir/ExecutionEngine/ExecutionEngine.h"
 #include "mlir/ExecutionEngine/OptUtils.h"
@@ -12,7 +13,6 @@
 #include "mlir/Parser.h"
 #include "openqasm_mlir_generator.hpp"
 #include "openqasmv3_mlir_generator.hpp"
-
 #include "quantum_to_llvm.hpp"
 #include "tools/ast_printer.hpp"
 
@@ -27,8 +27,8 @@ const std::string mlir_compile(const std::string& src_language_type,
   mlir::registerMLIRContextCLOptions();
 
   mlir::MLIRContext context;
-  context
-      .loadDialect<mlir::quantum::QuantumDialect, mlir::StandardOpsDialect, mlir::AffineDialect>();
+  context.loadDialect<mlir::quantum::QuantumDialect, mlir::StandardOpsDialect,
+                      mlir::scf::SCFDialect, mlir::AffineDialect>();
 
   std::vector<std::string> unique_function_names;
 

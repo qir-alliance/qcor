@@ -75,7 +75,14 @@ antlrcpp::Any qasm3_visitor::visitQuantumMeasurementAssignment(
                          ->expressionList()
                          ->expression(0)
                          ->getText();
-      value = get_or_extract_qubit(measured_qreg, std::stoi(idx_str), location);
+      try {
+        value =
+            get_or_extract_qubit(measured_qreg, std::stoi(idx_str), location);
+      } catch (...) {
+        printErrorMessage(
+            "Alex, please implement c = measure q[i], i is a block variable "
+            "value.");
+      }
     }
 
     // Ok, now if this is a qubit type, and not an array
@@ -116,28 +123,43 @@ antlrcpp::Any qasm3_visitor::visitQuantumMeasurementAssignment(
             std::to_string(nqubits) + ", nb = " + std::to_string(nbits));
       }
 
-      auto for_body_builder = [&](mlir::OpBuilder& bldr, mlir::Location loc,
-                                  mlir::Value idx_val,
-                                  mlir::ValueRange vrange) {
-        auto extract = bldr.create<mlir::quantum::ExtractQubitOp>(
-            loc, qubit_type, value, idx_val);
+      for (int i = 0; i < nqubits; i++) {
+        mlir::Value idx_val = get_or_create_constant_index_value(i, location);
 
-        auto instop = bldr.create<mlir::quantum::InstOp>(
-            loc, result_type, str_attr, llvm::makeArrayRef(extract.qbit()),
+        auto extract = builder.create<mlir::quantum::ExtractQubitOp>(
+            location, qubit_type, value, idx_val);
+
+        auto instop = builder.create<mlir::quantum::InstOp>(
+            location, result_type, str_attr, llvm::makeArrayRef(extract.qbit()),
             llvm::makeArrayRef(std::vector<mlir::Value>{}));
 
-        bldr.create<mlir::StoreOp>(
-            loc, instop.bit(), bit_value,
+        builder.create<mlir::StoreOp>(
+            location, instop.bit(), bit_value,
             llvm::makeArrayRef(std::vector<mlir::Value>{idx_val}));
-          /// BUG last value does not seem to be added when I print
-        bldr.create<mlir::StoreOp>(
-            loc, instop.bit(), bit_value,
-            llvm::makeArrayRef(std::vector<mlir::Value>{idx_val}));
-        return;
-      };
+      }
 
-      auto for_loop = builder.create<mlir::AffineForOp>(
-          location, 0, nqubits, 1, llvm::None, for_body_builder);
+      // auto for_body_builder = [&](mlir::OpBuilder& bldr, mlir::Location loc,
+      //                             mlir::Value idx_val,
+      //                             mlir::ValueRange vrange) {
+      //   auto extract = bldr.create<mlir::quantum::ExtractQubitOp>(
+      //       loc, qubit_type, value, idx_val);
+
+      //   auto instop = bldr.create<mlir::quantum::InstOp>(
+      //       loc, result_type, str_attr, llvm::makeArrayRef(extract.qbit()),
+      //       llvm::makeArrayRef(std::vector<mlir::Value>{}));
+
+      //   bldr.create<mlir::StoreOp>(
+      //       loc, instop.bit(), bit_value,
+      //       llvm::makeArrayRef(std::vector<mlir::Value>{idx_val}));
+      //   // /// BUG last value does not seem to be added when I print
+      //   // bldr.create<mlir::StoreOp>(
+      //   //     loc, instop.bit(), bit_value,
+      //   //     llvm::makeArrayRef(std::vector<mlir::Value>{idx_val}));
+      //   return;
+      // };
+
+      // auto for_loop = builder.create<mlir::AffineForOp>(
+      //     location, 0, nqubits, 1, llvm::None, for_body_builder);
     }
 
   } else {

@@ -11,8 +11,8 @@
 #include "xacc_config.hpp"
 #include "config_file_parser.hpp"
 
-Result ResultZero = 0;
-Result ResultOne = 1;
+Result ResultZero = false;
+Result ResultOne = true;
 unsigned long allocated_qbits = 0;
 std::shared_ptr<xacc::AcceleratorBuffer> qbits;
 std::shared_ptr<xacc::Accelerator> qpu;

@@ -304,7 +304,26 @@ antlrcpp::Any qasm3_visitor::visitBitDeclaration(
       auto var_name = idx_identifier->Identifier()->getText();
       auto exp_list = idx_identifier->expressionList();
       if (exp_list) {
-        size = std::stoi(exp_list->expression(0)->getText());
+        // size = std::stoi(exp_list->expression(0)->getText());
+
+        try {
+          size = std::stoi(exp_list->expression(0)->getText());
+        } catch (...) {
+          // check if this is a constant expression
+          qasm3_expression_generator exp_generator(builder, symbol_table,
+                                                   file_name);
+          exp_generator.visit(exp_list->expression(0));
+          auto arg = exp_generator.current_value;
+
+          if (auto constantOp = arg.getDefiningOp<mlir::ConstantOp>()) {
+            if (constantOp.getValue().isa<mlir::IntegerAttr>()) {
+              size = constantOp.getValue().cast<mlir::IntegerAttr>().getInt();
+            } else {
+              printErrorMessage(
+                  "This variable bit size must be a constant integer.");
+            }
+          }
+        }
       }
 
       auto allocation = allocate_1d_memory(location, size, result_type);
