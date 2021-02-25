@@ -8,6 +8,7 @@
 
 namespace qcor {
 using SymbolTable = std::map<std::string, mlir::Value>;
+using ConstantIntegerTable = std::map<std::pair<std::uint64_t, int>, mlir::Value>;
 
 // Rudimentary scoped symbol table that will keep track of
 // created mlir::Values keyed on their unique variable name
@@ -19,7 +20,8 @@ class ScopedSymbolTable {
   std::map<std::string, std::vector<std::string>> variable_attributes;
 
   // key is (int, width)
-  std::map<std::pair<std::uint64_t, int>, mlir::Value> constant_integer_values;
+  std::vector<ConstantIntegerTable> constant_integer_values;
+  // std::map<std::pair<std::uint64_t, int>, mlir::Value> constant_integer_values;
 
   mlir::Value last_value_added;
 
@@ -29,6 +31,7 @@ class ScopedSymbolTable {
   ScopedSymbolTable() {
     // start the global table
     scoped_symbol_tables.push_back(SymbolTable{});
+    constant_integer_values.push_back(ConstantIntegerTable{});
   }
 
   void print() {
@@ -49,6 +52,7 @@ class ScopedSymbolTable {
   void enter_new_scope() {
     current_scope++;
     scoped_symbol_tables.emplace_back(SymbolTable{});
+    constant_integer_values.emplace_back(ConstantIntegerTable{});
   }
 
   // Exit scope, will remove the last
@@ -56,6 +60,7 @@ class ScopedSymbolTable {
   void exit_scope() {
     current_scope--;
     scoped_symbol_tables.pop_back();
+    constant_integer_values.pop_back();
   }
 
   void add_seen_function(const std::string name, mlir::FuncOp function) {
@@ -77,6 +82,8 @@ class ScopedSymbolTable {
     return ret;
   }
 
+  int64_t evaluate_constant_integer_expression(const std::string expr);
+  
   mlir::FuncOp get_seen_function(const std::string name) {
     if (!seen_functions.count(name)) {
       printErrorMessage(name + " is not a known function in the symbol table.");
@@ -89,13 +96,13 @@ class ScopedSymbolTable {
   }
 
   bool has_constant_integer(std::uint64_t key, int width = 64) {
-    return constant_integer_values.count({key, width});
+    return constant_integer_values[current_scope].count({key, width});
   }
 
   void add_constant_integer(std::uint64_t key, mlir::Value constant_value,
                             int width = 64) {
-    if (!constant_integer_values.count({key, width})) {
-      constant_integer_values.insert({{key, width}, constant_value});
+    if (!constant_integer_values[current_scope].count({key, width})) {
+      constant_integer_values[current_scope].insert({{key, width}, constant_value});
     }
     return;
   }
@@ -104,7 +111,7 @@ class ScopedSymbolTable {
       printErrorMessage("constant integer " + std::to_string(key) +
                         " is not in the symbol table.");
     }
-    return constant_integer_values[{key, width}];
+    return constant_integer_values[current_scope][{key, width}];
   }
   bool is_allocation(const std::string variable_name) {
     return has_symbol(variable_name) &&

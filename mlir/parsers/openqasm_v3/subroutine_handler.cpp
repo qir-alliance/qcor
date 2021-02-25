@@ -51,42 +51,13 @@ antlrcpp::Any qasm3_visitor::visitSubroutineDefinition(
         auto start = type.find_first_of("[");
         auto finish = type.find_first_of("]");
         auto idx_str = type.substr(start + 1, finish - start - 1);
-
-        auto is_constant = [](const std::string idx_str) {
-          try {
-            std::stoi(idx_str);
-            return true;
-          } catch (std::exception& ex) {
-            return false;
-          }
-        };
+        auto bit_size =
+            symbol_table.evaluate_constant_integer_expression(idx_str);
 
         mlir::Type mlir_type;
-        if (is_constant(idx_str)) {
-          auto bit_size = std::stoi(idx_str);
-          llvm::ArrayRef<int64_t> shaperef{bit_size};
-          mlir_type = mlir::MemRefType::get(shaperef, result_type);
-        } else {
-          // this is a variable idx size
-          if (!symbol_table.has_symbol(idx_str)) {
-            printErrorMessage(idx_str +
-                              " is not an allocated variable or constant.");
-          }
-          auto value = symbol_table.get_symbol(idx_str);
-          auto op = value.getDefiningOp<mlir::ConstantOp>();
-          if (op && op.getValue().isa<mlir::IntegerAttr>()) {
-            auto bit_size = op.getValue().cast<mlir::IntegerAttr>().getInt();
-            llvm::ArrayRef<int64_t> shaperef{bit_size};
-            mlir_type = mlir::MemRefType::get(shaperef, result_type);
-          } else {
-            printErrorMessage(
-                "The bit index for this subroutine argument must be a constant "
-                "integer type.");
-          }
-        }
-
+        llvm::ArrayRef<int64_t> shaperef{bit_size};
+        mlir_type = mlir::MemRefType::get(shaperef, result_type);
         argument_types.push_back(mlir_type);
-
       } else if (type == "bool") {
       } else if (type.find("uint") != std::string::npos) {
       } else if (type.find("int") != std::string::npos) {
@@ -98,7 +69,8 @@ antlrcpp::Any qasm3_visitor::visitSubroutineDefinition(
 
   if (context->quantumArgumentList()) {
     for (auto quantum_arg : context->quantumArgumentList()->quantumArgument()) {
-      if (quantum_arg->quantumType()->getText() == "qubit") {
+      if (quantum_arg->quantumType()->getText() == "qubit" &&
+          !quantum_arg->designator()) {
         argument_types.push_back(qubit_type);
       } else {
         argument_types.push_back(array_type);
@@ -117,7 +89,7 @@ antlrcpp::Any qasm3_visitor::visitSubroutineDefinition(
   }
 
   current_function_return_type = return_type;
-  
+
   auto main_block = builder.saveInsertionPoint();
 
   auto func_type = builder.getFunctionType(argument_types, return_type);
@@ -166,7 +138,7 @@ antlrcpp::Any qasm3_visitor::visitReturnStatement(
   mlir::Value value;
   if (symbol_table.has_symbol(ret_stmt)) {
     value = symbol_table.get_symbol(ret_stmt);
-    // Actually return value if it is a bit[], 
+    // Actually return value if it is a bit[],
     // load and return if it is a bit
     // printErrorMessage("Putting this here til I fix this");
     if (!current_function_return_type.isa<mlir::MemRefType>()) {
@@ -175,7 +147,7 @@ antlrcpp::Any qasm3_visitor::visitReturnStatement(
       llvm::ArrayRef<mlir::Value> zero_index(tmp);
       value = builder.create<mlir::LoadOp>(location, value, zero_index);
     }
-    
+
   } else {
     visitChildren(context->statement());
 

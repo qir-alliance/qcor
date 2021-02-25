@@ -331,6 +331,9 @@ def main(argv=None):
         sys.argv.append(base_name+'.o')
         fileType = None
         filename = None
+        # remove these temp files
+        os.remove(ll_file_name)
+        os.remove(bc_file_name)
 
     # If it is a C++ file
     if fileType != None and 'text/x-c' in fileType:
@@ -366,7 +369,6 @@ def main(argv=None):
                 commands += sys.argv[1:]
             else:
                 commands += baseLibs + sys.argv[1:]
-
 
             if verbose:
                 print('[qcor-exec]: ', ' '.join([c for c in commands]))

@@ -49,9 +49,32 @@ antlrcpp::Any qasm3_visitor::visitQuantumGateCall(
                          ->expression(0)
                          ->expressionTerminator()
                          ->getText();
-      auto qbit =
-          get_or_extract_qubit(qbit_var_name, std::stoi(idx_str), location);
-      qbit_values.push_back(qbit);
+      mlir::Value value;
+      try {
+        value =
+            get_or_extract_qubit(qbit_var_name, std::stoi(idx_str), location);
+      } catch (...) {
+        if (symbol_table.has_symbol(idx_str)) {
+          auto qubits = symbol_table.get_symbol(qbit_var_name);
+          auto qbit = symbol_table.get_symbol(idx_str);
+          llvm::StringRef qubit_type_name("Qubit");
+          mlir::Identifier dialect =
+              mlir::Identifier::get("quantum", builder.getContext());
+          auto qubit_type = mlir::OpaqueType::get(builder.getContext(), dialect,
+                                                  qubit_type_name);
+
+          value = builder.create<mlir::quantum::ExtractQubitOp>(
+              location, qubit_type, qubits, qbit);
+        } else {
+          printErrorMessage(
+              "Invalid measurement index on the given qubit register: " +
+              qbit_var_name + ", " + idx_str);
+        }
+      }
+
+      // auto qbit =
+      //     get_or_extract_qubit(qbit_var_name, std::stoi(idx_str), location);
+      qbit_values.push_back(value);
     } else {
       // this is a qubit
       auto qbit_var_name = idx_identifier->Identifier()->getText();

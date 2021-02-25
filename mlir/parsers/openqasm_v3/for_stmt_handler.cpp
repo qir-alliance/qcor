@@ -47,32 +47,110 @@ antlrcpp::Any qasm3_visitor::visitLoopStatement(
         counter++;
       }
 
-      // Create a new scope for the for loop
       symbol_table.enter_new_scope();
 
-      // Save the current builder point
+      auto tmp = get_or_create_constant_index_value(0, location);
+      auto tmp2 = get_or_create_constant_index_value(0, location);
+      llvm::ArrayRef<mlir::Value> zero_index(tmp2);
+
+      auto loop_var_memref = allocate_1d_memory_and_initialize(
+          location, 1, builder.getI64Type(), std::vector<mlir::Value>{tmp},
+          llvm::makeArrayRef(std::vector<mlir::Value>{tmp}));
+
+      auto b_val = get_or_create_constant_index_value(n_expr, location);
+      auto c_val = get_or_create_constant_index_value(1, location);
+
+      // // Save the current builder point
+      // // auto savept = builder.saveInsertionPoint();
+      // auto loaded_var =
+      //     builder.create<mlir::LoadOp>(location, loop_var_memref,
+      //     zero_index);
+
+      // symbol_table.add_symbol(idx_var_name, loaded_var, {}, true);
+
+      // Strategy...
+
+      // We need to create a header block to check that loop var is still valid
+      // it will branch at the end to the body or the exit
+
+      // Then we create the body block, it should branch to the incrementor
+      // block
+
+      // Then we create the incrementor block, it should branch back to header
+
+      // Any downstream children that will create blocks will need to know what
+      // the fallback block for them is, and it should be the incrementor block
       auto savept = builder.saveInsertionPoint();
+      auto currRegion = builder.getBlock()->getParent();
+      auto headerBlock = builder.createBlock(currRegion, currRegion->end());
+      auto bodyBlock = builder.createBlock(currRegion, currRegion->end());
+      auto incBlock = builder.createBlock(currRegion, currRegion->end());
+      mlir::Block* exitBlock =
+          builder.createBlock(currRegion, currRegion->end());
+      builder.restoreInsertionPoint(savept);
 
-      // Create the for loop
-      auto for_loop = builder.create<mlir::AffineForOp>(location, 0, n_expr, 1);
+      builder.create<mlir::BranchOp>(location, headerBlock);
+      builder.setInsertionPointToStart(headerBlock);
 
-      // Extract the for loop region block and set the insertion point
-      mlir::Block& block = *(for_loop.region().getBlocks().begin());
-      builder.setInsertionPointToStart(&block);
+      auto load =
+          builder.create<mlir::LoadOp>(location, loop_var_memref, zero_index);
+      auto cmp = builder.create<mlir::CmpIOp>(
+          location, mlir::CmpIPredicate::slt, load, b_val);
+      builder.create<mlir::CondBranchOp>(location, cmp, bodyBlock, exitBlock);
 
+      builder.setInsertionPointToStart(bodyBlock);
       // Load the loop variable from the memref allocation
-      auto load = builder.create<mlir::LoadOp>(location, allocation,
-                                               block.getArgument(0));
+      auto load2 =
+          builder.create<mlir::LoadOp>(location, allocation, load.result());
 
       // Save the loaded value as the loop variable name
-      symbol_table.add_symbol(idx_var_name, load.result(), {}, true);
+      symbol_table.add_symbol(idx_var_name, load2.result(), {}, true);
 
-      // Visit the for block
       visitChildren(program_block);
+      builder.create<mlir::BranchOp>(location, incBlock);
+
+      builder.setInsertionPointToStart(incBlock);
+      auto load_inc =
+          builder.create<mlir::LoadOp>(location, loop_var_memref, zero_index);
+      auto add = builder.create<mlir::AddIOp>(location, load_inc, c_val);
+
+      builder.create<mlir::StoreOp>(
+          location, add, loop_var_memref,
+          llvm::makeArrayRef(std::vector<mlir::Value>{tmp2}));
+
+      builder.create<mlir::BranchOp>(location, headerBlock);
+
+      builder.setInsertionPointToStart(exitBlock);
+
+      current_block = exitBlock;
+
+      // Create a new scope for the for loop
+      // symbol_table.enter_new_scope();
+
+      // // Save the current builder point
+      // auto savept = builder.saveInsertionPoint();
+
+      // // Create the for loop
+      // auto for_loop = builder.create<mlir::AffineForOp>(location, 0, n_expr,
+      // 1);
+
+      // // Extract the for loop region block and set the insertion point
+      // mlir::Block& block = *(for_loop.region().getBlocks().begin());
+      // builder.setInsertionPointToStart(&block);
+
+      // // Load the loop variable from the memref allocation
+      // auto load = builder.create<mlir::LoadOp>(location, allocation,
+      //                                          block.getArgument(0));
+
+      // // Save the loaded value as the loop variable name
+      // symbol_table.add_symbol(idx_var_name, load.result(), {}, true);
+
+      // // Visit the for block
+      // visitChildren(program_block);
 
       // Exit scope and restore insertion
       symbol_table.exit_scope();
-      builder.restoreInsertionPoint(savept);
+      // builder.restoreInsertionPoint(savept);
     } else if (auto range = set_declaration->rangeDefinition()) {
       // this is a range definition
       //     rangeDefinition
@@ -86,41 +164,6 @@ antlrcpp::Any qasm3_visitor::visitLoopStatement(
           return false;
         }
       };
- 
-      // ----------------------------------------//
-      // May want to package the following into SymbolTable
-      auto all_constants = symbol_table.get_constant_integer_variables();
-      std::vector<std::string> variable_names;
-      std::vector<double> variable_values;
-      for (auto [n, v] : all_constants) {
-        variable_names.push_back(n);
-        variable_values.push_back(v);
-      }
-      auto extract_from_variable_idx_str =
-          [&](antlr4::ParserRuleContext* idx_node) -> int64_t {
-        auto expr_str = idx_node->getText();
-        double ref = 0.0;
-
-        symbol_table_t exprtk_symbol_table;
-        exprtk_symbol_table.add_constants();
-        for (int i = 0; i < variable_names.size(); i++) {
-          exprtk_symbol_table.add_variable(variable_names[i],
-                                           variable_values[i]);
-        }
-
-        expression_t expr;
-        expr.register_symbol_table(exprtk_symbol_table);
-        parser_t parser;
-        if (parser.compile(expr_str, expr)) {
-          ref = expr.value();
-        } else {
-          printErrorMessage("The for range element (" + idx_node->getText() +
-                            ") must be a constant integer type.");
-        }
-
-        return (int64_t)ref;
-      };
-      // ----------------------------------------//
 
       auto range_str =
           range->getText().substr(1, range->getText().length() - 2);
@@ -131,7 +174,8 @@ antlrcpp::Any qasm3_visitor::visitLoopStatement(
         a = std::stoi(range_elements[0]);
       } else {
         // infer the constant from the symbol table
-        a = extract_from_variable_idx_str(range->expression(0));
+        a = symbol_table.evaluate_constant_integer_expression(
+            range->expression(0)->getText());
       }
 
       c = 1;
@@ -139,18 +183,21 @@ antlrcpp::Any qasm3_visitor::visitLoopStatement(
         if (is_constant(range_elements[2])) {
           b = std::stoi(range_elements[2]);
         } else {
-          b = extract_from_variable_idx_str(range->expression(2));
+          b = symbol_table.evaluate_constant_integer_expression(
+              range->expression(2)->getText());
         }
         if (is_constant(range_elements[1])) {
           c = std::stoi(range_elements[1]);
         } else {
-          c = extract_from_variable_idx_str(range->expression(1));
+          c = symbol_table.evaluate_constant_integer_expression(
+              range->expression(1)->getText());
         }
       } else {
         if (is_constant(range_elements[1])) {
           b = std::stoi(range_elements[1]);
         } else {
-          b = extract_from_variable_idx_str(range->expression(1));
+          b = symbol_table.evaluate_constant_integer_expression(
+              range->expression(1)->getText());
         }
       }
       // std::cout << "A,b,c: " << a << ", " << b << ", " << c << "\n";
@@ -171,26 +218,78 @@ antlrcpp::Any qasm3_visitor::visitLoopStatement(
       // Create a new scope for the for loop
       symbol_table.enter_new_scope();
 
+      auto tmp = get_or_create_constant_index_value(a, location);
+      auto tmp2 = get_or_create_constant_index_value(0, location);
+      llvm::ArrayRef<mlir::Value> zero_index(tmp2);
+
+      auto loop_var_memref = allocate_1d_memory_and_initialize(
+          location, 1, builder.getI64Type(), std::vector<mlir::Value>{tmp},
+          llvm::makeArrayRef(std::vector<mlir::Value>{tmp}));
+
+      auto b_val = get_or_create_constant_index_value(b, location);
+      auto c_val = get_or_create_constant_index_value(c, location);
+
       // Save the current builder point
+      // auto savept = builder.saveInsertionPoint();
+      auto loaded_var =
+          builder.create<mlir::LoadOp>(location, loop_var_memref, zero_index);
+
+      symbol_table.add_symbol(idx_var_name, loaded_var, {}, true);
+
+      // Strategy...
+
+      // We need to create a header block to check that loop var is still valid
+      // it will branch at the end to the body or the exit
+
+      // Then we create the body block, it should branch to the incrementor
+      // block
+
+      // Then we create the incrementor block, it should branch back to header
+
+      // Any downstream children that will create blocks will need to know what
+      // the fallback block for them is, and it should be the incrementor block
       auto savept = builder.saveInsertionPoint();
-
-      // Create the for loop
-      auto for_loop = builder.create<mlir::AffineForOp>(location, a, b, c);
-
-      // Extract the for loop region block and set the insertion point
-      mlir::Block& block = *(for_loop.region().getBlocks().begin());
-      builder.setInsertionPointToStart(&block);
-
-      // Save the loaded value as the loop variable name
-      symbol_table.add_symbol(idx_var_name, block.getArgument(0), {}, true);
-
-      // Visit the for block
-      visitChildren(program_block);
-
-      // builder.create<mlir::AffineYieldOp>(location);
-      // Exit scope and restore insertion
-      symbol_table.exit_scope();
+      auto currRegion = builder.getBlock()->getParent();
+      auto headerBlock = builder.createBlock(currRegion, currRegion->end());
+      auto bodyBlock = builder.createBlock(currRegion, currRegion->end());
+      auto incBlock = builder.createBlock(currRegion, currRegion->end());
+      mlir::Block* exitBlock =
+          builder.createBlock(currRegion, currRegion->end());
       builder.restoreInsertionPoint(savept);
+
+      builder.create<mlir::BranchOp>(location, headerBlock);
+      builder.setInsertionPointToStart(headerBlock);
+
+      auto load =
+          builder.create<mlir::LoadOp>(location, loop_var_memref, zero_index);
+      auto cmp = builder.create<mlir::CmpIOp>(
+          location, mlir::CmpIPredicate::slt, load, b_val);
+      builder.create<mlir::CondBranchOp>(location, cmp, bodyBlock, exitBlock);
+
+      builder.setInsertionPointToStart(bodyBlock);
+      // body needs to load the loop variable
+      auto x =
+          builder.create<mlir::LoadOp>(location, loop_var_memref, zero_index);
+      symbol_table.add_symbol(idx_var_name, x, {}, true);
+
+      visitChildren(program_block);
+      builder.create<mlir::BranchOp>(location, incBlock);
+
+      builder.setInsertionPointToStart(incBlock);
+      auto load_inc =
+          builder.create<mlir::LoadOp>(location, loop_var_memref, zero_index);
+      auto add = builder.create<mlir::AddIOp>(location, load_inc, c_val);
+
+      builder.create<mlir::StoreOp>(
+          location, add, loop_var_memref,
+          llvm::makeArrayRef(std::vector<mlir::Value>{tmp2}));
+
+      builder.create<mlir::BranchOp>(location, headerBlock);
+
+      builder.setInsertionPointToStart(exitBlock);
+
+      current_block = exitBlock;
+      symbol_table.exit_scope();
 
     } else {
       printErrorMessage(
@@ -201,58 +300,39 @@ antlrcpp::Any qasm3_visitor::visitLoopStatement(
     // this is a while loop
     auto while_expr = loop_signature->expression();
 
-    // value.dump();
-    // printErrorMessage("We do not support while loops at this time.");
-
     // Create a new scope for the for loop
     symbol_table.enter_new_scope();
 
-    // Save the current builder point
+    auto currRegion = builder.getBlock()->getParent();
+
     auto savept = builder.saveInsertionPoint();
+    auto headerBlock = builder.createBlock(currRegion, currRegion->end());
+    auto bodyBlock = builder.createBlock(currRegion, currRegion->end());
+    auto exitBlock = builder.createBlock(currRegion, currRegion->end());
 
-    // Mimic a while loop with a for loop over the max number of integer
-    // iterations
-    auto for_loop = builder.create<mlir::AffineForOp>(
-        location, 0, std::numeric_limits<uint64_t>::max(),
-        1);  //, llvm::None, for_body_builder);
+    builder.restoreInsertionPoint(savept);
+    builder.create<mlir::BranchOp>(location, headerBlock);
 
-    // Extract the for loop region block and set the insertion point
-    mlir::Block& block = *(for_loop.region().getBlocks().begin());
-    builder.setInsertionPointToStart(&block);
-
-    //   // Save the loaded value as the loop variable name
-    //   symbol_table.add_symbol(idx_var_name, block.getArgument(0), {}, true);
-
-    // Visit the for block
-    visitChildren(program_block);
+    builder.setInsertionPointToEnd(headerBlock);
     qasm3_expression_generator exp_generator(builder, symbol_table, file_name);
     exp_generator.visit(while_expr);
     auto expr_value = exp_generator.current_value;
+    builder.create<mlir::CondBranchOp>(location, expr_value, bodyBlock,
+                                       exitBlock);
 
-    // build up the program block
-    auto currRegion = builder.getBlock()->getParent();
-    auto savept2 = builder.saveInsertionPoint();
-    auto thenBlock = builder.createBlock(currRegion, currRegion->end());
-    auto elseBlock = builder.createBlock(currRegion, currRegion->end());
+    builder.setInsertionPointToStart(bodyBlock);
+    visitChildren(program_block);
 
-    // Build up the THEN Block, add return at end
-    builder.setInsertionPointToStart(thenBlock);
-    builder.create<mlir::ReturnOp>(builder.getUnknownLoc(),
-                                   llvm::ArrayRef<mlir::Value>());
+    builder.create<mlir::BranchOp>(location, headerBlock);
+    builder.setInsertionPointToStart(exitBlock);
 
-    // If we have a second program block then we have an else stmt
-    builder.setInsertionPointToStart(elseBlock);
-    auto yield = builder.create<mlir::AffineYieldOp>(
-        location, llvm::makeArrayRef(std::vector<mlir::Value>{}));
-
-    // Restore the insertion point and create the conditional statement
-    builder.restoreInsertionPoint(savept2);
-    builder.create<mlir::CondBranchOp>(location, expr_value, thenBlock,
-                                       elseBlock);
-
-    // Exit scope and restore insertion
     symbol_table.exit_scope();
-    builder.restoreInsertionPoint(savept);
+
+    // This is where we do some manipulation of
+    // the basic blocks, lets store the current last block
+    // so that finalize_mlirgen() can add return and deallocs
+    // correctly
+    current_block = exitBlock;
   }
 
   return 0;
@@ -265,6 +345,7 @@ antlrcpp::Any qasm3_visitor::visitControlDirective(
   auto stmt = context->getText();
 
   if (stmt == "break") {
+    printErrorMessage("Alex, reimplement the break stmt");
     auto yield = builder.create<mlir::AffineYieldOp>(
         location, llvm::makeArrayRef(std::vector<mlir::Value>{}));
   } else {

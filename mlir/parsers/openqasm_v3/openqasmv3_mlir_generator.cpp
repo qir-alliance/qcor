@@ -109,12 +109,13 @@ void OpenQasmV3MLIRGenerator::mlirgen(const std::string &src) {
 
   visitor->visitChildren(tree);
 
-  // exit(0);
-
   return;
 }
 
 void OpenQasmV3MLIRGenerator::finalize_mlirgen() {
+  if (visitor->current_block) {
+    builder.setInsertionPointToEnd(visitor->current_block);
+  }
   auto scoped_symbol_table = visitor->getScopedSymbolTable();
   auto all_qalloc_ops =
       scoped_symbol_table.get_global_symbols_of_type<mlir::quantum::QallocOp>();
@@ -123,7 +124,6 @@ void OpenQasmV3MLIRGenerator::finalize_mlirgen() {
   }
 
   if (add_main) {
-    // builder.create<mlir::ReturnOp>(builder.getUnknownLoc(), llvm::None);
     builder.create<mlir::ReturnOp>(builder.getUnknownLoc(),
                                    llvm::ArrayRef<mlir::Value>());
   }

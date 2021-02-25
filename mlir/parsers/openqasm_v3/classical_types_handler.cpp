@@ -296,6 +296,10 @@ antlrcpp::Any qasm3_visitor::visitBitDeclaration(
   // indexIdentifierList
   //     : ( indexIdentifier COMMA )* indexIdentifier
   //     ;
+  // indexEqualsAssignmentList
+  //     : ( indexIdentifier equalsExpression COMMA)* indexIdentifier
+  //     equalsExpression
+  //     ;
   auto location = get_location(builder, file_name, context);
 
   std::size_t size = 1;
@@ -332,8 +336,30 @@ antlrcpp::Any qasm3_visitor::visitBitDeclaration(
     }
   } else {
     auto index_equals_list = context->indexEqualsAssignmentList();
-    printErrorMessage(
-        "We do not yet support bit declarations with index = assignment list");
+    if (index_equals_list->indexIdentifier().size() > 1) {
+      printErrorMessage("qcor only supports single bit equal assignments.");
+    }
+
+    auto first_index_equals = index_equals_list->indexIdentifier(0);
+    auto var_name = first_index_equals->Identifier()->getText();
+    auto equals_expr = index_equals_list->equalsExpression()[0]->expression();
+    
+
+    qasm3_expression_generator exp_generator(builder, symbol_table, file_name);
+    exp_generator.visit(equals_expr);
+    auto init_val = exp_generator.current_value;
+
+    auto tmp = get_or_create_constant_index_value(0, location);
+    auto allocation = allocate_1d_memory_and_initialize(
+        location, 1, builder.getI1Type(), std::vector<mlir::Value>{init_val},
+        llvm::makeArrayRef(std::vector<mlir::Value>{tmp}));
+    
+    update_symbol_table(var_name, allocation);
+
+    // printErrorMessage(
+    //     "We do not yet support bit declarations with index = assignment "
+    //     "list: " +
+    //     context->getText());
   }
 
   return 0;
