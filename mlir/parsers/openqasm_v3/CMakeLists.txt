@@ -6,7 +6,7 @@ if (APPLE)
   set(ANTLR_LIB ${XACC_ROOT}/lib/libantlr4-runtime.dylib)
 endif()
 
-file(GLOB SRC *.cpp generated/*.cpp)
+file(GLOB SRC *.cpp generated/*.cpp utils/*.cpp visitor_handlers/*.cpp)
 
 add_library(${LIBRARY_NAME} SHARED ${SRC})
 target_compile_features(${LIBRARY_NAME} 
@@ -16,7 +16,7 @@ target_compile_features(${LIBRARY_NAME}
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-attributes -Wno-suggest-override -Wno-reorder -Wno-type-limits -Wno-unused-variable -Wno-unused-but-set-variable -Wno-sign-compare")
 target_include_directories(
   ${LIBRARY_NAME}
-  PUBLIC . .. ../../dialect/include ${CMAKE_BINARY_DIR}/mlir/dialect/include ${XACC_ROOT}/include/exprtk ${XACC_ROOT}/include/antlr4-runtime generated)
+  PUBLIC . .. utils visitor_handlers ../../dialect/include ${CMAKE_BINARY_DIR}/mlir/dialect/include ${XACC_ROOT}/include/exprtk ${XACC_ROOT}/include/antlr4-runtime generated)
 
 target_link_libraries(${LIBRARY_NAME} PUBLIC MLIRQuantum MLIRSCF MLIRIR MLIRStandard MLIRAffine ${ANTLR_LIB})
 

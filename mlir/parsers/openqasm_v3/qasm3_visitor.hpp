@@ -31,48 +31,54 @@ class qasm3_visitor : public qasm3::qasm3BaseVisitor {
     mlir::Identifier dialect = mlir::Identifier::get("quantum", context);
     qubit_type = mlir::OpaqueType::get(context, dialect, qubit_type_name);
     array_type = mlir::OpaqueType::get(context, dialect, array_type_name);
-    result_type = mlir::IntegerType::get(
-        context, 1);  
+    result_type = mlir::IntegerType::get(context, 1);
   }
 
   // see visitor_handlers/quantum_types_handler.cpp
   antlrcpp::Any visitQuantumDeclaration(
       qasm3Parser::QuantumDeclarationContext* context) override;
 
+  // see visitor_handlers/quantum_instruction_handler.cpp
   antlrcpp::Any visitQuantumGateCall(
       qasm3Parser::QuantumGateCallContext* context) override;
-
   antlrcpp::Any visitSubroutineCall(
       qasm3Parser::SubroutineCallContext* context) override;
-antlrcpp::Any visitKernelCall(
-    qasm3Parser::KernelCallContext* context) override;
+  antlrcpp::Any visitKernelCall(
+      qasm3Parser::KernelCallContext* context) override;
 
+  // see visitor_handlers/measurement_handler.cpp
   antlrcpp::Any visitQuantumMeasurement(
       qasm3Parser::QuantumMeasurementContext* context) override;
   antlrcpp::Any visitQuantumMeasurementAssignment(
       qasm3Parser::QuantumMeasurementAssignmentContext* context) override;
 
+  // see visitor_handlers/subroutine_handler.cpp
   antlrcpp::Any visitSubroutineDefinition(
       qasm3Parser::SubroutineDefinitionContext* context) override;
   antlrcpp::Any visitReturnStatement(
       qasm3Parser::ReturnStatementContext* context) override;
+
+  // see visitor_handlers/conditional_handler.cpp
   antlrcpp::Any visitBranchingStatement(
       qasm3Parser::BranchingStatementContext* context) override;
+
+  // see visitor_handlers/for_stmt_handler.cpp
   antlrcpp::Any visitLoopStatement(
       qasm3Parser::LoopStatementContext* context) override;
   antlrcpp::Any visitControlDirective(
       qasm3Parser::ControlDirectiveContext* context) override;
 
-  // Classical type handling
+  // see visitor_handlers/classical_types_handler.cpp
   antlrcpp::Any visitConstantDeclaration(
       qasm3Parser::ConstantDeclarationContext* context) override;
-  // --- classical declaration - single, double, no, bit ---
   antlrcpp::Any visitSingleDesignatorDeclaration(
       qasm3Parser::SingleDesignatorDeclarationContext* context) override;
   antlrcpp::Any visitNoDesignatorDeclaration(
       qasm3Parser::NoDesignatorDeclarationContext* context) override;
   antlrcpp::Any visitBitDeclaration(
       qasm3Parser::BitDeclarationContext* context) override;
+  antlrcpp::Any visitClassicalAssignment(
+      qasm3Parser::ClassicalAssignmentContext* context) override;
 
   antlrcpp::Any visitExpression(
       qasm3Parser::ExpressionContext* context) override {
@@ -87,19 +93,19 @@ antlrcpp::Any visitKernelCall(
   }
   // --------//
 
-  antlrcpp::Any visitClassicalAssignment(
-      qasm3Parser::ClassicalAssignmentContext* context) override;
-
+  // The last block added by either loop or if stmts
   mlir::Block* current_block;
 
  protected:
+  // Reference to the MLIR OpBuilder and ModuleOp
+  // this MLIRGen task
   mlir::OpBuilder builder;
   mlir::ModuleOp m_module;
   std::string file_name = "";
 
-  
   std::size_t current_scope = 0;
 
+  // The symbol table, keeps track of current scope
   ScopedSymbolTable symbol_table;
 
   bool at_global_scope = true;
@@ -107,7 +113,7 @@ antlrcpp::Any visitKernelCall(
   bool is_return_stmt = false;
 
   mlir::Type current_function_return_type;
-  
+
   mlir::Type qubit_type;
   mlir::Type array_type;
   mlir::Type result_type;
@@ -127,8 +133,8 @@ antlrcpp::Any visitKernelCall(
       return symbol_table.get_symbol(key);  // global_symbol_table[key];
     } else {
       auto qubits = symbol_table.get_symbol(qreg_name);
-                        // .getDefiningOp<mlir::quantum::QallocOp>()
-                        // .qubits();
+      // .getDefiningOp<mlir::quantum::QallocOp>()
+      // .qubits();
       mlir::Value pos = get_or_create_constant_integer_value(idx, location);
 
       // auto pos = create_constant_integer_value(idx, location);

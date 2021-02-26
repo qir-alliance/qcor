@@ -87,7 +87,6 @@ void OpenQasmV3MLIRGenerator::initialize_mlirgen(bool _add_entry_point,
 
     main_entry_block = save_main_entry_block;
 
-    // Create function_name(opaque.qreg q), setup main to call it
   }
 }
 

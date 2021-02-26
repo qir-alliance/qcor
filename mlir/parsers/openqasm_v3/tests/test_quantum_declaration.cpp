@@ -887,13 +887,13 @@ print("can print with other vals", i, j);
                                  qcor::OutputType::MLIR, false);
   std::cout << mlir << "\n";
 
-  auto mlir2 = qcor::mlir_compile("qasm3", print_stmt, "print_stmt",
-                                  qcor::OutputType::LLVMMLIR, true);
-  std::cout << mlir2 << "\n";
+  // auto mlir2 = qcor::mlir_compile("qasm3", print_stmt, "print_stmt",
+  //                                 qcor::OutputType::LLVMMLIR, true);
+  // std::cout << mlir2 << "\n";
 
-  auto mlir3 = qcor::mlir_compile("qasm3", print_stmt, "print_stmt",
-                                  qcor::OutputType::LLVMIR, true);
-  std::cout << mlir3 << "\n";
+  // auto mlir3 = qcor::mlir_compile("qasm3", print_stmt, "print_stmt",
+  //                                 qcor::OutputType::LLVMIR, true);
+  // std::cout << mlir3 << "\n";
 }
 
 
