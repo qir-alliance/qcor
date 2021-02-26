@@ -872,29 +872,29 @@ while (i < 10) {
   std::cout << "for_stmt2 MLIR:\n" << mlir2 << "\n";
 }
 
-TEST(qasm3VisitorTester, checkPrint) {
-  const std::string print_stmt = R"#(OPENQASM 3;
-include "qelib1.inc";
-int[32] i = 22;
-float[32] j = 2.2;
-print(i);
-print(j);
-print(i,j);
-print("hello world");
-print("can print with other vals", i, j);
-)#";
-  auto mlir = qcor::mlir_compile("qasm3", print_stmt, "print_stmt",
-                                 qcor::OutputType::MLIR, false);
-  std::cout << mlir << "\n";
+// TEST(qasm3VisitorTester, checkPrint) {
+//   const std::string print_stmt = R"#(OPENQASM 3;
+// include "qelib1.inc";
+// int[32] i = 22;
+// float[32] j = 2.2;
+// print(i);
+// print(j);
+// print(i,j);
+// print("hello world");
+// print("can print with other vals", i, j);
+// )#";
+//   auto mlir = qcor::mlir_compile("qasm3", print_stmt, "print_stmt",
+//                                  qcor::OutputType::MLIR, false);
+//   std::cout << mlir << "\n";
 
-  // auto mlir2 = qcor::mlir_compile("qasm3", print_stmt, "print_stmt",
-  //                                 qcor::OutputType::LLVMMLIR, true);
-  // std::cout << mlir2 << "\n";
+//   // auto mlir2 = qcor::mlir_compile("qasm3", print_stmt, "print_stmt",
+//   //                                 qcor::OutputType::LLVMMLIR, true);
+//   // std::cout << mlir2 << "\n";
 
-  // auto mlir3 = qcor::mlir_compile("qasm3", print_stmt, "print_stmt",
-  //                                 qcor::OutputType::LLVMIR, true);
-  // std::cout << mlir3 << "\n";
-}
+//   // auto mlir3 = qcor::mlir_compile("qasm3", print_stmt, "print_stmt",
+//   //                                 qcor::OutputType::LLVMIR, true);
+//   // std::cout << mlir3 << "\n";
+// }
 
 
 TEST(qasm3VisitorTester, checkSubroutine2) {
