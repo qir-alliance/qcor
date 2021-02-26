@@ -49,11 +49,12 @@ namespace qcor {
 
 static const std::map<std::string, std::string> gates{
     // "u3", "u2",   "u1", "ccx", cu1, cu3
-    {"cx", "CX"},   {"id", "I"},    {"x", "X"},     {"y", "Y"},
-    {"z", "Z"},     {"h", "H"},     {"s", "S"},     {"sdg", "Sdg"},
-    {"t", "T"},     {"tdg", "Tdg"}, {"rx", "Rx"},   {"ry", "Ry"},
-    {"rz", "Rz"},   {"cz", "CZ"},   {"cy", "CY"},   {"swap", "Swap"},
-    {"ccx", "CCX"}, {"ch", "CH"},   {"crz", "CRZ"}, {"measure", "Measure"}};
+    {"cx", "CX"},      {"id", "I"},    {"x", "X"},     {"y", "Y"},
+    {"z", "Z"},        {"h", "H"},     {"s", "S"},     {"sdg", "Sdg"},
+    {"t", "T"},        {"tdg", "Tdg"}, {"rx", "Rx"},   {"ry", "Ry"},
+    {"rz", "Rz"},      {"cz", "CZ"},   {"cy", "CY"},   {"swap", "Swap"},
+    {"ccx", "CCX"},    {"ch", "CH"},   {"crz", "CRZ"}, {"measure", "Measure"},
+    {"reset", "Reset"}};
 
 void StaqTokenCollector::collect(clang::Preprocessor &PP,
                                  clang::CachedTokens &Toks,
