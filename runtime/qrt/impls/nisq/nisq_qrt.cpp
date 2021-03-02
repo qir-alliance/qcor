@@ -12,6 +12,7 @@
 #include "xacc_internal_compiler.hpp"
 #include "xacc_observable.hpp"
 #include "xacc_service.hpp"
+#include "CommonGates.hpp"
 
 using namespace cppmicroservices;
 using namespace xacc;
@@ -99,6 +100,8 @@ class NISQ : public ::quantum::QuantumRuntime {
     one_qubit_inst("U", qidx, {theta, phi, lambda});
   }
 
+  void reset(const qubit &qidx) override { one_qubit_inst("Reset", qidx); }
+
   bool mz(const qubit &qidx) override {
     one_qubit_inst("Measure", qidx);
     return false;
@@ -173,12 +176,14 @@ class NISQ : public ::quantum::QuantumRuntime {
 
     double pi = xacc::constants::pi;
     auto gateRegistry = xacc::getIRProvider("quantum");
-    std::string xasm_src = "";
+    std::vector<xacc::InstPtr> exp_insts;
 
     auto q_name = q.name();
     for (auto inst : terms) {
       auto spinInst = inst.second;
-
+      if (spinInst.isIdentity()) {
+        continue;
+      }
       // Get the individual pauli terms
       auto termsMap = std::get<2>(spinInst);
 
@@ -192,7 +197,7 @@ class NISQ : public ::quantum::QuantumRuntime {
       int largestQbitIdx = terms[terms.size() - 1].first;
 
       std::vector<std::size_t> qidxs;
-      std::stringstream basis_front, basis_back;
+      std::vector<xacc::InstPtr> basis_front, basis_back;
 
       for (auto &term : terms) {
         auto qid = term.first;
@@ -201,14 +206,11 @@ class NISQ : public ::quantum::QuantumRuntime {
         qidxs.push_back(qid);
 
         if (pop == "X") {
-          basis_front << "H(" << q_name << "[" << qid << "]);\n";
-          basis_back << "H(" << q_name << "[" << qid << "]);\n";
-
+          basis_front.emplace_back(std::make_shared<xacc::quantum::Hadamard>(qid));
+          basis_back.emplace_back(std::make_shared<xacc::quantum::Hadamard>(qid));
         } else if (pop == "Y") {
-          basis_front << "Rx(" << q_name << "[" << qid << "], " << 1.57079362679
-                      << ");\n";
-          basis_back << "Rx(" << q_name << "[" << qid << "], " << -1.57079362679
-                     << ");\n";
+          basis_front.emplace_back(std::make_shared<xacc::quantum::Rx>(qid, 1.57079362679));
+          basis_back.emplace_back(std::make_shared<xacc::quantum::Rx>(qid, -1.57079362679));
         }
       }
 
@@ -223,54 +225,45 @@ class NISQ : public ::quantum::QuantumRuntime {
       }
 
       // std::cout << "HOWDY: \n" << cnot_pairs << "\n";
-      std::stringstream cnot_front, cnot_back;
+      std::vector<xacc::InstPtr> cnot_front, cnot_back;
       for (int i = 0; i < qidxs.size() - 1; i++) {
         Eigen::VectorXi pairs = cnot_pairs.col(i);
         auto c = pairs(0);
         auto t = pairs(1);
-        cnot_front << "CNOT(" << q_name << "[" << c << "], " << q_name << "["
-                   << t << "]);\n";
+        cnot_front.emplace_back(std::make_shared<xacc::quantum::CNOT>(c, t));
       }
 
       for (int i = qidxs.size() - 2; i >= 0; i--) {
         Eigen::VectorXi pairs = cnot_pairs.col(i);
         auto c = pairs(0);
         auto t = pairs(1);
-        cnot_back << "CNOT(" << q_name << "[" << c << "], " << q_name << "["
-                  << t << "]);\n";
+        cnot_back.emplace_back(std::make_shared<xacc::quantum::CNOT>(c, t));
       }
-
-      xasm_src = xasm_src + "\n" + basis_front.str() + cnot_front.str();
+      exp_insts.insert(exp_insts.end(),
+                       std::make_move_iterator(basis_front.begin()),
+                       std::make_move_iterator(basis_front.end()));
+      exp_insts.insert(exp_insts.end(),
+                       std::make_move_iterator(cnot_front.begin()),
+                       std::make_move_iterator(cnot_front.end()));
 
       // FIXME, we assume real coefficients, if its zero,
       // check that the imag part is not zero and use it
       if (std::fabs(std::real(spinInst.coeff())) > 1e-12) {
-        xasm_src = xasm_src + "Rz(" + q_name + "[" +
-                   std::to_string(qidxs[qidxs.size() - 1]) + "], " +
-                   std::to_string(std::real(spinInst.coeff()) * theta) + ");\n";
+        exp_insts.emplace_back(std::make_shared<xacc::quantum::Rz>(
+            qidxs[qidxs.size() - 1], std::real(spinInst.coeff()) * theta));
       } else if (std::fabs(std::imag(spinInst.coeff())) > 1e-12) {
-        xasm_src = xasm_src + "Rz(" + q_name + "[" +
-                   std::to_string(qidxs[qidxs.size() - 1]) + "], " +
-                   std::to_string(std::imag(spinInst.coeff()) * theta) + ");\n";
+        exp_insts.emplace_back(std::make_shared<xacc::quantum::Rz>(
+            qidxs[qidxs.size() - 1], std::imag(spinInst.coeff()) * theta));
       }
-
-      xasm_src = xasm_src + cnot_back.str() + basis_back.str();
+      exp_insts.insert(exp_insts.end(),
+                       std::make_move_iterator(cnot_back.begin()),
+                       std::make_move_iterator(cnot_back.end()));
+      exp_insts.insert(exp_insts.end(),
+                       std::make_move_iterator(basis_back.begin()),
+                       std::make_move_iterator(basis_back.end()));
     }
-
-    int name_counter = 1;
-    std::string name = "exp_tmp";
-    while (xacc::hasCompiled(name)) {
-      name += std::to_string(name_counter);
-    }
-
-    xasm_src =
-        "__qpu__ void " + name + "(qbit " + q_name + ") {\n" + xasm_src + "}";
-
-    //   std::cout << "FROMQRT: " << theta << "\n" << xasm_src << "\n";
-    auto xasm = xacc::getCompiler("xasm");
-    auto tmp = xasm->compile(xasm_src)->getComposites()[0];
-
-    for (auto inst : tmp->getInstructions()) {
+    for (auto& inst : exp_insts) {
+      inst->setBufferNames(std::vector<std::string>(inst->bits().size(), q_name));
       program->addInstruction(inst);
     }
   }

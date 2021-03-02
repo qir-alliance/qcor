@@ -39,7 +39,8 @@ public:
   virtual void u1(const qubit &qidx, const double theta) = 0;
   virtual void u3(const qubit &qidx, const double theta, const double phi,
                   const double lambda) = 0;
-
+  // Reset
+  virtual void reset(const qubit &qidx) = 0;
   // Measure-Z
   virtual bool mz(const qubit &qidx) = 0;
 
@@ -125,6 +126,9 @@ void rz(const qubit &qidx, const double theta);
 void u1(const qubit &qidx, const double theta);
 void u3(const qubit &qidx, const double theta, const double phi,
         const double lambda);
+
+// Reset a qubit (to zero state)
+void reset(const qubit &qidx);
 
 // Measure-Z
 bool mz(const qubit &qidx);
