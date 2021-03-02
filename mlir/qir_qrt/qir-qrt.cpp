@@ -190,6 +190,12 @@ void __quantum__qis__z(Qubit* q) {
   ::quantum::z({"q", qcopy});
 }
 
+void __quantum__qis__reset(Qubit* q) {
+  std::size_t qcopy = reinterpret_cast<std::size_t>(q);
+  if (verbose) printf("[qir-qrt] Applying Reset %lu\n", qcopy);
+  ::quantum::reset({"q", qcopy});
+}
+
 void __quantum__qis__rx(double x, Qubit* q) {
   std::size_t qcopy = reinterpret_cast<std::size_t>(q);
   if (verbose) printf("[qir-qrt] Applying Rx(%f) %lu\n", x, qcopy);

@@ -39,6 +39,7 @@ void __quantum__qis__s(Qubit* q);
 void __quantum__qis__sdg(Qubit* q);
 void __quantum__qis__t(Qubit* q);
 void __quantum__qis__tdg(Qubit* q);
+void __quantum__qis__reset(Qubit* q);
 
 void __quantum__qis__x(Qubit* q);
 void __quantum__qis__y(Qubit* q);
