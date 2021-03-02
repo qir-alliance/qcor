@@ -1039,6 +1039,23 @@ def pauli_measurement(bit[2*n]:spec) qubit[n]:q -> bit {
 )#";
  EXPECT_EQ(expected, mlir);
 }
+
+TEST(qasm3VisitorTester, checkComplexCondition) {
+  const std::string complex_condition = R"#(OPENQASM 3;
+include "qelib1.inc";
+
+const n = 20;
+bit spec[10];
+
+if((spec[0]==1) && (spec[n+2]==0)) { 
+  print("hello");
+}
+)#";
+  auto mlir = qcor::mlir_compile("qasm3", complex_condition, "complex_condition",
+                                 qcor::OutputType::MLIR, false);
+  std::cout << mlir << "\n";
+}
+
 int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);
   auto ret = RUN_ALL_TESTS();
