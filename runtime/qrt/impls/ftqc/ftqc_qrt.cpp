@@ -55,6 +55,10 @@ public:
     applyGate("U", {qidx.second}, {theta, phi, lambda});
   }
 
+  virtual void reset(const qubit &qidx) override {
+    applyGate("Reset", {qidx.second});
+  }
+
   // Measure-Z
   virtual bool mz(const qubit &qidx) override {
     applyGate("Measure", {qidx.second});

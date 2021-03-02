@@ -94,6 +94,7 @@ public:
   void visit(Identity &i) override { addOneQubitGate("i", i); }
   void visit(U &u) override { addOneQubitGate("u3", u); }
   void visit(U1 &u1) override { addOneQubitGate("u1", u1); }
+  void visit(Reset &r) override { addOneQubitGate("reset", r); }
   void visit(Circuit &circ) override {
     if (circ.name() == kernelName) {
       return;

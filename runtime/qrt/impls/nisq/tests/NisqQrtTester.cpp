@@ -21,6 +21,23 @@ TEST(NisqQrtTester, checkExpInst) {
   EXPECT_EQ(evaled->toString(), ::quantum::qrt_impl->get_current_program()->toString());
 }
 
+TEST(NisqQrtTester, checkResetInstSim) {
+  ::quantum::initialize("qpp", "empty");
+  ::quantum::set_shots(1024);
+  auto qreg = qalloc(1);
+  qreg.setName("q");
+  ::quantum::h({"q", 0});
+  ::quantum::reset({"q", 0});
+  ::quantum::x({"q", 0});
+  ::quantum::mz({"q", 0});
+  std::cout << "HOWDY\n"
+            << ::quantum::qrt_impl->get_current_program()->toString() << "\n";
+  ::quantum::submit(qreg.results());
+  qreg.print();
+  // Because of reset after H, qubit -> 0 then becomes 1 after X.
+  EXPECT_EQ(qreg.counts()["1"], 1024);
+}
+
 int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);
   auto ret = RUN_ALL_TESTS();

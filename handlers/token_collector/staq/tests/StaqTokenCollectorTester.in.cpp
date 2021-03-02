@@ -261,6 +261,31 @@ quantum::mz(c[3]);
             ss.str());
 }
 
+TEST(StaqTokenCollectorTester, checkReset) {
+  LexerHelper helper;
+
+  auto [tokens, PP] = helper.Lex(R"#(
+creg c[1];
+h q[0];
+reset q[0];
+reset q[1];
+x q[0];
+measure q[0] -> c[0];)#");
+
+  clang::CachedTokens cached;
+  for (auto &t : tokens) {
+    cached.push_back(t);
+  }
+
+  std::stringstream ss;
+  auto xasm_tc = xacc::getService<qcor::TokenCollector>("staq");
+  xasm_tc->collect(*PP.get(), cached, {"q"}, ss);
+  std::cout << "heres the test\n";
+  std::cout << ss.str() << "\n";
+  EXPECT_TRUE(ss.str().find("quantum::reset(q[0]);") != std::string::npos);
+  EXPECT_TRUE(ss.str().find("quantum::reset(q[1]);") != std::string::npos);
+}
+
 int main(int argc, char **argv) {
   std::string xacc_config_install_dir = std::string(XACC_INSTALL_DIR);
   std::string qcor_root = std::string(QCOR_INSTALL_DIR);

@@ -100,6 +100,8 @@ class NISQ : public ::quantum::QuantumRuntime {
     one_qubit_inst("U", qidx, {theta, phi, lambda});
   }
 
+  void reset(const qubit &qidx) override { one_qubit_inst("Reset", qidx); }
+
   bool mz(const qubit &qidx) override {
     one_qubit_inst("Measure", qidx);
     return false;
