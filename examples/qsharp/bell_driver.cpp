@@ -9,7 +9,7 @@ qcor_include_qsharp(XACC__TestBell__body, int64_t, int64_t)
 // Compile with:
 // Include both the qsharp source and this driver file 
 // in the command line.
-// $ qcor source.qs driver.cpp
+// $ qcor bell.qs bell_driver.cpp
 // Run with:
 // $ ./a.out
 int main() {

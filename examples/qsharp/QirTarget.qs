@@ -11,6 +11,9 @@ namespace Microsoft.Quantum.Instructions {
         body intrinsic;
     }
 
+    operation Ry (theta : Double, qb : Qubit) : Unit {
+        body intrinsic;
+    }
     operation Rz (theta : Double, qb : Qubit) : Unit {
         body intrinsic;
     }
@@ -103,6 +106,19 @@ namespace Microsoft.Quantum.Intrinsic {
         adjoint (...)
         {
             Phys.Rx(-theta, qb);  
+		}
+	}
+
+    @Inline()
+    operation Ry(theta : Double, qb : Qubit) : Unit
+    is Adj {
+        body  (...)
+        {
+            Phys.Ry(theta, qb);  
+		}
+        adjoint (...)
+        {
+            Phys.Ry(-theta, qb);  
 		}
 	}
 
