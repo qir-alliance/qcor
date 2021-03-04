@@ -14,7 +14,7 @@ qcor_include_qsharp(XACC__Deuteron__body, double, double, int64_t);
 int main() {
   // Manually intialize QRT...
   ::quantum::set_qrt("ftqc");
-  ::quantum::initialize("qpp", "bell");
+  ::quantum::initialize("qpp", "test");
 
   const std::vector<double> expectedResults{
       0.0,       -0.324699, -0.614213, -0.837166, -0.9694,
@@ -27,7 +27,7 @@ int main() {
 
     const double angle = angles[i];
     const double exp_val_xx = XACC__Deuteron__body(angle, 1024);
-    std::cout << "<Z0Z1>(" << angle << ") = " << exp_val_xx
+    std::cout << "<X0X1>(" << angle << ") = " << exp_val_xx
               << " vs. expected = " << expectedResults[i] << "\n";
   }
   return 0;
