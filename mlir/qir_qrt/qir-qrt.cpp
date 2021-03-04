@@ -342,6 +342,7 @@ void __quantum__qis__r__ctladj(Array *ctls, Pauli pauli, double theta,
 void __quantum__qis__s__body(Qubit *q) {
   // TODO
   std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
+  __quantum__qis__s(q);
 }
 void __quantum__qis__s__adj(Qubit *q) {
   // TODO
@@ -358,6 +359,7 @@ void __quantum__qis__s__ctladj(Array *ctls, Qubit *q) {
 void __quantum__qis__t__body(Qubit *q) {
   // TODO
   std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
+  __quantum__qis__t(q);
 }
 void __quantum__qis__t__adj(Qubit *q) {
   // TODO
@@ -374,6 +376,7 @@ void __quantum__qis__t__ctladj(Array *ctls, Qubit *q) {
 void __quantum__qis__x__body(Qubit *q) {
   // TODO
   std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
+  __quantum__qis__x(q);
 }
 void __quantum__qis__x__adj(Qubit *q) {
   // TODO
@@ -390,6 +393,7 @@ void __quantum__qis__x__ctladj(Array *ctls, Qubit *q) {
 void __quantum__qis__y__body(Qubit *q) {
   // TODO
   std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
+  __quantum__qis__y(q);
 }
 void __quantum__qis__y__adj(Qubit *q) {
   // TODO
@@ -406,6 +410,7 @@ void __quantum__qis__y__ctladj(Array *ctls, Qubit *q) {
 void __quantum__qis__z__body(Qubit *q) {
   // TODO
   std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
+  __quantum__qis__z(q);
 }
 void __quantum__qis__z__adj(Qubit *q) {
   // TODO
