@@ -23,9 +23,10 @@ using Array = std::vector<int8_t*>;
 using Pauli = int8_t;
 using TupleHeader = int *;
 using qreg = xacc::internal_compiler::qreg;
-
-extern Result ResultZero;
-extern Result ResultOne;
+extern Result ResultZeroVal;
+extern Result ResultOneVal;
+extern Result *ResultZero;
+extern Result *ResultOne;
 extern unsigned long allocated_qbits;
 extern bool initialized;
 

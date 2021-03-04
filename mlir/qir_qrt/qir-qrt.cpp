@@ -11,8 +11,10 @@
 #include "xacc_config.hpp"
 #include "config_file_parser.hpp"
 
-Result ResultZero = 0;
-Result ResultOne = 1;
+Result ResultZeroVal = 0;
+Result ResultOneVal = 1;
+Result *ResultZero = &ResultZeroVal;
+Result *ResultOne = &ResultOneVal;
 unsigned long allocated_qbits = 0;
 std::shared_ptr<xacc::AcceleratorBuffer> qbits;
 std::shared_ptr<xacc::Accelerator> qpu;
@@ -22,7 +24,7 @@ enum QRT_MODE { FTQC, NISQ };
 QRT_MODE mode;
 std::vector<std::unique_ptr<Array>> allocated_arrays;
 int shots = 0;
-bool verbose = false;
+bool verbose = true;
 bool external_qreg_provided = false;
 
 bool initialized = false;
@@ -226,7 +228,7 @@ Result* __quantum__qis__mz(Qubit* q) {
   auto bit = ::quantum::mz({"q", qcopy});
   if (mode == QRT_MODE::FTQC)
     if (verbose) printf("[qir-qrt] Result was %d.\n", bit);
-  return bit ? &ResultOne : &ResultZero;
+  return bit ? ResultOne : ResultZero;
 }
 
 Array* __quantum__rt__qubit_allocate_array(uint64_t size) {
@@ -313,6 +315,8 @@ void __quantum__qis__exp__ctladj(Array *ctls, Array *paulis, double angle,
 void __quantum__qis__h__body(Qubit *q) {
   // TODO
   std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
+  // Delegate to __quantum__qis__h
+  __quantum__qis__h(q);
 }
 void __quantum__qis__h__ctl(Array *ctls, Qubit *q) {
   // TODO
@@ -430,6 +434,7 @@ void __quantum__qis__rz__body(double theta, Qubit *q) {
 void __quantum__qis__cnot__body(Qubit *src, Qubit *tgt) {
   // TODO
   std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
+  __quantum__qis__cnot(src, tgt);
 }
 
 Result *__quantum__qis__measure__body(Array *bases, Array *qubits) {
@@ -446,11 +451,15 @@ void __quantum__rt__array_update_alias_count(Array *bases, int64_t count) {
   // TODO
   std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
 }
+
 bool __quantum__rt__result_equal(Result *res, Result *comp) {
-  // TODO
   std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
-  return false;
+  // std::cout << "RES = " << res << "\n";
+  // std::cout << "COMP = " << comp << "\n";
+  // We can do pointer comparison here.
+  return res == comp;
 }
+
 int64_t __quantum__rt__array_get_size_1d(Array *state1) {
   // TODO
   std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";

@@ -14,6 +14,9 @@ qcor_include_qsharp(XACC__TestBell__body, int64_t, int64_t)
 // $ ./a.out
 int main() {
   std::cout << "HOWDY \n";
+  // Manually intialize QRT...
+  ::quantum::set_qrt("ftqc");
+  ::quantum::initialize("qpp", "bell");
   auto oneCounts = XACC__TestBell__body(1024);
   std::cout << "Result = " << oneCounts << "\n";
   return 0.0;
