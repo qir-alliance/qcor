@@ -65,3 +65,4 @@ internal_startup startup;
 } // namespace qcor
 
 #define qcor_include_qasm(NAME) extern "C" void NAME(qreg);
+#define qcor_include_qsharp(NAME, RETURN_TYPE, ...) extern "C" RETURN_TYPE NAME(...);
