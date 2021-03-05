@@ -36,6 +36,7 @@ antlrcpp::Any qasm3_expression_generator::visitTerminal(
     // We have hit a closing on an index
     // std::cout << "TERMNODE:\n";
     indexed_variable_value = current_value;
+    internal_value_type = builder.getIndexType();
   } else if (node->getSymbol()->getText() == "]") {
     if (casting_indexed_integer_to_bool) {
       // We have an indexed integer in indexed_variable_value
@@ -49,34 +50,53 @@ antlrcpp::Any qasm3_expression_generator::visitTerminal(
       // uint[4] b_in = 15; // b = 1111
       // bool(b_in[1]);
 
-      std::cout << "FIRST:\n";
-      indexed_variable_value.dump();
+      
       // auto number_value = builder.create<mlir::LoadOp>(location,
       // indexed_variable_value, get_or_create_constant_index_value(0,
       // location)); number_value.dump(); auto idx_minus_1 =
       // builder.create<mlir::SubIOp>(location, current_value,
       // get_or_create_constant_integer_value(1, location));
       auto bw = indexed_variable_value.getType().getIntOrFloatBitWidth();
-      auto casted_idx = builder.create<mlir::IndexCastOp>(
-          location, current_value, indexed_variable_value.getType());
+      auto casted_idx =
+          builder.create<mlir::IndexCastOp>(location, current_value,
+                                            indexed_variable_value.getType()
+                                                .cast<mlir::MemRefType>()
+                                                .getElementType());
+      auto load_value = builder.create<mlir::LoadOp>(
+          location, indexed_variable_value,
+          get_or_create_constant_index_value(0, location, 64, symbol_table,
+                                             builder));
       auto shift = builder.create<mlir::UnsignedShiftRightOp>(
-          location, indexed_variable_value.getType(), indexed_variable_value,
-          casted_idx);
-      // shift.dump();
+          location, load_value, casted_idx);
+      // auto shift_load_value = builder.create<mlir::LoadOp>(
+      //     location, shift,
+      //     get_or_create_constant_index_value(0, location, 64, symbol_table,
+      //                                        builder));
       auto old_int_type = internal_value_type;
       internal_value_type = indexed_variable_value.getType();
       auto and_value = builder.create<mlir::AndOp>(
           location, shift,
-          get_or_create_constant_integer_value(
-              1, location, builder.getIntegerType(bw), symbol_table, builder));
+          get_or_create_constant_integer_value(1, location,
+                                               indexed_variable_value.getType()
+                                                   .cast<mlir::MemRefType>()
+                                                   .getElementType(),
+                                               symbol_table, builder));
       internal_value_type = old_int_type;
       update_current_value(and_value.result());
-
+      casting_indexed_integer_to_bool = false;
     } else {
-      // We are loading from a variable
-      llvm::ArrayRef<mlir::Value> idx(current_value);
-      update_current_value(
-          builder.create<mlir::LoadOp>(location, indexed_variable_value, idx));
+      if (internal_value_type.isa<mlir::OpaqueType>() &&
+          internal_value_type.cast<mlir::OpaqueType>().getTypeData().str() ==
+              "Qubit") {
+        update_current_value(builder.create<mlir::quantum::ExtractQubitOp>(
+            location, get_custom_opaque_type("Qubit", builder.getContext()),
+            indexed_variable_value, current_value));
+      } else {
+        // We are loading from a variable
+        llvm::ArrayRef<mlir::Value> idx(current_value);
+        update_current_value(builder.create<mlir::LoadOp>(
+            location, indexed_variable_value, idx));
+      }
     }
   }
   return 0;
@@ -86,7 +106,129 @@ antlrcpp::Any qasm3_expression_generator::visitExpression(
     qasm3Parser::ExpressionContext* ctx) {
   return visitChildren(ctx);
 }
+antlrcpp::Any qasm3_expression_generator::visitComparsionExpression(
+    qasm3Parser::ComparsionExpressionContext* compare) {
+  auto location = get_location(builder, file_name, compare);
 
+  if (auto relational_op = compare->relationalOperator()) {
+   
+    visitChildren(compare->expression(0));
+    auto lhs = current_value;
+    visitChildren(compare->expression(1));
+    auto rhs = current_value;
+
+    // if lhs is memref of rank 1 and size 1, this is a
+    // variable and we need to load its value
+    auto lhs_type = lhs.getType();
+    auto rhs_type = rhs.getType();
+    if (auto mem_value_type = lhs_type.dyn_cast_or_null<mlir::MemRefType>()) {
+      if (mem_value_type.getElementType().isIntOrIndex() &&
+          mem_value_type.getRank() == 1 && mem_value_type.getShape()[0] == 1) {
+        // Load this memref value
+
+        lhs = builder.create<mlir::LoadOp>(
+            location, lhs,
+            get_or_create_constant_index_value(0, location, 64, symbol_table,
+                                               builder));
+      }
+    }
+
+    if (auto mem_value_type = rhs_type.dyn_cast_or_null<mlir::MemRefType>()) {
+      if (mem_value_type.getElementType().isIntOrIndex() &&
+          mem_value_type.getRank() == 1 && mem_value_type.getShape()[0] == 1) {
+        // Load this memref value
+
+        rhs = builder.create<mlir::LoadOp>(
+            location, rhs,
+            get_or_create_constant_index_value(0, location, 64, symbol_table,
+                                               builder));
+      }
+    }
+
+    auto op = relational_op->getText();
+    if (antlr_to_mlir_predicate.count(op)) {
+      // if so, get the mlir enum representing it
+      auto predicate = antlr_to_mlir_predicate[op];
+
+      auto lhs_bw = lhs.getType().getIntOrFloatBitWidth();
+      auto rhs_bw = rhs.getType().getIntOrFloatBitWidth();
+      // We need the comparison to be on the same bit width
+      if (lhs_bw < rhs_bw) {
+        rhs = builder.create<mlir::IndexCastOp>(location, rhs,
+                                                builder.getIntegerType(lhs_bw));
+      } else if (lhs_bw > rhs_bw) {
+        lhs = builder.create<mlir::IndexCastOp>(location, lhs,
+                                                builder.getIntegerType(rhs_bw));
+      }
+
+      // create the binary op value
+      update_current_value(
+          builder.create<mlir::CmpIOp>(location, predicate, lhs, rhs));
+      return 0;
+    } else {
+      printErrorMessage("Invalid relational operation: " + op);
+    }
+
+  } else {
+    // This is just if(expr)
+    // printErrorMessage("Alex please implement if(expr).");
+
+    found_negation_unary_op = false;
+    visitChildren(compare->expression(0));
+    // now just compare current_value to 1
+    mlir::Type current_value_type =
+        current_value.getType().isa<mlir::MemRefType>()
+            ? current_value.getType().cast<mlir::MemRefType>().getElementType()
+            : current_value.getType();
+
+    current_value = builder.create<mlir::LoadOp>(
+        location, current_value,
+        get_or_create_constant_index_value(0, location, 64, symbol_table,
+                                           builder));
+
+    mlir::CmpIPredicate p = mlir::CmpIPredicate::eq;
+    if (found_negation_unary_op) {
+      p = mlir::CmpIPredicate::ne;
+    }
+
+    current_value = builder.create<mlir::CmpIOp>(
+        location, p, current_value,
+        get_or_create_constant_integer_value(1, location, current_value_type,
+                                             symbol_table, builder));
+    return 0;
+  }
+  return visitChildren(compare);
+}
+
+antlrcpp::Any qasm3_expression_generator::visitBooleanExpression(
+    qasm3Parser::BooleanExpressionContext* ctx) {
+  auto location = get_location(builder, file_name, ctx);
+
+  if (ctx->logicalOperator()) {
+    auto bool_expr = ctx->booleanExpression();
+    visitChildren(bool_expr);
+    auto lhs = current_value;
+
+    visit(ctx->comparsionExpression());
+    auto rhs = current_value;
+
+    if (ctx->logicalOperator()->getText() == "&&") {
+      update_current_value(builder.create<mlir::AndOp>(location, lhs, rhs));
+      return 0;
+    }
+  }
+  return visitChildren(ctx);
+}
+
+antlrcpp::Any qasm3_expression_generator::visitUnaryExpression(
+    qasm3Parser::UnaryExpressionContext* ctx) {
+  if (auto unary_op = ctx->unaryOperator()) {
+    if (unary_op->getText() == "!") {
+      found_negation_unary_op = true;
+    }
+  }
+  return visitChildren(ctx);
+}
 // antlrcpp::Any qasm3_expression_generator::visitIncrementor(
 //     qasm3Parser::IncrementorContext* ctx) {
 //   auto location = get_location(builder, file_name, ctx);
@@ -141,6 +283,20 @@ antlrcpp::Any qasm3_expression_generator::visitAdditiveExpression(
 
     visitChildren(ctx->multiplicativeExpression());
     auto rhs = current_value;
+
+    if (lhs.getType().isa<mlir::MemRefType>()) {
+      lhs = builder.create<mlir::LoadOp>(
+          location, lhs,
+          get_or_create_constant_index_value(0, location, 64, symbol_table,
+                                             builder));
+    }
+
+    if (rhs.getType().isa<mlir::MemRefType>()) {
+      rhs = builder.create<mlir::LoadOp>(
+          location, rhs,
+          get_or_create_constant_index_value(0, location, 64, symbol_table,
+                                             builder));
+    }
 
     if (bin_op == "+") {
       if (lhs.getType().isa<mlir::FloatType>() ||
@@ -448,10 +604,15 @@ antlrcpp::Any qasm3_expression_generator::visitExpressionTerminator(
       if (no_desig_type && no_desig_type->getText() == "bool") {
         // We can cast these things to bool...
         auto expr = builtin->expressionList()->expression(0);
+        // std::cout << "EXPR: " << expr->getText() << "\n";
+        if (expr->getText().find("[") != std::string::npos) {
+          casting_indexed_integer_to_bool = true;
+        }
         visitChildren(expr);
         auto value_type = current_value.getType();
         // std::cout << "DUMP THIS:\n";
         // value_type.dump();
+        // current_value.dump();
         if (auto mem_value_type =
                 value_type.dyn_cast_or_null<mlir::MemRefType>()) {
           if (mem_value_type.getElementType().isIntOrIndex() &&
@@ -477,11 +638,19 @@ antlrcpp::Any qasm3_expression_generator::visitExpressionTerminator(
             printErrorMessage("We can only cast integer types to bool. (" +
                               builtin->getText() + ").");
           }
+        } else {
+          // This is to catch things like bool(uint[i])
+          current_value = builder.create<mlir::CmpIOp>(
+              location, mlir::CmpIPredicate::eq, current_value,
+              get_or_create_constant_integer_value(
+                  1, location, current_value.getType(), symbol_table, builder));
+          return 0;
         }
       }
     }
 
-    printErrorMessage("We only support bool() cast operations.");
+    printErrorMessage(
+        "We only support bool(int|uint|uint[i]) cast operations.");
 
   } else {
     printErrorMessage("Cannot handle this expression terminator yet: " +

@@ -106,8 +106,8 @@ class QallocOpLowering : public ConversionPattern {
     auto qbit_array = qalloc_qir_call.getResult(0);
 
     // Remove the old QuantumDialect QallocOp
+    rewriter.replaceOp(op, qbit_array);
     rewriter.eraseOp(op);
-
     // Save the qubit array variable to the symbol table
     variables.insert({qreg_name, qbit_array});
 
@@ -581,34 +581,6 @@ class InstOpLowering : public ConversionPattern {
       q_function_name = inst_name;
     }
 
-    // The Operands at this point can only be the
-    // qubits the InstOp is operating on, so lets get tehm
-    // as mlir::Values to be used in the creation of the CallOp for this
-    // quantum runtime function
-    std::vector<mlir::Value> qbit_results, param_results;
-    for (auto operand : operands) {
-      // The Operand points to the vector::ExtractElementOp that produces the
-      // qubit Value, get that Operation
-
-      auto extract_op =
-          operand.getDefiningOp<quantum::ExtractQubitOp>().getOperation();
-      if (!extract_op) {
-        if (operand.isa<BlockArgument>() &&
-            !operand.getType().isa<mlir::FloatType>()) {
-          // only add qubit types
-          qbit_results.push_back(operand);
-        }
-      } else {
-        // Now get the corresponding qubit variable name (q_0 for q[0])
-        std::string get_qbit_call_qreg_key = qubit_extract_map[extract_op];
-        // Now get the qubit Value from the symbol table
-        mlir::Value qbit_result = variables[get_qbit_call_qreg_key];
-
-        // Store those values for the CallOp
-        qbit_results.push_back(qbit_result);
-      }
-    }
-
     // First see if this is a function within the mlir quantum dialect
     // then see if we've created this as an llvm function already,
     // finally, just create it as an llvm function
@@ -629,7 +601,6 @@ class InstOpLowering : public ConversionPattern {
       // Create Types for all function arguments, start with
       // double parameters (if instOp has them)
       std::vector<Type> tmp_arg_types;
-
       for (auto param : instOp.params()) {
         auto param_type = FloatType::getF64(context);
         tmp_arg_types.push_back(param_type);
@@ -657,15 +628,13 @@ class InstOpLowering : public ConversionPattern {
     // Now create the vector containing the function Values,
     // double parameters first if we have them...
     std::vector<mlir::Value> func_args;
-    // if (instOp.params()) {
-    for (auto param : instOp.params()) {
-      func_args.push_back(param);
-    }
 
-    // Followed by qubit values
-    for (auto q : qbit_results) {
-      func_args.push_back(q);
+    auto n_params = instOp.params().size();
+    auto n_qbits = instOp.qubits().size();
+    for (int i = n_params + n_qbits - 1; i >= 0; i--) {
+      func_args.push_back(operands[i]);
     }
+   
 
     // once again, return type should be void unless its a measure
     mlir::Type ret_type = LLVM::LLVMVoidType::get(context);
@@ -680,9 +649,10 @@ class InstOpLowering : public ConversionPattern {
 
     if (inst_name == "mz") {
       auto bitcast = rewriter.create<LLVM::BitcastOp>(
-            loc, LLVM::LLVMPointerType::get(rewriter.getIntegerType(1)), c.getResult(0));
+          loc, LLVM::LLVMPointerType::get(rewriter.getIntegerType(1)),
+          c.getResult(0));
       auto o = rewriter.create<LLVM::LoadOp>(loc, rewriter.getIntegerType(1),
-                                        bitcast.res());
+                                             bitcast.res());
       rewriter.replaceOp(op, o.res());
     } else {
       rewriter.eraseOp(op);
@@ -726,45 +696,7 @@ class ExtractQubitOpConversion : public ConversionPattern {
     auto location = parentModule->getLoc();
     auto adaptor = quantum::ExtractQubitOpAdaptor(operands);
 
-    // This Extract Op references the QallocOp it is operation on
-    // and a constant op that represents the element to extract
-    mlir::Value v = operands[0];
-    mlir::Value v1 = operands[1];
-    auto qalloc_op = v.getDefiningOp<quantum::QallocOp>();
-    std::string qreg_name = qalloc_op.name().str();
-    std::string qubit_var_name = "";
-    bool was_block_arg = false;
-    if (auto qbit_index_op = v1.getDefiningOp<mlir::ConstantOp>()) {
-      mlir::Attribute unknown_attr = qbit_index_op.value();
-      auto int_attr = unknown_attr.cast<mlir::IntegerAttr>();
-      auto int_value = int_attr.getInt();
-      qubit_var_name = qreg_name + "_" + std::to_string(int_value);
-
-      // Reuse the qubit if we've allocated it before.
-      if (vars.count(qubit_var_name)) {
-        // Erase the old op
-        rewriter.eraseOp(op);
-        qubit_extract_map.insert({op, qubit_var_name});
-        return success();
-      }
-
-    } else if (v1.isa<mlir::BlockArgument>()) {
-      auto casted = v1.cast<mlir::BlockArgument>();
-      auto arg_number = casted.getArgNumber();
-      qubit_var_name = qreg_name + "_block_arg_" + std::to_string(arg_number);
-    }
-
-    // Get info about what qreg we are extracting what qbit from
-    // Create the qubit variable name that we are extracting
-    // e.g. q[0] -> q_0
-
-    // Erase the old op
-    rewriter.eraseOp(op);
-
-    if (vars.count(qubit_var_name)) {
-      vars.erase(qubit_var_name);
-    }
-
+   
     // First goal, get symbol for
     // %0 = call i8* @__quantum__rt__array_get_element_ptr_1d(%Array* %q, i64 0)
     // %1 = bitcast i8* %0 to %Qubit**
@@ -798,8 +730,8 @@ class ExtractQubitOpConversion : public ConversionPattern {
         LLVM::LLVMPointerType::get(IntegerType::get(context, 8));
 
     auto get_qbit_qir_call = rewriter.create<mlir::CallOp>(
-        location, symbol_ref, array_qbit_type,
-        ArrayRef<Value>({vars[qreg_name], adaptor.idx()}));
+        location, symbol_ref, array_qbit_type, operands);
+    // ArrayRef<Value>({vars[qreg_name], adaptor.idx()}));
 
     auto bitcast = rewriter.create<LLVM::BitcastOp>(
         location,
@@ -811,11 +743,12 @@ class ExtractQubitOpConversion : public ConversionPattern {
         LLVM::LLVMPointerType::get(get_quantum_type("Qubit", context)),
         bitcast.res());
 
+    rewriter.replaceOp(op, real_casted_qubit.res());
     // Remember the variable name for this qubit
-    vars.insert({qubit_var_name, real_casted_qubit.res()});
+    // vars.insert({qubit_var_name, real_casted_qubit.res()});
 
     // STORE THAT THIS OP PRODUCES THIS QREG{IDX} VARIABLE NAME
-    qubit_extract_map.insert({op, qubit_var_name});
+    // qubit_extract_map.insert({op, qubit_var_name});
 
     return success();
   }
@@ -1012,7 +945,7 @@ class PrintOpLowering : public ConversionPattern {
         auto op = o.getDefiningOp<mlir::quantum::CreateStringLiteralOp>();
         auto var_name = op.varname().str();
         o = variables[var_name];
-      } 
+      }
       // else if (operand.getType().cast<mlir::IntegerType>().getWidth() == 1) {
       //   std::cout << "WE HAVE A BIT VALUE, CAST IT TO I64.\n";
       //   auto bitcast = rewriter.create<LLVM::BitcastOp>(
@@ -1026,6 +959,7 @@ class PrintOpLowering : public ConversionPattern {
                                   llvm::makeArrayRef(args));
     rewriter.eraseOp(op);
 
+    // parentModule.dump();
     return success();
   }
 };

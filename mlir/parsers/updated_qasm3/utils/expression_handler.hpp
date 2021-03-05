@@ -20,7 +20,7 @@ class qasm3_expression_generator : public qasm3::qasm3BaseVisitor {
 
   bool next_value_is_idx = false;
   bool casting_indexed_integer_to_bool = false;
-  
+  bool found_negation_unary_op = false;
   mlir::Value indexed_variable_value;
 
   bool is_signed = true;
@@ -30,7 +30,6 @@ class qasm3_expression_generator : public qasm3::qasm3BaseVisitor {
   std::size_t current_idx = -1;
 
   ScopedSymbolTable& symbol_table;
-
 
   void update_current_value(mlir::Value v);
 
@@ -46,8 +45,8 @@ class qasm3_expression_generator : public qasm3::qasm3BaseVisitor {
   mlir::Value last_current_value;
 
   qasm3_expression_generator(mlir::OpBuilder b, ScopedSymbolTable& table,
-                             std::string& fname, std::size_t nw = 64, bool _is_signed = true);
-
+                             std::string& fname, std::size_t nw = 64,
+                             bool _is_signed = true);
 
   qasm3_expression_generator(mlir::OpBuilder b, ScopedSymbolTable& table,
                              std::string& fname, mlir::Type t);
@@ -55,14 +54,22 @@ class qasm3_expression_generator : public qasm3::qasm3BaseVisitor {
   antlrcpp::Any visitTerminal(antlr4::tree::TerminalNode* node) override;
   antlrcpp::Any visitExpression(qasm3Parser::ExpressionContext* ctx) override;
 
-  // antlrcpp::Any visitIncrementor(qasm3Parser::IncrementorContext* ctx) override;
+  // antlrcpp::Any visitIncrementor(qasm3Parser::IncrementorContext* ctx)
+  // override;
 
   antlrcpp::Any visitExpressionTerminator(
       qasm3Parser::ExpressionTerminatorContext* ctx) override;
- 
+
   antlrcpp::Any visitMultiplicativeExpression(
-      qasm3Parser::MultiplicativeExpressionContext* ctx) override;    
+      qasm3Parser::MultiplicativeExpressionContext* ctx) override;
   antlrcpp::Any visitAdditiveExpression(
-    qasm3Parser::AdditiveExpressionContext* ctx) override;
+      qasm3Parser::AdditiveExpressionContext* ctx) override;
+
+  antlrcpp::Any visitBooleanExpression(
+      qasm3Parser::BooleanExpressionContext* ctx) override;
+  antlrcpp::Any visitComparsionExpression(
+      qasm3Parser::ComparsionExpressionContext* ctx) override;
+  antlrcpp::Any visitUnaryExpression(
+      qasm3Parser::UnaryExpressionContext* ctx) override;
 };
 }  // namespace qcor

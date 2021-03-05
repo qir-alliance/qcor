@@ -10,6 +10,9 @@ file(GLOB SRC *.cpp antlr/generated/*.cpp utils/*.cpp
    visitor_handlers/quantum_types_handler.cpp
    visitor_handlers/quantum_instruction_handler.cpp
    visitor_handlers/classical_types_handler.cpp
+   visitor_handlers/measurement_handler.cpp
+   visitor_handlers/loop_stmt_handler.cpp
+   visitor_handlers/conditional_handler.cpp
    )
 
 add_library(${LIBRARY_NAME} SHARED ${SRC})

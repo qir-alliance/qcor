@@ -8,12 +8,7 @@ antlrcpp::Any qasm3_visitor::visitBranchingStatement(
   auto location = get_location(builder, file_name, context);
 
   // Get the conditional expression
-  auto conditional_expr = context->expression();
-
-  // FIXME Can I do some pre-processing on this to
-  // ensure order of operations observed.
-  // E.g. if (EXPR && EXPR || EXPR && ...)
-  // should be if ((EXPR) && (EXPR) || (EXPR) && ...) with parentheses
+  auto conditional_expr = context->booleanExpression();
 
   qasm3_expression_generator exp_generator(builder, symbol_table, file_name);
   exp_generator.visit(conditional_expr);

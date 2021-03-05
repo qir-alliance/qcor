@@ -253,7 +253,16 @@ antlrcpp::Any qasm3_visitor::visitBitDeclaration(
             exp_list->expression(0)->getText());
       }
 
-      auto allocation = allocate_1d_memory(location, size, result_type);
+      std::vector<mlir::Value> init_values, init_indices;
+      for (std::size_t i = 0; i < size; i++) {
+        init_values.push_back(get_or_create_constant_integer_value(
+            0, location, builder.getI1Type(), symbol_table, builder));
+        init_indices.push_back(get_or_create_constant_index_value(
+            0, location, 64, symbol_table, builder));
+      }
+      auto allocation = allocate_1d_memory_and_initialize(
+          location, size, builder.getI1Type(), init_values,
+          llvm::makeArrayRef(init_indices));
       update_symbol_table(var_name, allocation);
     }
   } else {
@@ -336,8 +345,9 @@ antlrcpp::Any qasm3_visitor::visitClassicalAssignment(
                    .cast<mlir::MemRefType>()
                    .getElementType()
                    .getIntOrFloatBitWidth();
-  qasm3_expression_generator exp_generator(builder, symbol_table, file_name,
-                                           width);
+  qasm3_expression_generator exp_generator(
+      builder, symbol_table, file_name,
+      lhs.getType().cast<mlir::MemRefType>().getElementType());
   exp_generator.visit(context->expression());
   auto rhs = exp_generator.current_value;
 

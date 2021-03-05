@@ -47,10 +47,10 @@ class qasm3_visitor : public qasm3::qasm3BaseVisitor {
       qasm3Parser::KernelCallContext* context) override;
 
   // see visitor_handlers/measurement_handler.cpp
-  // antlrcpp::Any visitQuantumMeasurement(
-  //     qasm3Parser::QuantumMeasurementContext* context) override;
-  // antlrcpp::Any visitQuantumMeasurementAssignment(
-  //     qasm3Parser::QuantumMeasurementAssignmentContext* context) override;
+  antlrcpp::Any visitQuantumMeasurement(
+      qasm3Parser::QuantumMeasurementContext* context) override;
+  antlrcpp::Any visitQuantumMeasurementAssignment(
+      qasm3Parser::QuantumMeasurementAssignmentContext* context) override;
 
   // // see visitor_handlers/subroutine_handler.cpp
   // antlrcpp::Any visitSubroutineDefinition(
@@ -58,15 +58,15 @@ class qasm3_visitor : public qasm3::qasm3BaseVisitor {
   // antlrcpp::Any visitReturnStatement(
   //     qasm3Parser::ReturnStatementContext* context) override;
 
-  // // see visitor_handlers/conditional_handler.cpp
-  // antlrcpp::Any visitBranchingStatement(
-  //     qasm3Parser::BranchingStatementContext* context) override;
+  // see visitor_handlers/conditional_handler.cpp
+  antlrcpp::Any visitBranchingStatement(
+      qasm3Parser::BranchingStatementContext* context) override;
 
-  // // see visitor_handlers/for_stmt_handler.cpp
-  // antlrcpp::Any visitLoopStatement(
-  //     qasm3Parser::LoopStatementContext* context) override;
-  // antlrcpp::Any visitControlDirective(
-  //     qasm3Parser::ControlDirectiveContext* context) override;
+  // see visitor_handlers/for_stmt_handler.cpp
+  antlrcpp::Any visitLoopStatement(
+      qasm3Parser::LoopStatementContext* context) override;
+  antlrcpp::Any visitControlDirective(
+      qasm3Parser::ControlDirectiveContext* context) override;
 
   // see visitor_handlers/classical_types_handler.cpp
   antlrcpp::Any visitConstantDeclaration(
@@ -124,50 +124,6 @@ class qasm3_visitor : public qasm3::qasm3BaseVisitor {
     symbol_table.add_symbol(key, value, variable_attributes, overwrite);
     return;
   }
-
-  // mlir::Value get_or_extract_qubit(const std::string& qreg_name,
-  //                                  const std::size_t idx,
-  //                                  mlir::Location location) {
-  //   auto key = qreg_name + std::to_string(idx);
-  //   if (symbol_table.has_symbol(key)) {
-  //     return symbol_table.get_symbol(key);  // global_symbol_table[key];
-  //   } else {
-  //     auto qubits = symbol_table.get_symbol(qreg_name);
-  //     // .getDefiningOp<mlir::quantum::QallocOp>()
-  //     // .qubits();
-  //     mlir::Value pos = get_or_create_constant_integer_value(idx, location);
-
-  //     // auto pos = create_constant_integer_value(idx, location);
-  //     auto value = builder.create<mlir::quantum::ExtractQubitOp>(
-  //         location, qubit_type, qubits, pos);
-  //     symbol_table.add_symbol(key, value);
-  //     return value;
-  //   }
-  // }
-
-  // mlir::Value get_or_create_constant_integer_value(const std::size_t idx,
-  //                                                  mlir::Location location,
-  //                                                  int width = 64) {
-  //   if (symbol_table.has_constant_integer(idx, width)) {
-  //     return symbol_table.get_constant_integer(idx, width);
-  //   } else {
-  //     auto integer_attr =
-  //         mlir::IntegerAttr::get(builder.getIntegerType(width), idx);
-
-  //     auto ret = builder.create<mlir::ConstantOp>(location, integer_attr);
-  //     symbol_table.add_constant_integer(idx, ret, width);
-  //     return ret;
-  //   }
-  // }
-
-  // mlir::Value get_or_create_constant_index_value(const std::size_t idx,
-  //                                                mlir::Location location,
-  //                                                int width = 64) {
-  //   auto constant_int =
-  //       get_or_create_constant_integer_value(idx, location, width);
-  //   return builder.create<mlir::IndexCastOp>(location, constant_int,
-  //                                            builder.getIndexType());
-  // }
 
   // This function serves as a utility for creating a MemRef and
   // corresponding AllocOp of a given 1d shape. It will also store

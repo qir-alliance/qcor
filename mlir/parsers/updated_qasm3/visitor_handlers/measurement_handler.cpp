@@ -78,7 +78,7 @@ antlrcpp::Any qasm3_visitor::visitQuantumMeasurementAssignment(
 
       try {
         value =
-            get_or_extract_qubit(measured_qreg, std::stoi(idx_str), location);
+            get_or_extract_qubit(measured_qreg, std::stoi(idx_str), location, symbol_table, builder);
       } catch (...) {
         if (symbol_table.has_symbol(idx_str)) {
           auto qubits = symbol_table.get_symbol(measured_qreg);
@@ -117,7 +117,7 @@ antlrcpp::Any qasm3_visitor::visitQuantumMeasurementAssignment(
       // bit_value.dump();
 
       // Store the mz result into the bit_value
-      mlir::Value pos = get_or_create_constant_index_value(bit_idx, location);
+      mlir::Value pos = get_or_create_constant_index_value(bit_idx, location, 64, symbol_table, builder);
 
       builder.create<mlir::StoreOp>(
           location, instop.bit(), bit_value,
@@ -138,7 +138,7 @@ antlrcpp::Any qasm3_visitor::visitQuantumMeasurementAssignment(
       }
 
       for (int i = 0; i < nqubits; i++) {
-        mlir::Value idx_val = get_or_create_constant_index_value(i, location);
+        mlir::Value idx_val = get_or_create_constant_index_value(i, location, 64, symbol_table, builder);
 
         auto extract = builder.create<mlir::quantum::ExtractQubitOp>(
             location, qubit_type, value, idx_val);

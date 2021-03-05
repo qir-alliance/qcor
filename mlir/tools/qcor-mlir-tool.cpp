@@ -95,6 +95,8 @@ int main(int argc, char **argv) {
   context.loadDialect<mlir::quantum::QuantumDialect, mlir::AffineDialect,
                       mlir::scf::SCFDialect, mlir::StandardOpsDialect>();
 
+  context.printOpOnDiagnostic(true);
+
   std::vector<std::string> unique_function_names;
   auto module = loadMLIR(context, unique_function_names);
 
@@ -106,6 +108,8 @@ int main(int argc, char **argv) {
 
   // Create the PassManager for lowering to LLVM MLIR and run it
   mlir::PassManager pm(&context);
+    applyPassManagerCLOptions(pm);
+
   pm.addPass(
       std::make_unique<qcor::QuantumToLLVMLoweringPass>(unique_function_names));
   auto module_op = (*module).getOperation();
