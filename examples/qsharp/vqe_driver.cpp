@@ -8,14 +8,10 @@ qcor_include_qsharp(XACC__Deuteron__body, double, double, int64_t);
 // Compile with:
 // Include both the qsharp source and this driver file
 // in the command line.
-// $ qcor vqe_ansatz.qs vqe_driver.cpp
+// $ qcor -qrt ftqc vqe_ansatz.qs vqe_driver.cpp
 // Run with:
 // $ ./a.out
 int main() {
-  // Manually intialize QRT...
-  ::quantum::set_qrt("ftqc");
-  ::quantum::initialize("qpp", "test");
-
   const std::vector<double> expectedResults{
       0.0,       -0.324699, -0.614213, -0.837166, -0.9694,
       -0.996584, -0.915773, -0.735724, -0.475947, -0.164595,

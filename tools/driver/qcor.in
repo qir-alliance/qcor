@@ -361,6 +361,7 @@ def main(argv=None):
                 driver_file_name = arg
                 sys.argv.remove(driver_file_name)
                 cpp_compile_commands = [compiler] + defaultFlags + sHandlerArgs + baseIncludes + ['-c'] +[driver_file_name]
+                cpp_compile_commands += sys.argv[1:]
                 if verbose:
                     print('[qcor-exec]: ', ' '.join([c for c in cpp_compile_commands]))
                 try:
