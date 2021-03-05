@@ -17,33 +17,20 @@ class qasm3_expression_generator : public qasm3::qasm3BaseVisitor {
   mlir::OpBuilder builder;
   mlir::ModuleOp m_module;
   std::string file_name = "";
-  // std::map<std::string, mlir::Value>& global_symbol_table;
+
   bool next_value_is_idx = false;
   bool casting_indexed_integer_to_bool = false;
   
   mlir::Value indexed_variable_value;
 
   bool is_signed = true;
-  std::size_t number_width;
-  mlir::Type internal_float_type;
-  mlir::Type internal_integer_type;
+  std::size_t number_width = 64;
+  mlir::Type internal_value_type;
 
   std::size_t current_idx = -1;
 
   ScopedSymbolTable& symbol_table;
-  mlir::Value create_constant_integer_value(const std::size_t idx,
-                                            mlir::Location location);
-  mlir::Value get_or_extract_qubit(const std::string& qreg_name,
-                                   const std::size_t idx,
-                                   mlir::Location location);
 
-  mlir::Value get_or_create_constant_integer_value(const std::size_t idx,
-                                                   mlir::Location location,
-                                                   int width = 64);
-
-  mlir::Value get_or_create_constant_index_value(const std::size_t idx,
-                                                 mlir::Location location,
-                                                 int width = 64);
 
   void update_current_value(mlir::Value v);
 
@@ -61,12 +48,21 @@ class qasm3_expression_generator : public qasm3::qasm3BaseVisitor {
   qasm3_expression_generator(mlir::OpBuilder b, ScopedSymbolTable& table,
                              std::string& fname, std::size_t nw = 64, bool _is_signed = true);
 
+
+  qasm3_expression_generator(mlir::OpBuilder b, ScopedSymbolTable& table,
+                             std::string& fname, mlir::Type t);
+
   antlrcpp::Any visitTerminal(antlr4::tree::TerminalNode* node) override;
   antlrcpp::Any visitExpression(qasm3Parser::ExpressionContext* ctx) override;
 
-  antlrcpp::Any visitIncrementor(qasm3Parser::IncrementorContext* ctx) override;
+  // antlrcpp::Any visitIncrementor(qasm3Parser::IncrementorContext* ctx) override;
 
   antlrcpp::Any visitExpressionTerminator(
       qasm3Parser::ExpressionTerminatorContext* ctx) override;
+ 
+  antlrcpp::Any visitMultiplicativeExpression(
+      qasm3Parser::MultiplicativeExpressionContext* ctx) override;    
+  antlrcpp::Any visitAdditiveExpression(
+    qasm3Parser::AdditiveExpressionContext* ctx) override;
 };
 }  // namespace qcor

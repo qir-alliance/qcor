@@ -1056,6 +1056,19 @@ if((spec[0]==1) && (spec[n+2]==0)) {
   std::cout << mlir << "\n";
 }
 
+TEST(qasm3VisitorTester, checkUintIndexing) {
+  const std::string complex_condition = R"#(OPENQASM 3;
+include "qelib1.inc";
+
+uint[4] b_in = 15;
+
+bool b = bool(b_in[1]);
+
+)#";
+  auto mlir = qcor::mlir_compile("qasm3", complex_condition, "complex_condition",
+                                 qcor::OutputType::MLIR, false);
+  std::cout << mlir << "\n";
+}
 int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);
   auto ret = RUN_ALL_TESTS();

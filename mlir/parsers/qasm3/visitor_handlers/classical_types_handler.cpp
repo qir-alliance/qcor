@@ -108,21 +108,22 @@ antlrcpp::Any qasm3_visitor::visitSingleDesignatorDeclaration(
 
   mlir::FloatAttr float_attr;
   mlir::Type float_type;
-  if (width_idx == 16) {
-    float_type = mlir::FloatType::getF16(builder.getContext());
-    float_attr = mlir::FloatAttr::get(float_type, 0.0);
+  if (type == "float") {
+    if (width_idx == 16) {
+      float_type = mlir::FloatType::getF16(builder.getContext());
+      float_attr = mlir::FloatAttr::get(float_type, 0.0);
 
-  } else if (width_idx == 32) {
-    float_type = mlir::FloatType::getF32(builder.getContext());
-    float_attr = mlir::FloatAttr::get(float_type, 0.0);
+    } else if (width_idx == 32) {
+      float_type = mlir::FloatType::getF32(builder.getContext());
+      float_attr = mlir::FloatAttr::get(float_type, 0.0);
 
-  } else if (width_idx == 64) {
-    float_type = mlir::FloatType::getF64(builder.getContext());
-    float_attr = mlir::FloatAttr::get(float_type, 0.0);
+    } else if (width_idx == 64) {
+      float_type = mlir::FloatType::getF64(builder.getContext());
+      float_attr = mlir::FloatAttr::get(float_type, 0.0);
 
-  } else {
-    printErrorMessage(
-        "we only support 16, 32, and 64 integer and floating point types.");
+    } else {
+      printErrorMessage("we only support 16, 32, and 64 floating point types.");
+    }
   }
 
   // Create the zero int value
@@ -158,11 +159,13 @@ antlrcpp::Any qasm3_visitor::visitSingleDesignatorDeclaration(
 
     var_name = ids[0]->getText();
     auto equals_expr = easslist->equalsExpression(0)->expression();
+    std::cout << "HI EQUALS: " << equals_expr->getText() << "\n";
 
     // Need to tell the expression_generator what type this
     // variable is so that it will create
-    qasm3_expression_generator equals_exp_generator(builder, symbol_table,
-                                                    file_name, width_idx);
+    qasm3_expression_generator equals_exp_generator(
+        builder, symbol_table, file_name, width_idx,
+        (type == "uint" ? false : true));
     equals_exp_generator.visit(equals_expr);
     init_val = equals_exp_generator.current_value;
   }
@@ -172,10 +175,13 @@ antlrcpp::Any qasm3_visitor::visitSingleDesignatorDeclaration(
   if (type == "int" || type == "uint") {  // FIXME hack for now
     // Create memory allocation of dimension 0, so just a scalar
     // integer value of given width
+    auto t = builder.getIntegerType(width_idx);
+    if (type == "uint") {
+      t = builder.getIntegerType(width_idx, false);
+    }
     auto tmp = get_or_create_constant_index_value(0, location);
     allocation = allocate_1d_memory_and_initialize(
-        location, 1, builder.getIntegerType(width_idx),
-        std::vector<mlir::Value>{init_val},
+        location, 1, t, std::vector<mlir::Value>{init_val},
         llvm::makeArrayRef(std::vector<mlir::Value>{tmp}));
 
   } else if (type == "float" || type == "angle") {  // FIXME hack for now
@@ -266,8 +272,12 @@ antlrcpp::Any qasm3_visitor::visitNoDesignatorDeclaration(
       llvm::ArrayRef<mlir::Value> zero_index(tmp);
       // init_val for this cast op will be a memref, so we load
       // the value from it
-      auto load = builder.create<mlir::LoadOp>(location, init_val, zero_index);
-      auto load_result = load.result();
+      mlir::Value load_result = init_val;
+      if (init_val.getType().isa<mlir::MemRefType>()) {
+        auto load =
+            builder.create<mlir::LoadOp>(location, init_val, zero_index);
+        load_result = load.result();
+      }
 
       // .. and then store that
       allocation = allocate_1d_memory_and_initialize(
@@ -335,7 +345,9 @@ antlrcpp::Any qasm3_visitor::visitBitDeclaration(
       update_symbol_table(var_name, allocation);
     }
   } else {
+    std::cout << context->getText() << "\n";
     auto index_equals_list = context->indexEqualsAssignmentList();
+    std::cout << "HELLO WORLD: " << index_equals_list->getText() << "\n";
     if (index_equals_list->indexIdentifier().size() > 1) {
       printErrorMessage("qcor only supports single bit equal assignments.");
     }
@@ -343,7 +355,6 @@ antlrcpp::Any qasm3_visitor::visitBitDeclaration(
     auto first_index_equals = index_equals_list->indexIdentifier(0);
     auto var_name = first_index_equals->Identifier()->getText();
     auto equals_expr = index_equals_list->equalsExpression()[0]->expression();
-    
 
     qasm3_expression_generator exp_generator(builder, symbol_table, file_name);
     exp_generator.visit(equals_expr);
@@ -353,7 +364,7 @@ antlrcpp::Any qasm3_visitor::visitBitDeclaration(
     auto allocation = allocate_1d_memory_and_initialize(
         location, 1, builder.getI1Type(), std::vector<mlir::Value>{init_val},
         llvm::makeArrayRef(std::vector<mlir::Value>{tmp}));
-    
+
     update_symbol_table(var_name, allocation);
 
     // printErrorMessage(

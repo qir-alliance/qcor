@@ -5,8 +5,7 @@ using namespace qasm3;
 namespace qcor {
 mlir::Value qasm3_expression_generator::create_constant_integer_value(
     const std::size_t idx, mlir::Location location) {
-  auto integer_attr =
-      mlir::IntegerAttr::get(builder.getIntegerType(number_width), idx);
+  auto integer_attr = mlir::IntegerAttr::get(internal_integer_type, idx);
 
   auto ret = builder.create<mlir::ConstantOp>(location, integer_attr);
   // symbol_table.add_constant_integer(idx, ret);
@@ -49,9 +48,9 @@ mlir::Value qasm3_expression_generator::get_or_create_constant_integer_value(
   if (symbol_table.has_constant_integer(idx, width)) {
     return symbol_table.get_constant_integer(idx, width);
   } else {
-    auto integer_attr =
-        mlir::IntegerAttr::get(builder.getIntegerType(width), idx);
-
+    auto integer_attr = mlir::IntegerAttr::get(internal_integer_type, idx);
+    std::cout << "creating int attr:\n";
+    integer_attr.dump();
     auto ret = builder.create<mlir::ConstantOp>(location, integer_attr);
     symbol_table.add_constant_integer(idx, ret, width);
     return ret;
@@ -75,8 +74,13 @@ void qasm3_expression_generator::update_current_value(mlir::Value v) {
 qasm3_expression_generator::qasm3_expression_generator(mlir::OpBuilder b,
                                                        ScopedSymbolTable& table,
                                                        std::string& fname,
-                                                       std::size_t nw)
-    : builder(b), file_name(fname), symbol_table(table), number_width(nw) {
+                                                       std::size_t nw,
+                                                       bool is_s)
+    : builder(b),
+      file_name(fname),
+      symbol_table(table),
+      number_width(nw),
+      is_signed(is_s) {
   if (nw == 64) {
     internal_float_type = builder.getF64Type();
   } else if (nw == 32) {
@@ -85,6 +89,12 @@ qasm3_expression_generator::qasm3_expression_generator(mlir::OpBuilder b,
     internal_float_type = builder.getF16Type();
   } else {
     internal_float_type = builder.getF64Type();
+  }
+
+  if (!is_signed) {
+    internal_integer_type = builder.getIntegerType(number_width, false);
+  } else {
+    internal_integer_type = builder.getIntegerType(number_width);
   }
 }
 
@@ -96,9 +106,36 @@ antlrcpp::Any qasm3_expression_generator::visitTerminal(
     // std::cout << "TERMNODE:\n";
     indexed_variable_value = current_value;
   } else if (node->getSymbol()->getText() == "]") {
-    llvm::ArrayRef<mlir::Value> idx(current_value);
-    update_current_value(
-        builder.create<mlir::LoadOp>(location, indexed_variable_value, idx));
+    if (casting_indexed_integer_to_bool) {
+
+      // We have an indexed integer in indexed_variable_value
+      // We want to get its idx bit and set that as the 
+      // current value so that we can cast it to a bool
+      // need to code up the following
+      // ((NUMBER >> (IDX-1)) & 1)
+      // shift_right then AND 1
+      std::cout << "FIRST:\n";
+      indexed_variable_value.dump();
+      // auto number_value = builder.create<mlir::LoadOp>(location, indexed_variable_value, get_or_create_constant_index_value(0, location));
+      // number_value.dump();
+      // auto idx_minus_1 = builder.create<mlir::SubIOp>(location, current_value, get_or_create_constant_integer_value(1, location));
+      auto bw = indexed_variable_value.getType().getIntOrFloatBitWidth();
+      auto casted_idx = builder.create<mlir::IndexCastOp>(location, current_value, indexed_variable_value.getType());
+      auto shift = builder.create<mlir::UnsignedShiftRightOp>(location, indexed_variable_value.getType(), indexed_variable_value, casted_idx);
+      // shift.dump();
+      auto old_int_type = internal_integer_type;
+      internal_integer_type = indexed_variable_value.getType();
+      auto and_value = builder.create<mlir::AndOp>(location, shift, get_or_create_constant_integer_value(1, location, bw));
+      internal_integer_type = old_int_type;
+      update_current_value(and_value.result());
+
+
+    } else {
+      // We are loading from a variable
+      llvm::ArrayRef<mlir::Value> idx(current_value);
+      update_current_value(
+          builder.create<mlir::LoadOp>(location, indexed_variable_value, idx));
+    }
   }
   return 0;
 }
@@ -130,10 +167,12 @@ antlrcpp::Any qasm3_expression_generator::visitExpression(
       auto rhs_bw = rhs.getType().getIntOrFloatBitWidth();
       // We need the comparison to be on the same bit width
       if (lhs_bw < rhs_bw) {
-        rhs = builder.create<mlir::IndexCastOp>(location, rhs, builder.getIntegerType(lhs_bw));
+        rhs = builder.create<mlir::IndexCastOp>(location, rhs,
+                                                builder.getIntegerType(lhs_bw));
       } else if (lhs_bw > rhs_bw) {
-        lhs = builder.create<mlir::IndexCastOp>(location, lhs, builder.getIntegerType(rhs_bw));
-      } 
+        lhs = builder.create<mlir::IndexCastOp>(location, lhs,
+                                                builder.getIntegerType(rhs_bw));
+      }
 
       // create the binary op value
       update_current_value(
@@ -204,12 +243,30 @@ antlrcpp::Any qasm3_expression_generator::visitExpression(
           built_in_call->expressionList()->expression(0)->getText();
       auto classical_type = cast_op->classicalType();
       if (auto single = classical_type->singleDesignatorType()) {
+        printErrorMessage(
+            "We have not yet implemented single designator casting yet.");
+
       } else if (auto noDesig = classical_type->noDesignatorType()) {
         auto type = noDesig->getText();
         if (type == "bool") {
           // bool b = bool(int)
-          auto value = symbol_table.get_symbol(identifier);
-          createOp<mlir::MemRefCastOp>(location, value, builder.getI1Type());
+          std::cout << "CAST STR: " << cast_op->getText() << "\n";
+          std::cout << "ID: " << identifier << "\n";
+          if (identifier.find("[") == std::string::npos) {
+            auto value = symbol_table.get_symbol(identifier);
+            createOp<mlir::MemRefCastOp>(location, value, builder.getI1Type());
+          } else {
+            std::cout << "A bit more complicated...\n";
+
+            casting_indexed_integer_to_bool = true;
+            visitChildren(built_in_call->expressionList()->expression(0));
+            casting_indexed_integer_to_bool = false;
+
+            std::cout << "Visited, current value;\n";
+            // current_value.dump();
+            // createOp<mlir::MemRefCastOp>(location, current_value, builder.getI1Type());
+
+          }
           return 0;
         }
       }
@@ -248,13 +305,13 @@ antlrcpp::Any qasm3_expression_generator::visitExpression(
             expression->expression(0)->expressionTerminator()->getText();
         auto idx_str =
             expression->expression(1)->expressionTerminator()->getText();
-            auto current_nw = number_width;
-            number_width = 64;
+        auto current_nw = number_width;
+        number_width = 64;
         visitExpressionTerminator(
             expression->expression(1)->expressionTerminator());
-            number_width = current_nw;
+        number_width = current_nw;
         auto qbit = current_value;
-       
+
         auto qubits = symbol_table.get_symbol(qbit_var_name);
 
         llvm::StringRef qubit_type_name("Qubit");
@@ -355,7 +412,11 @@ antlrcpp::Any qasm3_expression_generator::visitExpressionTerminator(
     // check minus
     int multiplier = ctx->MINUS() ? -1 : 1;
     auto idx = std::stoi(integer->getText());
-    current_value = get_or_create_constant_integer_value(multiplier*idx, location, number_width);
+    std::cout << "Integer Terminator " << integer->getText() << ", " << idx
+              << ", " << number_width << "\n";
+    current_value = get_or_create_constant_integer_value(
+        multiplier * idx, location, number_width);
+    current_value.dump();
     // const std::size_t idx, mlir::Location location, int width)k
     // auto integer_attr = mlir::IntegerAttr::get(
     //     builder.getIntegerType(number_width), multiplier * idx);
