@@ -1,8 +1,9 @@
 namespace XACC 
 {
 open Microsoft.Quantum.Intrinsic;
-operation TestGhz(q : Qubit[]) : Unit {
+operation TestKernel(q : Qubit[], theta: Double) : Unit {
     H(q[0]);
+    Ry(theta, q[1]);
     CNOT(q[0],q[1]);
     CNOT(q[0],q[2]);
     let res0 = M(q[0]);
