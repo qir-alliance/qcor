@@ -1,6 +1,7 @@
 #include <memory>
 #include <vector>
 #include "qalloc.hpp"
+#include "qir-types.hpp"
 
 #pragma GCC diagnostic ignored "-Wignored-qualifiers"
 #pragma GCC diagnostic ignored "-Wreorder"
@@ -12,14 +13,6 @@
 #pragma GCC diagnostic ignored "-Wsign-compare"
 
 extern "C" {
-
-// FIXME - Qubit should be a struct that keeps track of idx
-// qreg name, array it comes from, and associated accelerator buffer
-
-using Qubit = uint64_t;
-using Result = uint64_t;
-using Array = std::vector<int8_t*>;
-using TupleHeader = int *;
 using qreg = xacc::internal_compiler::qreg;
 
 extern Result ResultZero;
