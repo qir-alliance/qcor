@@ -36,7 +36,9 @@ antlrcpp::Any qasm3_expression_generator::visitTerminal(
     // We have hit a closing on an index
     // std::cout << "TERMNODE:\n";
     indexed_variable_value = current_value;
-    internal_value_type = builder.getIndexType();
+    if (casting_indexed_integer_to_bool) {
+      internal_value_type = builder.getIndexType();
+    }
   } else if (node->getSymbol()->getText() == "]") {
     if (casting_indexed_integer_to_bool) {
       // We have an indexed integer in indexed_variable_value
@@ -50,7 +52,6 @@ antlrcpp::Any qasm3_expression_generator::visitTerminal(
       // uint[4] b_in = 15; // b = 1111
       // bool(b_in[1]);
 
-      
       // auto number_value = builder.create<mlir::LoadOp>(location,
       // indexed_variable_value, get_or_create_constant_index_value(0,
       // location)); number_value.dump(); auto idx_minus_1 =
@@ -85,9 +86,22 @@ antlrcpp::Any qasm3_expression_generator::visitTerminal(
       update_current_value(and_value.result());
       casting_indexed_integer_to_bool = false;
     } else {
-      if (internal_value_type.isa<mlir::OpaqueType>() &&
+      if (internal_value_type.dyn_cast_or_null<mlir::OpaqueType>() &&
           internal_value_type.cast<mlir::OpaqueType>().getTypeData().str() ==
               "Qubit") {
+        if (current_value.getType().isa<mlir::MemRefType>()) {
+          if (current_value.getType().cast<mlir::MemRefType>().getRank() == 1 &&
+              current_value.getType().cast<mlir::MemRefType>().getShape()[0] ==
+                  1) {
+            current_value = builder.create<mlir::LoadOp>(
+                location, current_value,
+                get_or_create_constant_index_value(0, location, 64,
+                                                   symbol_table, builder));
+          } else {
+            printErrorMessage("Terminator ']' -> Invalid qubit array index: ",
+                              current_value);
+          }
+        }
         update_current_value(builder.create<mlir::quantum::ExtractQubitOp>(
             location, get_custom_opaque_type("Qubit", builder.getContext()),
             indexed_variable_value, current_value));
@@ -111,7 +125,6 @@ antlrcpp::Any qasm3_expression_generator::visitComparsionExpression(
   auto location = get_location(builder, file_name, compare);
 
   if (auto relational_op = compare->relationalOperator()) {
-   
     visitChildren(compare->expression(0));
     auto lhs = current_value;
     visitChildren(compare->expression(1));
@@ -518,7 +531,7 @@ antlrcpp::Any qasm3_expression_generator::visitExpressionTerminator(
     qasm3Parser::ExpressionTerminatorContext* ctx) {
   auto location = get_location(builder, file_name, ctx);
 
-  std::cout << "Analyze Expression Terminator: " << ctx->getText() << "\n";
+  // std::cout << "Analyze Expression Terminator: " << ctx->getText() << "\n";
 
   if (ctx->Constant()) {
     auto const_str = ctx->Constant()->getText();
@@ -652,7 +665,50 @@ antlrcpp::Any qasm3_expression_generator::visitExpressionTerminator(
     printErrorMessage(
         "We only support bool(int|uint|uint[i]) cast operations.");
 
-  } else {
+  } else if (auto sub_call = ctx->subroutineCall()) {
+    // std::cout << "ARE WE HERE: " << ctx->subroutineCall()->getText() << "\n";
+    // std::cout << ctx->subroutineCall()->Identifier()->getText() << ", "
+    //           << ctx->subroutineCall()->expressionList(0)->getText() << "\n";
+
+    auto func =
+        symbol_table.get_seen_function(sub_call->Identifier()->getText());
+
+    std::vector<mlir::Value> operands;
+
+    auto qubit_expr_list_idx = 0;
+    auto expression_list = sub_call->expressionList();
+    if (expression_list.size() > 1) {
+      // we have parameters
+      qubit_expr_list_idx = 1;
+
+      for (auto expression : expression_list[0]->expression()) {
+        std::cout << "Subcall expr: " << expression->getText() << "\n";
+        // add parameter values:
+        // FIXME THIS SHOULD MATCH TYPES for FUNCTION
+        auto value = std::stod(expression->getText());
+        auto float_attr = mlir::FloatAttr::get(builder.getF64Type(), value);
+        mlir::Value val =
+            builder.create<mlir::ConstantOp>(location, float_attr);
+        operands.push_back(val);
+      }
+    }
+
+    for (auto expression : expression_list[qubit_expr_list_idx]->expression()) {
+      qasm3_expression_generator qubit_exp_generator(
+          builder, symbol_table, file_name,
+          get_custom_opaque_type("Qubit", builder.getContext()));
+      qubit_exp_generator.visit(expression);
+
+      operands.push_back(qubit_exp_generator.current_value);
+    }
+    auto call_op = builder.create<mlir::CallOp>(location, func,
+                                                llvm::makeArrayRef(operands));
+    update_current_value(call_op.getResult(0));
+
+    return 0;
+  }
+
+  else {
     printErrorMessage("Cannot handle this expression terminator yet: " +
                       ctx->getText());
   }

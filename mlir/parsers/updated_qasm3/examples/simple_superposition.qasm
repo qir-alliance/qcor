@@ -14,7 +14,7 @@ for i in [0:shots] {
    x q;
    count += 1;
   } else {
-      count2 += 1;
+   count2 += 1;
   }
 }
 

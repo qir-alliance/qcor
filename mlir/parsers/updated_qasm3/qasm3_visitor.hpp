@@ -53,10 +53,10 @@ class qasm3_visitor : public qasm3::qasm3BaseVisitor {
       qasm3Parser::QuantumMeasurementAssignmentContext* context) override;
 
   // // see visitor_handlers/subroutine_handler.cpp
-  // antlrcpp::Any visitSubroutineDefinition(
-  //     qasm3Parser::SubroutineDefinitionContext* context) override;
-  // antlrcpp::Any visitReturnStatement(
-  //     qasm3Parser::ReturnStatementContext* context) override;
+  antlrcpp::Any visitSubroutineDefinition(
+      qasm3Parser::SubroutineDefinitionContext* context) override;
+  antlrcpp::Any visitReturnStatement(
+      qasm3Parser::ReturnStatementContext* context) override;
 
   // see visitor_handlers/conditional_handler.cpp
   antlrcpp::Any visitBranchingStatement(

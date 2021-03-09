@@ -218,16 +218,16 @@ antlrcpp::Any qasm3_visitor::visitLoopStatement(
       // Create a new scope for the for loop
       symbol_table.enter_new_scope();
 
-      auto tmp = get_or_create_constant_index_value(a, location, 64, symbol_table, builder);
+      auto tmp = get_or_create_constant_integer_value(a, location, builder.getI64Type(), symbol_table, builder);
       auto tmp2 = get_or_create_constant_index_value(0, location, 64, symbol_table, builder);
       llvm::ArrayRef<mlir::Value> zero_index(tmp2);
 
       auto loop_var_memref = allocate_1d_memory_and_initialize(
           location, 1, builder.getI64Type(), std::vector<mlir::Value>{tmp},
-          llvm::makeArrayRef(std::vector<mlir::Value>{tmp}));
+          llvm::makeArrayRef(std::vector<mlir::Value>{tmp2}));
 
-      auto b_val = get_or_create_constant_index_value(b, location, 64, symbol_table, builder);
-      auto c_val = get_or_create_constant_index_value(c, location, 64, symbol_table, builder);
+      auto b_val = get_or_create_constant_integer_value(b, location, builder.getI64Type(), symbol_table, builder);
+      auto c_val = get_or_create_constant_integer_value(c, location, builder.getI64Type(), symbol_table, builder);
 
       // Save the current builder point
       // auto savept = builder.saveInsertionPoint();

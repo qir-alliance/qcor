@@ -146,6 +146,7 @@ void OpenQasmV3MLIRGenerator::finalize_mlirgen() {
   }
 
   if (add_main) {
+    builder.setInsertionPointToEnd(main_entry_block);
     builder.create<mlir::ReturnOp>(builder.getUnknownLoc(),
                                    llvm::ArrayRef<mlir::Value>());
   }

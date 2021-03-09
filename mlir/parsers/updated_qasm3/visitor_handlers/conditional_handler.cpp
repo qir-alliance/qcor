@@ -35,10 +35,7 @@ antlrcpp::Any qasm3_visitor::visitBranchingStatement(
   visitChildren(conditional_code);
   builder.create<mlir::BranchOp>(location, exitBlock);
   symbol_table.exit_scope();
-  // // Add a return from the block
-  // builder.create<mlir::ReturnOp>(builder.getUnknownLoc(),
-  //                                llvm::ArrayRef<mlir::Value>());
-
+  
   // If we have a second program block then we have an else stmt
   builder.setInsertionPointToStart(elseBlock);
   if (context->programBlock().size() == 2) {
@@ -47,9 +44,7 @@ antlrcpp::Any qasm3_visitor::visitBranchingStatement(
     builder.create<mlir::BranchOp>(location, exitBlock);
     symbol_table.exit_scope();
   }
-  // builder.create<mlir::ReturnOp>(builder.getUnknownLoc(),
-  //                                llvm::ArrayRef<mlir::Value>());
-
+  
   // Restore the insertion point and create the conditional statement
   builder.restoreInsertionPoint(savept);
   builder.create<mlir::CondBranchOp>(location, expr_value, thenBlock,

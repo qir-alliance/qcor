@@ -271,6 +271,149 @@ while (i < 10) {
   std::cout << mlir << "\n";
   qcor::execute("qasm3", while_stmt, "while_stmt");
 }
+
+
+TEST(qasm3VisitorTester, checkSubroutine) {
+  const std::string subroutine_test = R"#(OPENQASM 3;
+include "qelib1.inc";
+def xmeasure qubit:q -> bit { h q; return measure q; }
+qubit q, qq[2];
+bit r, rr[2];
+
+rr[0] = xmeasure q;
+r = xmeasure qq[0];
+)#";
+  auto mlir = qcor::mlir_compile("qasm3", subroutine_test, "subroutine_test",
+                                 qcor::OutputType::MLIR, false);
+
+  std::cout << "subroutine_test MLIR:\n" << mlir << "\n";
+
+}
+
+TEST(qasm3VisitorTester, checkSubroutine2) {
+  const std::string subroutine_test = R"#(OPENQASM 3;
+include "qelib1.inc";
+def xcheck qubit[4]:d, qubit:a -> bit {
+  // reset a;
+  for i in [1: 3] cx d[i], a;
+  return measure a;
+}
+qubit q;
+const n = 10;
+def parity(bit[n]:cin) -> bit {
+  bit c;
+  for i in [0: n-1] {
+    c ^= cin[i];
+  }
+  return c;
+}
+)#";
+  auto mlir = qcor::mlir_compile("qasm3", subroutine_test, "subroutine_test",
+                                 qcor::OutputType::MLIR, false);
+
+  std::cout << "subroutine_test MLIR:\n" << mlir << "\n";
+
+}
+
+TEST(qasm3VisitorTester, checkSubroutine3) {
+  const std::string subroutine_test = R"#(OPENQASM 3;
+include "qelib1.inc";
+const n = 10;
+def xmeasure qubit:q -> bit { h q; return measure q; }
+def ymeasure qubit:q -> bit { s q; h q; return measure q; }
+
+def pauli_measurement(bit[2*n]:spec) qubit[n]:q -> bit {
+  bit b;
+  for i in [0: n - 1] {
+    bit temp;
+    if(spec[i]==1 && spec[n+i]==0) { temp = xmeasure q[i]; }
+    if(spec[i]==0 && spec[n+i]==1) { temp = measure q[i]; }
+    if(spec[i]==1 && spec[n+i]==1) { temp = ymeasure q[i]; }
+    b ^= temp;
+  }
+  return b;
+}
+)#";
+  auto mlir = qcor::mlir_compile("qasm3", subroutine_test, "subroutine_test",
+                                 qcor::OutputType::MLIR, false);
+
+  std::cout << "subroutine_test MLIR:\n" << mlir << "\n";
+
+}
+
+TEST(qasm3VisitorTester, checkSubroutine4) {
+  const std::string subroutine_test = R"#(OPENQASM 3;
+include "qelib1.inc";
+const buffer_size = 30;
+
+def ymeasure qubit:q -> bit { s q; h q; return measure q; }
+
+def test(int[32]:addr) qubit:q, qubit[buffer_size]:buffer {
+  bit outcome;
+  cy buffer[addr], q;
+  outcome = ymeasure buffer[addr];
+  if(outcome == 1) ry(pi / 2) q;
+}
+)#";
+  auto mlir = qcor::mlir_compile("qasm3", subroutine_test, "subroutine_test",
+                                 qcor::OutputType::MLIR, false);
+
+  std::cout << "subroutine_test MLIR:\n" << mlir << "\n";
+
+}
+
+// TO IMPLEMENT 
+
+TEST(qasm3VisitorTester, checkMeasureRange) {
+  const std::string meas_range = R"#(OPENQASM 3;
+include "qelib1.inc";
+qubit a[4], b[4];
+bit ans[5];
+measure b[0:3] -> ans[0:3];
+)#";
+  auto mlir = qcor::mlir_compile("qasm3", meas_range, "meas_range",
+                                 qcor::OutputType::MLIR, false);
+
+  std::cout << "meas_range MLIR:\n" << mlir << "\n";
+
+}
+
+TEST(qasm3VisitorTester, checkGate) {
+  const std::string gate_def = R"#(OPENQASM 3;
+include "qelib1.inc";
+gate cphase(x) a, b
+{
+  U(0, 0, x / 2) a;
+  CX a, b;
+  U(0, 0, -x / 2) b;
+  CX a, b;
+  U(0, 0, x / 2) b;
+}
+cphase(pi / 2) q[0], q[1];
+)#";
+  auto mlir = qcor::mlir_compile("qasm3", gate_def, "gate_def",
+                                 qcor::OutputType::MLIR, false);
+
+  std::cout << "gate_def MLIR:\n" << mlir << "\n";
+
+}
+TEST(qasm3VisitorTester, checkCastBitToInt) {
+
+   const std::string cast_int = R"#(OPENQASM 3;
+include "qelib1.inc";
+bit c[4] = "1111";
+int[4] t;
+t = int[4](c);
+print(t);
+)#";
+  auto mlir = qcor::mlir_compile("qasm3", cast_int, "cast_int",
+                                 qcor::OutputType::MLIR, false);
+
+  std::cout << "cast_int MLIR:\n" << mlir << "\n";
+}
+
+
+
 int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);
   auto ret = RUN_ALL_TESTS();

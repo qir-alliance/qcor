@@ -33,6 +33,7 @@ antlrcpp::Any qasm3_visitor::visitQuantumGateCall(
 
     for (auto expression : expression_list->expression()) {
       // add parameter values:
+      std::cout << "HELLO: " << expression->getText() << "\n";
       auto value = std::stod(expression->getText());
       auto float_attr = mlir::FloatAttr::get(builder.getF64Type(), value);
       mlir::Value val = builder.create<mlir::ConstantOp>(location, float_attr);
@@ -158,19 +159,17 @@ antlrcpp::Any qasm3_visitor::visitSubroutineCall(
 
     for (auto expression : expression_list[0]->expression()) {
       // add parameter values:
-      auto value = std::stod(expression->getText());
-      auto float_attr = mlir::FloatAttr::get(builder.getF64Type(), value);
-      mlir::Value val = builder.create<mlir::ConstantOp>(location, float_attr);
-      param_values.push_back(val);
+      qasm3_expression_generator qubit_exp_generator(builder, symbol_table,
+                                                     file_name);
+      qubit_exp_generator.visit(expression);
+      param_values.push_back(qubit_exp_generator.current_value);
     }
   }
 
   for (auto expression : expression_list[qubit_expr_list_idx]->expression()) {
-
     qasm3_expression_generator qubit_exp_generator(builder, symbol_table,
                                                    file_name, qubit_type);
     qubit_exp_generator.visit(expression);
-    qubit_exp_generator.current_value.dump();
 
     qbit_values.push_back(qubit_exp_generator.current_value);
   }
