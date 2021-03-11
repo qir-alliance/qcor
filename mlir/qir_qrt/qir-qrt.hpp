@@ -3,15 +3,6 @@
 #include "qalloc.hpp"
 #include "qir-types.hpp"
 
-#pragma GCC diagnostic ignored "-Wignored-qualifiers"
-#pragma GCC diagnostic ignored "-Wreorder"
-#pragma GCC diagnostic ignored "-Wunused-function"
-#pragma GCC diagnostic ignored "-Wsuggest-override"
-#pragma GCC diagnostic ignored "-Wdeprecated-copy"
-#pragma GCC diagnostic ignored "-Wunused-variable"
-#pragma GCC diagnostic ignored "-Wextra"
-#pragma GCC diagnostic ignored "-Wsign-compare"
-
 extern "C" {
 using qreg = xacc::internal_compiler::qreg;
 
@@ -32,6 +23,7 @@ void __quantum__qis__s(Qubit* q);
 void __quantum__qis__sdg(Qubit* q);
 void __quantum__qis__t(Qubit* q);
 void __quantum__qis__tdg(Qubit* q);
+void __quantum__qis__reset(Qubit* q);
 
 void __quantum__qis__x(Qubit* q);
 void __quantum__qis__y(Qubit* q);

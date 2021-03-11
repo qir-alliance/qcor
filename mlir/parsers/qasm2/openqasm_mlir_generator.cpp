@@ -337,14 +337,13 @@ void OpenQasmMLIRGenerator::mlirgen(const std::string &src) {
   // know the impl for.
   std::vector<std::string> added;
   std::string extra_insts = "\n";
-  bool hasMeasures = false;
   auto lines = split(src, '\n');
   for (auto line : lines) {
     if (line.find("OPENQASM") == std::string::npos &&
         line.find("include") == std::string::npos &&
         line.find("measure") == std::string::npos &&
         line.find("qreg") == std::string::npos &&
-        line.find("creg") == std::string::npos) {
+        line.find("creg") == std::string::npos && !line.empty()) {
       auto inst_name = split(line, ' ')[0];
       if (inst_name.find("(") != std::string::npos) {
         inst_name = inst_name.substr(0, inst_name.find("("));

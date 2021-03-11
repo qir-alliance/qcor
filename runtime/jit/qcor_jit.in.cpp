@@ -23,6 +23,7 @@
 #include "clang/Lex/ModuleLoader.h"
 #include "clang/Lex/Preprocessor.h"
 #include "clang/Lex/PreprocessorOptions.h"
+#include "heterogeneous.hpp"
 #include "json.hpp"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Bitcode/BitcodeReader.h"
@@ -294,7 +295,8 @@ class LLVMJIT {
 
   LLVMContext &getContext() { return *Ctx.getContext(); }
 
-  Error addModule(std::unique_ptr<llvm::Module> M) {
+  Error addModule(std::unique_ptr<llvm::Module> M,
+                  std::vector<std::string> extra_paths = {}) {
     MainJD.addGenerator(cantFail(DynamicLibrarySearchGenerator::Load(
         "@XACC_ROOT@/lib/libxacc@CMAKE_SHARED_LIBRARY_SUFFIX@",
         DL.getGlobalPrefix())));
@@ -307,6 +309,11 @@ class LLVMJIT {
     MainJD.addGenerator(cantFail(DynamicLibrarySearchGenerator::Load(
         "@XACC_ROOT@/lib/libCppMicroServices@CMAKE_SHARED_LIBRARY_SUFFIX@",
         DL.getGlobalPrefix())));
+
+    for (auto p : extra_paths) {
+      MainJD.addGenerator(cantFail(
+          DynamicLibrarySearchGenerator::Load(p.c_str(), DL.getGlobalPrefix())));
+    }
 
     auto rt = MainJD.getDefaultResourceTracker();
     return CompileLayer.add(rt, ThreadSafeModule(std::move(M), Ctx));
@@ -373,6 +380,30 @@ void QJIT::write_cache() {
   cache.close();
 }
 QJIT::~QJIT() { write_cache(); }
+
+void QJIT::jit_compile(std::unique_ptr<llvm::Module> m, std::vector<std::string> extra_shared_lib_paths) {
+  std::vector<std::string> seen_functions;
+  for (Function &f : *m) {
+    auto name = f.getName().str();
+    seen_functions.push_back(name);
+  }
+
+  if (!jit) {
+    jit = cantFail(qcor::LLVMJIT::Create(),
+                   "QJIT Error: Could not create the JIT Engine.");
+  }
+
+  // Add the Module to the JIT Engine
+  cantFail(jit->addModule(std::move(m), extra_shared_lib_paths),
+           "QJIT Error: Could not add the Module to the JIT Engine.");
+
+  for (auto name : seen_functions) {
+    auto symbol = cantFail(jit->lookup(name));
+    auto rawFPtr = symbol.getAddress();
+    kernel_name_to_f_ptr.insert({name, rawFPtr});
+  }
+  return;
+}
 
 void QJIT::jit_compile(const std::string &code,
                        const bool add_het_map_kernel_ctor,
