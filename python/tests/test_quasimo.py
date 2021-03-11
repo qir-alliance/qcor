@@ -1,3 +1,6 @@
+import faulthandler
+faulthandler.enable()
+
 import unittest, math
 from qcor import *
 

@@ -1,3 +1,6 @@
+import faulthandler
+faulthandler.enable()
+
 import unittest
 from qcor import *
 # Import Python math with alias
@@ -61,7 +64,9 @@ class TestKernelJIT(unittest.TestCase):
         foo(q)
         counts = q.counts()
         self.assertTrue('110' in counts)
-        self.assertTrue(counts['110'] == 1024)
+        # The decompose infidelity (~1e-4) can cause
+        # some small variations in the bitstring sampling.
+        self.assertTrue(counts['110'] > 1000)
 
         @qjit
         def all_x(q : qreg):
