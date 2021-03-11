@@ -21,6 +21,17 @@ void printErrorMessage(const std::string msg,
             << "   " << msg << "\n\n";
   if (do_exit) exit(1);
 }
+void printErrorMessage(const std::string msg, antlr4::ParserRuleContext* context, std::vector<mlir::Value>&& v, bool do_exit) {
+  auto line = context->getStart()->getLine();
+  auto col = context->getStart()->getCharPositionInLine();
+  std::cout << "\n[OPENQASM3 MLIRGen] Error at " << line << ":" << col << "\n"
+            << "   AntlrText: " << context->getText() << "\n"
+            << "   " << msg << "\n\n";
+  std::cout << "MLIR Values:\n";
+  for (auto vv : v) vv.dump();
+  
+  if (do_exit) exit(1);
+}
 
 void printErrorMessage(const std::string msg, mlir::Value v) {
   printErrorMessage(msg, false);

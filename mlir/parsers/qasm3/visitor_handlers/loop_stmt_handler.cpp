@@ -13,9 +13,6 @@ antlrcpp::Any qasm3_visitor::visitLoopStatement(
   auto loop_signature = context->loopSignature();
   auto program_block = context->programBlock();
 
-  //   std::cout << loop_signature->getText() << "\n";
-  //   std::cout << program_block->getText() << "\n";
-
   if (auto membership_test = loop_signature->membershipTest()) {
     // this is a for loop
     auto idx_var_name = membership_test->Identifier()->getText();
@@ -63,14 +60,6 @@ antlrcpp::Any qasm3_visitor::visitLoopStatement(
                                                       symbol_table, builder);
       auto c_val = get_or_create_constant_index_value(1, location, 64,
                                                       symbol_table, builder);
-
-      // // Save the current builder point
-      // // auto savept = builder.saveInsertionPoint();
-      // auto loaded_var =
-      //     builder.create<mlir::LoadOp>(location, loop_var_memref,
-      //     zero_index);
-
-      // symbol_table.add_symbol(idx_var_name, loaded_var, {}, true);
 
       // Strategy...
 
@@ -134,35 +123,11 @@ antlrcpp::Any qasm3_visitor::visitLoopStatement(
 
       builder.setInsertionPointToStart(exitBlock);
 
-      // current_block = exitBlock;
       symbol_table.set_last_created_block(exitBlock);
-      // Create a new scope for the for loop
-      // symbol_table.enter_new_scope();
-
-      // // Save the current builder point
-      // auto savept = builder.saveInsertionPoint();
-
-      // // Create the for loop
-      // auto for_loop = builder.create<mlir::AffineForOp>(location, 0, n_expr,
-      // 1);
-
-      // // Extract the for loop region block and set the insertion point
-      // mlir::Block& block = *(for_loop.region().getBlocks().begin());
-      // builder.setInsertionPointToStart(&block);
-
-      // // Load the loop variable from the memref allocation
-      // auto load = builder.create<mlir::LoadOp>(location, allocation,
-      //                                          block.getArgument(0));
-
-      // // Save the loaded value as the loop variable name
-      // symbol_table.add_symbol(idx_var_name, load.result(), {}, true);
-
-      // // Visit the for block
-      // visitChildren(program_block);
 
       // Exit scope and restore insertion
       symbol_table.exit_scope();
-      // builder.restoreInsertionPoint(savept);
+
     } else if (auto range = set_declaration->rangeDefinition()) {
       // this is a range definition
       //     rangeDefinition
@@ -312,7 +277,6 @@ antlrcpp::Any qasm3_visitor::visitLoopStatement(
 
       builder.setInsertionPointToStart(exitBlock);
 
-      // current_block = exitBlock;
       symbol_table.set_last_created_block(exitBlock);
 
       symbol_table.exit_scope();
@@ -386,7 +350,8 @@ antlrcpp::Any qasm3_visitor::visitControlDirective(
       // this is a while loop
       builder.create<mlir::BranchOp>(location, current_loop_header_block);
     } else {
-      printErrorMessage("Something went wrong with continue, no valid block to branch to.");
+      printErrorMessage(
+          "Something went wrong with continue, no valid block to branch to.");
     }
   } else {
     printErrorMessage("we do not yet support the " + stmt +

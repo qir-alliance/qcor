@@ -21,9 +21,6 @@ class qasm3_expression_generator : public qasm3::qasm3BaseVisitor {
   bool casting_indexed_integer_to_bool = false;
   bool found_negation_unary_op = false;
   mlir::Value indexed_variable_value;
-  
-  // The last block added by either loop or if stmts
-  mlir::Block* current_block;
 
   mlir::Type internal_value_type;
 

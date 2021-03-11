@@ -68,14 +68,14 @@ antlrcpp::Any qasm3_visitor::visitQuantumDeclaration(
 
       // Need to also store the qubit array for this single qubit
       // so that we can deallocate later.
-      update_symbol_table("__qcor__mlir__single_qubit_register_" + var_name,
+      symbol_table.add_symbol("__qcor__mlir__single_qubit_register_" + var_name,
                           allocation);
 
       allocation = builder.create<mlir::quantum::ExtractQubitOp>(
           location, qubit_type, allocation, pos);
     }
 
-    update_symbol_table(var_name, allocation);
+    symbol_table.add_symbol(var_name, allocation);
     size = 1;
   }
   return 0;
@@ -146,12 +146,7 @@ antlrcpp::Any qasm3_visitor::visitQuantumGateDefinition(
 
   m_module.push_back(function);
 
-  // builder.restoreInsertionPoint(main_block);
-  if (current_block) {
-    builder.setInsertionPointToStart(current_block);
-  } else {
-    builder.restoreInsertionPoint(main_block);
-  }
+  builder.restoreInsertionPoint(main_block); 
 
   symbol_table.exit_scope();
 
