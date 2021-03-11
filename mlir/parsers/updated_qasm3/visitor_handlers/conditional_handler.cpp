@@ -33,9 +33,27 @@ antlrcpp::Any qasm3_visitor::visitBranchingStatement(
   // Get the conditional code and visit the nodes
   auto conditional_code = context->programBlock(0);
   visitChildren(conditional_code);
-  builder.create<mlir::BranchOp>(location, exitBlock);
-  symbol_table.exit_scope();
   
+  // Need to check if we have a branch out of 
+  // this thenBlock, if so do not add a branch 
+  // to the exitblock
+  mlir::Operation& last_op = thenBlock->back();
+  auto branchOps = thenBlock->getOps<mlir::BranchOp>();
+  auto branch_to_exit = true;
+  for (auto b : branchOps) {
+    if (b.dest() == current_loop_exit_block || 
+        b.dest() == current_loop_header_block ||
+        b.dest() == current_loop_incrementor_block) {
+      branch_to_exit = false;
+      break;
+    }
+  }
+
+  if (branch_to_exit) {
+    builder.create<mlir::BranchOp>(location, exitBlock);
+  }
+  symbol_table.exit_scope();
+
   // If we have a second program block then we have an else stmt
   builder.setInsertionPointToStart(elseBlock);
   if (context->programBlock().size() == 2) {
@@ -44,13 +62,14 @@ antlrcpp::Any qasm3_visitor::visitBranchingStatement(
     builder.create<mlir::BranchOp>(location, exitBlock);
     symbol_table.exit_scope();
   }
-  
+
   // Restore the insertion point and create the conditional statement
   builder.restoreInsertionPoint(savept);
   builder.create<mlir::CondBranchOp>(location, expr_value, thenBlock,
                                      elseBlock);
   builder.setInsertionPointToStart(exitBlock);
-  current_block = exitBlock;
+
+  symbol_table.set_last_created_block(exitBlock);
 
   return 0;  // visitChildren(context);
 }

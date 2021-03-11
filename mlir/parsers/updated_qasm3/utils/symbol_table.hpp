@@ -8,7 +8,8 @@
 
 namespace qcor {
 using SymbolTable = std::map<std::string, mlir::Value>;
-using ConstantIntegerTable = std::map<std::pair<std::uint64_t, int>, mlir::Value>;
+using ConstantIntegerTable =
+    std::map<std::pair<std::uint64_t, int>, mlir::Value>;
 
 // Rudimentary scoped symbol table that will keep track of
 // created mlir::Values keyed on their unique variable name
@@ -21,11 +22,14 @@ class ScopedSymbolTable {
 
   // key is (int, width)
   std::vector<ConstantIntegerTable> constant_integer_values;
-  // std::map<std::pair<std::uint64_t, int>, mlir::Value> constant_integer_values;
+  // std::map<std::pair<std::uint64_t, int>, mlir::Value>
+  // constant_integer_values;
 
   mlir::Value last_value_added;
 
   std::map<std::string, mlir::FuncOp> seen_functions;
+
+  mlir::Block* last_created_block;
 
  public:
   ScopedSymbolTable() {
@@ -61,13 +65,24 @@ class ScopedSymbolTable {
     current_scope--;
     scoped_symbol_tables.pop_back();
     constant_integer_values.pop_back();
+    // last_created_block = nullptr;
   }
+
+  void set_last_created_block(mlir::Block* b) { last_created_block = b; }
+  mlir::Block* get_last_created_block() { return last_created_block; }
 
   void add_seen_function(const std::string name, mlir::FuncOp function) {
     seen_functions.insert({name, function});
     return;
   }
 
+  std::vector<std::string> get_seen_function_names() {
+    std::vector<std::string> fnames;
+    for (auto [name, value] : seen_functions) {
+      fnames.push_back(name);
+    }
+    return fnames;
+  }
   std::map<std::string, int64_t> get_constant_integer_variables() {
     std::map<std::string, int64_t> ret;
     for (int i = current_scope; i >= 0; i--) {
@@ -83,7 +98,7 @@ class ScopedSymbolTable {
   }
 
   int64_t evaluate_constant_integer_expression(const std::string expr);
-  
+
   mlir::FuncOp get_seen_function(const std::string name) {
     if (!seen_functions.count(name)) {
       printErrorMessage(name + " is not a known function in the symbol table.");
@@ -102,7 +117,8 @@ class ScopedSymbolTable {
   void add_constant_integer(std::uint64_t key, mlir::Value constant_value,
                             int width = 64) {
     if (!constant_integer_values[current_scope].count({key, width})) {
-      constant_integer_values[current_scope].insert({{key, width}, constant_value});
+      constant_integer_values[current_scope].insert(
+          {{key, width}, constant_value});
     }
     return;
   }
@@ -116,6 +132,15 @@ class ScopedSymbolTable {
   bool is_allocation(const std::string variable_name) {
     return has_symbol(variable_name) &&
            get_symbol(variable_name).getDefiningOp<mlir::AllocOp>();
+  }
+
+  std::vector<std::string> get_variable_attributes(
+      const std::string variable_name) {
+    if (!has_symbol(variable_name)) {
+      printErrorMessage("Variable " + variable_name +
+                        " does not have any attributes.");
+    }
+    return variable_attributes[variable_name];
   }
 
   bool is_variable_mutable(const std::string variable_name) {

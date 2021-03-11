@@ -104,7 +104,6 @@ void OpenQasmV3MLIRGenerator::mlirgen(const std::string &src) {
    private:
     std::string file_name;
 
-   
    public:
     Qasm3ParserErrorListener(const std::string &s) : file_name(s) {}
     void syntaxError(Recognizer *recognizer, Token *offendingSymbol,
@@ -135,18 +134,30 @@ void OpenQasmV3MLIRGenerator::mlirgen(const std::string &src) {
 }
 
 void OpenQasmV3MLIRGenerator::finalize_mlirgen() {
-  if (visitor->current_block) {
-    builder.setInsertionPointToEnd(visitor->current_block);
-  }
   auto scoped_symbol_table = visitor->getScopedSymbolTable();
+  if (auto b = scoped_symbol_table.get_last_created_block()) {
+    builder.setInsertionPointToEnd(b);
+  }
   auto all_qalloc_ops =
       scoped_symbol_table.get_global_symbols_of_type<mlir::quantum::QallocOp>();
   for (auto op : all_qalloc_ops) {
     builder.create<mlir::quantum::DeallocOp>(builder.getUnknownLoc(), op);
   }
 
+  // Add any function names that we created.
+  auto fnames = scoped_symbol_table.get_seen_function_names();
+  for (auto f : fnames) {
+    function_names.push_back(f);
+  }
+
   if (add_main) {
-    builder.setInsertionPointToEnd(main_entry_block);
+    if (auto b = scoped_symbol_table.get_last_created_block()) {
+
+      builder.setInsertionPointToEnd(b);
+    } else {
+      //   std::cout << "CURRENT BLOCK WAS NULL\n";
+      builder.setInsertionPointToEnd(main_entry_block);
+    }
     builder.create<mlir::ReturnOp>(builder.getUnknownLoc(),
                                    llvm::ArrayRef<mlir::Value>());
   }

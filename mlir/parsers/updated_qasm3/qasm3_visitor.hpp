@@ -35,6 +35,8 @@ class qasm3_visitor : public qasm3::qasm3BaseVisitor {
   }
 
   // see visitor_handlers/quantum_types_handler.cpp
+  antlrcpp::Any visitQuantumGateDefinition(
+      qasm3Parser::QuantumGateDefinitionContext* context) override;
   antlrcpp::Any visitQuantumDeclaration(
       qasm3Parser::QuantumDeclarationContext* context) override;
 
@@ -96,6 +98,9 @@ class qasm3_visitor : public qasm3::qasm3BaseVisitor {
   // The last block added by either loop or if stmts
   mlir::Block* current_block;
 
+  mlir::Block* current_loop_exit_block;
+  mlir::Block* current_loop_header_block;
+  mlir::Block* current_loop_incrementor_block;
  protected:
   // Reference to the MLIR OpBuilder and ModuleOp
   // this MLIRGen task
@@ -117,6 +122,9 @@ class qasm3_visitor : public qasm3::qasm3BaseVisitor {
   mlir::Type qubit_type;
   mlir::Type array_type;
   mlir::Type result_type;
+
+  void createInstOps_HandleBroadcast(std::string name, std::vector<mlir::Value> qbit_values,
+                                     std::vector<mlir::Value> param_values,mlir::Location location, antlr4::ParserRuleContext* context);
 
   void update_symbol_table(const std::string& key, mlir::Value value,
                            std::vector<std::string> variable_attributes = {},

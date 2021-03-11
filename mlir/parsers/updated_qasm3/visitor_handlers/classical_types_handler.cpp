@@ -60,8 +60,6 @@ antlrcpp::Any qasm3_visitor::visitConstantDeclaration(
   auto ass_list = context->equalsAssignmentList();  // :)
 
   for (int i = 0; i < ass_list->Identifier().size(); i++) {
-    std::cout << ass_list->Identifier().size() << ", "
-              << ass_list->Identifier(i)->getText() << "\n";
     auto var_name = ass_list->Identifier(i)->getText();
     if (var_name == "pi") {
       printErrorMessage("pi is already defined in OPENQASM 3.");
@@ -348,6 +346,7 @@ antlrcpp::Any qasm3_visitor::visitClassicalAssignment(
   qasm3_expression_generator exp_generator(
       builder, symbol_table, file_name,
       lhs.getType().cast<mlir::MemRefType>().getElementType());
+
   exp_generator.visit(context->expression());
   auto rhs = exp_generator.current_value;
 
@@ -371,7 +370,7 @@ antlrcpp::Any qasm3_visitor::visitClassicalAssignment(
 
   } else {
     if (!lhs.getType().isa<mlir::MemRefType>()) {
-      printErrorMessage("cannot += to a lhs that is not a memreftype.");
+      printErrorMessage("cannot assign a value to a lhs that is not a memreftype.");
     }
 
     llvm::ArrayRef<mlir::Value> zero_index(get_or_create_constant_index_value(
@@ -461,8 +460,14 @@ antlrcpp::Any qasm3_visitor::visitClassicalAssignment(
           get_or_create_constant_index_value(0, location, 64, symbol_table,
                                              builder));
       builder.create<mlir::StoreOp>(location, current_value, lhs, zero_index2);
+    } else if (assignment_op == "=") {
+      builder.create<mlir::StoreOp>(
+          location, rhs, lhs,
+          get_or_create_constant_index_value(0, location, 64, symbol_table,
+                                             builder));
     } else {
-      printErrorMessage(ass_op->getText() + " not yet supported.");
+      printErrorMessage(ass_op->getText() + " not yet supported for this type.",
+                        context);
     }
   }
 

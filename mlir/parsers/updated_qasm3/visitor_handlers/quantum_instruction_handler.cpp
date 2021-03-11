@@ -2,6 +2,136 @@
 
 namespace qcor {
 
+void qasm3_visitor::createInstOps_HandleBroadcast(
+    std::string name, std::vector<mlir::Value> qbit_values,
+    std::vector<mlir::Value> param_values, mlir::Location location,
+    antlr4::ParserRuleContext* context) {
+  auto has_array_type = [this](auto& value_vector) {
+    for (auto v : value_vector) {
+      if (v.getType() == array_type) {
+        return true;
+      }
+    }
+    return false;
+  };
+  auto str_attr = builder.getStringAttr(name);
+
+  // FIXME Extremely hacky way to handle gate broadcasting
+  // The cases we consider are...
+  // QINST qubit
+  // QINST qubit[] -> QINST qubit[j] for all j
+  // QINST qubit qubit
+  // QINST qubit qubit[] -> QINST qubit qubit[j] for all j
+  // QINST qubit[] qubit -> QINST qubit[j] qubit for all j
+  // QINST qubit[] qubit[] -> QINST qubit[j] qubit[j] for all j
+  if (has_array_type(qbit_values)) {
+    if (qbit_values.size() == 1) {
+      auto n = qbit_values[0]
+                   .getDefiningOp<mlir::quantum::QallocOp>()
+                   .size()
+                   .getLimitedValue();
+      for (int i = 0; i < n; i++) {
+        auto qubit_type = get_custom_opaque_type("Qubit", builder.getContext());
+
+        auto extract_value = builder.create<mlir::quantum::ExtractQubitOp>(
+            location, qubit_type, qbit_values[0],
+            get_or_create_constant_integer_value(
+                i, location, builder.getI64Type(), symbol_table, builder));
+        builder.create<mlir::quantum::InstOp>(
+            location, mlir::NoneType::get(builder.getContext()), str_attr,
+            llvm::makeArrayRef(std::vector<mlir::Value>{extract_value}),
+            llvm::makeArrayRef(param_values));
+      }
+    } else if (qbit_values.size() == 2) {
+      if (qbit_values[0].getType() == array_type &&
+          qbit_values[1].getType() == array_type) {
+        auto n = qbit_values[0]
+                     .getDefiningOp<mlir::quantum::QallocOp>()
+                     .size()
+                     .getLimitedValue();
+        auto m = qbit_values[0]
+                     .getDefiningOp<mlir::quantum::QallocOp>()
+                     .size()
+                     .getLimitedValue();
+        if (n != m) {
+          printErrorMessage("Gate broadcast must be on registers of same size.",
+                            context);
+        }
+
+        for (int i = 0; i < n; i++) {
+          auto qubit_type =
+              get_custom_opaque_type("Qubit", builder.getContext());
+
+          auto extract_value_n = builder.create<mlir::quantum::ExtractQubitOp>(
+              location, qubit_type, qbit_values[0],
+              get_or_create_constant_integer_value(
+                  i, location, builder.getI64Type(), symbol_table, builder));
+          auto extract_value_m = builder.create<mlir::quantum::ExtractQubitOp>(
+              location, qubit_type, qbit_values[1],
+              get_or_create_constant_integer_value(
+                  i, location, builder.getI64Type(), symbol_table, builder));
+
+          builder.create<mlir::quantum::InstOp>(
+              location, mlir::NoneType::get(builder.getContext()), str_attr,
+              llvm::makeArrayRef(
+                  std::vector<mlir::Value>{extract_value_n, extract_value_m}),
+              llvm::makeArrayRef(param_values));
+        }
+
+      } else if (qbit_values[0].getType() == array_type &&
+                 qbit_values[1].getType() != array_type) {
+        auto n = qbit_values[0]
+                     .getDefiningOp<mlir::quantum::QallocOp>()
+                     .size()
+                     .getLimitedValue();
+        for (int i = 0; i < n; i++) {
+          auto qubit_type =
+              get_custom_opaque_type("Qubit", builder.getContext());
+
+          auto extract_value = builder.create<mlir::quantum::ExtractQubitOp>(
+              location, qubit_type, qbit_values[0],
+              get_or_create_constant_integer_value(
+                  i, location, builder.getI64Type(), symbol_table, builder));
+
+          builder.create<mlir::quantum::InstOp>(
+              location, mlir::NoneType::get(builder.getContext()), str_attr,
+              llvm::makeArrayRef(
+                  std::vector<mlir::Value>{extract_value, qbit_values[1]}),
+              llvm::makeArrayRef(param_values));
+        }
+      } else if (qbit_values[0].getType() != array_type &&
+                 qbit_values[1].getType() == array_type) {
+        auto n = qbit_values[1]
+                     .getDefiningOp<mlir::quantum::QallocOp>()
+                     .size()
+                     .getLimitedValue();
+        for (int i = 0; i < n; i++) {
+          auto qubit_type =
+              get_custom_opaque_type("Qubit", builder.getContext());
+
+          auto extract_value = builder.create<mlir::quantum::ExtractQubitOp>(
+              location, qubit_type, qbit_values[1],
+              get_or_create_constant_integer_value(
+                  i, location, builder.getI64Type(), symbol_table, builder));
+
+          builder.create<mlir::quantum::InstOp>(
+              location, mlir::NoneType::get(builder.getContext()), str_attr,
+              llvm::makeArrayRef(
+                  std::vector<mlir::Value>{qbit_values[0], extract_value}),
+              llvm::makeArrayRef(param_values));
+        }
+      }
+    } else {
+      printErrorMessage(
+          "can only broadcast gates with one or two qubit registers");
+    }
+  } else {
+    builder.create<mlir::quantum::InstOp>(
+        location, mlir::NoneType::get(builder.getContext()), str_attr,
+        llvm::makeArrayRef(qbit_values), llvm::makeArrayRef(param_values));
+  }
+}
+
 antlrcpp::Any qasm3_visitor::visitQuantumGateCall(
     qasm3Parser::QuantumGateCallContext* context) {
   //           quantumGateCall
@@ -33,10 +163,17 @@ antlrcpp::Any qasm3_visitor::visitQuantumGateCall(
 
     for (auto expression : expression_list->expression()) {
       // add parameter values:
-      std::cout << "HELLO: " << expression->getText() << "\n";
-      auto value = std::stod(expression->getText());
-      auto float_attr = mlir::FloatAttr::get(builder.getF64Type(), value);
-      mlir::Value val = builder.create<mlir::ConstantOp>(location, float_attr);
+      mlir::Value val;
+      try {
+        auto value = std::stod(expression->getText());
+        auto float_attr = mlir::FloatAttr::get(builder.getF64Type(), value);
+        val = builder.create<mlir::ConstantOp>(location, float_attr);
+      } catch (...) {
+        qasm3_expression_generator exp_generator(builder, symbol_table,
+                                                 file_name);
+        exp_generator.visit(expression);
+        val = exp_generator.current_value;
+      }
       param_values.push_back(val);
     }
   }
@@ -81,10 +218,10 @@ antlrcpp::Any qasm3_visitor::visitQuantumGateCall(
       qbit_values.push_back(qbit);
     }
   }
-  auto str_attr = builder.getStringAttr(name);
-  builder.create<mlir::quantum::InstOp>(
-      location, mlir::NoneType::get(builder.getContext()), str_attr,
-      llvm::makeArrayRef(qbit_values), llvm::makeArrayRef(param_values));
+
+  createInstOps_HandleBroadcast(name, qbit_values, param_values, location,
+                                context);
+
   return 0;
 }
 
@@ -143,12 +280,6 @@ antlrcpp::Any qasm3_visitor::visitSubroutineCall(
     return 0;
   }
 
-  if (symbol_table.has_seen_function(name)) {
-    // this is a custom function
-    std::cout << "HELLO THIS IS A CUSTOM FUNCTION SUBROUTINE CALL\n";
-    std::cout << context->getText() << "\n";
-    printErrorMessage("Throwing this here to stop us.");
-  }
   std::vector<mlir::Value> qbit_values, param_values;
 
   auto qubit_expr_list_idx = 0;
@@ -166,17 +297,19 @@ antlrcpp::Any qasm3_visitor::visitSubroutineCall(
     }
   }
 
+  auto str_attr = builder.getStringAttr(name);
+
+  auto n_qubit_args = expression_list[qubit_expr_list_idx]->expression().size();
   for (auto expression : expression_list[qubit_expr_list_idx]->expression()) {
     qasm3_expression_generator qubit_exp_generator(builder, symbol_table,
                                                    file_name, qubit_type);
     qubit_exp_generator.visit(expression);
-
+    auto qbit_or_qreg = qubit_exp_generator.current_value;
     qbit_values.push_back(qubit_exp_generator.current_value);
   }
-  auto str_attr = builder.getStringAttr(name);
-  builder.create<mlir::quantum::InstOp>(
-      location, mlir::NoneType::get(builder.getContext()), str_attr,
-      llvm::makeArrayRef(qbit_values), llvm::makeArrayRef(param_values));
+
+  createInstOps_HandleBroadcast(name, qbit_values, param_values, location,
+                                context);
   return 0;
 }
 }  // namespace qcor

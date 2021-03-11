@@ -81,4 +81,82 @@ antlrcpp::Any qasm3_visitor::visitQuantumDeclaration(
   return 0;
 }
 
+antlrcpp::Any qasm3_visitor::visitQuantumGateDefinition(
+    qasm3Parser::QuantumGateDefinitionContext* context) {
+  // quantumGateDefinition
+  //     : 'gate' quantumGateSignature quantumBlock
+  //     ;
+
+  // quantumGateSignature
+  //     : ( Identifier | 'CX' | 'U') ( LPAREN identifierList? RPAREN )?
+  //     identifierList
+  //     ;
+
+  // quantumBlock
+  //     : LBRACE ( quantumStatement | quantumLoop )* RBRACE
+  //     ;
+
+  auto gate_call_name =
+      context->quantumGateSignature()->Identifier()->getText();
+  bool has_classical_params =
+      context->quantumGateSignature()->identifierList().size() == 2;
+
+  auto qbit_ident_list_idx = 0;
+  std::vector<std::string> arg_names;
+  std::vector<mlir::Type> func_args;
+  if (has_classical_params) {
+    qbit_ident_list_idx = 1;
+
+    auto params_ident_list = context->quantumGateSignature()->identifierList(0);
+
+    for (auto ident_expr : params_ident_list->Identifier()) {
+      func_args.push_back(builder.getF64Type());
+      arg_names.push_back(ident_expr->getText());
+    }
+  }
+  auto qubits_ident_list =
+      context->quantumGateSignature()->identifierList(qbit_ident_list_idx);
+  for (auto ident_expr : qubits_ident_list->Identifier()) {
+    func_args.push_back(qubit_type);
+    arg_names.push_back(ident_expr->getText());
+  }
+
+  auto main_block = builder.saveInsertionPoint();
+
+  auto func_type = builder.getFunctionType(func_args, llvm::None);
+  auto proto =
+      mlir::FuncOp::create(builder.getUnknownLoc(), gate_call_name, func_type);
+  mlir::FuncOp function(proto);
+
+  auto& entryBlock = *function.addEntryBlock();
+  builder.setInsertionPointToStart(&entryBlock);
+
+  symbol_table.enter_new_scope();
+
+  auto arguments = entryBlock.getArguments();
+  for (int i = 0; i < arguments.size(); i++) {
+    symbol_table.add_symbol(arg_names[i], arguments[i]);
+  }
+
+  auto quantum_block = context->quantumBlock();
+
+  auto ret = visitChildren(quantum_block);
+
+  builder.create<mlir::ReturnOp>(builder.getUnknownLoc());
+
+  m_module.push_back(function);
+
+  // builder.restoreInsertionPoint(main_block);
+  if (current_block) {
+    builder.setInsertionPointToStart(current_block);
+  } else {
+    builder.restoreInsertionPoint(main_block);
+  }
+
+  symbol_table.exit_scope();
+
+  symbol_table.add_seen_function(gate_call_name, function);
+
+  return 0;
+}
 }  // namespace qcor

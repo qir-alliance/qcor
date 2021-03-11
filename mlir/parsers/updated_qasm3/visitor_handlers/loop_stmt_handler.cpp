@@ -37,8 +37,8 @@ antlrcpp::Any qasm3_visitor::visitLoopStatement(
         exp_generator.visit(exp);
         auto value = exp_generator.current_value;
 
-        mlir::Value pos =
-            get_or_create_constant_integer_value(counter, location, builder.getI64Type(), symbol_table, builder);
+        mlir::Value pos = get_or_create_constant_integer_value(
+            counter, location, builder.getI64Type(), symbol_table, builder);
 
         builder.create<mlir::StoreOp>(
             location, value, allocation,
@@ -49,16 +49,20 @@ antlrcpp::Any qasm3_visitor::visitLoopStatement(
 
       symbol_table.enter_new_scope();
 
-      auto tmp = get_or_create_constant_index_value(0, location, 64, symbol_table, builder);
-      auto tmp2 = get_or_create_constant_index_value(0, location, 64, symbol_table, builder);
+      auto tmp = get_or_create_constant_index_value(0, location, 64,
+                                                    symbol_table, builder);
+      auto tmp2 = get_or_create_constant_index_value(0, location, 64,
+                                                     symbol_table, builder);
       llvm::ArrayRef<mlir::Value> zero_index(tmp2);
 
       auto loop_var_memref = allocate_1d_memory_and_initialize(
           location, 1, builder.getI64Type(), std::vector<mlir::Value>{tmp},
           llvm::makeArrayRef(std::vector<mlir::Value>{tmp}));
 
-      auto b_val = get_or_create_constant_index_value(n_expr, location, 64, symbol_table, builder);
-      auto c_val = get_or_create_constant_index_value(1, location, 64, symbol_table, builder);
+      auto b_val = get_or_create_constant_index_value(n_expr, location, 64,
+                                                      symbol_table, builder);
+      auto c_val = get_or_create_constant_index_value(1, location, 64,
+                                                      symbol_table, builder);
 
       // // Save the current builder point
       // // auto savept = builder.saveInsertionPoint();
@@ -106,7 +110,15 @@ antlrcpp::Any qasm3_visitor::visitLoopStatement(
       // Save the loaded value as the loop variable name
       symbol_table.add_symbol(idx_var_name, load2.result(), {}, true);
 
+      current_loop_exit_block = exitBlock;
+
+      current_loop_incrementor_block = incBlock;
+
       visitChildren(program_block);
+
+      current_loop_header_block = nullptr;
+      current_loop_exit_block = nullptr;
+
       builder.create<mlir::BranchOp>(location, incBlock);
 
       builder.setInsertionPointToStart(incBlock);
@@ -122,8 +134,8 @@ antlrcpp::Any qasm3_visitor::visitLoopStatement(
 
       builder.setInsertionPointToStart(exitBlock);
 
-      current_block = exitBlock;
-
+      // current_block = exitBlock;
+      symbol_table.set_last_created_block(exitBlock);
       // Create a new scope for the for loop
       // symbol_table.enter_new_scope();
 
@@ -218,16 +230,20 @@ antlrcpp::Any qasm3_visitor::visitLoopStatement(
       // Create a new scope for the for loop
       symbol_table.enter_new_scope();
 
-      auto tmp = get_or_create_constant_integer_value(a, location, builder.getI64Type(), symbol_table, builder);
-      auto tmp2 = get_or_create_constant_index_value(0, location, 64, symbol_table, builder);
+      auto tmp = get_or_create_constant_integer_value(
+          a, location, builder.getI64Type(), symbol_table, builder);
+      auto tmp2 = get_or_create_constant_index_value(0, location, 64,
+                                                     symbol_table, builder);
       llvm::ArrayRef<mlir::Value> zero_index(tmp2);
 
       auto loop_var_memref = allocate_1d_memory_and_initialize(
           location, 1, builder.getI64Type(), std::vector<mlir::Value>{tmp},
           llvm::makeArrayRef(std::vector<mlir::Value>{tmp2}));
 
-      auto b_val = get_or_create_constant_integer_value(b, location, builder.getI64Type(), symbol_table, builder);
-      auto c_val = get_or_create_constant_integer_value(c, location, builder.getI64Type(), symbol_table, builder);
+      auto b_val = get_or_create_constant_integer_value(
+          b, location, builder.getI64Type(), symbol_table, builder);
+      auto c_val = get_or_create_constant_integer_value(
+          c, location, builder.getI64Type(), symbol_table, builder);
 
       // Save the current builder point
       // auto savept = builder.saveInsertionPoint();
@@ -272,7 +288,15 @@ antlrcpp::Any qasm3_visitor::visitLoopStatement(
           builder.create<mlir::LoadOp>(location, loop_var_memref, zero_index);
       symbol_table.add_symbol(idx_var_name, x, {}, true);
 
+      current_loop_exit_block = exitBlock;
+
+      current_loop_incrementor_block = incBlock;
+
       visitChildren(program_block);
+
+      current_loop_incrementor_block = nullptr;
+      current_loop_exit_block = nullptr;
+
       builder.create<mlir::BranchOp>(location, incBlock);
 
       builder.setInsertionPointToStart(incBlock);
@@ -288,7 +312,9 @@ antlrcpp::Any qasm3_visitor::visitLoopStatement(
 
       builder.setInsertionPointToStart(exitBlock);
 
-      current_block = exitBlock;
+      // current_block = exitBlock;
+      symbol_table.set_last_created_block(exitBlock);
+
       symbol_table.exit_scope();
 
     } else {
@@ -321,7 +347,13 @@ antlrcpp::Any qasm3_visitor::visitLoopStatement(
                                        exitBlock);
 
     builder.setInsertionPointToStart(bodyBlock);
+    current_loop_exit_block = exitBlock;
+    current_loop_header_block = headerBlock;
+
     visitChildren(program_block);
+
+    current_loop_header_block = nullptr;
+    current_loop_exit_block = nullptr;
 
     builder.create<mlir::BranchOp>(location, headerBlock);
     builder.setInsertionPointToStart(exitBlock);
@@ -332,7 +364,8 @@ antlrcpp::Any qasm3_visitor::visitLoopStatement(
     // the basic blocks, lets store the current last block
     // so that finalize_mlirgen() can add return and deallocs
     // correctly
-    current_block = exitBlock;
+
+    symbol_table.set_last_created_block(exitBlock);
   }
 
   return 0;
@@ -345,9 +378,16 @@ antlrcpp::Any qasm3_visitor::visitControlDirective(
   auto stmt = context->getText();
 
   if (stmt == "break") {
-    printErrorMessage("Alex, reimplement the break stmt");
-    auto yield = builder.create<mlir::AffineYieldOp>(
-        location, llvm::makeArrayRef(std::vector<mlir::Value>{}));
+    builder.create<mlir::BranchOp>(location, current_loop_exit_block);
+  } else if (stmt == "continue") {
+    if (current_loop_incrementor_block) {
+      builder.create<mlir::BranchOp>(location, current_loop_incrementor_block);
+    } else if (current_loop_header_block) {
+      // this is a while loop
+      builder.create<mlir::BranchOp>(location, current_loop_header_block);
+    } else {
+      printErrorMessage("Something went wrong with continue, no valid block to branch to.");
+    }
   } else {
     printErrorMessage("we do not yet support the " + stmt +
                       " control directive.");

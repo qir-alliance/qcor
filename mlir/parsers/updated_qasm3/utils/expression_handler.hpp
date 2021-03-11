@@ -14,20 +14,19 @@ using namespace qasm3;
 namespace qcor {
 class qasm3_expression_generator : public qasm3::qasm3BaseVisitor {
  protected:
-  mlir::OpBuilder builder;
+  mlir::OpBuilder& builder;
   mlir::ModuleOp m_module;
   std::string file_name = "";
 
-  bool next_value_is_idx = false;
   bool casting_indexed_integer_to_bool = false;
   bool found_negation_unary_op = false;
   mlir::Value indexed_variable_value;
+  
+  // The last block added by either loop or if stmts
+  mlir::Block* current_block;
 
-  bool is_signed = true;
-  std::size_t number_width = 64;
   mlir::Type internal_value_type;
 
-  std::size_t current_idx = -1;
 
   ScopedSymbolTable& symbol_table;
 
@@ -44,11 +43,9 @@ class qasm3_expression_generator : public qasm3::qasm3BaseVisitor {
   mlir::Value current_value;
   mlir::Value last_current_value;
 
-  qasm3_expression_generator(mlir::OpBuilder b, ScopedSymbolTable& table,
-                             std::string& fname, std::size_t nw = 64,
-                             bool _is_signed = true);
-
-  qasm3_expression_generator(mlir::OpBuilder b, ScopedSymbolTable& table,
+  qasm3_expression_generator(mlir::OpBuilder& b, ScopedSymbolTable& table,
+                             std::string& fname);
+  qasm3_expression_generator(mlir::OpBuilder& b, ScopedSymbolTable& table,
                              std::string& fname, mlir::Type t);
 
   antlrcpp::Any visitTerminal(antlr4::tree::TerminalNode* node) override;

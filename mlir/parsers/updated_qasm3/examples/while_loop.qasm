@@ -12,5 +12,14 @@ while (j < i) {
 print("starting next loop");
 while (j < 100) {
     j += 1;
+    if (j == 33) {
+        print("skipping 33 to show continue directive.");
+        continue;
+    }
+
+    if (j == 98) {
+        print("exiting loop at 98 to show break directive.");
+        break;
+    }
     print(j);
 }

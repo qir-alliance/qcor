@@ -9,7 +9,15 @@ void qasm3_expression_generator::update_current_value(mlir::Value v) {
   current_value = v;
   return;
 }
-qasm3_expression_generator::qasm3_expression_generator(mlir::OpBuilder b,
+
+qasm3_expression_generator::qasm3_expression_generator(mlir::OpBuilder& b,
+                                                       ScopedSymbolTable& table,
+                                                       std::string& fname)
+    : builder(b), file_name(fname), symbol_table(table) {
+  internal_value_type = builder.getI64Type();
+}
+
+qasm3_expression_generator::qasm3_expression_generator(mlir::OpBuilder& b,
                                                        ScopedSymbolTable& table,
                                                        std::string& fname,
                                                        mlir::Type t)
@@ -17,17 +25,6 @@ qasm3_expression_generator::qasm3_expression_generator(mlir::OpBuilder b,
       file_name(fname),
       symbol_table(table),
       internal_value_type(t) {}
-
-qasm3_expression_generator::qasm3_expression_generator(mlir::OpBuilder b,
-                                                       ScopedSymbolTable& table,
-                                                       std::string& fname,
-                                                       std::size_t nw,
-                                                       bool is_s)
-    : builder(b),
-      file_name(fname),
-      symbol_table(table),
-      number_width(nw),
-      is_signed(is_s) {}
 
 antlrcpp::Any qasm3_expression_generator::visitTerminal(
     antlr4::tree::TerminalNode* node) {
@@ -533,6 +530,22 @@ antlrcpp::Any qasm3_expression_generator::visitExpressionTerminator(
 
   // std::cout << "Analyze Expression Terminator: " << ctx->getText() << "\n";
 
+  int multiplier = 1;
+  if (ctx->MINUS() && ctx->expressionTerminator()) {
+    visit(ctx->expressionTerminator());
+    if (current_value.getType().isIntOrFloat()) {
+      mlir::Attribute attr;
+      if (current_value.getType().isa<mlir::FloatType>()) {
+        attr = mlir::FloatAttr::get(builder.getF64Type(), -1.0);
+      } else {
+        attr = mlir::IntegerAttr::get(builder.getI64Type(), -1);
+      }
+      auto const_op = builder.create<mlir::ConstantOp>(location, attr);
+      createOp<mlir::MulFOp>(location, const_op, current_value);
+    }
+    return 0;
+  }
+
   if (ctx->Constant()) {
     auto const_str = ctx->Constant()->getText();
     // std::cout << ctx->Constant()->getText() << "\n";
@@ -659,6 +672,189 @@ antlrcpp::Any qasm3_expression_generator::visitExpressionTerminator(
                   1, location, current_value.getType(), symbol_table, builder));
           return 0;
         }
+      } else if (auto single_designator =
+                     cast->classicalType()->singleDesignatorType()) {
+        auto expr = builtin->expressionList()->expression(0);
+
+        if (single_designator->getText() == "int") {
+          auto designator = cast->classicalType()->designator();
+          auto bit_width = symbol_table.evaluate_constant_integer_expression(
+              designator->expression()->getText());
+
+          visit(expr);
+          auto var_to_cast = current_value;
+
+          if (auto mem_value_type =
+                  var_to_cast.getType().dyn_cast_or_null<mlir::MemRefType>()) {
+            if (mem_value_type.getElementType().isIntOrIndex() &&
+                mem_value_type.getElementType().getIntOrFloatBitWidth() == 1 &&
+                mem_value_type.getRank() == 1) {
+              // Right now we only support casting bits to integers
+
+              // Goal here is to toggle the bits on int[bit_width] = 0
+              // Here's the formula
+              // j = loop var
+              // x := var_to_cast[j], so bit[j], 1 or 0
+              // number to manipulate, i = 0 at first
+              // Loop over j and run
+              // i ^= (-x ^ i) & (1 << j);
+              //
+              // e.g. in c++
+              // #include <stdio.h>
+              // int main() {
+              //   int i = 0;
+              //   int bits[4] = {0, 0, 0, 1};
+              //   for (int j = 0; j < 4; j++) {
+              //     i ^= (-bits[j] ^ i) & (1 << j);
+              //   }
+              //   printf("%d\n", i);
+              // }
+              // will print 8
+              //
+              // will need std.left_shift, and, and or
+              // 1. allocate new integer and set to 0
+              auto int_value_type = builder.getIntegerType(bit_width);
+              auto init_attr = mlir::IntegerAttr::get(int_value_type, 0);
+
+              llvm::ArrayRef<int64_t> shaperef{1};
+              auto mem_type = mlir::MemRefType::get(shaperef, int_value_type);
+              mlir::Value init_allocation =
+                  builder.create<mlir::AllocaOp>(location, mem_type);
+
+              // Store the value to the 0th index of this storeop
+              builder.create<mlir::StoreOp>(
+                  location,
+                  builder.create<mlir::ConstantOp>(location, init_attr),
+                  init_allocation,
+                  get_or_create_constant_index_value(0, location, 64,
+                                                     symbol_table, builder));
+
+              auto tmp = get_or_create_constant_integer_value(
+                  0, location, builder.getI64Type(), symbol_table, builder);
+              auto tmp2 = get_or_create_constant_index_value(
+                  0, location, 64, symbol_table, builder);
+              llvm::ArrayRef<mlir::Value> zero_index(tmp2);
+
+              // Create j, the loop variable
+              mlir::Value loop_var_memref =
+                  builder.create<mlir::AllocaOp>(location, mem_type);
+              builder.create<mlir::StoreOp>(
+                  location,
+                  get_or_create_constant_integer_value(
+                      0, location, int_value_type,  symbol_table, builder),
+                  loop_var_memref,
+                  get_or_create_constant_index_value(0, location, 64,
+                                                     symbol_table, builder));
+
+              // Create loop end value, and step size
+              auto b_val = get_or_create_constant_integer_value(
+                  bit_width, location, int_value_type, symbol_table, builder);
+              auto c_val = get_or_create_constant_integer_value(
+                  1, location, int_value_type, symbol_table, builder);
+
+              auto savept = builder.saveInsertionPoint();
+              auto currRegion = builder.getBlock()->getParent();
+              auto headerBlock =
+                  builder.createBlock(currRegion, currRegion->end());
+              auto bodyBlock =
+                  builder.createBlock(currRegion, currRegion->end());
+              auto incBlock =
+                  builder.createBlock(currRegion, currRegion->end());
+              mlir::Block* exitBlock =
+                  builder.createBlock(currRegion, currRegion->end());
+              builder.restoreInsertionPoint(savept);
+
+              builder.create<mlir::BranchOp>(location, headerBlock);
+              builder.setInsertionPointToStart(headerBlock);
+
+              auto load = builder.create<mlir::LoadOp>(
+                  location, loop_var_memref, zero_index);
+              auto cmp = builder.create<mlir::CmpIOp>(
+                  location, mlir::CmpIPredicate::slt, load, b_val);
+              builder.create<mlir::CondBranchOp>(location, cmp, bodyBlock,
+                                                 exitBlock);
+
+              builder.setInsertionPointToStart(bodyBlock);
+              // body needs to load the loop variable
+              auto j_val = builder
+                               .create<mlir::LoadOp>(location, loop_var_memref,
+                                                     zero_index)
+                               .result();
+
+              auto load_bit_j =
+                  builder.create<mlir::LoadOp>(location, var_to_cast, j_val);
+              // Extend i1 to the same width as i
+              auto load_j_ext = builder.create<mlir::ZeroExtendIOp>(
+                  location, load_bit_j, int_value_type);
+
+              // Negate bits[j] to get -bit[j]`
+              auto neg_load_j = builder.create<mlir::SubIOp>(
+                  location,
+                  builder.create<mlir::ConstantOp>(location, init_attr),
+                  load_j_ext);
+
+              // load the current value of i
+              auto load_i = builder.create<mlir::LoadOp>(
+                  location, init_allocation,
+                  get_or_create_constant_index_value(0, location, bit_width,
+                                                     symbol_table, builder));
+
+              // first = -bits[j] ^ i
+              auto xored_val =
+                  builder.create<mlir::XOrOp>(location, neg_load_j, load_i);
+
+              // (1 << j)
+              // create j integer index
+              // auto j_val = get_or_create_constant_integer_value(
+              //     j, location, int_value_type, symbol_table, builder);
+              // second = (1 << j)
+              auto shift_left_val = builder.create<mlir::ShiftLeftOp>(
+                  location,
+                  get_or_create_constant_integer_value(
+                      1, location, int_value_type, symbol_table, builder),
+                  j_val);
+
+              // (-bits[j] ^ i) & (1 << j)
+              auto result = builder.create<mlir::AndOp>(location, xored_val,
+                                                        shift_left_val);
+
+              auto load_i2 = builder.create<mlir::LoadOp>(
+                  location, init_allocation,
+                  get_or_create_constant_index_value(0, location, bit_width,
+                                                     symbol_table, builder));
+              auto result_to_store =
+                  builder.create<mlir::XOrOp>(location, load_i2, result);
+
+              auto val = builder.create<mlir::StoreOp>(
+                  location, result_to_store, init_allocation,
+                  get_or_create_constant_index_value(0, location, 64,
+                                                     symbol_table, builder));
+              builder.create<mlir::BranchOp>(location, incBlock);
+
+              builder.setInsertionPointToStart(incBlock);
+              auto load_inc = builder.create<mlir::LoadOp>(
+                  location, loop_var_memref, zero_index);
+              auto add =
+                  builder.create<mlir::AddIOp>(location, load_inc, c_val);
+
+              builder.create<mlir::StoreOp>(
+                  location, add, loop_var_memref,
+                  llvm::makeArrayRef(std::vector<mlir::Value>{tmp2}));
+
+              builder.create<mlir::BranchOp>(location, headerBlock);
+
+              builder.setInsertionPointToStart(exitBlock);
+
+              symbol_table.set_last_created_block(exitBlock);
+
+              current_value = builder.create<mlir::LoadOp>(
+                  location, init_allocation,
+                  get_or_create_constant_index_value(0, location, 64,
+                                                     symbol_table, builder));
+              return 0;
+            }
+          }
+        }
       }
     }
 
@@ -666,10 +862,6 @@ antlrcpp::Any qasm3_expression_generator::visitExpressionTerminator(
         "We only support bool(int|uint|uint[i]) cast operations.");
 
   } else if (auto sub_call = ctx->subroutineCall()) {
-    // std::cout << "ARE WE HERE: " << ctx->subroutineCall()->getText() << "\n";
-    // std::cout << ctx->subroutineCall()->Identifier()->getText() << ", "
-    //           << ctx->subroutineCall()->expressionList(0)->getText() << "\n";
-
     auto func =
         symbol_table.get_seen_function(sub_call->Identifier()->getText());
 
@@ -682,7 +874,7 @@ antlrcpp::Any qasm3_expression_generator::visitExpressionTerminator(
       qubit_expr_list_idx = 1;
 
       for (auto expression : expression_list[0]->expression()) {
-        std::cout << "Subcall expr: " << expression->getText() << "\n";
+        // std::cout << "Subcall expr: " << expression->getText() << "\n";
         // add parameter values:
         // FIXME THIS SHOULD MATCH TYPES for FUNCTION
         auto value = std::stod(expression->getText());

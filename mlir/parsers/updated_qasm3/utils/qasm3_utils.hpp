@@ -25,9 +25,9 @@ void split(const std::string& s, char delim, Op op) {
 }
 
 void printErrorMessage(const std::string msg, bool do_exit = true);
+void printErrorMessage(const std::string msg, antlr4::ParserRuleContext* context, bool do_exit = true);
 
 void printErrorMessage(const std::string msg, mlir::Value v);
-
 void printErrorMessage(const std::string msg, std::vector<mlir::Value>&& v);
 
 mlir::Location get_location(mlir::OpBuilder builder,

@@ -12,6 +12,7 @@ antlrcpp::Any qasm3_visitor::visitSubroutineDefinition(
   auto subroutine_name = context->Identifier()->getText();
   std::vector<mlir::Type> argument_types;
   std::vector<std::string> arg_names;
+  std::vector<std::vector<std::string>> arg_attributes;
   if (auto arg_list = context->classicalArgumentList()) {
     // list of type:varname
     for (auto arg : arg_list->classicalArgument()) {
@@ -113,6 +114,7 @@ antlrcpp::Any qasm3_visitor::visitSubroutineDefinition(
       }
 
       arg_names.push_back(arg->association()->Identifier()->getText());
+      arg_attributes.push_back({});
     }
   }
 
@@ -120,9 +122,13 @@ antlrcpp::Any qasm3_visitor::visitSubroutineDefinition(
     for (auto quantum_arg : context->quantumArgumentList()->quantumArgument()) {
       if (quantum_arg->quantumType()->getText() == "qubit" &&
           !quantum_arg->designator()) {
+        arg_attributes.push_back({});
         argument_types.push_back(qubit_type);
       } else {
         argument_types.push_back(array_type);
+        auto designator = quantum_arg->designator()->getText();
+        auto qreg_size = symbol_table.evaluate_constant_integer_expression(designator);
+        arg_attributes.push_back({std::to_string(qreg_size)});
       }
       // std::cout << "ARG NAME: "
       //           << quantum_arg->association()->Identifier()->getText() <<
@@ -168,7 +174,7 @@ antlrcpp::Any qasm3_visitor::visitSubroutineDefinition(
 
   auto arguments = entryBlock.getArguments();
   for (int i = 0; i < arguments.size(); i++) {
-    symbol_table.add_symbol(arg_names[i], arguments[i]);
+    symbol_table.add_symbol(arg_names[i], arguments[i], arg_attributes[i]);
   }
 
   auto quantum_block = context->subroutineBlock();
@@ -176,17 +182,18 @@ antlrcpp::Any qasm3_visitor::visitSubroutineDefinition(
   auto ret = visitChildren(quantum_block);
 
   if (!subroutine_return_statment_added) {
-    std::cout << "adding return here\n";
     builder.create<mlir::ReturnOp>(builder.getUnknownLoc());
   }
   m_module.push_back(function);
 
   // builder.restoreInsertionPoint(main_block);
-  if (current_block) {
-    builder.setInsertionPointToStart(current_block);
-  } else {
-    builder.restoreInsertionPoint(main_block);
-  }
+  // if (auto b = symbol_table.get_last_created_block()) {
+  //   builder.setInsertionPointToStart(b);
+  // } else {
+  //   builder.restoreInsertionPoint(main_block);
+  // }    
+  
+  builder.restoreInsertionPoint(main_block);
 
   symbol_table.exit_scope();
 
@@ -194,6 +201,7 @@ antlrcpp::Any qasm3_visitor::visitSubroutineDefinition(
 
   subroutine_return_statment_added = false;
 
+  symbol_table.set_last_created_block(nullptr);
   return 0;
 }
 
@@ -227,7 +235,6 @@ antlrcpp::Any qasm3_visitor::visitReturnStatement(
   }
   is_return_stmt = false;
 
-  std::cout << "Adding return here " << context->getText() << "\n";
   builder.create<mlir::ReturnOp>(
       builder.getUnknownLoc(),
       llvm::makeArrayRef(std::vector<mlir::Value>{value}));

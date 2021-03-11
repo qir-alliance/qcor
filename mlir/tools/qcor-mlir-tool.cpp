@@ -95,8 +95,6 @@ int main(int argc, char **argv) {
   context.loadDialect<mlir::quantum::QuantumDialect, mlir::AffineDialect,
                       mlir::scf::SCFDialect, mlir::StandardOpsDialect>();
 
-  context.printOpOnDiagnostic(true);
-
   std::vector<std::string> unique_function_names;
   auto module = loadMLIR(context, unique_function_names);
 

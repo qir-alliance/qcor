@@ -16,6 +16,10 @@ const n = 10;
 qubit q[n];
 
 for i in [0:n] {
+  if (i == 2) {
+    print("not operating x on 2, should see 0 in result.");
+    continue;
+  }
   x q[i];
 }
 

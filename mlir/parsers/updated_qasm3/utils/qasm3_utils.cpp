@@ -1,13 +1,24 @@
 #include "qasm3_utils.hpp"
+
+#include "Quantum/QuantumOps.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/BuiltinOps.h"
-#include "Quantum/QuantumOps.h"
 #include "symbol_table.hpp"
 
 namespace qcor {
 
 void printErrorMessage(const std::string msg, bool do_exit) {
   std::cout << "\n[OPENQASM3 MLIRGen] Error\n" << msg << "\n\n";
+  if (do_exit) exit(1);
+}
+
+void printErrorMessage(const std::string msg,
+                       antlr4::ParserRuleContext* context, bool do_exit) {
+  auto line = context->getStart()->getLine();
+  auto col = context->getStart()->getCharPositionInLine();
+  std::cout << "\n[OPENQASM3 MLIRGen] Error at " << line << ":" << col << "\n"
+            << "   AntlrText: " << context->getText() << "\n"
+            << "   " << msg << "\n\n";
   if (do_exit) exit(1);
 }
 
