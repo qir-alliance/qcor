@@ -1,3 +1,9 @@
+#if __GNUC__ >= 5
+// Disable GCC 5's -Wsuggest-override and -Wsign-compare warnings in gtest
+# pragma GCC diagnostic push
+# pragma GCC diagnostic ignored "-Wsuggest-override"
+# pragma GCC diagnostic ignored "-Wsign-compare"
+#endif
 #include "gtest/gtest.h"
 #include <xacc.hpp>
 #include "qir-qrt.hpp"
@@ -35,6 +41,10 @@ TEST(QirQrtTester, checkSimple) {
     EXPECT_EQ(inst->bits()[0], i);
   }
 }
+
+#if __GNUC__ >= 5
+# pragma GCC diagnostic pop
+#endif
 
 int main(int argc, char **argv) {
   __quantum__rt__initialize(argc, (int8_t**)(argv));
