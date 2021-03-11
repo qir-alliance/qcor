@@ -13,6 +13,7 @@
 #include "mlir/Parser.h"
 #include "openqasm_mlir_generator.hpp"
 #include "openqasmv3_mlir_generator.hpp"
+#include "qcor_config.hpp"
 #include "qcor_jit.hpp"
 #include "quantum_to_llvm.hpp"
 #include "tools/ast_printer.hpp"
@@ -207,14 +208,15 @@ void execute(const std::string &src_language_type, const std::string &src,
   }
 
   QJIT jit;
-  jit.jit_compile(
-      std::move(llvmModule),
-      std::vector<std::string>{"/home/cades/.xacc/lib/libqir-qrt.so"});
+  jit.jit_compile(std::move(llvmModule),
+                  std::vector<std::string>{std::string(QCOR_INSTALL_DIR) +
+                                           std::string("/lib/libqir-qrt") +
+                                           std::string(QCOR_LIB_SUFFIX)});
 
   std::vector<std::string> argv;
   std::vector<char *> cstrs;
   argv.insert(argv.begin(), "appExec");
-    for (auto &s : argv) {
+  for (auto &s : argv) {
     cstrs.push_back(&s.front());
   }
 
