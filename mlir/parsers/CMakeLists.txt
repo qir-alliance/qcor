@@ -1,2 +1,2 @@
 add_subdirectory(qasm2)
-add_subdirectory(updated_qasm3)
+add_subdirectory(qasm3)
