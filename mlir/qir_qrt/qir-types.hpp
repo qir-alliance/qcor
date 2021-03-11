@@ -12,7 +12,7 @@ struct Qubit {
   Qubit(uint64_t idVal) : id(idVal) {}
 };
 
-using Result = uint64_t;
+using Result = bool;
 
 struct Array {
   // Vector of bytes
