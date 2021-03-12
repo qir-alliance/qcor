@@ -343,7 +343,11 @@ def main(argv=None):
         sys.argv.append(base_name+'.o')
         fileType = None
         filename = None
-    
+        if not keep_bit_code_files:
+            # remove these temp files
+            os.remove(ll_file_name)
+            os.remove(bc_file_name)
+
     if fileType == 'qsharp':
         # Assume that `qsc` is a valid exe command
         # i.e. need to set the PATH env appropriately.
@@ -416,7 +420,6 @@ def main(argv=None):
                 commands += sys.argv[1:]
             else:
                 commands += baseLibs + sys.argv[1:]
-
 
             if verbose:
                 print('[qcor-exec]: ', ' '.join([c for c in commands]))
