@@ -16,7 +16,10 @@ namespace qcor {
 
 antlrcpp::Any qasm3_visitor::visitQuantumMeasurement(
     qasm3Parser::QuantumMeasurementContext* context) {
-  printErrorMessage("visiting this node is not implemented, havent seen it yet. if you hit this, let alex know", context);
+  printErrorMessage(
+      "visiting this node is not implemented, havent seen it yet. if you hit "
+      "this, let alex know",
+      context);
   return 0;
 }
 
@@ -97,7 +100,8 @@ antlrcpp::Any qasm3_visitor::visitQuantumMeasurementAssignment(
         } else {
           printErrorMessage(
               "Invalid measurement index on the given qubit register: " +
-              measured_qreg + ", " + idx_str, context);
+                  measured_qreg + ", " + idx_str,
+              context);
         }
       }
     } else if (value.getType() == array_type &&
@@ -185,7 +189,8 @@ antlrcpp::Any qasm3_visitor::visitQuantumMeasurementAssignment(
       } else {
         printErrorMessage(
             "If you are measuring a qubit range you must store to a bit "
-            "range.", context);
+            "range.",
+            context);
       }
     }
 
@@ -203,7 +208,6 @@ antlrcpp::Any qasm3_visitor::visitQuantumMeasurementAssignment(
         auto idx_str = index_list->expression(0)->getText();
         bit_idx = std::stoi(idx_str);
       }
-
 
       // Store the mz result into the bit_value
       mlir::Value pos = get_or_create_constant_index_value(
@@ -263,8 +267,7 @@ antlrcpp::Any qasm3_visitor::visitQuantumMeasurementAssignment(
     }
 
   } else {
-    printErrorMessage("invalid measure syntax.",
-                      context);  
+    printErrorMessage("invalid measure syntax.", context);
   }
   return 0;
 }

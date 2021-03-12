@@ -248,8 +248,8 @@ class QRTInitOpLowering : public ConversionPattern {
     // create a CallOp for the new quantum runtime initialize
     // function.
     rewriter.create<mlir::CallOp>(
-        loc, symbol_ref, IntegerType::get(context, 32),
-        ArrayRef<Value>({variables["main_argc"], variables["main_argv"]}));
+        loc, symbol_ref, IntegerType::get(context, 32), operands);
+        // ArrayRef<Value>({variables["main_argc"], variables["main_argv"]}));
 
     // Remove the old QuantumDialect QallocOp
     rewriter.eraseOp(op);
@@ -383,8 +383,8 @@ class SetQregOpLowering : public ConversionPattern {
     // create a CallOp for the new quantum runtime initialize
     // function.
     rewriter.create<mlir::CallOp>(
-        loc, symbol_ref, LLVM::LLVMVoidType::get(context),
-        ArrayRef<Value>({variables["_incoming_qreg_variable"]}));
+        loc, symbol_ref, LLVM::LLVMVoidType::get(context), operands);
+        // ArrayRef<Value>({variables["_incoming_qreg_variable"]}));
 
     // Remove the old QuantumDialect QallocOp
     rewriter.eraseOp(op);
@@ -415,7 +415,6 @@ class QuantumStdCallArgConverter : public ConversionPattern {
     if (std::find(module_function_names.begin(), module_function_names.end(),
                   callOp.callee().str()) != std::end(module_function_names) &&
         callOp.getNumOperands() > 0) {
-
       auto res = callOp.getResultTypes()[0];
 
       std::vector<mlir::Type> tmp_arg_types;
@@ -433,6 +432,10 @@ class QuantumStdCallArgConverter : public ConversionPattern {
           }
           tmp_arg_types.push_back(t);
         } else {
+          mlir::LLVMTypeConverter converter(rewriter.getContext());
+          if (auto mem_type = input_type.dyn_cast_or_null<mlir::MemRefType>()) {
+            input_type = converter.convertType(mem_type);
+          }
           tmp_arg_types.push_back(input_type);
         }
       }
@@ -483,6 +486,8 @@ class QuantumFuncArgConverter : public ConversionPattern {
       } else if (type.isa<mlir::FloatType>()) {
         return FloatType::getF64(this->context);
       }
+      std::cout << "HELLO WORLD HERE:\n";
+      type.dump();
       return llvm::None;
     });
     typeConverter = my_tc.get();
@@ -571,6 +576,10 @@ class QuantumFuncArgConverter : public ConversionPattern {
           }
           tmp_arg_types.push_back(t);
         } else {
+          mlir::LLVMTypeConverter converter(rewriter.getContext());
+          if (auto mem_type = input_type.dyn_cast_or_null<mlir::MemRefType>()) {
+            input_type = converter.convertType(mem_type);
+          }
           tmp_arg_types.push_back(input_type);
         }
       }
@@ -578,6 +587,10 @@ class QuantumFuncArgConverter : public ConversionPattern {
       mlir::Type res = LLVM::LLVMVoidType::get(context);
       if (ftype.getNumResults()) {
         res = ftype.getResult(0);
+        mlir::LLVMTypeConverter converter(rewriter.getContext());
+        if (auto mem_type = res.dyn_cast_or_null<mlir::MemRefType>()) {
+          res = converter.convertType(mem_type);
+        }
       }
 
       auto new_func_signature = LLVM::LLVMFunctionType::get(
@@ -1014,13 +1027,7 @@ class PrintOpLowering : public ConversionPattern {
         auto var_name = op.varname().str();
         o = variables[var_name];
       }
-      // else if (operand.getType().cast<mlir::IntegerType>().getWidth() == 1) {
-      //   std::cout << "WE HAVE A BIT VALUE, CAST IT TO I64.\n";
-      //   auto bitcast = rewriter.create<LLVM::BitcastOp>(
-      //       loc, LLVM::LLVMPointerType::get(rewriter.getIntegerType(64)), o);
-      //   o = rewriter.create<LLVM::LoadOp>(loc, rewriter.getIntegerType(64),
-      //                                     bitcast.res());
-      // }
+
       args.push_back(o);
     }
     rewriter.create<mlir::CallOp>(loc, printfRef, rewriter.getIntegerType(32),
@@ -1031,21 +1038,97 @@ class PrintOpLowering : public ConversionPattern {
     return success();
   }
 };
+
+class StdAtanOpLowering : public ConversionPattern {
+ private:
+  static FlatSymbolRefAttr getOrInsertAtanFunction(PatternRewriter &rewriter,
+                                                   ModuleOp module) {
+    auto *context = module.getContext();
+    if (module.lookupSymbol<LLVM::LLVMFuncOp>("atan"))
+      return mlir::SymbolRefAttr::get("atan", context);
+
+    // Create a function declaration for printf, the signature is:
+    //   * `i32 (i8*, ...)`
+    auto ret_type = rewriter.getF64Type();
+    auto arg_type = rewriter.getF64Type();
+    auto llvmFnType = LLVM::LLVMFunctionType::get(ret_type, arg_type, false);
+
+    // Insert the printf function into the body of the parent module.
+    PatternRewriter::InsertionGuard insertGuard(rewriter);
+    rewriter.setInsertionPointToStart(module.getBody());
+    rewriter.create<LLVM::LLVMFuncOp>(module.getLoc(), "atan", llvmFnType);
+    return mlir::SymbolRefAttr::get("atan", context);
+  }
+
+ public:
+  // Constructor, store seen variables
+  explicit StdAtanOpLowering(MLIRContext *context)
+      : ConversionPattern(mlir::AtanOp::getOperationName(), 1, context) {}
+
+  // Match any Operation that is the QallocOp
+  LogicalResult matchAndRewrite(
+      Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const override {
+    // Local Declarations, get location, parentModule
+    // and the context
+    auto loc = op->getLoc();
+    ModuleOp parentModule = op->getParentOfType<ModuleOp>();
+    auto context = parentModule->getContext();
+    auto atan = cast<mlir::AtanOp>(op);
+
+    auto atanRef = getOrInsertAtanFunction(rewriter, parentModule);
+
+    auto call = rewriter.create<mlir::LLVM::CallOp>(loc, rewriter.getF64Type(),
+                                                    atanRef, atan.operand());
+
+    rewriter.replaceOp(op, call.getResult(0));
+
+    return success();
+  }
+};
 }  // namespace
 namespace qcor {
 void QuantumToLLVMLoweringPass::getDependentDialects(
     DialectRegistry &registry) const {
   registry.insert<LLVM::LLVMDialect>();
 }
+
+struct QuantumLLVMTypeConverter : public LLVMTypeConverter {
+ private:
+  Type convertOpaqueQuantumTypes(OpaqueType type) {
+    if (type.getTypeData() == "Qubit") {
+      return LLVM::LLVMPointerType::get(get_quantum_type("Qubit", context));
+    } else if (type.getTypeData() == "ArgvType") {
+      return LLVM::LLVMPointerType::get(
+          LLVM::LLVMPointerType::get(IntegerType::get(context, 8)));
+    } else if (type.getTypeData() == "qreg") {
+      return LLVM::LLVMPointerType::get(get_quantum_type("qreg", context));
+    } else if (type.getTypeData() == "Array") {
+      return LLVM::LLVMPointerType::get(get_quantum_type("Array", context));
+    }
+    std::cout << "ERROR WE DONT KNOW WAHT THIS TYPE IS\n";
+    return mlir::IntegerType::get(context, 64);
+  }
+
+  mlir::MLIRContext *context;
+
+ public:
+  QuantumLLVMTypeConverter(mlir::MLIRContext *ctx)
+      : LLVMTypeConverter(ctx), context(ctx) {
+    addConversion(
+        [&](OpaqueType type) { return convertOpaqueQuantumTypes(type); });
+  }
+};
+
 void QuantumToLLVMLoweringPass::runOnOperation() {
   LLVMConversionTarget target(getContext());
   target.addLegalOp<ModuleOp, ModuleTerminatorOp>();
-  LLVMTypeConverter typeConverter(&getContext());
+  QuantumLLVMTypeConverter typeConverter(&getContext());
 
   OwningRewritePatternList patterns;
-  patterns.insert<QuantumStdCallArgConverter>(&getContext(), function_names);
-  // populateAffineToStdConversionPatterns(patterns, &getContext());
-  // populateLoopToStdConversionPatterns(patterns, &getContext());
+  // patterns.insert<QuantumStdCallArgConverter>(&getContext(), function_names);
+  patterns.insert<StdAtanOpLowering>(&getContext());
+
   populateStdToLLVMConversionPatterns(typeConverter, patterns);
 
   // Common variables to share across converteres
@@ -1053,7 +1136,7 @@ void QuantumToLLVMLoweringPass::runOnOperation() {
   std::map<mlir::Operation *, std::string> qubit_extract_map;
 
   // Add our custom conversion passes
-  patterns.insert<QuantumFuncArgConverter>(&getContext(), variables);
+  // patterns.insert<QuantumFuncArgConverter>(&getContext(), variables);
 
   patterns.insert<CreateStringLiteralOpLowering>(&getContext(), variables);
   patterns.insert<PrintOpLowering>(&getContext(), variables);

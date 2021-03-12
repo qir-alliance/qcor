@@ -359,7 +359,7 @@ builtInCall
     ;
 
 builtInMath
-    : 'sin' | 'cos' | 'tan' | 'exp' | 'ln' | 'sqrt' | 'rotl' | 'rotr' | 'popcount' | 'lengthof'
+    : 'sin' | 'cos' | 'tan' | 'arctan' | 'arccos' | 'arcsin' | 'exp' | 'ln' | 'sqrt' | 'rotl' | 'rotr' | 'popcount' | 'lengthof'
     ;
 
 castOperator

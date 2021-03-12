@@ -421,7 +421,6 @@ print(t);
   qcor::execute("qasm3", cast_int, "cast_int");
 }
 
-
 TEST(qasm3VisitorTester, checkQuantumBroadcast) {
   const std::string broadcast = R"#(OPENQASM 3;
 include "qelib1.inc";
@@ -439,10 +438,45 @@ reset r;
                                  qcor::OutputType::MLIR, false);
 
   std::cout << "cast_int MLIR:\n" << mlir << "\n";
-
- 
 }
 
+TEST(qasm3VisitorTester, checkBuiltInMath) {
+  const std::string built_in_math = R"#(OPENQASM 3;
+include "qelib1.inc";
+qubit q;
+float[64] x = pi - arccos(3/5);
+print(x);
+rz(x) q;
+)#";
+  auto mlir = qcor::mlir_compile("qasm3", built_in_math, "built_in_math",
+                                 qcor::OutputType::MLIR, false);
+
+  std::cout << "cast_int MLIR:\n" << mlir << "\n";
+  auto llvm = qcor::mlir_compile("qasm3", built_in_math, "built_in_math",
+                                 qcor::OutputType::LLVMIR, false);
+  std::cout << "LLVM:\n" << llvm << "\n";
+}
+
+TEST(qasm3VisitorTester, checkWhile2) {
+  const std::string while2 = R"#(OPENQASM 3;
+include "qelib1.inc";
+bit flags[2] = "11";
+print(int[2](flags));
+// while(int[2](flags) != 0) {
+//   print(flags[0]);
+
+// }
+)#";
+  auto mlir = qcor::mlir_compile("qasm3", while2, "while2",
+                                 qcor::OutputType::MLIR, false);
+
+  std::cout << "cast_int MLIR:\n" << mlir << "\n";
+  auto llvm = qcor::mlir_compile("qasm3", while2, "while2",
+                                 qcor::OutputType::LLVMIR, false);
+  std::cout << "LLVM:\n" << llvm << "\n";
+    qcor::execute("qasm3", while2, "while2");
+
+}
 int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);
   auto ret = RUN_ALL_TESTS();
