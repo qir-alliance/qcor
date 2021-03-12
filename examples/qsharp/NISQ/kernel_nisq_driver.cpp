@@ -6,7 +6,7 @@
 using Qubit = uint64_t;
 using QReg = std::vector<Qubit*>;
 // Util pre-processor to wrap Q# operation in a QCOR QuantumKernel.
-qcor_import_qsharp_kernel(XACC__TestKernel, double);
+qcor_import_qsharp_kernel(QCOR__TestKernel, double);
 
 // Compile with:
 // Include both the qsharp source and this driver file
@@ -17,13 +17,13 @@ qcor_import_qsharp_kernel(XACC__TestKernel, double);
 int main() {
   auto q = qalloc(3);
   qcor::set_verbose(true);
-  // XACC__TestKernel(q, 1.0);
+  // QCOR__TestKernel(q, 1.0);
   // q.print();
 
   // Integrate w/ QCOR's kernel utility...
   // e.g. kernel print-out...
   std::cout << "HELLO:\n";
-  XACC__TestKernel::print_kernel(std::cout, q, M_PI/4);
+  QCOR__TestKernel::print_kernel(std::cout, q, M_PI/4);
 
   return 0;
 }

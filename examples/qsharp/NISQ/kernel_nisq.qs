@@ -1,6 +1,6 @@
-namespace XACC 
+namespace QCOR 
 {
-open Microsoft.Quantum.Intrinsic;
+open QCOR.Intrinsic;
 operation TestKernel(q : Qubit[], theta: Double) : Unit {
     H(q[0]);
     Ry(theta, q[1]);

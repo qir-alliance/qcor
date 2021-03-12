@@ -1,6 +1,7 @@
-namespace XACC 
+namespace QCOR 
 {
-open Microsoft.Quantum.Intrinsic;
+open QCOR.Intrinsic;
+// Estimate energy value in a FTQC manner.
 operation Deuteron(theta : Double, shots: Int) : Double {
     mutable numParityOnes = 0;
     use (qubits = Qubit[2])

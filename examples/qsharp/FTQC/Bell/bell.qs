@@ -1,6 +1,8 @@
-namespace XACC 
+namespace QCOR 
 {
-open Microsoft.Quantum.Intrinsic;
+// Using QCOR Intrinsic instruction set
+// see QirTarget.qs    
+open QCOR.Intrinsic;
 operation TestBell(count : Int) : Int {
     // Simple bell test
     mutable numOnes = 0;

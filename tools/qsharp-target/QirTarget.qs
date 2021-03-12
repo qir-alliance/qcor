@@ -1,9 +1,17 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT License.
+// Define QCOR Target instruction set
+namespace QCOR.Instructions {
+    operation X(qb : Qubit) : Unit {
+        body intrinsic;
+    }
+    operation Y(qb : Qubit) : Unit {
+        body intrinsic;
+    }
 
-namespace Microsoft.Quantum.Instructions {
+    operation Z(qb : Qubit) : Unit {
+        body intrinsic;
+    }
 
-    operation S (qb : Qubit) : Unit {
+    operation H(qb : Qubit) : Unit {
         body intrinsic;
     }
 
@@ -20,13 +28,17 @@ namespace Microsoft.Quantum.Instructions {
 
     operation Reset(qb : Qubit) : Unit {
         body intrinsic;
-	}
+    }
+
+    operation CNOT(ctrl : Qubit, target : Qubit) : Unit {
+        body intrinsic;
+    }
 }
 
-namespace Microsoft.Quantum.Intrinsic {
-
+// Define QCOR Intrinsic
+namespace QCOR.Intrinsic {
     open Microsoft.Quantum.Targeting;
-    open Microsoft.Quantum.Instructions as Phys;
+    open QCOR.Instructions as Phys;
     
     @Inline()
     function PI() : Double
@@ -40,37 +52,81 @@ namespace Microsoft.Quantum.Intrinsic {
 
     operation X(qb : Qubit) : Unit
     is Adj {
-        body intrinsic;
+        body  (...)
+        {
+            Phys.X(qb);  
+        }
         adjoint self;
-	}
+    }
+
+    operation Y(qb : Qubit) : Unit
+    is Adj {
+        body  (...)
+        {
+            Phys.Y(qb);  
+        }
+        adjoint self;
+    }
 
     operation Z(qb : Qubit) : Unit
     is Adj {
-        body intrinsic;
+        body  (...)
+        {
+            Phys.Y(qb);  
+        }
         adjoint self;
-	}
+    }
 
-    operation H(qb : Qubit) : Unit
+   operation H(qb : Qubit) : Unit
     is Adj {
-        body intrinsic;
+        body  (...)
+        {
+            Phys.H(qb);  
+        }
         adjoint self;
-	}
+    }
 
-    operation T(qb : Qubit) : Unit 
+    @Inline()
+    operation S(qb : Qubit) : Unit
     is Adj {
-        body intrinsic;
-	}
+        body  (...)
+        {
+            Phys.Rz(PI()/2.0, qb);  
+        }
+        adjoint (...)
+        {
+            Phys.Rz(-PI()/2.0, qb); 
+        }
+    }
+
+
+    @Inline()
+    operation T(qb : Qubit) : Unit
+    is Adj {
+        body  (...)
+        {
+            Phys.Rz(PI()/4.0, qb);  
+        }
+        adjoint (...)
+        {
+            Phys.Rz(-PI()/4.0, qb); 
+        }
+    }
+   
 
     operation CNOT(control : Qubit, target : Qubit) : Unit
     is Adj {
-        body intrinsic;
+        body  (...)
+        {
+            Phys.CNOT(control, target);  
+        }
         adjoint self;
-	}
+    }
 
     @TargetInstruction("mz")
     operation M(qb : Qubit) : Result {
         body intrinsic;
-	}
+    }
 
     operation Measure(bases : Pauli[], qubits : Qubit[]) : Result {
         body intrinsic;
@@ -79,26 +135,9 @@ namespace Microsoft.Quantum.Intrinsic {
     operation MResetZ(qb : Qubit) : Result
     {
         let res = M(qb);
-        if (res == One)
-        {
-            X(qb);
-        }
+        Phys.Reset(qb); 
         return res;
     }
-
-    @Inline()
-    operation S(qb : Qubit) : Unit
-    is Adj {
-        body  (...)
-        {
-            Phys.S(qb);  
-		}
-        adjoint (...)
-        {
-            Phys.S(qb);
-            Z(qb);
-        }
-	}
 
     @Inline()
     operation Rx(theta : Double, qb : Qubit) : Unit
@@ -106,12 +145,12 @@ namespace Microsoft.Quantum.Intrinsic {
         body  (...)
         {
             Phys.Rx(theta, qb);  
-		}
+        }
         adjoint (...)
         {
             Phys.Rx(-theta, qb);  
-		}
-	}
+        }
+    }
 
     @Inline()
     operation Ry(theta : Double, qb : Qubit) : Unit
@@ -119,12 +158,12 @@ namespace Microsoft.Quantum.Intrinsic {
         body  (...)
         {
             Phys.Ry(theta, qb);  
-		}
+        }
         adjoint (...)
         {
             Phys.Ry(-theta, qb);  
-		}
-	}
+        }
+    }
 
     @Inline()
     operation Rz(theta : Double, qb : Qubit) : Unit
@@ -132,11 +171,11 @@ namespace Microsoft.Quantum.Intrinsic {
         body  (...)
         {
             Phys.Rz(theta, qb);  
-		}
+        }
         adjoint (...)
         {
             Phys.Rz(-theta, qb);  
-		}
+        }
         controlled (ctls, ...)
         {
             Phys.Rz(theta / 2.0, qb);
@@ -151,13 +190,13 @@ namespace Microsoft.Quantum.Intrinsic {
             Phys.Rz(theta / 2.0, qb);
             CNOT(ctls[0], qb);
         }
-	}
+    }
 
     @Inline()
     operation Reset(qb : Qubit) : Unit {
         body  (...)
         {
             Phys.Reset(qb);  
-		}
-	}
+        }
+    }
 }
