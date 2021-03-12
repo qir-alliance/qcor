@@ -144,7 +144,15 @@ antlrcpp::Any qasm3_visitor::visitSubroutineDefinition(
     auto classical_type = context->returnSignature()->classicalType();
     // can return bit, bit[], uint[], int[], float[], bool
     if (classical_type->bitType()) {
-      return_type = result_type;
+      if (auto designator = classical_type->designator()) {
+        auto bit_size = symbol_table.evaluate_constant_integer_expression(designator->getText());
+        llvm::ArrayRef<int64_t> shape{bit_size};
+        return_type = mlir::MemRefType::get(shape, result_type);
+      } else {
+        return_type = result_type;
+      }
+    } else {
+      printErrorMessage("Alex implement other return types.", context);
     }
   }
 

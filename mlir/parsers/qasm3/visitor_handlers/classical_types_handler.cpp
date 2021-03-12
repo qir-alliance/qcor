@@ -369,12 +369,42 @@ antlrcpp::Any qasm3_visitor::visitClassicalAssignment(
       bit_idx = std::stoi(idx_str);
     }
 
-    // Store the mz result into the bit_value
-    mlir::Value pos = get_or_create_constant_integer_value(
-        bit_idx, location, builder.getIntegerType(64), symbol_table, builder);
+    // Scenarios:
+    // memref<Nxtype> = call ... -> type (like bit)
+    // memref<Nxtype> = call ... -> memref<Mxtype>, N has to equal M
 
-    builder.create<mlir::StoreOp>(
-        location, rhs, lhs, llvm::makeArrayRef(std::vector<mlir::Value>{pos}));
+    auto lhs_shape = lhs.getType().cast<mlir::MemRefType>().getShape()[0];
+    if (rhs.getType().isa<mlir::MemRefType>()) {
+      auto rhs_shape = rhs.getType().cast<mlir::MemRefType>().getShape()[0];
+
+      if (lhs_shape != rhs_shape) {
+        printErrorMessage(
+            "return value from subroutine call does not have the correct "
+            "memref "
+            "shape.",
+            context, {lhs, rhs});
+      }
+
+      for (int i = 0; i < lhs_shape; i++) {
+        mlir::Value pos = get_or_create_constant_integer_value(
+            i, location, builder.getIntegerType(64), symbol_table, builder);
+        auto load = builder.create<mlir::LoadOp>(location, rhs, pos);
+        builder.create<mlir::StoreOp>(
+            location, load, lhs,
+            llvm::makeArrayRef(std::vector<mlir::Value>{pos}));
+      }
+    } else {
+      if (lhs_shape != 1) {
+        printErrorMessage("rhs and lhs memref shapes do not match.", context,
+                          {lhs, rhs});
+      }
+      mlir::Value pos = get_or_create_constant_integer_value(
+          0, location, builder.getIntegerType(64), symbol_table, builder);
+      builder.create<mlir::StoreOp>(
+          location, rhs, lhs,
+          llvm::makeArrayRef(std::vector<mlir::Value>{pos}));
+    }
+
     return 0;
   }
 
@@ -483,6 +513,13 @@ antlrcpp::Any qasm3_visitor::visitClassicalAssignment(
         0, location, 64, symbol_table, builder));
     builder.create<mlir::StoreOp>(location, current_value, lhs, zero_index2);
   } else if (assignment_op == "=") {
+    std::cout << "HELLO WORLD:\n";
+    lhs.dump();
+    std::cout << "\n";
+    rhs.dump();
+    std::cout << "\n";
+    // FIXME This assumes we have a memref<1x??> = memref<1x??>
+    // what if we have multiple elements in the memref???
     builder.create<mlir::StoreOp>(location, rhs, lhs,
                                   get_or_create_constant_index_value(
                                       0, location, 64, symbol_table, builder));

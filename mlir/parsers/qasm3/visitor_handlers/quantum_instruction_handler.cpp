@@ -4,8 +4,8 @@ namespace qcor {
 
 void qasm3_visitor::createInstOps_HandleBroadcast(
     std::string name, std::vector<mlir::Value> qbit_values,
-    std::vector<mlir::Value> param_values, mlir::Location location,
-    antlr4::ParserRuleContext* context) {
+    std::vector<std::string> qreg_names, std::vector<mlir::Value> param_values,
+    mlir::Location location, antlr4::ParserRuleContext* context) {
   auto has_array_type = [this](auto& value_vector) {
     for (auto v : value_vector) {
       if (v.getType() == array_type) {
@@ -14,6 +14,31 @@ void qasm3_visitor::createInstOps_HandleBroadcast(
     }
     return false;
   };
+
+  auto get_qreg_size = [&, this](mlir::Value qreg_value,
+                                 const std::string qreg_name) {
+    uint64_t nqubits;
+    if (auto op = qreg_value.getDefiningOp<mlir::quantum::QallocOp>()) {
+      nqubits = op.size().getLimitedValue();
+    } else {
+      auto attributes = symbol_table.get_variable_attributes(qreg_name);
+      if (!attributes.empty()) {
+        try {
+          nqubits = std::stoi(attributes[0]);
+        } catch (...) {
+          printErrorMessage("Could not infer qubit[] size from block argument.",
+                            context);
+        }
+      } else {
+        printErrorMessage(
+            "Could not infer qubit[] size from block argument. No size "
+            "attribute for variable in symbol table.",
+            context);
+      }
+    }
+    return nqubits;
+  };
+
   auto str_attr = builder.getStringAttr(name);
 
   // FIXME Extremely hacky way to handle gate broadcasting
@@ -26,10 +51,8 @@ void qasm3_visitor::createInstOps_HandleBroadcast(
   // QINST qubit[] qubit[] -> QINST qubit[j] qubit[j] for all j
   if (has_array_type(qbit_values)) {
     if (qbit_values.size() == 1) {
-      auto n = qbit_values[0]
-                   .getDefiningOp<mlir::quantum::QallocOp>()
-                   .size()
-                   .getLimitedValue();
+      auto n = get_qreg_size(qbit_values[0], qreg_names[0]);
+
       for (int i = 0; i < n; i++) {
         auto qubit_type = get_custom_opaque_type("Qubit", builder.getContext());
 
@@ -45,14 +68,10 @@ void qasm3_visitor::createInstOps_HandleBroadcast(
     } else if (qbit_values.size() == 2) {
       if (qbit_values[0].getType() == array_type &&
           qbit_values[1].getType() == array_type) {
-        auto n = qbit_values[0]
-                     .getDefiningOp<mlir::quantum::QallocOp>()
-                     .size()
-                     .getLimitedValue();
-        auto m = qbit_values[0]
-                     .getDefiningOp<mlir::quantum::QallocOp>()
-                     .size()
-                     .getLimitedValue();
+
+        auto n = get_qreg_size(qbit_values[0], qreg_names[0]);
+        auto m = get_qreg_size(qbit_values[1], qreg_names[1]);
+
         if (n != m) {
           printErrorMessage("Gate broadcast must be on registers of same size.",
                             context);
@@ -80,10 +99,8 @@ void qasm3_visitor::createInstOps_HandleBroadcast(
 
       } else if (qbit_values[0].getType() == array_type &&
                  qbit_values[1].getType() != array_type) {
-        auto n = qbit_values[0]
-                     .getDefiningOp<mlir::quantum::QallocOp>()
-                     .size()
-                     .getLimitedValue();
+        auto n = get_qreg_size(qbit_values[0], qreg_names[0]);
+
         for (int i = 0; i < n; i++) {
           auto qubit_type =
               get_custom_opaque_type("Qubit", builder.getContext());
@@ -101,10 +118,8 @@ void qasm3_visitor::createInstOps_HandleBroadcast(
         }
       } else if (qbit_values[0].getType() != array_type &&
                  qbit_values[1].getType() == array_type) {
-        auto n = qbit_values[1]
-                     .getDefiningOp<mlir::quantum::QallocOp>()
-                     .size()
-                     .getLimitedValue();
+        auto n = get_qreg_size(qbit_values[1], qreg_names[1]);
+
         for (int i = 0; i < n; i++) {
           auto qubit_type =
               get_custom_opaque_type("Qubit", builder.getContext());
@@ -173,16 +188,33 @@ antlrcpp::Any qasm3_visitor::visitQuantumGateCall(
                                                  file_name);
         exp_generator.visit(expression);
         val = exp_generator.current_value;
+        if (val.getType().isa<mlir::MemRefType>()) {
+          if (!val.getType()
+                   .cast<mlir::MemRefType>()
+                   .getElementType()
+                   .isIntOrFloat()) {
+            printErrorMessage(
+                "Variable classical parameter for quantum instruction is not a "
+                "float or int.",
+                context, {val});
+          }
+          val = builder.create<mlir::LoadOp>(
+              location, val,
+              get_or_create_constant_index_value(0, location, 64, symbol_table,
+                                                 builder));
+        }
       }
       param_values.push_back(val);
     }
   }
 
+  std::vector<std::string> qreg_names;
   for (auto idx_identifier :
        context->indexIdentifierList()->indexIdentifier()) {
+    auto qbit_var_name = idx_identifier->Identifier()->getText();
+    qreg_names.push_back(qbit_var_name);
     if (idx_identifier->LBRACKET()) {
       // this is a qubit indexed from an array
-      auto qbit_var_name = idx_identifier->Identifier()->getText();
       auto idx_str = idx_identifier->expressionList()
                          ->expression(0)
                          ->expressionTerminator()
@@ -213,14 +245,13 @@ antlrcpp::Any qasm3_visitor::visitQuantumGateCall(
       qbit_values.push_back(value);
     } else {
       // this is a qubit
-      auto qbit_var_name = idx_identifier->Identifier()->getText();
       auto qbit = symbol_table.get_symbol(qbit_var_name);
       qbit_values.push_back(qbit);
     }
   }
 
-  createInstOps_HandleBroadcast(name, qbit_values, param_values, location,
-                                context);
+  createInstOps_HandleBroadcast(name, qbit_values, qreg_names, param_values,
+                                location, context);
 
   return 0;
 }
@@ -293,12 +324,30 @@ antlrcpp::Any qasm3_visitor::visitSubroutineCall(
       qasm3_expression_generator qubit_exp_generator(builder, symbol_table,
                                                      file_name);
       qubit_exp_generator.visit(expression);
-      param_values.push_back(qubit_exp_generator.current_value);
+      auto variable_value = qubit_exp_generator.current_value;
+      if (variable_value.getType().isa<mlir::MemRefType>()) {
+        if (!variable_value.getType()
+                 .cast<mlir::MemRefType>()
+                 .getElementType()
+                 .isIntOrFloat()) {
+          printErrorMessage(
+              "Variable classical parameter for quantum instruction is not a "
+              "float or int.",
+              context, {variable_value});
+        }
+        variable_value = builder.create<mlir::LoadOp>(
+            location, variable_value,
+            get_or_create_constant_index_value(0, location, 64, symbol_table,
+                                               builder));
+      }
+
+      param_values.push_back(variable_value);
     }
   }
 
   auto str_attr = builder.getStringAttr(name);
 
+  std::vector<std::string> qreg_names;
   auto n_qubit_args = expression_list[qubit_expr_list_idx]->expression().size();
   for (auto expression : expression_list[qubit_expr_list_idx]->expression()) {
     qasm3_expression_generator qubit_exp_generator(builder, symbol_table,
@@ -306,10 +355,11 @@ antlrcpp::Any qasm3_visitor::visitSubroutineCall(
     qubit_exp_generator.visit(expression);
     auto qbit_or_qreg = qubit_exp_generator.current_value;
     qbit_values.push_back(qubit_exp_generator.current_value);
+    qreg_names.push_back(expression->getText());
   }
 
-  createInstOps_HandleBroadcast(name, qbit_values, param_values, location,
-                                context);
+  createInstOps_HandleBroadcast(name, qbit_values, qreg_names, param_values,
+                                location, context);
   return 0;
 }
 }  // namespace qcor

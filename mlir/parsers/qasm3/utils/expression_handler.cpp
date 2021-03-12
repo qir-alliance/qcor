@@ -322,8 +322,8 @@ antlrcpp::Any qasm3_expression_generator::visitAdditiveExpression(
             lhs = builder.create<mlir::ConstantOp>(
                 location, mlir::FloatAttr::get(rhs.getType(), (double)value));
           } else {
-            printErrorMessage(
-                "Must cast lhs to float, but it is not constant.");
+            printErrorMessage("Must cast lhs to float, but it is not constant.",
+                              ctx, {lhs, rhs});
           }
         } else if (!rhs.getType().isa<mlir::FloatType>()) {
           if (auto op = rhs.getDefiningOp<mlir::ConstantOp>()) {
@@ -334,22 +334,23 @@ antlrcpp::Any qasm3_expression_generator::visitAdditiveExpression(
             rhs = builder.create<mlir::ConstantOp>(
                 location, mlir::FloatAttr::get(lhs.getType(), (double)value));
           } else {
-            printErrorMessage(
-                "Must cast rhs to float, but it is not constant.");
+            printErrorMessage("Must cast rhs to float, but it is not constant.",
+                              ctx, {lhs, rhs});
           }
-        } else {
-          printErrorMessage("Could not perform addition, incompatible types: " +
-                            ctx->getText());
         }
+        // else {
+        //   printErrorMessage("Could not perform addition, incompatible types:
+        //   " +
+        //                     ctx->getText());
+        // }
 
         createOp<mlir::AddFOp>(location, lhs, rhs);
       } else if (lhs.getType().isa<mlir::IntegerType>() &&
                  rhs.getType().isa<mlir::IntegerType>()) {
         createOp<mlir::AddIOp>(location, lhs, rhs).result();
       } else {
-        printErrorMessage(
-            "Could not perform addition, incompatible types: " + ctx->getText(),
-            {lhs, rhs});
+        printErrorMessage("Could not perform addition, incompatible types: ",
+                          ctx, {lhs, rhs});
       }
     } else if (bin_op == "-") {
       if (lhs.getType().isa<mlir::FloatType>() ||
@@ -365,8 +366,8 @@ antlrcpp::Any qasm3_expression_generator::visitAdditiveExpression(
             lhs = builder.create<mlir::ConstantOp>(
                 location, mlir::FloatAttr::get(rhs.getType(), (double)value));
           } else {
-            printErrorMessage(
-                "Must cast lhs to float, but it is not constant.");
+            printErrorMessage("Must cast lhs to float, but it is not constant.",
+                              ctx, {lhs, rhs});
           }
         } else if (!rhs.getType().isa<mlir::FloatType>()) {
           if (auto op = rhs.getDefiningOp<mlir::ConstantOp>()) {
@@ -377,24 +378,23 @@ antlrcpp::Any qasm3_expression_generator::visitAdditiveExpression(
             rhs = builder.create<mlir::ConstantOp>(
                 location, mlir::FloatAttr::get(lhs.getType(), (double)value));
           } else {
-            printErrorMessage(
-                "Must cast rhs to float, but it is not constant.");
+            printErrorMessage("Must cast rhs to float, but it is not constant.",
+                              ctx, {lhs, rhs});
           }
-        } else {
-          printErrorMessage(
-              "Could not perform subtraction, incompatible types: " +
-              ctx->getText());
         }
+        // else {
+        //   printErrorMessage(
+        //       "Could not perform subtraction, incompatible types: " +
+        //       ctx->getText());
+        // }
 
         createOp<mlir::SubFOp>(location, lhs, rhs);
       } else if (lhs.getType().isa<mlir::IntegerType>() &&
                  rhs.getType().isa<mlir::IntegerType>()) {
         createOp<mlir::SubIOp>(location, lhs, rhs).result();
       } else {
-        printErrorMessage(
-            "Could not perform subtraction, incompatible types: " +
-                ctx->getText(),
-            {lhs, rhs});
+        printErrorMessage("Could not perform subtraction, incompatible types: ",
+                          ctx, {lhs, rhs});
       }
     }
     return 0;
@@ -429,8 +429,8 @@ antlrcpp::Any qasm3_expression_generator::visitMultiplicativeExpression(
             lhs = builder.create<mlir::ConstantOp>(
                 location, mlir::FloatAttr::get(rhs.getType(), (double)value));
           } else {
-            printErrorMessage(
-                "Must cast lhs to float, but it is not constant.");
+            printErrorMessage("Must cast lhs to float, but it is not constant.",
+                              ctx, {lhs, rhs});
           }
         } else if (!rhs.getType().isa<mlir::FloatType>()) {
           if (auto op = rhs.getDefiningOp<mlir::ConstantOp>()) {
@@ -441,14 +441,15 @@ antlrcpp::Any qasm3_expression_generator::visitMultiplicativeExpression(
             rhs = builder.create<mlir::ConstantOp>(
                 location, mlir::FloatAttr::get(lhs.getType(), (double)value));
           } else {
-            printErrorMessage(
-                "Must cast rhs to float, but it is not constant.");
+            printErrorMessage("Must cast rhs to float, but it is not constant.",
+                              ctx, {lhs, rhs});
           }
-        } else {
-          printErrorMessage(
-              "Could not perform multiplication, incompatible types: " +
-              ctx->getText());
         }
+        // else {
+        //   printErrorMessage(
+        //       "Could not perform multiplication, incompatible types: ", ctx,
+        //     {lhs, rhs});
+        // }
 
         createOp<mlir::MulFOp>(location, lhs, rhs);
       } else if (lhs.getType().isa<mlir::IntegerType>() &&
@@ -456,8 +457,7 @@ antlrcpp::Any qasm3_expression_generator::visitMultiplicativeExpression(
         createOp<mlir::MulIOp>(location, lhs, rhs).result();
       } else {
         printErrorMessage(
-            "Could not perform multiplication, incompatible types: " +
-                ctx->getText(),
+            "Could not perform multiplication, incompatible types: ", ctx,
             {lhs, rhs});
       }
     } else if (bin_op == "/") {
@@ -489,19 +489,20 @@ antlrcpp::Any qasm3_expression_generator::visitMultiplicativeExpression(
             printErrorMessage(
                 "Must cast rhs to float, but it is not constant.");
           }
-        } else {
-          printErrorMessage("Could not perform division, incompatible types: " +
-                            ctx->getText());
         }
+        // else {
+        //   std::cout << "MADE IT HERE\n";
+        //   printErrorMessage("Could not perform division, incompatible types:
+        //   ", ctx, {lhs, rhs});
+        // }
 
         createOp<mlir::DivFOp>(location, lhs, rhs);
       } else if (lhs.getType().isa<mlir::IntegerType>() &&
                  rhs.getType().isa<mlir::IntegerType>()) {
-        createOp<mlir::UnsignedDivIOp>(location, lhs, rhs).result();
+        createOp<mlir::SignedDivIOp>(location, lhs, rhs);
       } else {
-        printErrorMessage(
-            "Could not perform division, incompatible types: " + ctx->getText(),
-            {lhs, rhs});
+        printErrorMessage("Could not perform division, incompatible types: ",
+                          ctx, {lhs, rhs});
       }
     }
     return 0;
@@ -563,15 +564,21 @@ antlrcpp::Any qasm3_expression_generator::visitExpressionTerminator(
   } else if (auto integer = ctx->Integer()) {
     // check minus
     int multiplier = ctx->MINUS() ? -1 : 1;
-    auto idx = std::stoi(integer->getText());
-    // std::cout << "Integer Terminator " << integer->getText() << ", " << idx
-    //           << ", " << number_width << "\n";
-    current_value = get_or_create_constant_integer_value(
-        multiplier * idx, location,
-        (internal_value_type.dyn_cast_or_null<mlir::IntegerType>()
-             ? internal_value_type.cast<mlir::IntegerType>()
-             : builder.getI64Type()),
-        symbol_table, builder);
+    if (builtin_math_func_treat_ints_as_float) {
+      auto value = std::stod(integer->getText());
+      createOp<mlir::ConstantOp>(
+          location, mlir::FloatAttr::get(builder.getF64Type(), value));
+    } else {
+      auto idx = std::stoi(integer->getText());
+      // std::cout << "Integer Terminator " << integer->getText() << ", " << idx
+      //           << ", " << number_width << "\n";
+      current_value = get_or_create_constant_integer_value(
+          multiplier * idx, location,
+          (internal_value_type.dyn_cast_or_null<mlir::IntegerType>()
+               ? internal_value_type.cast<mlir::IntegerType>()
+               : builder.getI64Type()),
+          symbol_table, builder);
+    }
     return 0;
   } else if (auto real = ctx->RealNumber()) {
     // check minus
@@ -736,21 +743,25 @@ antlrcpp::Any qasm3_expression_generator::visitExpressionTerminator(
               llvm::ArrayRef<mlir::Value> zero_index(tmp2);
 
               // Create j, the loop variable
-              mlir::Value loop_var_memref =
-                  builder.create<mlir::AllocaOp>(location, mem_type);
+              mlir::Value loop_var_memref = builder.create<mlir::AllocaOp>(
+                  location,
+                  mlir::MemRefType::get(shaperef, builder.getI64Type()));
               builder.create<mlir::StoreOp>(
                   location,
                   get_or_create_constant_integer_value(
-                      0, location, int_value_type,  symbol_table, builder),
+                      0, location, builder.getI64Type(), symbol_table, builder),
                   loop_var_memref,
                   get_or_create_constant_index_value(0, location, 64,
                                                      symbol_table, builder));
 
+              
+
               // Create loop end value, and step size
               auto b_val = get_or_create_constant_integer_value(
-                  bit_width, location, int_value_type, symbol_table, builder);
+                  bit_width, location, builder.getI64Type(), symbol_table,
+                  builder);
               auto c_val = get_or_create_constant_integer_value(
-                  1, location, int_value_type, symbol_table, builder);
+                  1, location, builder.getI64Type(), symbol_table, builder);
 
               auto savept = builder.saveInsertionPoint();
               auto currRegion = builder.getBlock()->getParent();
@@ -808,6 +819,8 @@ antlrcpp::Any qasm3_expression_generator::visitExpressionTerminator(
               // auto j_val = get_or_create_constant_integer_value(
               //     j, location, int_value_type, symbol_table, builder);
               // second = (1 << j)
+              j_val = builder.create<mlir::TruncateIOp>(location, j_val,
+                                                        int_value_type);
               auto shift_left_val = builder.create<mlir::ShiftLeftOp>(
                   location,
                   get_or_create_constant_integer_value(
@@ -856,6 +869,71 @@ antlrcpp::Any qasm3_expression_generator::visitExpressionTerminator(
           }
         }
       }
+    } else if (auto math_func = builtin->builtInMath()) {
+      auto expr = builtin->expressionList()->expression(0);
+
+      // Builtin math expr should assume int -> float
+      builtin_math_func_treat_ints_as_float = true;
+      visit(expr);
+      builtin_math_func_treat_ints_as_float = false;
+      auto arg = current_value;
+
+      if (math_func->getText() == "sin") {
+        createOp<mlir::SinOp>(location, arg);
+      } else if (math_func->getText() == "arcsin") {
+        // arcsin(x) = 2 atan( x / (1 + sqrt(1-x2)))
+        auto xsquared = builder.create<mlir::MulFOp>(location, arg, arg);
+        auto one = builder.create<mlir::ConstantOp>(
+            location, mlir::FloatAttr::get(builder.getF64Type(), 1.0));
+        auto two = builder.create<mlir::ConstantOp>(
+            location, mlir::FloatAttr::get(builder.getF64Type(), 2.0));
+        auto one_minus_xsquared =
+            builder.create<mlir::SubFOp>(location, one, xsquared);
+        auto sqrt_one_minus_xsquared =
+            builder.create<mlir::SqrtOp>(location, one_minus_xsquared);
+        auto one_plus_sqrt_term = builder.create<mlir::AddFOp>(
+            location, one, sqrt_one_minus_xsquared);
+        auto div =
+            builder.create<mlir::DivFOp>(location, arg, one_plus_sqrt_term);
+        auto atan = builder.create<mlir::AtanOp>(location, div);
+        createOp<mlir::MulFOp>(location, two, atan);
+      } else if (math_func->getText() == "cos") {
+        createOp<mlir::CosOp>(location, arg);
+      } else if (math_func->getText() == "arccos") {
+        // arccos(x) = 2 * arctan( (sqrt(1-x2)) / (1+x) )
+        auto xsquared = builder.create<mlir::MulFOp>(location, arg, arg);
+        auto one = builder.create<mlir::ConstantOp>(
+            location, mlir::FloatAttr::get(builder.getF64Type(), 1.0));
+        auto two = builder.create<mlir::ConstantOp>(
+            location, mlir::FloatAttr::get(builder.getF64Type(), 2.0));
+        auto one_minus_xsquared =
+            builder.create<mlir::SubFOp>(location, one, xsquared);
+        auto sqrt_one_minus_xsquared =
+            builder.create<mlir::SqrtOp>(location, one_minus_xsquared);
+        auto one_plus_x = builder.create<mlir::AddFOp>(location, one, arg);
+        auto div = builder.create<mlir::DivFOp>(
+            location, sqrt_one_minus_xsquared, one_plus_x);
+        auto atan =
+            builder.create<mlir::AtanOp>(location, builder.getF64Type(), div);
+        createOp<mlir::MulFOp>(location, two, atan);
+      } else if (math_func->getText() == "tan") {
+        auto sine = builder.create<mlir::SinOp>(location, arg);
+        auto cosine = builder.create<mlir::CosOp>(location, arg);
+        createOp<mlir::DivFOp>(location, sine, cosine);
+      } else if (math_func->getText() == "arctan") {
+        createOp<mlir::AtanOp>(location, arg);
+      } else if (math_func->getText() == "exp") {
+        createOp<mlir::ExpOp>(location, arg);
+      } else if (math_func->getText() == "ln") {
+        createOp<mlir::Log2Op>(location, arg);
+      } else if (math_func->getText() == "sqrt") {
+        createOp<mlir::SqrtOp>(location, arg);
+      } else {
+        printErrorMessage("Invalid math function, or we do not support it yet.",
+                          ctx);
+      }
+
+      return 0;
     }
 
     printErrorMessage(
@@ -909,3 +987,58 @@ antlrcpp::Any qasm3_expression_generator::visitExpressionTerminator(
 }
 
 }  // namespace qcor
+
+/*keeping in case i need later
+for (int j = 0; j < bit_width; j++) {
+                auto j_val = get_or_create_constant_integer_value(
+                    j, location, builder.getI32Type(), symbol_table, builder);
+                auto load_bit_j =
+                    builder.create<mlir::LoadOp>(location, var_to_cast, j_val);
+                // Extend i1 to the same width as i
+                auto load_j_ext = builder.create<mlir::ZeroExtendIOp>(
+                    location, load_bit_j, int_value_type);
+
+                // Negate bits[j] to get -bit[j]`
+                auto neg_load_j = builder.create<mlir::SubIOp>(
+                    location,
+                    builder.create<mlir::ConstantOp>(location, init_attr),
+                    load_j_ext);
+
+                // load the current value of i
+                auto load_i = builder.create<mlir::LoadOp>(
+                    location, init_allocation,
+                    get_or_create_constant_index_value(0, location, bit_width,
+                                                       symbol_table, builder));
+
+                // first = -bits[j] ^ i
+                auto xored_val =
+                    builder.create<mlir::XOrOp>(location, neg_load_j, load_i);
+
+                // (1 << j)
+                // create j integer index
+                // auto j_val = get_or_create_constant_integer_value(
+                //     j, location, int_value_type, symbol_table, builder);
+                // second = (1 << j)
+                j_val = builder.create<mlir::TruncateIOp>(location, j_val,
+              int_value_type); auto shift_left_val =
+              builder.create<mlir::ShiftLeftOp>( location,
+                    get_or_create_constant_integer_value(
+                        1, location, int_value_type, symbol_table, builder),
+                    j_val);
+
+                // (-bits[j] ^ i) & (1 << j)
+                auto result = builder.create<mlir::AndOp>(location, xored_val,
+                                                          shift_left_val);
+
+                auto load_i2 = builder.create<mlir::LoadOp>(
+                    location, init_allocation,
+                    get_or_create_constant_index_value(0, location, bit_width,
+                                                       symbol_table, builder));
+                auto result_to_store =
+                    builder.create<mlir::XOrOp>(location, load_i2, result);
+
+                auto val = builder.create<mlir::StoreOp>(
+                    location, result_to_store, init_allocation,
+                    get_or_create_constant_index_value(0, location, 64,
+                                                       symbol_table, builder));
+              }*/

@@ -132,7 +132,7 @@ class qasm3_visitor : public qasm3::qasm3BaseVisitor {
   // This method will add correct number of InstOps
   // based on quantum gate broadcasting
   void createInstOps_HandleBroadcast(std::string name,
-                                     std::vector<mlir::Value> qbit_values,
+                                     std::vector<mlir::Value> qbit_values, std::vector<std::string> qbit_names,
                                      std::vector<mlir::Value> param_values,
                                      mlir::Location location,
                                      antlr4::ParserRuleContext* context);
