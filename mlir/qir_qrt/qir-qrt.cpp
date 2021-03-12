@@ -145,52 +145,52 @@ void __quantum__rt__set_external_qreg(qreg* q) {
 }
 
 void __quantum__qis__cnot(Qubit* src, Qubit* tgt) {
-  std::size_t src_copy = reinterpret_cast<std::size_t>(src);
-  std::size_t tgt_copy = reinterpret_cast<std::size_t>(tgt);
+  std::size_t src_copy = src->id;
+  std::size_t tgt_copy = tgt->id;
   if (verbose) printf("[qir-qrt] Applying CX %lu, %lu\n", src_copy, tgt_copy);
   ::quantum::cnot({"q", src_copy}, {"q", tgt_copy});
 }
 
 void __quantum__qis__h(Qubit* q) {
-  std::size_t qcopy = reinterpret_cast<std::size_t>(q);
+  std::size_t qcopy = q->id;
   if (verbose) printf("[qir-qrt] Applying H %lu\n", qcopy);
   ::quantum::h({"q", qcopy});
 }
 
 void __quantum__qis__s(Qubit* q) {
-  std::size_t qcopy = reinterpret_cast<std::size_t>(q);
+  std::size_t qcopy = q->id;
   if (verbose) printf("[qir-qrt] Applying S %lu\n", qcopy);
   ::quantum::s({"q", qcopy});
 }
 
 void __quantum__qis__sdg(Qubit* q) {
-  std::size_t qcopy = reinterpret_cast<std::size_t>(q);
+  std::size_t qcopy = q->id;
   if (verbose) printf("[qir-qrt] Applying Sdg %lu\n", qcopy);
   ::quantum::sdg({"q", qcopy});
 }
 void __quantum__qis__t(Qubit* q) {
-  std::size_t qcopy = reinterpret_cast<std::size_t>(q);
+  std::size_t qcopy = q->id;
   if (verbose) printf("[qir-qrt] Applying T %lu\n", qcopy);
   ::quantum::t({"q", qcopy});
 }
 void __quantum__qis__tdg(Qubit* q) {
-  std::size_t qcopy = reinterpret_cast<std::size_t>(q);
+  std::size_t qcopy = q->id;
   if (verbose) printf("[qir-qrt] Applying Tdg %lu\n", qcopy);
   ::quantum::tdg({"q", qcopy});
 }
 
 void __quantum__qis__x(Qubit* q) {
-  std::size_t qcopy = reinterpret_cast<std::size_t>(q);
+  std::size_t qcopy = q->id;
   if (verbose) printf("[qir-qrt] Applying X %lu\n", qcopy);
   ::quantum::x({"q", qcopy});
 }
 void __quantum__qis__y(Qubit* q) {
-  std::size_t qcopy = reinterpret_cast<std::size_t>(q);
+  std::size_t qcopy = q->id;
   if (verbose) printf("[qir-qrt] Applying Y %lu\n", qcopy);
   ::quantum::y({"q", qcopy});
 }
 void __quantum__qis__z(Qubit* q) {
-  std::size_t qcopy = reinterpret_cast<std::size_t>(q);
+  std::size_t qcopy = q->id;
   if (verbose) printf("[qir-qrt] Applying Z %lu\n", qcopy);
   ::quantum::z({"q", qcopy});
 }
@@ -202,34 +202,32 @@ void __quantum__qis__reset(Qubit* q) {
 }
 
 void __quantum__qis__rx(double x, Qubit* q) {
-  std::size_t qcopy = reinterpret_cast<std::size_t>(q);
+  std::size_t qcopy = q->id;
   if (verbose) printf("[qir-qrt] Applying Rx(%f) %lu\n", x, qcopy);
   ::quantum::rx({"q", qcopy}, x);
 }
 
 void __quantum__qis__ry(double x, Qubit* q) {
-  std::size_t qcopy = reinterpret_cast<std::size_t>(q);
+  std::size_t qcopy = q->id;
   if (verbose) printf("[qir-qrt] Applying Ry(%f) %lu\n", x, qcopy);
   ::quantum::ry({"q", qcopy}, x);
 }
 
 void __quantum__qis__rz(double x, Qubit* q) {
-  std::size_t qcopy = reinterpret_cast<std::size_t>(q);
+  std::size_t qcopy = q->id;
   if (verbose) printf("[qir-qrt] Applying Rz(%f) %lu\n", x, qcopy);
   ::quantum::rz({"q", qcopy}, x);
 }
 void __quantum__qis__u3(double theta, double phi, double lambda, Qubit* q) {
-  std::size_t qcopy = reinterpret_cast<std::size_t>(q);
-  if (verbose)
-    printf("[qir-qrt] Applying U3(%f, %f, %f) %lu\n", theta, phi, lambda,
-           qcopy);
+    std::size_t qcopy = q->id;
+  if (verbose) printf("[qir-qrt] Applying U3(%f, %f, %f) %lu\n", theta, phi, lambda, qcopy);
   ::quantum::u3({"q", qcopy}, theta, phi, lambda);
 }
 
 Result* __quantum__qis__mz(Qubit* q) {
   if (verbose)
-    printf("[qir-qrt] Measuring qubit %lu\n", reinterpret_cast<std::size_t>(q));
-  std::size_t qcopy = reinterpret_cast<std::size_t>(q);
+    printf("[qir-qrt] Measuring qubit %lu\n", q->id);
+  std::size_t qcopy = q->id;
 
   if (!qbits) {
     qbits = std::make_shared<xacc::AcceleratorBuffer>(allocated_qbits);
@@ -247,9 +245,12 @@ Array* __quantum__rt__qubit_allocate_array(uint64_t size) {
 
   auto new_array = std::make_unique<Array>(size);
   for (uint64_t i = 0; i < size; i++) {
-    auto qubit = new uint64_t;  // Qubit("q", i);
-    *qubit = i;
-    (*new_array)[i] = reinterpret_cast<int8_t*>(qubit);
+    auto qubit = new Qubit(i); 
+    int8_t *arrayPtr = (*new_array)[i];
+    // Sequence: Cast to arrayPtr to Qubit**
+    auto qubitPtr = reinterpret_cast<Qubit **>(arrayPtr);
+    // Then save the qubit *pointer* to the location.
+    *qubitPtr = qubit;
   }
 
   allocated_qbits = size;
@@ -264,12 +265,11 @@ Array* __quantum__rt__qubit_allocate_array(uint64_t size) {
 }
 
 int8_t* __quantum__rt__array_get_element_ptr_1d(Array* q, uint64_t idx) {
-  Array& arr = *q;
-  int8_t* ptr = arr[idx];
-  Qubit* qq = reinterpret_cast<Qubit*>(ptr);
-
+  Array &arr = *q;
+  int8_t *ptr = arr[idx];
+  // Don't deref the underlying type since we don't know what it points to.
   if (verbose)
-    printf("[qir-qrt] Returning qubit array element %lu, idx=%lu.\n", *qq, idx);
+    printf("[qir-qrt] Returning array element at idx=%lu.\n", idx);
   return ptr;
 }
 
@@ -282,7 +282,9 @@ void __quantum__rt__qubit_release_array(Array* q) {
         printf("[qir-qrt] deallocating the qubit array of size %lu\n",
                array_size);
       for (int k = 0; k < array_size; k++) {
-        delete (*array_ptr)[k];
+        int8_t *arrayPtr = (*array_ptr)[k];
+        Qubit *qubitPtr = *(reinterpret_cast<Qubit **>(arrayPtr));
+        delete qubitPtr;
       }
       array_ptr->clear();
     }
