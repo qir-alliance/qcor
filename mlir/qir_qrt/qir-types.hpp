@@ -31,6 +31,20 @@ struct Array {
         m_storage(nbItems * itemSizeInBytes, 0) {
     assert(m_itemSizeInBytes > 0);
   };
+  // Copy
+  Array(const Array &other)
+      : m_itemSizeInBytes(other.m_itemSizeInBytes), m_storage(other.m_storage) {
+  }
+
+  void append(const Array &other) {
+    if (other.m_itemSizeInBytes != m_itemSizeInBytes) {
+      throw std::runtime_error("Cannot append Arrays of different types.");
+    }
+
+    m_storage.insert(m_storage.end(), other.m_storage.begin(),
+                     other.m_storage.end());
+  }
+
   int64_t size() { return m_storage.size() / m_itemSizeInBytes; }
   void clear() { m_storage.clear(); }
 

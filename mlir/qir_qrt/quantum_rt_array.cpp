@@ -7,18 +7,23 @@ Array *__quantum__rt__array_create_1d(int32_t itemSizeInBytes,
   // TODO
   if (verbose)
     std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
-
-  return nullptr;
+  return new Array(count_items, itemSizeInBytes);
 }
 
 int64_t __quantum__rt__array_get_size_1d(Array *state1) {
   // TODO
   if (verbose)
     std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
-  return 0;
+  return state1->size();
 }
 
 void __quantum__rt__array_update_alias_count(Array *array, int64_t increment) {
+  // TODO
+  if (verbose)
+    std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
+}
+
+void __quantum__rt__array_update_reference_count(Array *aux, int64_t count) {
   // TODO
   if (verbose)
     std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
@@ -28,7 +33,7 @@ void __quantum__rt__array_update_alias_count(Array *array, int64_t increment) {
 int32_t __quantum__rt__array_get_dim(Array *array) {
   if (verbose)
     std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
-  return 0;
+  return 1;
 }
 
 int64_t __quantum__rt__array_get_size(Array *array, int32_t dim) {
@@ -40,12 +45,23 @@ int64_t __quantum__rt__array_get_size(Array *array, int32_t dim) {
 Array *__quantum__rt__array_copy(Array *array, bool forceNewInstance) {
   if (verbose)
     std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
-  return nullptr;
+
+  if (array && forceNewInstance) {
+    return new Array(*array);
+  }
+
+  return array;
 }
 
 Array *__quantum__rt__array_concatenate(Array *head, Array *tail) {
   if (verbose)
     std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
+  if (head && tail) {
+    auto resultArray = new Array(*head);
+    resultArray->append(*tail);
+    return resultArray;
+  }
+
   return nullptr;
 }
 

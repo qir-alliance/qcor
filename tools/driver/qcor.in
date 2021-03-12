@@ -4,6 +4,7 @@ import argparse, sys, os, glob, subprocess, mimetypes, re, pathlib
 def main(argv=None):
     compiler = '@CLANG_EXECUTABLE@'
     verbose=False
+    keep_bit_code_files=False
     baseLibs = ['-rdynamic', '-Wl,-rpath,@XACC_ROOT@/lib:@CMAKE_INSTALL_PREFIX@/lib:@LLVM_INSTALL_PREFIX@/lib:@CMAKE_INSTALL_PREFIX@/clang-plugins',
                             '-L', '@CMAKE_INSTALL_PREFIX@/lib','-lqcor', '-lqrt', '-lqcor-hybrid', '-lqcor-quasimo', '-lqcor-jit',
                              '-L', '@XACC_ROOT@/lib', '-lxacc', '-lCppMicroServices', '-lxacc-quantum-gate',
@@ -59,6 +60,7 @@ def main(argv=None):
         parser.add_argument('-xacc-version', metavar='', help='returns the current build version for underlying xacc install.')
         parser.add_argument('-version', metavar='', help='returns the current qcor build version.')
         parser.add_argument('-pythonpath', metavar='', help='print the correct PYTHONPATH to leverage qcor and xacc python API.')
+        parser.add_argument('-keep-llvm-file', metavar='', help='keep intermediate LLVM files.')
         args = parser.parse_args(sys.argv)
 
     if '-pythonpath' in sys.argv[1:]:
@@ -184,7 +186,10 @@ def main(argv=None):
         print(''.join([l for l in lines]))
         exit(0)
 
-
+    if '-keep-llvm-file' in sys.argv[1:]:
+        keep_bit_code_files=True
+        sys.argv.remove('-keep-llvm-file')
+    
     sHandlerArgs = []
     # Get the QPU Backend
     accName = ''
@@ -371,9 +376,11 @@ def main(argv=None):
                     print(e.returncode)
                 base_cpp_name = os.path.splitext(driver_file_name)[0]
                 sys.argv.append(base_cpp_name + '.o')     
-        # remove these temp files
-        os.remove(ll_file_name)
-        os.remove(bc_file_name)
+        
+        if not keep_bit_code_files:
+            # remove these temp files
+            os.remove(ll_file_name)
+            os.remove(bc_file_name)
 
     # If it is a C++ file
     if fileType != None and 'text/x-c' in fileType:
