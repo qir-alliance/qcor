@@ -196,7 +196,7 @@ void __quantum__qis__z(Qubit* q) {
 }
 
 void __quantum__qis__reset(Qubit* q) {
-  std::size_t qcopy = reinterpret_cast<std::size_t>(q);
+  std::size_t qcopy = q->id;
   if (verbose) printf("[qir-qrt] Applying Reset %lu\n", qcopy);
   ::quantum::reset({"q", qcopy});
 }
