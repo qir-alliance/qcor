@@ -4,14 +4,12 @@
 extern "C" {
 Array *__quantum__rt__array_create_1d(int32_t itemSizeInBytes,
                                       int64_t count_items) {
-  // TODO
   if (verbose)
     std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
   return new Array(count_items, itemSizeInBytes);
 }
 
 int64_t __quantum__rt__array_get_size_1d(Array *state1) {
-  // TODO
   if (verbose)
     std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
   return state1->size();

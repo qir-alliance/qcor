@@ -5,7 +5,6 @@ extern "C" {
 int8_t *__quantum__rt__tuple_create(int64_t size) {
   if (verbose)
     std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
-  // Leak..
   Array *tuplePtrArray = new Array(size);
   return reinterpret_cast<int8_t *>(tuplePtrArray);
 }
