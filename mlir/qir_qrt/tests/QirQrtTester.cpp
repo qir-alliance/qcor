@@ -10,24 +10,30 @@
 #include "qrt.hpp"
 #include "xacc_service.hpp"
 
+namespace {
+constexpr int nbQubits = 5;
+static Array *globalQubitArrayPtr = nullptr;
+} // namespace
+
 TEST(QirQrtTester, checkSimple) {
   ::quantum::qrt_impl = xacc::getService<::quantum::QuantumRuntime>("nisq");
   ::quantum::qrt_impl->initialize("empty");
-  int nbQubits = 5;
-  auto arrayPtr = __quantum__rt__qubit_allocate_array(nbQubits);
-  EXPECT_EQ(arrayPtr->size(), nbQubits);
+  if (!globalQubitArrayPtr) {
+    globalQubitArrayPtr = __quantum__rt__qubit_allocate_array(nbQubits);
+  }
+  EXPECT_EQ(globalQubitArrayPtr->size(), nbQubits);
   for (int i = 0; i < nbQubits; ++i) {
     Qubit *qbit = *(reinterpret_cast<Qubit **>(
-        __quantum__rt__array_get_element_ptr_1d(arrayPtr, i)));
+        __quantum__rt__array_get_element_ptr_1d(globalQubitArrayPtr, i)));
 
     __quantum__qis__h(qbit);
   }
 
   for (int i = 0; i < nbQubits - 1; ++i) {
     Qubit *src = *(reinterpret_cast<Qubit **>(
-        __quantum__rt__array_get_element_ptr_1d(arrayPtr, i)));
+        __quantum__rt__array_get_element_ptr_1d(globalQubitArrayPtr, i)));
     Qubit *tgt = *(reinterpret_cast<Qubit **>(
-        __quantum__rt__array_get_element_ptr_1d(arrayPtr, i + 1)));
+        __quantum__rt__array_get_element_ptr_1d(globalQubitArrayPtr, i + 1)));
 
     __quantum__qis__cnot(src, tgt);
   }
@@ -45,16 +51,17 @@ TEST(QirQrtTester, checkSimple) {
 TEST(QirQrtTester, checkArray) {
   ::quantum::qrt_impl = xacc::getService<::quantum::QuantumRuntime>("nisq");
   ::quantum::qrt_impl->initialize("empty");
-  int nbQubits = 5;
-  auto arrayPtr = __quantum__rt__qubit_allocate_array(nbQubits);
-  EXPECT_EQ(arrayPtr->size(), nbQubits);
+  if (!globalQubitArrayPtr) {
+    globalQubitArrayPtr = __quantum__rt__qubit_allocate_array(nbQubits);
+  }
+  EXPECT_EQ(globalQubitArrayPtr->size(), nbQubits);
   // Create an alias array of 3 qubits
   const std::vector<int> qubitsToCopy {0, 2, 4};
   auto aliasQubitArray = __quantum__rt__array_create_1d(sizeof(Qubit *), qubitsToCopy.size());
   EXPECT_EQ(aliasQubitArray->size(), qubitsToCopy.size());
   for (int i = 0; i < qubitsToCopy.size(); ++i) {
     auto src_loc =
-        __quantum__rt__array_get_element_ptr_1d(arrayPtr, qubitsToCopy[i]);
+        __quantum__rt__array_get_element_ptr_1d(globalQubitArrayPtr, qubitsToCopy[i]);
     auto target_loc =
         __quantum__rt__array_get_element_ptr_1d(aliasQubitArray, i);
     memcpy(target_loc, src_loc, sizeof(Qubit *));

@@ -1,3 +1,5 @@
+#pragma once
+
 #include <cassert>
 
 // Defines implementations of QIR Opaque types

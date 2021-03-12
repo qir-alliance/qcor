@@ -1,4 +1,5 @@
 #include "qir-qrt.hpp"
+#include "qir-qrt-ms-compat.hpp"
 #include <iostream>
 
 // QRT QIS (quantum instructions) implementation for MSFT Compatability

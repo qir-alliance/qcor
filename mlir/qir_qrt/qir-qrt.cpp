@@ -224,10 +224,18 @@ void __quantum__rt__finalize() {
 
 bool __quantum__rt__result_equal(Result *res, Result *comp) {
   if (verbose) std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
+  if (mode == QRT_MODE::NISQ) {
+    throw std::runtime_error(
+        "Comparing Measure results in NISQ mode is prohibited.");
+  }
+
   // std::cout << "RES = " << res << "\n";
   // std::cout << "COMP = " << comp << "\n";
-  // We can do pointer comparison here.
-  return res == comp;
+  if (res && comp) {
+    // Do pointer comparison here then fallback by deref the result.
+    return (res == comp) || (*res) == (*comp);
+  }
+  return false;
 }
 
 void __quantum__rt__string_update_reference_count(void *str, int64_t count) {
