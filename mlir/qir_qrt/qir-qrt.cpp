@@ -10,9 +10,11 @@
 #include "xacc_config.hpp"
 #include "xacc_internal_compiler.hpp"
 #include "xacc_service.hpp"
-
-Result ResultZero = false;
-Result ResultOne = true;
+static const Result ResultZeroVal = false;
+static const Result ResultOneVal = true;
+// Define these global pointer constants
+Result *ResultZero = const_cast<Result *>(&ResultZeroVal);
+Result *ResultOne = const_cast<Result *>(&ResultOneVal);
 // Track allocated qubits
 unsigned long allocated_qbits = 0;
 std::shared_ptr<xacc::AcceleratorBuffer> global_qreg;

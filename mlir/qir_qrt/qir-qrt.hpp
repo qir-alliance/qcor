@@ -11,8 +11,11 @@ namespace xacc {
 
 extern "C" {
 using qreg = xacc::internal_compiler::qreg;
-extern Result ResultZero;
-extern Result ResultOne;
+
+// Note: The QIR spec requires ResultZero and ResultOne
+// as External Global constants of *pointer* type.
+extern Result *ResultZero;
+extern Result *ResultOne;
 extern unsigned long allocated_qbits;
 extern bool initialized;
 extern bool verbose;
@@ -47,6 +50,7 @@ void __quantum__qis__u3(double theta, double phi, double lambda, Qubit* q);
 Result* __quantum__qis__mz(Qubit* q);
 // Compare results.
 bool __quantum__rt__result_equal(Result *res, Result *comp);
+void __quantum__rt__result_update_reference_count(Result *, int64_t count);
 
 // Qubit Alloc/Dealloc API
 Array* __quantum__rt__qubit_allocate_array(uint64_t idx);
@@ -80,4 +84,7 @@ int8_t *__quantum__rt__array_get_element_ptr_nonvariadic(Array *array,
                                                          va_list args);
 int8_t *__quantum__rt__array_get_element_ptr(Array *array, ...);
 Array *__quantum__rt__array_project(Array *array, int dim, int64_t index);
+
+// String-related API
+void __quantum__rt__string_update_reference_count(void *str, int64_t count);
 }

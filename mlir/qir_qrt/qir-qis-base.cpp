@@ -111,6 +111,6 @@ Result *__quantum__qis__mz(Qubit *q) {
   if (mode == QRT_MODE::FTQC)
     if (verbose)
       printf("[qir-qrt] Result was %d.\n", bit);
-  return bit ? &ResultOne : &ResultZero;
+  return bit ? ResultOne : ResultZero;
 }
 }
