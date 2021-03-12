@@ -5,13 +5,12 @@
 #include <memory>
 #include <string>
 
-#include "heterogeneous.hpp"
-
 namespace llvm {
 class Module;
 }
 namespace xacc {
 class CompositeInstruction;
+class HeterogeneousMap;
 }
 
 namespace qcor {
@@ -51,6 +50,8 @@ class QJIT {
                    const std::vector<std::string> &kernel_dependency = {},
                    const std::string &extra_functions_src = "",
                    std::vector<std::string> extra_headers = {});
+
+  void jit_compile(std::unique_ptr<llvm::Module> m, std::vector<std::string> extra_shared_lib_paths ={});
 
   void write_cache();
 

@@ -371,6 +371,9 @@ def main(argv=None):
                     print(e.returncode)
                 base_cpp_name = os.path.splitext(driver_file_name)[0]
                 sys.argv.append(base_cpp_name + '.o')     
+        # remove these temp files
+        os.remove(ll_file_name)
+        os.remove(bc_file_name)
 
     # If it is a C++ file
     if fileType != None and 'text/x-c' in fileType:

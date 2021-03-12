@@ -6,7 +6,7 @@ target_compile_features(qcor-mlir-tool
                         PUBLIC
                         cxx_std_17)
 llvm_update_compile_flags(qcor-mlir-tool)
-target_link_libraries(qcor-mlir-tool PUBLIC MLIRQuantum quantum-to-llvm-lowering openqasm-mlir-generator )
+target_link_libraries(qcor-mlir-tool PUBLIC MLIRQuantum quantum-to-llvm-lowering openqasm-mlir-generator openqasmv3-mlir-generator)
 
 if(APPLE)
   set_target_properties(qcor-mlir-tool
