@@ -1,34 +1,20 @@
 #include <memory>
 #include <vector>
 #include "qalloc.hpp"
+#include "qir-types.hpp"
 
-#pragma GCC diagnostic ignored "-Wignored-qualifiers"
-#pragma GCC diagnostic ignored "-Wreorder"
-#pragma GCC diagnostic ignored "-Wunused-function"
-#pragma GCC diagnostic ignored "-Wsuggest-override"
-#pragma GCC diagnostic ignored "-Wdeprecated-copy"
-#pragma GCC diagnostic ignored "-Wunused-variable"
-#pragma GCC diagnostic ignored "-Wextra"
-#pragma GCC diagnostic ignored "-Wsign-compare"
-
+namespace xacc {
+    class AcceleratorBuffer;
+}
 extern "C" {
-
-// FIXME - Qubit should be a struct that keeps track of idx
-// qreg name, array it comes from, and associated accelerator buffer
-
-using Qubit = uint64_t;
-using Result = uint64_t;
-using Array = std::vector<int8_t*>;
-// FIXME: QIR use llvm type i2 then zext to int32...
-using Pauli = int8_t;
-using TupleHeader = int *;
 using qreg = xacc::internal_compiler::qreg;
-extern Result ResultZeroVal;
-extern Result ResultOneVal;
-extern Result *ResultZero;
-extern Result *ResultOne;
+extern Result ResultZero;
+extern Result ResultOne;
 extern unsigned long allocated_qbits;
 extern bool initialized;
+extern bool verbose;
+extern std::shared_ptr<xacc::AcceleratorBuffer> qbits;
+extern QRT_MODE mode;
 
 void initialize();
 void __quantum__rt__initialize(int argc, int8_t** argv);

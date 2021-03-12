@@ -11,17 +11,14 @@
 #include "xacc_internal_compiler.hpp"
 #include "xacc_service.hpp"
 
-Result ResultZeroVal = 0;
-Result ResultOneVal = 1;
-Result *ResultZero = &ResultZeroVal;
-Result *ResultOne = &ResultOneVal;
+Result ResultZero = false;
+Result ResultOne = true;
 unsigned long allocated_qbits = 0;
 std::shared_ptr<xacc::AcceleratorBuffer> qbits;
 std::shared_ptr<xacc::Accelerator> qpu;
 std::string qpu_name = "qpp";
 std::string qpu_config = "";
-enum QRT_MODE { FTQC, NISQ };
-QRT_MODE mode;
+QRT_MODE mode = QRT_MODE::FTQC;
 std::vector<std::unique_ptr<Array>> allocated_arrays;
 int shots = 0;
 bool verbose = false;
@@ -51,7 +48,7 @@ void __quantum__rt__initialize(int argc, int8_t** argv) {
   std::vector<std::string> args(casted, casted + argc);
 
   mode = QRT_MODE::FTQC;
-  for (int i = 0; i < args.size(); i++) {
+  for (size_t i = 0; i < args.size(); i++) {
     auto arg = args[i];
     if (arg == "-qpu") {
       qpu_name = args[i + 1];
@@ -146,101 +143,7 @@ void __quantum__rt__set_external_qreg(qreg* q) {
   external_qreg_provided = true;
 }
 
-void __quantum__qis__cnot(Qubit* src, Qubit* tgt) {
-  std::size_t src_copy = src->id;
-  std::size_t tgt_copy = tgt->id;
-  if (verbose) printf("[qir-qrt] Applying CX %lu, %lu\n", src_copy, tgt_copy);
-  ::quantum::cnot({"q", src_copy}, {"q", tgt_copy});
-}
 
-void __quantum__qis__h(Qubit* q) {
-  std::size_t qcopy = q->id;
-  if (verbose) printf("[qir-qrt] Applying H %lu\n", qcopy);
-  ::quantum::h({"q", qcopy});
-}
-
-void __quantum__qis__s(Qubit* q) {
-  std::size_t qcopy = q->id;
-  if (verbose) printf("[qir-qrt] Applying S %lu\n", qcopy);
-  ::quantum::s({"q", qcopy});
-}
-
-void __quantum__qis__sdg(Qubit* q) {
-  std::size_t qcopy = q->id;
-  if (verbose) printf("[qir-qrt] Applying Sdg %lu\n", qcopy);
-  ::quantum::sdg({"q", qcopy});
-}
-void __quantum__qis__t(Qubit* q) {
-  std::size_t qcopy = q->id;
-  if (verbose) printf("[qir-qrt] Applying T %lu\n", qcopy);
-  ::quantum::t({"q", qcopy});
-}
-void __quantum__qis__tdg(Qubit* q) {
-  std::size_t qcopy = q->id;
-  if (verbose) printf("[qir-qrt] Applying Tdg %lu\n", qcopy);
-  ::quantum::tdg({"q", qcopy});
-}
-
-void __quantum__qis__x(Qubit* q) {
-  std::size_t qcopy = q->id;
-  if (verbose) printf("[qir-qrt] Applying X %lu\n", qcopy);
-  ::quantum::x({"q", qcopy});
-}
-void __quantum__qis__y(Qubit* q) {
-  std::size_t qcopy = q->id;
-  if (verbose) printf("[qir-qrt] Applying Y %lu\n", qcopy);
-  ::quantum::y({"q", qcopy});
-}
-void __quantum__qis__z(Qubit* q) {
-  std::size_t qcopy = q->id;
-  if (verbose) printf("[qir-qrt] Applying Z %lu\n", qcopy);
-  ::quantum::z({"q", qcopy});
-}
-
-void __quantum__qis__reset(Qubit* q) {
-  std::size_t qcopy = reinterpret_cast<std::size_t>(q);
-  if (verbose) printf("[qir-qrt] Applying Reset %lu\n", qcopy);
-  ::quantum::reset({"q", qcopy});
-}
-
-void __quantum__qis__rx(double x, Qubit* q) {
-  std::size_t qcopy = q->id;
-  if (verbose) printf("[qir-qrt] Applying Rx(%f) %lu\n", x, qcopy);
-  ::quantum::rx({"q", qcopy}, x);
-}
-
-void __quantum__qis__ry(double x, Qubit* q) {
-  std::size_t qcopy = q->id;
-  if (verbose) printf("[qir-qrt] Applying Ry(%f) %lu\n", x, qcopy);
-  ::quantum::ry({"q", qcopy}, x);
-}
-
-void __quantum__qis__rz(double x, Qubit* q) {
-  std::size_t qcopy = q->id;
-  if (verbose) printf("[qir-qrt] Applying Rz(%f) %lu\n", x, qcopy);
-  ::quantum::rz({"q", qcopy}, x);
-}
-void __quantum__qis__u3(double theta, double phi, double lambda, Qubit* q) {
-    std::size_t qcopy = q->id;
-  if (verbose) printf("[qir-qrt] Applying U3(%f, %f, %f) %lu\n", theta, phi, lambda, qcopy);
-  ::quantum::u3({"q", qcopy}, theta, phi, lambda);
-}
-
-Result* __quantum__qis__mz(Qubit* q) {
-  if (verbose)
-    printf("[qir-qrt] Measuring qubit %lu\n", q->id);
-  std::size_t qcopy = q->id;
-
-  if (!qbits) {
-    qbits = std::make_shared<xacc::AcceleratorBuffer>(allocated_qbits);
-  }
-
-  ::quantum::set_current_buffer(qbits.get());
-  auto bit = ::quantum::mz({"q", qcopy});
-  if (mode == QRT_MODE::FTQC)
-    if (verbose) printf("[qir-qrt] Result was %d.\n", bit);
-  return bit ? ResultOne : ResultZero;
-}
 
 Array* __quantum__rt__qubit_allocate_array(uint64_t size) {
   if (verbose) printf("[qir-qrt] Allocating qubit array of size %lu.\n", size);
@@ -309,172 +212,6 @@ void __quantum__rt__finalize() {
   }
 }
 
-void __quantum__qis__exp__body(Array *paulis, double angle, Array *qubits) {
-  // TODO
-  if (verbose) std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
-}
-void __quantum__qis__exp__adj(Array *paulis, double angle, Array *qubits) {
-  // TODO
-  if (verbose) std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
-}
-void __quantum__qis__exp__ctl(Array *ctls, Array *paulis, double angle,
-                              Array *qubits) {
-  // TODO
-  if (verbose) std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
-}
-void __quantum__qis__exp__ctladj(Array *ctls, Array *paulis, double angle,
-                                 Array *qubits) {
-  // TODO
-  if (verbose) std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
-}
-void __quantum__qis__h__body(Qubit *q) {
-  // TODO
-  if (verbose) std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
-  // Delegate to __quantum__qis__h
-  __quantum__qis__h(q);
-}
-void __quantum__qis__h__ctl(Array *ctls, Qubit *q) {
-  // TODO
-  if (verbose) std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
-}
-void __quantum__qis__r__body(Pauli pauli, double theta, Qubit *q) {
-  // TODO
-  if (verbose) std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
-}
-void __quantum__qis__r__adj(Pauli pauli, double theta, Qubit *q) {
-  // TODO
-  if (verbose) std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
-}
-void __quantum__qis__r__ctl(Array *ctls, Pauli pauli, double theta, Qubit *q) {
-  // TODO
-  if (verbose) std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
-}
-void __quantum__qis__r__ctladj(Array *ctls, Pauli pauli, double theta,
-                               Qubit *q) {
-  // TODO
-  if (verbose) std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
-}
-void __quantum__qis__s__body(Qubit *q) {
-  // TODO
-  if (verbose) std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
-  __quantum__qis__s(q);
-}
-void __quantum__qis__s__adj(Qubit *q) {
-  // TODO
-  if (verbose) std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
-}
-void __quantum__qis__s__ctl(Array *ctls, Qubit *q) {
-  // TODO
-  if (verbose) std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
-}
-void __quantum__qis__s__ctladj(Array *ctls, Qubit *q) {
-  // TODO
-  if (verbose) std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
-}
-void __quantum__qis__t__body(Qubit *q) {
-  // TODO
-  if (verbose) std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
-  __quantum__qis__t(q);
-}
-void __quantum__qis__t__adj(Qubit *q) {
-  // TODO
-  if (verbose) std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
-}
-void __quantum__qis__t__ctl(Array *ctls, Qubit *q) {
-  // TODO
-  if (verbose) std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
-}
-void __quantum__qis__t__ctladj(Array *ctls, Qubit *q) {
-  // TODO
-  if (verbose) std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
-}
-void __quantum__qis__x__body(Qubit *q) {
-  // TODO
-  if (verbose) std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
-  __quantum__qis__x(q);
-}
-void __quantum__qis__x__adj(Qubit *q) {
-  // TODO
-  if (verbose) std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
-}
-void __quantum__qis__x__ctl(Array *ctls, Qubit *q) {
-  // TODO
-  if (verbose) std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
-}
-void __quantum__qis__x__ctladj(Array *ctls, Qubit *q) {
-  // TODO
-  if (verbose) std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
-}
-void __quantum__qis__y__body(Qubit *q) {
-  // TODO
-  if (verbose) std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
-  __quantum__qis__y(q);
-}
-void __quantum__qis__y__adj(Qubit *q) {
-  // TODO
-  if (verbose) std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
-}
-void __quantum__qis__y__ctl(Array *ctls, Qubit *q) {
-  // TODO
-  if (verbose) std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
-}
-void __quantum__qis__y__ctladj(Array *ctls, Qubit *q) {
-  // TODO
-  if (verbose) std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
-}
-void __quantum__qis__z__body(Qubit *q) {
-  // TODO
-  if (verbose) std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
-  __quantum__qis__z(q);
-}
-void __quantum__qis__z__adj(Qubit *q) {
-  // TODO
-  if (verbose) std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
-}
-void __quantum__qis__z__ctl(Array *ctls, Qubit *q) {
-  // TODO
-  if (verbose) std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
-}
-void __quantum__qis__z__ctladj(Array *ctls, Qubit *q) {
-  // TODO
-  if (verbose) std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
-}
-void __quantum__qis__rx__body(double theta, Qubit *q) {
-  // TODO
-  if (verbose) std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
-  __quantum__qis__rx(theta, q);
-}
-void __quantum__qis__ry__body(double theta, Qubit *q) {
-  // TODO
-  if (verbose) std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
-  __quantum__qis__ry(theta, q);
-}
-void __quantum__qis__rz__body(double theta, Qubit *q) {
-  // TODO
-  if (verbose) std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
-  __quantum__qis__rz(theta, q);
-}
-void __quantum__qis__cnot__body(Qubit *src, Qubit *tgt) {
-  // TODO
-  if (verbose) std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
-  __quantum__qis__cnot(src, tgt);
-}
-
-Result *__quantum__qis__measure__body(Array *bases, Array *qubits) {
-  // TODO
-  if (verbose) std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
-  return nullptr;
-}
-double __quantum__qis__intasdouble__body(int32_t intVal) {
-  // TODO
-  if (verbose) std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
-  return static_cast<double>(intVal);
-}
-void __quantum__rt__array_update_alias_count(Array *bases, int64_t count) {
-  // TODO
-  if (verbose) std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
-}
-
 bool __quantum__rt__result_equal(Result *res, Result *comp) {
   if (verbose) std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
   // std::cout << "RES = " << res << "\n";
@@ -483,24 +220,11 @@ bool __quantum__rt__result_equal(Result *res, Result *comp) {
   return res == comp;
 }
 
-int64_t __quantum__rt__array_get_size_1d(Array *state1) {
-  // TODO
-  if (verbose) std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
-  return 0;
-}
-int8_t *__quantum__rt__tuple_create(int64_t state) {
-  // TODO
-  if (verbose) std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
-  return nullptr;
-}
 void __quantum__rt__string_update_reference_count(void *str, int64_t count) {
   // TODO
   if (verbose) std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
 }
-void __quantum__rt__array_update_reference_count(Array *aux, int64_t count) {
-  // TODO
-  if (verbose) std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
-}
+
 void __quantum__rt__result_update_reference_count(Result *, int64_t count) {
   // TODO
   if (verbose) std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";

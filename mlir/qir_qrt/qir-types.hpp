@@ -41,3 +41,12 @@ private:
 };
 
 using TupleHeader = int *;
+
+enum Pauli : int8_t {
+  Pauli_I = 0,
+  Pauli_X,
+  Pauli_Z,
+  Pauli_Y,
+};
+
+enum QRT_MODE { FTQC, NISQ };

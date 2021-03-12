@@ -1,4 +1,5 @@
-add_library(qir-qrt SHARED qir-qrt.cpp)
+file(GLOB SRC *.cpp)
+add_library(qir-qrt SHARED ${SRC})
 
 #target_include_directories(
 #  qir-qrt

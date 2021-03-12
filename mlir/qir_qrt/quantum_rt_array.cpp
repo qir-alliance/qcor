@@ -11,14 +11,14 @@ Array *__quantum__rt__array_create_1d(int32_t itemSizeInBytes,
   return nullptr;
 }
 
-void __quantum__rt__array_update_reference_count(Array *array,
-                                                 int32_t increment) {
+int64_t __quantum__rt__array_get_size_1d(Array *state1) {
   // TODO
   if (verbose)
     std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
+  return 0;
 }
 
-void __quantum__rt__array_update_alias_count(Array *array, int32_t increment) {
+void __quantum__rt__array_update_alias_count(Array *array, int64_t increment) {
   // TODO
   if (verbose)
     std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
