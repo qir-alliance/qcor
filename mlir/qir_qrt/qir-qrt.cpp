@@ -13,8 +13,9 @@
 
 Result ResultZero = false;
 Result ResultOne = true;
+// Track allocated qubits
 unsigned long allocated_qbits = 0;
-std::shared_ptr<xacc::AcceleratorBuffer> qbits;
+std::shared_ptr<xacc::AcceleratorBuffer> global_qreg;
 std::shared_ptr<xacc::Accelerator> qpu;
 std::string qpu_name = "qpp";
 std::string qpu_config = "";
@@ -139,7 +140,7 @@ void initialize() {
 }
 
 void __quantum__rt__set_external_qreg(qreg* q) {
-  qbits = xacc::as_shared_ptr(q->results());
+  global_qreg = xacc::as_shared_ptr(q->results());
   external_qreg_provided = true;
 }
 
@@ -150,7 +151,7 @@ Array* __quantum__rt__qubit_allocate_array(uint64_t size) {
 
   auto new_array = std::make_unique<Array>(size);
   for (uint64_t i = 0; i < size; i++) {
-    auto qubit = new Qubit(i); 
+    auto qubit = Qubit::allocate(); 
     int8_t *arrayPtr = (*new_array)[i];
     // Sequence: Cast to arrayPtr to Qubit**
     auto qubitPtr = reinterpret_cast<Qubit **>(arrayPtr);
@@ -158,11 +159,13 @@ Array* __quantum__rt__qubit_allocate_array(uint64_t size) {
     *qubitPtr = qubit;
   }
 
-  allocated_qbits = size;
-  if (!qbits) {
-    qbits = std::make_shared<xacc::AcceleratorBuffer>(size);
-    ::quantum::set_current_buffer(qbits.get());
+  allocated_qbits += size;
+  if (!global_qreg) {
+    global_qreg = std::make_shared<xacc::AcceleratorBuffer>(size);
+    ::quantum::set_current_buffer(global_qreg.get());
   }
+  // Update size.
+  global_qreg.get()->setSize(allocated_qbits);
 
   auto raw_ptr = new_array.get();
   allocated_arrays.push_back(std::move(new_array));
@@ -179,6 +182,13 @@ int8_t* __quantum__rt__array_get_element_ptr_1d(Array* q, uint64_t idx) {
 }
 
 void __quantum__rt__qubit_release_array(Array* q) {
+  // Note: calling qubit_release_array means the Qubits
+  // are permanently deallocated.
+  // Shallow references (e.g. in array slices) could become dangling if not
+  // properly managed.
+  // We don't resize the global buffer in this case, i.e. these
+  // qubit index numbers (unique) are unused
+  // => the backend won't apply any further instructions on these.
   for (std::size_t i = 0; i < allocated_arrays.size(); i++) {
     if (allocated_arrays[i].get() == q) {
       auto& array_ptr = allocated_arrays[i];
@@ -200,15 +210,15 @@ void __quantum__rt__finalize() {
   if (verbose) std::cout << "[qir-qrt] Running finalization routine.\n";
   if (mode == QRT_MODE::NISQ) {
     xacc::internal_compiler::execute_pass_manager();
-    ::quantum::submit(qbits.get());
-    auto counts = qbits->getMeasurementCounts();
+    ::quantum::submit(global_qreg.get());
+    auto counts = global_qreg->getMeasurementCounts();
     std::cout << "Observed Counts:\n";
     for (auto [bits, count] : counts) {
       std::cout << bits << " : " << count << "\n";
     }
   } else if (external_qreg_provided) {
     xacc::internal_compiler::execute_pass_manager();
-    ::quantum::submit(qbits.get());
+    ::quantum::submit(global_qreg.get());
   }
 }
 

@@ -7,8 +7,19 @@
 // Make this a struct now so that we can upgrade the API later
 // more easily.
 struct Qubit {
-  uint64_t id;
+  const uint64_t id;
   operator int() const { return id; }
+  // Allocation function:
+  // Note: currently, we don't reclaim deallocated qubits.
+  // TODO: track qubit deallocations for reuse...
+  static Qubit *allocate() {
+    static uint64_t counter = 0;
+    Qubit *newQubit = new Qubit(counter);
+    counter++;
+    return newQubit;
+  }
+
+private:
   Qubit(uint64_t idVal) : id(idVal) {}
 };
 

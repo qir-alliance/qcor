@@ -69,7 +69,7 @@ void __quantum__qis__z(Qubit *q) {
 }
 
 void __quantum__qis__reset(Qubit *q) {
-  std::size_t qcopy = reinterpret_cast<std::size_t>(q);
+  std::size_t qcopy = q->id;
   if (verbose)
     printf("[qir-qrt] Applying Reset %lu\n", qcopy);
   ::quantum::reset({"q", qcopy});
@@ -107,12 +107,6 @@ Result *__quantum__qis__mz(Qubit *q) {
   if (verbose)
     printf("[qir-qrt] Measuring qubit %lu\n", q->id);
   std::size_t qcopy = q->id;
-
-  if (!qbits) {
-    qbits = std::make_shared<xacc::AcceleratorBuffer>(allocated_qbits);
-  }
-
-  ::quantum::set_current_buffer(qbits.get());
   auto bit = ::quantum::mz({"q", qcopy});
   if (mode == QRT_MODE::FTQC)
     if (verbose)

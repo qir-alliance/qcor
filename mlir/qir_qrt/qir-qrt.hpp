@@ -14,7 +14,8 @@ extern Result ResultOne;
 extern unsigned long allocated_qbits;
 extern bool initialized;
 extern bool verbose;
-extern std::shared_ptr<xacc::AcceleratorBuffer> qbits;
+// Global register instance.
+extern std::shared_ptr<xacc::AcceleratorBuffer> global_qreg;
 extern QRT_MODE mode;
 
 void initialize();
