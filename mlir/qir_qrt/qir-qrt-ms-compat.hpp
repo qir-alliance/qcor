@@ -43,6 +43,7 @@ void __quantum__qis__rx__body(double theta, Qubit *q);
 void __quantum__qis__ry__body(double theta, Qubit *q);
 void __quantum__qis__rz__body(double theta, Qubit *q);
 void __quantum__qis__cnot__body(Qubit *src, Qubit *tgt);
+void __quantum__qis__reset__body(Qubit *q);
 Result *__quantum__qis__measure__body(Array *bases, Array *qubits);
 double __quantum__qis__intasdouble__body(int32_t intVal);
 }

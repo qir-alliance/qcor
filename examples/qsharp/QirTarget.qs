@@ -17,6 +17,10 @@ namespace Microsoft.Quantum.Instructions {
     operation Rz (theta : Double, qb : Qubit) : Unit {
         body intrinsic;
     }
+
+    operation Reset(qb : Qubit) : Unit {
+        body intrinsic;
+	}
 }
 
 namespace Microsoft.Quantum.Intrinsic {
@@ -147,5 +151,13 @@ namespace Microsoft.Quantum.Intrinsic {
             Phys.Rz(theta / 2.0, qb);
             CNOT(ctls[0], qb);
         }
+	}
+
+    @Inline()
+    operation Reset(qb : Qubit) : Unit {
+        body  (...)
+        {
+            Phys.Reset(qb);  
+		}
 	}
 }

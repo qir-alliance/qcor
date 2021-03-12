@@ -201,4 +201,6 @@ double __quantum__qis__intasdouble__body(int32_t intVal) {
     std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
   return static_cast<double>(intVal);
 }
+
+void __quantum__qis__reset__body(Qubit *q) { __quantum__qis__reset(q); }
 }

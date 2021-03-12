@@ -18,13 +18,10 @@ operation TestBell(count : Int) : Int {
         // Count the number of ones we saw:
         if res0 == One {
             set numOnes += 1;
-            // Reset
-            X(q[0]);
         }
-        if res1 == One {
-            // Reset
-            X(q[0]);
-        }
+        
+        Reset(q[0]);
+        Reset(q[1]);
     }
     return numOnes;
 }
