@@ -124,6 +124,10 @@ antlrcpp::Any qasm3_expression_generator::visitComparsionExpression(
   if (auto relational_op = compare->relationalOperator()) {
     visitChildren(compare->expression(0));
     auto lhs = current_value;
+    internal_value_type =
+        lhs.getType().isa<mlir::MemRefType>()
+            ? lhs.getType().cast<mlir::MemRefType>().getElementType()
+            : lhs.getType();
     visitChildren(compare->expression(1));
     auto rhs = current_value;
 
@@ -132,7 +136,7 @@ antlrcpp::Any qasm3_expression_generator::visitComparsionExpression(
     auto lhs_type = lhs.getType();
     auto rhs_type = rhs.getType();
     if (auto mem_value_type = lhs_type.dyn_cast_or_null<mlir::MemRefType>()) {
-      if (mem_value_type.getElementType().isIntOrIndex() &&
+      if (mem_value_type.getElementType().isIntOrIndexOrFloat() &&
           mem_value_type.getRank() == 1 && mem_value_type.getShape()[0] == 1) {
         // Load this memref value
 
@@ -144,7 +148,7 @@ antlrcpp::Any qasm3_expression_generator::visitComparsionExpression(
     }
 
     if (auto mem_value_type = rhs_type.dyn_cast_or_null<mlir::MemRefType>()) {
-      if (mem_value_type.getElementType().isIntOrIndex() &&
+      if (mem_value_type.getElementType().isIntOrIndexOrFloat() &&
           mem_value_type.getRank() == 1 && mem_value_type.getShape()[0] == 1) {
         // Load this memref value
 
@@ -188,8 +192,9 @@ antlrcpp::Any qasm3_expression_generator::visitComparsionExpression(
                                 " lhs was an float type, but rhs was not.",
                             compare, {lhs, rhs});
         }
-        update_current_value(
-            builder.create<mlir::CmpFOp>(location, antlr_to_mlir_fpredicate[op], lhs, rhs));
+        update_current_value(builder.create<mlir::CmpFOp>(
+            location, antlr_to_mlir_fpredicate[op], lhs, rhs));
+        
       }
       return 0;
     } else {

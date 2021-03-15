@@ -8,6 +8,10 @@ const d = 2;
 QCOR_EXPECT_TRUE(d == 2);
 const i = 1;
 QCOR_EXPECT_TRUE(i == 1);
+float[64] f;
+f = 1.234;
+QCOR_EXPECT_TRUE(f == 1.234);
+
 )#";
   auto mlir =
       qcor::mlir_compile("qasm3", src, "test", qcor::OutputType::MLIR, true);

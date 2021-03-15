@@ -32,7 +32,7 @@ QCOR_EXPECT_TRUE(tt == 66.6);
 
 // FIXME May need to add QCOR_COMPARE_FLOATS
 //print(mypi);
-//QCOR_EXPECT_TRUE(mypi == 1.570796);
+// QCOR_EXPECT_TRUE(mypi == 1.570796);
 
 QCOR_EXPECT_TRUE(added == 88);
 QCOR_EXPECT_TRUE(added_diff_types == 88.6);
@@ -58,35 +58,21 @@ bool bb = 1;
 bool bbb = 0;
 
 QCOR_EXPECT_TRUE(ii == 10);
-
-// FIXME Need to fix float[] comparison
-// QCOR_EXPECT_TRUE(f == 0.0);
-// QCOR_EXPECT_TRUE(ff == 3.14);
 QCOR_EXPECT_TRUE(result == 0);
 QCOR_EXPECT_TRUE(results[0] == 0);
 QCOR_EXPECT_TRUE(results[1] == 0);
 QCOR_EXPECT_TRUE(b == 0);
+QCOR_EXPECT_TRUE(z == 0);
+QCOR_EXPECT_TRUE(bb == 1);
+QCOR_EXPECT_TRUE(bbb == 0);
+QCOR_EXPECT_TRUE(f == 0.0);
+QCOR_EXPECT_TRUE(ff == 3.14);
 
-// print(dd);
-// print(ffff);
-// print(layers);
-// print(layers2);
-// print(t);
-// print(tt);
-// print(mypi);
-// print(added);
-// print(added_diff_types);
-// print(tmp);
-// print(b, z);
-// print(bb);
-// print(bbb);
-// print(f);
-// print(ff);
 )#";
   auto mlir =
       qcor::mlir_compile("qasm3", src, "test", qcor::OutputType::MLIR, true);
   std::cout << "MLIR:\n" << mlir << "\n";
-  qcor::execute("qasm3", src, "test");
+  EXPECT_FALSE(qcor::execute("qasm3", src, "test"));
 }
 
 int main(int argc, char **argv) {
