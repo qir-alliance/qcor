@@ -14,6 +14,7 @@ file(GLOB SRC *.cpp antlr/generated/*.cpp utils/*.cpp
    visitor_handlers/loop_stmt_handler.cpp
    visitor_handlers/conditional_handler.cpp
    visitor_handlers/subroutine_handler.cpp
+   visitor_handlers/alias_handler.cpp
    )
 
 add_library(${LIBRARY_NAME} SHARED ${SRC})

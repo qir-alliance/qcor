@@ -101,6 +101,10 @@ class qasm3_visitor : public qasm3::qasm3BaseVisitor {
   antlrcpp::Any visitClassicalAssignment(
       qasm3Parser::ClassicalAssignmentContext* context) override;
 
+  // Visit nodes related to aliasing, the 'let' keyword
+  // see visitor_handlers/alias_handler.cpp
+    antlrcpp::Any visitAliasStatement(
+      qasm3Parser::AliasStatementContext* context) override;
  protected:
   // Reference to the MLIR OpBuilder and ModuleOp
   // this MLIRGen task
