@@ -356,7 +356,7 @@ def main(argv=None):
         bc_file_name = 'QIR/' + base_name + '.bc'
         object_file_name = base_name+'.o'
         extra_args = []
-        result = subprocess.run(['qsc', 'build', '--qir', 'QIR', 's', '--input', filename, '@XACC_ROOT@/include/qsharp/QirCore.qs', '@XACC_ROOT@/include/qsharp/QirTarget.qs', '--proj', base_name], check=True)
+        result = subprocess.run(['qsc', 'build', '--qir', 'QIR', 's', '--input', filename, '@CMAKE_INSTALL_PREFIX@/include/qsharp/QirCore.qs', '@CMAKE_INSTALL_PREFIX@/include/qsharp/QirTarget.qs', '--proj', base_name], check=True)
         llvm_bin_path = str(pathlib.Path(compiler).parent)
         result = subprocess.run([llvm_bin_path+'/llvm-as', ll_file_name, '-o', bc_file_name ], check=True)
         result = subprocess.run([llvm_bin_path+'/llc', '-filetype=obj', bc_file_name ], check=True)

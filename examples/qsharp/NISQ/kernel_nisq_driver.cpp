@@ -1,6 +1,5 @@
 #include <iostream> 
 #include <vector>
-#include "qcor.hpp"
 #include "import_kernel_utils.hpp"
 
 // Util pre-processor to wrap Q# operation in a QCOR QuantumKernel.

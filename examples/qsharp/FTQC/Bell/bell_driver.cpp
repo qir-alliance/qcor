@@ -1,6 +1,5 @@
 #include <iostream> 
 #include <vector>
-#include "qcor.hpp"
 
 // Include the external QSharp function.
 qcor_include_qsharp(QCOR__TestBell__body, int64_t, int64_t)

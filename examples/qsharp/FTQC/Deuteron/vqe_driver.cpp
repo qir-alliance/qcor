@@ -1,6 +1,5 @@
 #include <iostream> 
 #include <vector>
-#include "qcor.hpp"
 
 // Include the external QSharp function.
 qcor_include_qsharp(QCOR__Deuteron__body, double, double, int64_t);
