@@ -1,3 +1,5 @@
+#pragma once
+
 #include <cassert>
 
 // Defines implementations of QIR Opaque types
@@ -7,8 +9,19 @@
 // Make this a struct now so that we can upgrade the API later
 // more easily.
 struct Qubit {
-  uint64_t id;
+  const uint64_t id;
   operator int() const { return id; }
+  // Allocation function:
+  // Note: currently, we don't reclaim deallocated qubits.
+  // TODO: track qubit deallocations for reuse...
+  static Qubit *allocate() {
+    static uint64_t counter = 0;
+    Qubit *newQubit = new Qubit(counter);
+    counter++;
+    return newQubit;
+  }
+
+private:
   Qubit(uint64_t idVal) : id(idVal) {}
 };
 
@@ -31,6 +44,20 @@ struct Array {
         m_storage(nbItems * itemSizeInBytes, 0) {
     assert(m_itemSizeInBytes > 0);
   };
+  // Copy
+  Array(const Array &other)
+      : m_itemSizeInBytes(other.m_itemSizeInBytes), m_storage(other.m_storage) {
+  }
+
+  void append(const Array &other) {
+    if (other.m_itemSizeInBytes != m_itemSizeInBytes) {
+      throw std::runtime_error("Cannot append Arrays of different types.");
+    }
+
+    m_storage.insert(m_storage.end(), other.m_storage.begin(),
+                     other.m_storage.end());
+  }
+
   int64_t size() { return m_storage.size() / m_itemSizeInBytes; }
   void clear() { m_storage.clear(); }
 
@@ -41,3 +68,12 @@ private:
 };
 
 using TupleHeader = int *;
+
+enum Pauli : int8_t {
+  Pauli_I = 0,
+  Pauli_X,
+  Pauli_Z,
+  Pauli_Y,
+};
+
+enum QRT_MODE { FTQC, NISQ };
