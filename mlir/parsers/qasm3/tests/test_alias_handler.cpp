@@ -6,8 +6,10 @@ TEST(qasm3VisitorTester, checkAlias) {
   const std::string src = R"#(OPENQASM 3;
 include "qelib1.inc";
 qubit q[6];
+x q[3];
 // myreg[0] refers to the qubit q[1]
 let myreg = q[1, 3, 5];
+x myreg[0];
 )#";
   auto mlir =
       qcor::mlir_compile("qasm3", src, "test", qcor::OutputType::MLIR, true);
