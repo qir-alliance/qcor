@@ -4,6 +4,7 @@ import argparse, sys, os, glob, subprocess, mimetypes, re, pathlib
 def main(argv=None):
     compiler = '@CLANG_EXECUTABLE@'
     verbose=False
+    keep_bit_code_files=False
     baseLibs = ['-rdynamic', '-Wl,-rpath,@XACC_ROOT@/lib:@CMAKE_INSTALL_PREFIX@/lib:@LLVM_INSTALL_PREFIX@/lib:@CMAKE_INSTALL_PREFIX@/clang-plugins',
                             '-L', '@CMAKE_INSTALL_PREFIX@/lib','-lqcor', '-lqrt', '-lqcor-hybrid', '-lqcor-quasimo', '-lqcor-jit',
                              '-L', '@XACC_ROOT@/lib', '-lxacc', '-lCppMicroServices', '-lxacc-quantum-gate',
@@ -16,7 +17,9 @@ def main(argv=None):
 
     extra_headers = '@QCOR_EXTRA_HEADERS@'.replace('"','')
     for path in extra_headers.split(';'):
-        baseIncludes += ['-I', path]
+        # non-empty path only
+        if path:
+            baseIncludes += ['-I', path]
 
     # This flag is primarily for our testers to point to the 
     # qcor syntax handler before make install is called
@@ -57,6 +60,7 @@ def main(argv=None):
         parser.add_argument('-xacc-version', metavar='', help='returns the current build version for underlying xacc install.')
         parser.add_argument('-version', metavar='', help='returns the current qcor build version.')
         parser.add_argument('-pythonpath', metavar='', help='print the correct PYTHONPATH to leverage qcor and xacc python API.')
+        parser.add_argument('-keep-llvm-file', metavar='', help='keep intermediate LLVM files.')
         args = parser.parse_args(sys.argv)
 
     if '-pythonpath' in sys.argv[1:]:
@@ -182,7 +186,10 @@ def main(argv=None):
         print(''.join([l for l in lines]))
         exit(0)
 
-
+    if '-keep-llvm-file' in sys.argv[1:]:
+        keep_bit_code_files=True
+        sys.argv.remove('-keep-llvm-file')
+    
     sHandlerArgs = []
     # Get the QPU Backend
     accName = ''
@@ -310,6 +317,11 @@ def main(argv=None):
             fileType = 'openqasm'
             filename = arg
         
+        if os.path.isfile(arg) and os.path.splitext(arg)[1] == '.qs':
+            fileType = 'qsharp'
+            filename = arg
+            break
+
     if fileType == 'openqasm':
         # Convert to MLIR and then to LLVM QIR
         base_name = os.path.splitext(filename)[0]
@@ -331,9 +343,48 @@ def main(argv=None):
         sys.argv.append(base_name+'.o')
         fileType = None
         filename = None
-        # remove these temp files
-        os.remove(ll_file_name)
-        os.remove(bc_file_name)
+        if not keep_bit_code_files:
+            # remove these temp files
+            os.remove(ll_file_name)
+            os.remove(bc_file_name)
+
+    if fileType == 'qsharp':
+        # Assume that `qsc` is a valid exe command
+        # i.e. need to set the PATH env appropriately.
+        base_name = os.path.splitext(filename)[0]
+        ll_file_name = 'QIR/' + base_name + '.ll'
+        bc_file_name = 'QIR/' + base_name + '.bc'
+        object_file_name = base_name+'.o'
+        extra_args = []
+        result = subprocess.run(['qsc', 'build', '--qir', 'QIR', 's', '--input', filename, '@CMAKE_INSTALL_PREFIX@/include/qsharp/QirCore.qs', '@CMAKE_INSTALL_PREFIX@/include/qsharp/QirTarget.qs', '--proj', base_name], check=True)
+        llvm_bin_path = str(pathlib.Path(compiler).parent)
+        result = subprocess.run([llvm_bin_path+'/llvm-as', ll_file_name, '-o', bc_file_name ], check=True)
+        result = subprocess.run([llvm_bin_path+'/llc', '-filetype=obj', bc_file_name ], check=True)
+        sys.argv.remove(filename)
+        fileType = None
+        filename = None
+        sys.argv.append('QIR/' + base_name+ '.o')     
+        for arg in sys.argv[1:]:
+            if os.path.isfile(arg) and mimetypes.guess_type(arg)[0] == 'text/x-c++src':
+                # There is a driver C++ file as well.
+                driver_file_name = arg
+                sys.argv.remove(driver_file_name)
+                cpp_compile_commands = [compiler] + defaultFlags + sHandlerArgs + baseIncludes + ['-c'] +[driver_file_name]
+                cpp_compile_commands += sys.argv[1:]
+                if verbose:
+                    print('[qcor-exec]: ', ' '.join([c for c in cpp_compile_commands]))
+                try:
+                    result = subprocess.run(cpp_compile_commands, check=True)
+                except subprocess.CalledProcessError as e:
+                    print(e.output)
+                    print(e.returncode)
+                base_cpp_name = os.path.splitext(driver_file_name)[0]
+                sys.argv.append(base_cpp_name + '.o')     
+        
+        if not keep_bit_code_files:
+            # remove these temp files
+            os.remove(ll_file_name)
+            os.remove(bc_file_name)
 
     # If it is a C++ file
     if fileType != None and 'text/x-c' in fileType:

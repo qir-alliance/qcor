@@ -49,3 +49,7 @@ __pycache__/
 # IDE files
 .vscode/*
 .theia/*
+
+# LLVM files
+*.ll 
+*.bc
