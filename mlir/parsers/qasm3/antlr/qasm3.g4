@@ -38,6 +38,11 @@ statement
     | controlDirectiveStatement
     | aliasStatement
     | quantumStatement
+    | qcor_test_statement
+    ;
+
+qcor_test_statement 
+    : 'QCOR_EXPECT_TRUE' LPAREN booleanExpression RPAREN SEMICOLON
     ;
 
 quantumDeclarationStatement : quantumDeclaration SEMICOLON ;

@@ -30,7 +30,7 @@ void OpenQasmV3MLIRGenerator::initialize_mlirgen(bool _add_entry_point,
   if (add_main) {
     std::vector<mlir::Type> arg_types_vec2{};
     auto func_type2 =
-        builder.getFunctionType(llvm::makeArrayRef(arg_types_vec2), llvm::None);
+        builder.getFunctionType(llvm::makeArrayRef(arg_types_vec2), builder.getI32Type());
     auto proto2 = mlir::FuncOp::create(
         builder.getUnknownLoc(), "__internal_mlir_" + file_name, func_type2);
     mlir::FuncOp function2(proto2);
@@ -52,20 +52,20 @@ void OpenQasmV3MLIRGenerator::initialize_mlirgen(bool _add_entry_point,
                                                main_args[0], main_args[1]);
 
       // call the function from main, run finalize, and return 0
-      builder.create<mlir::CallOp>(builder.getUnknownLoc(), function2);
+      auto call_internal = builder.create<mlir::CallOp>(builder.getUnknownLoc(), function2);
       builder.create<mlir::quantum::QRTFinalizeOp>(builder.getUnknownLoc());
 
-      auto integer_attr = mlir::IntegerAttr::get(builder.getI32Type(), 0);
-      mlir::Value ret_zero = builder.create<mlir::ConstantOp>(
-          builder.getUnknownLoc(), integer_attr);
-      builder.create<mlir::ReturnOp>(builder.getUnknownLoc(), ret_zero);
+      // auto integer_attr = mlir::IntegerAttr::get(builder.getI32Type(), 0);
+      // mlir::Value ret_zero = builder.create<mlir::ConstantOp>(
+      //     builder.getUnknownLoc(), integer_attr);
+      builder.create<mlir::ReturnOp>(builder.getUnknownLoc(), call_internal.getResult(0));
       m_module.push_back(function);
       function_names.push_back("main");
     }
 
     std::vector<mlir::Type> arg_types_vec3{qreg_type};
     auto func_type3 =
-        builder.getFunctionType(llvm::makeArrayRef(arg_types_vec3), llvm::None);
+        builder.getFunctionType(llvm::makeArrayRef(arg_types_vec3), builder.getI32Type());
     auto proto3 =
         mlir::FuncOp::create(builder.getUnknownLoc(), file_name, func_type3);
     mlir::FuncOp function3(proto3);
@@ -74,10 +74,10 @@ void OpenQasmV3MLIRGenerator::initialize_mlirgen(bool _add_entry_point,
     builder.setInsertionPointToStart(tmp);
     builder.create<mlir::quantum::SetQregOp>(builder.getUnknownLoc(),
                                              tmp->getArguments()[0]);
-    builder.create<mlir::CallOp>(builder.getUnknownLoc(), function2);
+    auto call_internal = builder.create<mlir::CallOp>(builder.getUnknownLoc(), function2);
     builder.create<mlir::quantum::QRTFinalizeOp>(builder.getUnknownLoc());
     builder.create<mlir::ReturnOp>(builder.getUnknownLoc(),
-                                   llvm::ArrayRef<mlir::Value>());
+                                   llvm::ArrayRef<mlir::Value>(call_internal.getResult(0)));
     builder.setInsertionPointToStart(save_main_entry_block);
 
     m_module.push_back(function2);
@@ -158,8 +158,11 @@ void OpenQasmV3MLIRGenerator::finalize_mlirgen() {
       //   std::cout << "CURRENT BLOCK WAS NULL\n";
       builder.setInsertionPointToEnd(main_entry_block);
     }
+
+    auto integer_attr = mlir::IntegerAttr::get(builder.getI32Type(), 0);
+    auto ret = builder.create<mlir::ConstantOp>(builder.getUnknownLoc(), integer_attr);
     builder.create<mlir::ReturnOp>(builder.getUnknownLoc(),
-                                   llvm::ArrayRef<mlir::Value>());
+                                   llvm::ArrayRef<mlir::Value>(ret));
   }
 }
 

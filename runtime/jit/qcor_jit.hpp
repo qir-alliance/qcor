@@ -62,6 +62,12 @@ class QJIT {
     kernel_functor(args...);
   }
 
+  int invoke_main(int argc, char** argv) {
+    auto f_ptr = kernel_name_to_f_ptr["main"];
+    int (*kernel_functor)(int, char**) = (int (*)(int, char**))f_ptr;
+    return kernel_functor(argc, argv);
+  }
+
   void invoke_with_hetmap(const std::string &kernel_name,
                           xacc::HeterogeneousMap &args);
   std::shared_ptr<xacc::CompositeInstruction> extract_composite_with_hetmap(

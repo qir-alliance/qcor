@@ -31,6 +31,7 @@ TEST(qasm3VisitorTester, checkAssignment) {
   const std::string src = R"#(OPENQASM 3;
 include "qelib1.inc";
 const d = 6;
+const dd = d^2;
 const layers = 22;
 const layers2 = layers / 2;
 const t = layers * 3;
