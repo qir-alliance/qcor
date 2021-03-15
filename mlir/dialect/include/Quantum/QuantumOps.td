@@ -17,9 +17,24 @@ def QallocOp : QuantumOp<"qalloc", []> {
     let results = (outs ArrayType:$qubits);
 }
 
+// Create an array holding Qubit pointers for aliasing purposes,
+// i.e. not allocating new qubits.
+def QaliasArrayAllocOp : QuantumOp<"createQubitArray", []> {
+    let arguments = (ins AnyI64Attr:$size, StrAttr:$name);
+    let results = (outs ArrayType:$qubits);
+}
+
 def ExtractQubitOp : QuantumOp<"qextract", []> {
     let arguments = (ins ArrayType:$qreg, AnyInteger:$idx);
     let results = (outs QubitType:$qbit);
+}
+
+// Assign a qubit pointer (extracted w/ qextract) to an alias pointer. 
+// Signature: void qassign(Qubit* destination, Qubit* source)
+// where destination and source are retrieved by qextract.
+def AssignQubitOp : QuantumOp<"qassign", []> {
+    let arguments = (ins QubitType:$dest, QubitType:$src);
+    let results = (outs);
 }
 
 def InstOp : QuantumOp<"inst", [AttrSizedOperandSegments]> {

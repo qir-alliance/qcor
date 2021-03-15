@@ -19,9 +19,6 @@ antlrcpp::Any qasm3_visitor::visitAliasStatement(
   //     | indexIdentifier '||' indexIdentifier
   //     ;
 
-  printErrorMessage(
-      "Alias not yet supported yet - Thien, remove this for development.");
-
   // The name of the new alias register, pointing to previously allocated
   // register
   auto alias = context->Identifier()->getText();
@@ -35,13 +32,13 @@ antlrcpp::Any qasm3_visitor::visitAliasStatement(
     // get the comma expression, count how many elements there are
     auto expressions =
         context->indexIdentifier()->expressionList()->expression();
-    auto n_expressions = expressions.size();
-
-    // Allocate a new array of qubits of given size
+    auto n_expressions = expressions.size();    
+    // Create a qubit array of given size
+    // which keeps alias references to Qubits in the original input array. 
     auto str_attr = builder.getStringAttr(alias);
     auto integer_attr =
         mlir::IntegerAttr::get(builder.getI64Type(), n_expressions);
-    mlir::Value allocation = builder.create<mlir::quantum::QallocOp>(
+    mlir::Value alias_allocation = builder.create<mlir::quantum::QaliasArrayAllocOp>(
         location, array_type, integer_attr, str_attr);
 
     auto counter = 0;
@@ -51,13 +48,21 @@ antlrcpp::Any qasm3_visitor::visitAliasStatement(
       auto idx =
           symbol_table.evaluate_constant_integer_expression(expr->getText());
 
-      // get the extracted element from the original register
-      auto extracted = builder.create<mlir::quantum::ExtractQubitOp>(
+      // get the src_extracted element from the original register
+      auto src_extracted = builder.create<mlir::quantum::ExtractQubitOp>(
           location, qubit_type, allocated_symbol,
           get_or_create_constant_integer_value(
               idx, location, builder.getI64Type(), symbol_table, builder));
-
+      // get the dest_extracted element from the alias register
+      auto dest_extracted = builder.create<mlir::quantum::ExtractQubitOp>(
+          location, qubit_type, alias_allocation,
+          get_or_create_constant_integer_value(
+              counter, location, builder.getI64Type(), symbol_table, builder));
+      ++counter;
       // use extracted with a new qassign dialect operation.
+      // void qAssign(Qubit* dest, Qubit* src)
+      builder.create<mlir::quantum::AssignQubitOp>(location, dest_extracted,
+                                                   src_extracted);
     }
 
   } else if (auto range_def = context->indexIdentifier()->rangeDefinition()) {
