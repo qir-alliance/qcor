@@ -50,23 +50,14 @@ antlrcpp::Any qasm3_visitor::visitAliasStatement(
       // to the correct element of the alias array
       auto idx =
           symbol_table.evaluate_constant_integer_expression(expr->getText());
-
-      // get the src_extracted element from the original register
-      auto qubit_type = get_custom_opaque_type("Qubit", builder.getContext());
-      auto src_extracted = builder.create<mlir::quantum::ExtractQubitOp>(
-          location, qubit_type, allocated_symbol,
-          get_or_create_constant_integer_value(
-              idx, location, builder.getI64Type(), symbol_table, builder));
-      // get the dest_extracted element from the alias register
-      auto dest_extracted = builder.create<mlir::quantum::ExtractQubitOp>(
-          location, qubit_type, alias_allocation,
-          get_or_create_constant_integer_value(
-              counter, location, builder.getI64Type(), symbol_table, builder));
+      auto dest_idx = get_or_create_constant_integer_value(
+          counter, location, builder.getI64Type(), symbol_table, builder);
+      auto src_idx = get_or_create_constant_integer_value(
+          idx, location, builder.getI64Type(), symbol_table, builder);
       ++counter;
-      // use extracted with a new qassign dialect operation.
-      // void qAssign(Qubit* dest, Qubit* src)
-      builder.create<mlir::quantum::AssignQubitOp>(location, dest_extracted,
-                                                   src_extracted);
+
+      builder.create<mlir::quantum::AssignQubitOp>(
+          location, alias_allocation, dest_idx, allocated_symbol, src_idx);
     }
 
   } else if (auto range_def = context->indexIdentifier()->rangeDefinition()) {

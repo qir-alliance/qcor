@@ -29,11 +29,10 @@ def ExtractQubitOp : QuantumOp<"qextract", []> {
     let results = (outs QubitType:$qbit);
 }
 
-// Assign a qubit pointer (extracted w/ qextract) to an alias pointer. 
-// Signature: void qassign(Qubit* destination, Qubit* source)
-// where destination and source are retrieved by qextract.
+// Assign a qubit pointer (specified by the Qubit array and index) to an alias pointer. 
+// Signature: void qassign(Array* destination_array, int destination_idx, Array* source_array, int source_idx)
 def AssignQubitOp : QuantumOp<"qassign", []> {
-    let arguments = (ins QubitType:$dest, QubitType:$src);
+    let arguments = (ins ArrayType:$dest_qreg, AnyInteger:$dest_idx, ArrayType:$src_qreg, AnyInteger:$src_idx);
     let results = (outs);
 }
 

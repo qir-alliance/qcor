@@ -10,6 +10,9 @@ x q[3];
 // myreg[0] refers to the qubit q[1]
 let myreg = q[1, 3, 5];
 x myreg[0];
+h myreg[1];
+let alias = q[0, 2, 4];
+cx alias[1], myreg[2];
 )#";
   auto mlir =
       qcor::mlir_compile("qasm3", src, "test", qcor::OutputType::MLIR, true);
