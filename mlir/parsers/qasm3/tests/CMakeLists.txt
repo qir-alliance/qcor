@@ -36,3 +36,8 @@ add_executable(qasm3CompilerTester_QuantumInstructions test_quantum_instructions
 add_test(NAME qcor_qasm3_test_qinsts COMMAND qasm3CompilerTester_QuantumInstructions)
 target_include_directories(qasm3CompilerTester_QuantumInstructions PRIVATE . ../../ ${XACC_ROOT}/include/gtest)
 target_link_libraries(qasm3CompilerTester_QuantumInstructions qcor-mlir-api gtest gtest_main)
+
+add_executable(qasm3CompilerTester_Subroutine test_subroutine.cpp)
+add_test(NAME qcor_qasm3_test_subroutine COMMAND qasm3CompilerTester_Subroutine)
+target_include_directories(qasm3CompilerTester_Subroutine PRIVATE . ../../ ${XACC_ROOT}/include/gtest)
+target_link_libraries(qasm3CompilerTester_Subroutine qcor-mlir-api gtest gtest_main)

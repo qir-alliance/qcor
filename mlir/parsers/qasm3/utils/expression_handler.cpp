@@ -194,7 +194,6 @@ antlrcpp::Any qasm3_expression_generator::visitComparsionExpression(
         }
         update_current_value(builder.create<mlir::CmpFOp>(
             location, antlr_to_mlir_fpredicate[op], lhs, rhs));
-        
       }
       return 0;
     } else {
@@ -1170,6 +1169,28 @@ antlrcpp::Any qasm3_expression_generator::visitExpressionTerminator(
     update_current_value(call_op.getResult(0));
 
     return 0;
+  } else if (auto kernel_call = ctx->kernelCall()) {
+    // kernelCall
+    // : Identifier LPAREN expressionList? RPAREN
+    // ;
+    auto func =
+        symbol_table.get_seen_function(kernel_call->Identifier()->getText());
+
+    std::vector<mlir::Value> operands;
+    auto expression_list = kernel_call->expressionList()->expression();
+    for (auto expression : expression_list) {
+      qasm3_expression_generator param_exp_generator(
+          builder, symbol_table, file_name);
+      param_exp_generator.visit(expression);
+      operands.push_back(param_exp_generator.current_value);
+    }
+
+    auto call_op = builder.create<mlir::CallOp>(location, func,
+                                                llvm::makeArrayRef(operands));
+    update_current_value(call_op.getResult(0));
+
+    return 0;
+
   }
 
   else {
