@@ -27,49 +27,50 @@ public:
     T__68 = 69, T__69 = 70, T__70 = 71, T__71 = 72, T__72 = 73, T__73 = 74, 
     T__74 = 75, T__75 = 76, T__76 = 77, T__77 = 78, T__78 = 79, T__79 = 80, 
     T__80 = 81, T__81 = 82, T__82 = 83, T__83 = 84, T__84 = 85, T__85 = 86, 
-    T__86 = 87, T__87 = 88, T__88 = 89, T__89 = 90, T__90 = 91, LBRACKET = 92, 
-    RBRACKET = 93, LBRACE = 94, RBRACE = 95, LPAREN = 96, RPAREN = 97, COLON = 98, 
-    SEMICOLON = 99, DOT = 100, COMMA = 101, EQUALS = 102, ARROW = 103, MINUS = 104, 
-    Constant = 105, Whitespace = 106, Newline = 107, Integer = 108, Identifier = 109, 
-    RealNumber = 110, TimingLiteral = 111, StringLiteral = 112, LineComment = 113, 
-    BlockComment = 114
+    T__86 = 87, T__87 = 88, T__88 = 89, T__89 = 90, T__90 = 91, T__91 = 92, 
+    LBRACKET = 93, RBRACKET = 94, LBRACE = 95, RBRACE = 96, LPAREN = 97, 
+    RPAREN = 98, COLON = 99, SEMICOLON = 100, DOT = 101, COMMA = 102, EQUALS = 103, 
+    ARROW = 104, MINUS = 105, Constant = 106, Whitespace = 107, Newline = 108, 
+    Integer = 109, Identifier = 110, RealNumber = 111, TimingLiteral = 112, 
+    StringLiteral = 113, LineComment = 114, BlockComment = 115
   };
 
   enum {
     RuleProgram = 0, RuleHeader = 1, RuleVersion = 2, RuleInclude = 3, RuleGlobalStatement = 4, 
-    RuleStatement = 5, RuleQuantumDeclarationStatement = 6, RuleClassicalDeclarationStatement = 7, 
-    RuleClassicalAssignment = 8, RuleAssignmentStatement = 9, RuleReturnSignature = 10, 
-    RuleDesignator = 11, RuleDoubleDesignator = 12, RuleIdentifierList = 13, 
-    RuleAssociation = 14, RuleQuantumType = 15, RuleQuantumDeclaration = 16, 
-    RuleQuantumArgument = 17, RuleQuantumArgumentList = 18, RuleBitType = 19, 
-    RuleSingleDesignatorType = 20, RuleDoubleDesignatorType = 21, RuleNoDesignatorType = 22, 
-    RuleClassicalType = 23, RuleConstantDeclaration = 24, RuleSingleDesignatorDeclaration = 25, 
-    RuleDoubleDesignatorDeclaration = 26, RuleNoDesignatorDeclaration = 27, 
-    RuleBitDeclaration = 28, RuleClassicalDeclaration = 29, RuleClassicalTypeList = 30, 
-    RuleClassicalArgument = 31, RuleClassicalArgumentList = 32, RuleAliasStatement = 33, 
-    RuleIndexIdentifier = 34, RuleIndexIdentifierList = 35, RuleIndexEqualsAssignmentList = 36, 
-    RuleRangeDefinition = 37, RuleQuantumGateDefinition = 38, RuleQuantumGateSignature = 39, 
-    RuleQuantumBlock = 40, RuleQuantumLoop = 41, RuleQuantumLoopBlock = 42, 
-    RuleQuantumStatement = 43, RuleQuantumInstruction = 44, RuleQuantumPhase = 45, 
-    RuleQuantumMeasurement = 46, RuleQuantumMeasurementAssignment = 47, 
-    RuleQuantumBarrier = 48, RuleQuantumGateModifier = 49, RuleQuantumGateCall = 50, 
-    RuleQuantumGateName = 51, RuleUnaryOperator = 52, RuleRelationalOperator = 53, 
-    RuleLogicalOperator = 54, RuleExpressionStatement = 55, RuleExpression = 56, 
-    RuleXOrExpression = 57, RuleBitAndExpression = 58, RuleBitShiftExpression = 59, 
-    RuleAdditiveExpression = 60, RuleMultiplicativeExpression = 61, RuleUnaryExpression = 62, 
-    RuleExpressionTerminator = 63, RuleIncrementor = 64, RuleBuiltInCall = 65, 
-    RuleBuiltInMath = 66, RuleCastOperator = 67, RuleExpressionList = 68, 
-    RuleBooleanExpression = 69, RuleComparsionExpression = 70, RuleEqualsExpression = 71, 
-    RuleAssignmentOperator = 72, RuleEqualsAssignmentList = 73, RuleMembershipTest = 74, 
-    RuleSetDeclaration = 75, RuleProgramBlock = 76, RuleBranchingStatement = 77, 
-    RuleLoopSignature = 78, RuleLoopStatement = 79, RuleControlDirectiveStatement = 80, 
-    RuleControlDirective = 81, RuleKernelDeclaration = 82, RuleKernelCall = 83, 
-    RuleSubroutineDefinition = 84, RuleReturnStatement = 85, RuleSubroutineBlock = 86, 
-    RuleSubroutineCall = 87, RulePragma = 88, RuleTimingType = 89, RuleTimingBox = 90, 
-    RuleTimingTerminator = 91, RuleTimingIdentifier = 92, RuleTimingInstructionName = 93, 
-    RuleTimingInstruction = 94, RuleTimingStatement = 95, RuleCalibration = 96, 
-    RuleCalibrationGrammarDeclaration = 97, RuleCalibrationDefinition = 98, 
-    RuleCalibrationGrammar = 99, RuleCalibrationArgumentList = 100
+    RuleStatement = 5, RuleQcor_test_statement = 6, RuleQuantumDeclarationStatement = 7, 
+    RuleClassicalDeclarationStatement = 8, RuleClassicalAssignment = 9, 
+    RuleAssignmentStatement = 10, RuleReturnSignature = 11, RuleDesignator = 12, 
+    RuleDoubleDesignator = 13, RuleIdentifierList = 14, RuleAssociation = 15, 
+    RuleQuantumType = 16, RuleQuantumDeclaration = 17, RuleQuantumArgument = 18, 
+    RuleQuantumArgumentList = 19, RuleBitType = 20, RuleSingleDesignatorType = 21, 
+    RuleDoubleDesignatorType = 22, RuleNoDesignatorType = 23, RuleClassicalType = 24, 
+    RuleConstantDeclaration = 25, RuleSingleDesignatorDeclaration = 26, 
+    RuleDoubleDesignatorDeclaration = 27, RuleNoDesignatorDeclaration = 28, 
+    RuleBitDeclaration = 29, RuleClassicalDeclaration = 30, RuleClassicalTypeList = 31, 
+    RuleClassicalArgument = 32, RuleClassicalArgumentList = 33, RuleAliasStatement = 34, 
+    RuleIndexIdentifier = 35, RuleIndexIdentifierList = 36, RuleIndexEqualsAssignmentList = 37, 
+    RuleRangeDefinition = 38, RuleQuantumGateDefinition = 39, RuleQuantumGateSignature = 40, 
+    RuleQuantumBlock = 41, RuleQuantumLoop = 42, RuleQuantumLoopBlock = 43, 
+    RuleQuantumStatement = 44, RuleQuantumInstruction = 45, RuleQuantumPhase = 46, 
+    RuleQuantumMeasurement = 47, RuleQuantumMeasurementAssignment = 48, 
+    RuleQuantumBarrier = 49, RuleQuantumGateModifier = 50, RuleQuantumGateCall = 51, 
+    RuleQuantumGateName = 52, RuleUnaryOperator = 53, RuleRelationalOperator = 54, 
+    RuleLogicalOperator = 55, RuleExpressionStatement = 56, RuleExpression = 57, 
+    RuleXOrExpression = 58, RuleBitAndExpression = 59, RuleBitShiftExpression = 60, 
+    RuleAdditiveExpression = 61, RuleMultiplicativeExpression = 62, RuleUnaryExpression = 63, 
+    RuleExpressionTerminator = 64, RuleIncrementor = 65, RuleBuiltInCall = 66, 
+    RuleBuiltInMath = 67, RuleCastOperator = 68, RuleExpressionList = 69, 
+    RuleBooleanExpression = 70, RuleComparsionExpression = 71, RuleEqualsExpression = 72, 
+    RuleAssignmentOperator = 73, RuleEqualsAssignmentList = 74, RuleMembershipTest = 75, 
+    RuleSetDeclaration = 76, RuleProgramBlock = 77, RuleBranchingStatement = 78, 
+    RuleLoopSignature = 79, RuleLoopStatement = 80, RuleControlDirectiveStatement = 81, 
+    RuleControlDirective = 82, RuleKernelDeclaration = 83, RuleKernelCall = 84, 
+    RuleSubroutineDefinition = 85, RuleReturnStatement = 86, RuleSubroutineBlock = 87, 
+    RuleSubroutineCall = 88, RulePragma = 89, RuleTimingType = 90, RuleTimingBox = 91, 
+    RuleTimingTerminator = 92, RuleTimingIdentifier = 93, RuleTimingInstructionName = 94, 
+    RuleTimingInstruction = 95, RuleTimingStatement = 96, RuleCalibration = 97, 
+    RuleCalibrationGrammarDeclaration = 98, RuleCalibrationDefinition = 99, 
+    RuleCalibrationGrammar = 100, RuleCalibrationArgumentList = 101
   };
 
   explicit qasm3Parser(antlr4::TokenStream *input);
@@ -88,6 +89,7 @@ public:
   class IncludeContext;
   class GlobalStatementContext;
   class StatementContext;
+  class Qcor_test_statementContext;
   class QuantumDeclarationStatementContext;
   class ClassicalDeclarationStatementContext;
   class ClassicalAssignmentContext;
@@ -285,6 +287,7 @@ public:
     ControlDirectiveStatementContext *controlDirectiveStatement();
     AliasStatementContext *aliasStatement();
     QuantumStatementContext *quantumStatement();
+    Qcor_test_statementContext *qcor_test_statement();
 
     virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
     virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
@@ -294,6 +297,24 @@ public:
   };
 
   StatementContext* statement();
+
+  class  Qcor_test_statementContext : public antlr4::ParserRuleContext {
+  public:
+    Qcor_test_statementContext(antlr4::ParserRuleContext *parent, size_t invokingState);
+    virtual size_t getRuleIndex() const override;
+    antlr4::tree::TerminalNode *LPAREN();
+    BooleanExpressionContext *booleanExpression();
+    antlr4::tree::TerminalNode *RPAREN();
+    antlr4::tree::TerminalNode *SEMICOLON();
+
+    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
+    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
+
+    virtual antlrcpp::Any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+   
+  };
+
+  Qcor_test_statementContext* qcor_test_statement();
 
   class  QuantumDeclarationStatementContext : public antlr4::ParserRuleContext {
   public:

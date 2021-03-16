@@ -116,4 +116,8 @@ std::map<std::string, mlir::CmpIPredicate> antlr_to_mlir_predicate{
     {"<=", mlir::CmpIPredicate::sle}, {">=", mlir::CmpIPredicate::sge},
     {"<", mlir::CmpIPredicate::slt},  {">", mlir::CmpIPredicate::sgt}};
 
+std::map<std::string, mlir::CmpFPredicate> antlr_to_mlir_fpredicate{
+    {"==", mlir::CmpFPredicate::OEQ},  {"!=", mlir::CmpFPredicate::ONE},
+    {"<=", mlir::CmpFPredicate::OLE}, {">=", mlir::CmpFPredicate::OGE},
+    {"<", mlir::CmpFPredicate::OLT},  {">", mlir::CmpFPredicate::OGT}};
 }  // namespace qcor

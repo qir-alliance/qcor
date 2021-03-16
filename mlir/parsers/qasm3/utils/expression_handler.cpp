@@ -124,6 +124,10 @@ antlrcpp::Any qasm3_expression_generator::visitComparsionExpression(
   if (auto relational_op = compare->relationalOperator()) {
     visitChildren(compare->expression(0));
     auto lhs = current_value;
+    internal_value_type =
+        lhs.getType().isa<mlir::MemRefType>()
+            ? lhs.getType().cast<mlir::MemRefType>().getElementType()
+            : lhs.getType();
     visitChildren(compare->expression(1));
     auto rhs = current_value;
 
@@ -132,7 +136,7 @@ antlrcpp::Any qasm3_expression_generator::visitComparsionExpression(
     auto lhs_type = lhs.getType();
     auto rhs_type = rhs.getType();
     if (auto mem_value_type = lhs_type.dyn_cast_or_null<mlir::MemRefType>()) {
-      if (mem_value_type.getElementType().isIntOrIndex() &&
+      if (mem_value_type.getElementType().isIntOrIndexOrFloat() &&
           mem_value_type.getRank() == 1 && mem_value_type.getShape()[0] == 1) {
         // Load this memref value
 
@@ -144,7 +148,7 @@ antlrcpp::Any qasm3_expression_generator::visitComparsionExpression(
     }
 
     if (auto mem_value_type = rhs_type.dyn_cast_or_null<mlir::MemRefType>()) {
-      if (mem_value_type.getElementType().isIntOrIndex() &&
+      if (mem_value_type.getElementType().isIntOrIndexOrFloat() &&
           mem_value_type.getRank() == 1 && mem_value_type.getShape()[0] == 1) {
         // Load this memref value
 
@@ -162,18 +166,35 @@ antlrcpp::Any qasm3_expression_generator::visitComparsionExpression(
 
       auto lhs_bw = lhs.getType().getIntOrFloatBitWidth();
       auto rhs_bw = rhs.getType().getIntOrFloatBitWidth();
-      // We need the comparison to be on the same bit width
-      if (lhs_bw < rhs_bw) {
-        rhs = builder.create<mlir::IndexCastOp>(location, rhs,
-                                                builder.getIntegerType(lhs_bw));
-      } else if (lhs_bw > rhs_bw) {
-        lhs = builder.create<mlir::IndexCastOp>(location, lhs,
-                                                builder.getIntegerType(rhs_bw));
-      }
 
-      // create the binary op value
-      update_current_value(
-          builder.create<mlir::CmpIOp>(location, predicate, lhs, rhs));
+      if (lhs.getType().isa<mlir::IntegerType>()) {
+        if (!rhs.getType().isa<mlir::IntegerType>()) {
+          printErrorMessage("for comparison " + op +
+                                " lhs was an integer type, but rhs was not.",
+                            compare, {lhs, rhs});
+        }
+
+        // We need the comparison to be on the same bit width
+        if (lhs_bw < rhs_bw) {
+          rhs = builder.create<mlir::IndexCastOp>(
+              location, rhs, builder.getIntegerType(lhs_bw));
+        } else if (lhs_bw > rhs_bw) {
+          lhs = builder.create<mlir::IndexCastOp>(
+              location, lhs, builder.getIntegerType(rhs_bw));
+        }
+
+        // create the binary op value
+        update_current_value(
+            builder.create<mlir::CmpIOp>(location, predicate, lhs, rhs));
+      } else if (lhs.getType().isa<mlir::FloatType>()) {
+        if (!rhs.getType().isa<mlir::FloatType>()) {
+          printErrorMessage("for comparison " + op +
+                                " lhs was an float type, but rhs was not.",
+                            compare, {lhs, rhs});
+        }
+        update_current_value(builder.create<mlir::CmpFOp>(
+            location, antlr_to_mlir_fpredicate[op], lhs, rhs));
+      }
       return 0;
     } else {
       printErrorMessage("Invalid relational operation: " + op);
@@ -181,7 +202,6 @@ antlrcpp::Any qasm3_expression_generator::visitComparsionExpression(
 
   } else {
     // This is just if(expr)
-    // printErrorMessage("Alex please implement if(expr).");
 
     found_negation_unary_op = false;
     visitChildren(compare->expression(0));
@@ -396,8 +416,183 @@ antlrcpp::Any qasm3_expression_generator::visitAdditiveExpression(
         printErrorMessage("Could not perform subtraction, incompatible types: ",
                           ctx, {lhs, rhs});
       }
+    }  // else if (bin_op == "^") {
+
+    //}
+    else {
+      printErrorMessage(
+          bin_op + " not yet supported by the qcor qasm3 compiler.", ctx);
     }
     return 0;
+  }
+
+  return visitChildren(ctx);
+}
+antlrcpp::Any qasm3_expression_generator::visitXOrExpression(
+    qasm3Parser::XOrExpressionContext* ctx) {
+  auto location = get_location(builder, file_name, ctx);
+  if (ctx->xOrExpression() && ctx->bitAndExpression()) {
+    visit(ctx->xOrExpression());
+    auto lhs = current_value;
+    mlir::Type lhs_element_type;
+    if (auto lhs_type = lhs.getType().dyn_cast_or_null<mlir::MemRefType>()) {
+      lhs_element_type = lhs_type.getElementType();
+      if (lhs_type.getRank() != 1 && lhs_type.getShape()[0] != 1) {
+        printErrorMessage(
+            "Cannot handle lhs for ^ that is memref of rank != 1 and shape "
+            "!= 1.",
+            ctx, {lhs});
+      }
+
+      lhs = builder.create<mlir::LoadOp>(
+          location, lhs,
+          get_or_create_constant_index_value(0, location, 64, symbol_table,
+                                             builder));
+    } else {
+      lhs_element_type = lhs.getType();
+    }
+
+    // If lhs is a float, we allow integer power (2.0 ^ 5),
+    // to do so we have to let expr terminator treat ints as floats
+    if (lhs_element_type.isa<mlir::FloatType>()) {
+      builtin_math_func_treat_ints_as_float = true;
+    }
+    visit(ctx->bitAndExpression());
+    builtin_math_func_treat_ints_as_float = false;
+    auto rhs = current_value;
+    mlir::Type rhs_element_type;
+    if (auto rhs_type = rhs.getType().dyn_cast_or_null<mlir::MemRefType>()) {
+      rhs_element_type = rhs_type.getElementType();
+      if (rhs_type.getRank() != 1 && rhs_type.getShape()[0] != 1) {
+        printErrorMessage(
+            "Cannot handle rhs for ^ that is memref of rank != 1 and shape "
+            "!= 1.",
+            ctx, {lhs, rhs});
+      }
+
+      rhs = builder.create<mlir::LoadOp>(
+          location, rhs,
+          get_or_create_constant_index_value(0, location, 64, symbol_table,
+                                             builder));
+    } else {
+      rhs_element_type = rhs.getType();
+    }
+
+    // handle integer raised to another integer.
+    if (lhs_element_type.isa<mlir::IntegerType>()) {
+      if (!rhs_element_type.isa<mlir::IntegerType>()) {
+        printErrorMessage(
+            "lhs is an integer type, therefore rhs must be an integer type.",
+            ctx, {lhs, rhs});
+      }
+
+      // Emulate something like
+      // int product = 1;
+      // for (unsigned int i = 0; i < exp; ++i) {
+      //   product *= base;
+      // }
+
+      // Will need to compute this via a loop
+      auto tmp = get_or_create_constant_integer_value(
+          0, location, builder.getI64Type(), symbol_table, builder);
+      auto tmp2 = get_or_create_constant_index_value(0, location, 64,
+                                                     symbol_table, builder);
+      auto tmp3 = get_or_create_constant_integer_value(
+          1, location, lhs_element_type, symbol_table, builder);
+      llvm::ArrayRef<mlir::Value> zero_index(tmp2);
+
+      llvm::ArrayRef<int64_t> shaperef{1};
+      auto mem_type = mlir::MemRefType::get(shaperef, lhs_element_type);
+
+      mlir::Value loop_var_memref = builder.create<mlir::AllocaOp>(
+          location, mlir::MemRefType::get(shaperef, builder.getI64Type()));
+      builder.create<mlir::StoreOp>(
+          location,
+          get_or_create_constant_integer_value(0, location, lhs_element_type,
+                                               symbol_table, builder),
+          loop_var_memref,
+          get_or_create_constant_index_value(0, location, 64, symbol_table,
+                                             builder));
+
+      mlir::Value product_memref = builder.create<mlir::AllocaOp>(
+          location, mlir::MemRefType::get(shaperef, lhs_element_type));
+      builder.create<mlir::StoreOp>(
+          location,
+          get_or_create_constant_integer_value(1, location, lhs_element_type,
+                                               symbol_table, builder),
+          product_memref,
+          get_or_create_constant_index_value(0, location, 64, symbol_table,
+                                             builder));
+
+      auto b_val = rhs;
+      auto c_val = get_or_create_constant_integer_value(
+          1, location, builder.getI64Type(), symbol_table, builder);
+
+      // Save the current builder point
+      // auto savept = builder.saveInsertionPoint();
+      auto loaded_var =
+          builder.create<mlir::LoadOp>(location, loop_var_memref, zero_index);
+
+      auto savept = builder.saveInsertionPoint();
+      auto currRegion = builder.getBlock()->getParent();
+      auto headerBlock = builder.createBlock(currRegion, currRegion->end());
+      auto bodyBlock = builder.createBlock(currRegion, currRegion->end());
+      auto incBlock = builder.createBlock(currRegion, currRegion->end());
+      mlir::Block* exitBlock =
+          builder.createBlock(currRegion, currRegion->end());
+      builder.restoreInsertionPoint(savept);
+
+      builder.create<mlir::BranchOp>(location, headerBlock);
+      builder.setInsertionPointToStart(headerBlock);
+
+      auto load =
+          builder.create<mlir::LoadOp>(location, loop_var_memref, zero_index);
+      auto cmp = builder.create<mlir::CmpIOp>(
+          location, mlir::CmpIPredicate::slt, load, b_val);
+      builder.create<mlir::CondBranchOp>(location, cmp, bodyBlock, exitBlock);
+
+      builder.setInsertionPointToStart(bodyBlock);
+      // body needs to load the loop variable
+      auto x =
+          builder.create<mlir::LoadOp>(location, product_memref, zero_index);
+
+      auto mult = builder.create<mlir::MulIOp>(location, x, lhs);
+      builder.create<mlir::StoreOp>(
+          location, mult, product_memref,
+          llvm::makeArrayRef(std::vector<mlir::Value>{tmp2}));
+
+      builder.create<mlir::BranchOp>(location, incBlock);
+
+      builder.setInsertionPointToStart(incBlock);
+      auto load_inc =
+          builder.create<mlir::LoadOp>(location, loop_var_memref, zero_index);
+      auto add = builder.create<mlir::AddIOp>(location, load_inc, c_val);
+
+      builder.create<mlir::StoreOp>(
+          location, add, loop_var_memref,
+          llvm::makeArrayRef(std::vector<mlir::Value>{tmp2}));
+
+      builder.create<mlir::BranchOp>(location, headerBlock);
+
+      builder.setInsertionPointToStart(exitBlock);
+
+      symbol_table.set_last_created_block(exitBlock);
+
+      current_value =
+          builder.create<mlir::LoadOp>(location, product_memref, zero_index);
+      return 0;
+    } else if (lhs_element_type.isa<mlir::FloatType>()) {
+      if (!rhs_element_type.isa<mlir::FloatType>()) {
+        printErrorMessage("lhs is a float type, rhs must be an float type.",
+                          ctx, {lhs, rhs});
+      }
+
+      createOp<mlir::PowFOp>(location, lhs, rhs);
+      return 0;
+    } else {
+      printErrorMessage("Cannot compile ^ expression given lhs and rhs types.",
+                        ctx, {lhs, rhs});
+    }
   }
 
   return visitChildren(ctx);
@@ -754,8 +949,6 @@ antlrcpp::Any qasm3_expression_generator::visitExpressionTerminator(
                   get_or_create_constant_index_value(0, location, 64,
                                                      symbol_table, builder));
 
-              
-
               // Create loop end value, and step size
               auto b_val = get_or_create_constant_integer_value(
                   bit_width, location, builder.getI64Type(), symbol_table,
@@ -976,6 +1169,28 @@ antlrcpp::Any qasm3_expression_generator::visitExpressionTerminator(
     update_current_value(call_op.getResult(0));
 
     return 0;
+  } else if (auto kernel_call = ctx->kernelCall()) {
+    // kernelCall
+    // : Identifier LPAREN expressionList? RPAREN
+    // ;
+    auto func =
+        symbol_table.get_seen_function(kernel_call->Identifier()->getText());
+
+    std::vector<mlir::Value> operands;
+    auto expression_list = kernel_call->expressionList()->expression();
+    for (auto expression : expression_list) {
+      qasm3_expression_generator param_exp_generator(
+          builder, symbol_table, file_name);
+      param_exp_generator.visit(expression);
+      operands.push_back(param_exp_generator.current_value);
+    }
+
+    auto call_op = builder.create<mlir::CallOp>(location, func,
+                                                llvm::makeArrayRef(operands));
+    update_current_value(call_op.getResult(0));
+
+    return 0;
+
   }
 
   else {

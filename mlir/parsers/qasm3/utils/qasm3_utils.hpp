@@ -57,5 +57,6 @@ mlir::Value get_or_create_constant_index_value(const std::size_t idx,
                                                ScopedSymbolTable& symbol_table,
                                                mlir::OpBuilder& builder);
 extern std::map<std::string, mlir::CmpIPredicate> antlr_to_mlir_predicate;
+extern std::map<std::string, mlir::CmpFPredicate> antlr_to_mlir_fpredicate;
 
 }  // namespace qcor

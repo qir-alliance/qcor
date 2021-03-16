@@ -513,11 +513,7 @@ antlrcpp::Any qasm3_visitor::visitClassicalAssignment(
         0, location, 64, symbol_table, builder));
     builder.create<mlir::StoreOp>(location, current_value, lhs, zero_index2);
   } else if (assignment_op == "=") {
-    std::cout << "HELLO WORLD:\n";
-    lhs.dump();
-    std::cout << "\n";
-    rhs.dump();
-    std::cout << "\n";
+
     // FIXME This assumes we have a memref<1x??> = memref<1x??>
     // what if we have multiple elements in the memref???
     builder.create<mlir::StoreOp>(location, rhs, lhs,

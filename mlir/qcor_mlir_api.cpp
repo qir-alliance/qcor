@@ -102,62 +102,7 @@ const std::string mlir_compile(const std::string &src_language_type,
   return "";
 }
 
-/// Trait that defines how a given type is passed to the JIT code. This
-/// defaults to passing the address but can be specialized.
-template <typename T>
-struct Argument {
-  static void pack(SmallVectorImpl<void *> &args, T &val) {
-    args.push_back(&val);
-  }
-};
-
-/// Tag to wrap an output parameter when invoking a jitted function.
-template <typename T>
-struct Result {
-  Result(T &result) : value(result) {}
-  T &value;
-};
-
-/// Helper function to wrap an output operand when using
-/// ExecutionEngine::invoke.
-template <typename T>
-static Result<T> result(T &t) {
-  return Result<T>(t);
-}
-
-// Specialization for output parameter: their address is forwarded directly to
-// the native code.
-template <typename T>
-struct Argument<Result<T>> {
-  static void pack(SmallVectorImpl<void *> &args, Result<T> &result) {
-    args.push_back(&result.value);
-  }
-};
-
-/// Invokes the function with the given name passing it the list of arguments
-/// by value. Function result can be obtain through output parameter using the
-/// `Result` wrapper defined above. For example:
-///
-///     func @foo(%arg0 : i32) -> i32 attributes { llvm.emit_c_interface }
-///
-/// can be invoked:
-///
-///     int32_t result = 0;
-///     llvm::Error error = jit->invoke("foo", 42,
-///                                     result(result));
-template <typename... Args>
-llvm::Error invoke(std::unique_ptr<mlir::ExecutionEngine> engine,
-                   StringRef funcName, Args... args) {
-  llvm::SmallVector<void *> argsArray;
-  // Pack every arguments in an array of pointers. Delegate the packing to a
-  // trait so that it can be overridden per argument type.
-  // TODO: replace with a fold expression when migrating to C++17.
-  int dummy[] = {0, ((void)Argument<Args>::pack(argsArray, args), 0)...};
-  (void)dummy;
-  return engine->invoke(funcName, argsArray);
-}
-
-void execute(const std::string &src_language_type, const std::string &src,
+int execute(const std::string &src_language_type, const std::string &src,
              const std::string &kernel_name) {
   mlir::registerAsmPrinterCLOptions();
   mlir::registerMLIRContextCLOptions();
@@ -191,7 +136,7 @@ void execute(const std::string &src_language_type, const std::string &src,
   auto module_op = (*module).getOperation();
   if (mlir::failed(pm.run(module_op))) {
     std::cout << "Pass Manager Failed\n";
-    return;
+    return 1;
   }
 
   // Now lower MLIR to LLVM IR
@@ -204,10 +149,15 @@ void execute(const std::string &src_language_type, const std::string &src,
   auto optPipeline = mlir::makeOptimizingTransformer(3, 0, nullptr);
   if (auto err = optPipeline(llvmModule.get())) {
     llvm::errs() << "Failed to optimize LLVM IR " << err << "\n";
-    return;
+    return 1;
   }
 
+  // Instantiate our JIT engine
   QJIT jit;
+
+  // Compile the LLVM module, this is basically 
+  // just building up the LLVM JIT engine and 
+  // loading all seen function pointers
   jit.jit_compile(std::move(llvmModule),
                   std::vector<std::string>{std::string(QCOR_INSTALL_DIR) +
                                            std::string("/lib/libqir-qrt") +
@@ -220,9 +170,7 @@ void execute(const std::string &src_language_type, const std::string &src,
     cstrs.push_back(&s.front());
   }
 
-  jit.invoke("main", cstrs.size(), cstrs.data());
-
-  return;
+  return jit.invoke_main(cstrs.size(), cstrs.data());
 }
 
 }  // namespace qcor

@@ -36,6 +36,9 @@ public:
   virtual void enterStatement(qasm3Parser::StatementContext * /*ctx*/) override { }
   virtual void exitStatement(qasm3Parser::StatementContext * /*ctx*/) override { }
 
+  virtual void enterQcor_test_statement(qasm3Parser::Qcor_test_statementContext * /*ctx*/) override { }
+  virtual void exitQcor_test_statement(qasm3Parser::Qcor_test_statementContext * /*ctx*/) override { }
+
   virtual void enterQuantumDeclarationStatement(qasm3Parser::QuantumDeclarationStatementContext * /*ctx*/) override { }
   virtual void exitQuantumDeclarationStatement(qasm3Parser::QuantumDeclarationStatementContext * /*ctx*/) override { }
 
