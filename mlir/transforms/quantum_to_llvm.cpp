@@ -832,17 +832,18 @@ class QarraySliceOpLowering : public ConversionPattern {
     auto input_array = qArraySliceOp.qreg();
     auto slice_range = qArraySliceOp.slice_range();
     assert(slice_range.size() == 3);
-    llvm::ArrayRef<int64_t> shaperef{1};
-    auto mem_type = mlir::MemRefType::get(shaperef, rewriter.getI64Type());
-    auto ptrTy = LLVM::LLVMPointerType::get(range_type);
-    Value one = rewriter.create<LLVM::ConstantOp>(
-        loc, IntegerType::get(rewriter.getContext(), 32),
-        rewriter.getIntegerAttr(rewriter.getI64Type(), 1));
-    Value slice_range_alloca =
-        rewriter.create<LLVM::AllocaOp>(loc, ptrTy, one, /*alignment=*/0);
+    // Create a Range object:
+    auto rangeObj = [&]() {
+      auto desc = rewriter.create<LLVM::UndefOp>(loc, range_type);
+      auto insertStart = rewriter.create<LLVM::InsertValueOp>(
+          loc, desc, slice_range[0], rewriter.getI64ArrayAttr(0));
+      auto insertStep = rewriter.create<LLVM::InsertValueOp>(
+          loc, insertStart, slice_range[1], rewriter.getI64ArrayAttr(1));
+      auto insertEnd = rewriter.create<LLVM::InsertValueOp>(
+          loc, insertStep, slice_range[2], rewriter.getI64ArrayAttr(2));
 
-    // TODO: Set the start, step, end values in the Range struct
-    
+      return insertEnd.res();
+    }();
 
     // Retrieve the input array
     auto qreg_name_attr = input_array.getDefiningOp()->getAttr("name");
@@ -855,17 +856,11 @@ class QarraySliceOpLowering : public ConversionPattern {
         rewriter.getIntegerAttr(rewriter.getI64Type(),
                                 /* dim = 0, 1d */ 0));
 
-    auto range_deref =
-        rewriter.create<LLVM::LoadOp>(loc, range_type, slice_range_alloca);
-    auto array_slice_qir_call = rewriter.create<mlir::CallOp>(
+    // Make the call
+    rewriter.create<mlir::CallOp>(
         loc, symbol_ref, array_qbit_type,
-        ArrayRef<Value>({array_var, dim_id_int, range_deref}));
-
-    // Get the returned qubit array pointer Value
-    auto qbit_array = array_slice_qir_call.getResult(0);
-
+        ArrayRef<Value>({array_var, dim_id_int, rangeObj}));
     // Remove the old QuantumDialect QarraySliceOp
-    rewriter.replaceOp(op, qbit_array);
     rewriter.eraseOp(op);
 
     return success();
