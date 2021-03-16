@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cassert>
+#include <stdexcept>
 
 // Defines implementations of QIR Opaque types
 
