@@ -128,7 +128,7 @@ protected:
   // Rudimentary symbol table, seen variables
   std::map<std::string, mlir::Value> &variables;
   /// Lower to:
-  /// %Array* @__quantum__rt__array_create_1d(i32 %elementSizeInBytes, i64% nQubits) 
+  /// %Array* @__quantum__rt__array_create_1d(i32 %elementSizeInBytes, i64% nQubits)
   /// where elementSizeInBytes = 8 (pointer size).
 public:
   // Constructor, store seen variables
@@ -778,6 +778,100 @@ public:
   }
 };
 
+class QarraySliceOpLowering : public ConversionPattern {
+ protected:
+  // Constant string for runtime function name
+  inline static const std::string qir_qubit_array_slice =
+      "__quantum__rt__array_slice";
+  // Rudimentary symbol table, seen variables
+  std::map<std::string, mlir::Value> &variables;
+
+ public:
+  // Constructor, store seen variables
+  explicit QarraySliceOpLowering(MLIRContext *context,
+                            std::map<std::string, mlir::Value> &vars)
+      : ConversionPattern(mlir::quantum::ArraySliceOp::getOperationName(), 1,
+                          context),
+        variables(vars) {}
+
+  LogicalResult matchAndRewrite(
+      Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const override {
+    auto loc = op->getLoc();
+    ModuleOp parentModule = op->getParentOfType<ModuleOp>();
+    auto context = parentModule->getContext();
+    // %Range = type { i64, i64, i64 }
+    auto range_type = LLVM::LLVMStructType::getIdentified(context, "Range");
+    range_type.setBody(llvm::ArrayRef<Type>{IntegerType::get(context, 64),
+                                            IntegerType::get(context, 64),
+                                            IntegerType::get(context, 64)},
+                       false);
+    auto array_qbit_type =
+        LLVM::LLVMPointerType::get(get_quantum_type("Array", context));
+    FlatSymbolRefAttr symbol_ref;
+    if (parentModule.lookupSymbol<LLVM::LLVMFuncOp>(qir_qubit_array_slice)) {
+      symbol_ref = SymbolRefAttr::get(qir_qubit_array_slice, context);
+    } else {
+      // prototype is (%Array*, i32, %Range) -> %Array*
+      auto qalloc_ftype = LLVM::LLVMFunctionType::get(
+          array_qbit_type,
+          llvm::ArrayRef<Type>{array_qbit_type, IntegerType::get(context, 32),
+                               range_type},
+          false);
+
+      // Insert the function declaration
+      PatternRewriter::InsertionGuard insertGuard(rewriter);
+      rewriter.setInsertionPointToStart(parentModule.getBody());
+      rewriter.create<LLVM::LLVMFuncOp>(parentModule->getLoc(),
+                                        qir_qubit_array_slice, qalloc_ftype);
+      symbol_ref = mlir::SymbolRefAttr::get(qir_qubit_array_slice, context);
+    }
+
+    // Get as a QarraySliceOp
+    auto qArraySliceOp = cast<mlir::quantum::ArraySliceOp>(op);
+    auto input_array = qArraySliceOp.qreg();
+    auto slice_range = qArraySliceOp.slice_range();
+    assert(slice_range.size() == 3);
+    llvm::ArrayRef<int64_t> shaperef{1};
+    auto mem_type = mlir::MemRefType::get(shaperef, rewriter.getI64Type());
+    auto ptrTy = LLVM::LLVMPointerType::get(range_type);
+    Value one = rewriter.create<LLVM::ConstantOp>(
+        loc, IntegerType::get(rewriter.getContext(), 32),
+        rewriter.getIntegerAttr(rewriter.getI64Type(), 1));
+    Value slice_range_alloca =
+        rewriter.create<LLVM::AllocaOp>(loc, ptrTy, one, /*alignment=*/0);
+
+    // TODO: Set the start, step, end values in the Range struct
+    
+
+    // Retrieve the input array
+    auto qreg_name_attr = input_array.getDefiningOp()->getAttr("name");
+    auto name = qreg_name_attr.cast<::mlir::StringAttr>().getValue();
+    auto array_var = variables[name.str()];
+    // create a CallOp for the new quantum runtime allocation
+    // (%Array*, i32, %Range) -> %Array*
+    Value dim_id_int = rewriter.create<LLVM::ConstantOp>(
+        loc, IntegerType::get(rewriter.getContext(), 32),
+        rewriter.getIntegerAttr(rewriter.getI64Type(),
+                                /* dim = 0, 1d */ 0));
+
+    auto range_deref =
+        rewriter.create<LLVM::LoadOp>(loc, range_type, slice_range_alloca);
+    auto array_slice_qir_call = rewriter.create<mlir::CallOp>(
+        loc, symbol_ref, array_qbit_type,
+        ArrayRef<Value>({array_var, dim_id_int, range_deref}));
+
+    // Get the returned qubit array pointer Value
+    auto qbit_array = array_slice_qir_call.getResult(0);
+
+    // Remove the old QuantumDialect QarraySliceOp
+    rewriter.replaceOp(op, qbit_array);
+    rewriter.eraseOp(op);
+
+    return success();
+  }
+};
+
 class CreateStringLiteralOpLowering : public ConversionPattern {
  private:
   std::map<std::string, mlir::Value> &variables;
@@ -1090,6 +1184,7 @@ void QuantumToLLVMLoweringPass::runOnOperation() {
   patterns.insert<QRTFinalizeOpLowering>(&getContext(), variables);
   patterns.insert<QubitArrayAllocOpLowering>(&getContext(), variables);
   patterns.insert<AssignQubitOpConversion>(&getContext(), variables);
+  patterns.insert<QarraySliceOpLowering>(&getContext(), variables);
 
   // We want to completely lower to LLVM, so we use a `FullConversion`. This
   // ensures that only legal operations will remain after the conversion.

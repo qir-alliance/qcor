@@ -36,6 +36,12 @@ def AssignQubitOp : QuantumOp<"qassign", []> {
     let results = (outs);
 }
 
+// Extract array slice
+def ArraySliceOp : QuantumOp<"qarray_slice", []> {
+    let arguments = (ins ArrayType:$qreg, Variadic<I64>:$slice_range);
+    let results = (outs ArrayType:$array_slice);
+}
+
 def InstOp : QuantumOp<"inst", [AttrSizedOperandSegments]> {
     let arguments = (ins StrAttr:$name, Variadic<QubitType>:$qubits, Variadic<F64>:$params);
     let results = (outs Optional<ResultType>:$bit);

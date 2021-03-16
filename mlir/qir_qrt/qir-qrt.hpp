@@ -68,6 +68,11 @@ int8_t *__quantum__rt__array_get_element_ptr_1d(Array *q, uint64_t idx);
 Array *__quantum__rt__array_copy(Array *array, bool forceNewInstance);
 // Concatenate
 Array *__quantum__rt__array_concatenate(Array *head, Array *tail);
+// Slice
+// Creates and returns an array that is a slice of an existing array. 
+// The int dim which dimension the slice is on (0 for 1d arrays). 
+// The Range range specifies the slice.
+Array *__quantum__rt__array_slice(Array *array, int32_t dim, Range range);
 // Ref. counting
 void __quantum__rt__array_update_alias_count(Array *array, int64_t increment);
 void __quantum__rt__array_update_reference_count(Array *aux, int64_t count);

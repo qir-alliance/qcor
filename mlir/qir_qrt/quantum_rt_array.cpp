@@ -15,6 +15,15 @@ int64_t __quantum__rt__array_get_size_1d(Array *state1) {
   return state1->size();
 }
 
+Array *__quantum__rt__array_slice(Array *array, int32_t dim, Range range) {
+  if (verbose)
+    std::cout << "[qir-qrt] Extract array slice for the range [" << range.start
+              << ":" << range.step << ":" << range.end << "].\n";
+
+  // TODO:
+  return array;
+}
+
 void __quantum__rt__array_update_alias_count(Array *array, int64_t increment) {
   // TODO
   if (verbose)

@@ -78,3 +78,10 @@ enum Pauli : int8_t {
 };
 
 enum QRT_MODE { FTQC, NISQ };
+
+// QIR Range type:
+struct Range {
+  int64_t start;
+  int64_t step;
+  int64_t end;
+};

@@ -59,11 +59,50 @@ antlrcpp::Any qasm3_visitor::visitAliasStatement(
       builder.create<mlir::quantum::AssignQubitOp>(
           location, alias_allocation, dest_idx, allocated_symbol, src_idx);
     }
-
   } else if (auto range_def = context->indexIdentifier()->rangeDefinition()) {
     // handle range definition
-    // I think we can handle RANGE with a memref<3xi64>...
+    const size_t n_expr = range_def->expression().size();
+    // Minimum is two expressions and not more than 3
+    if (n_expr < 2 || n_expr > 3) {
+      printErrorMessage("Invalid array slice range.");
+    }
 
+    auto range_start_expr = range_def->expression(0);
+    auto range_stop_expr =
+        (n_expr == 2) ? range_def->expression(1) : range_def->expression(2);
+
+    const auto resolve_range_value = [&](auto *range_item_expr) -> int64_t {
+      const std::string range_item_str = range_item_expr->getText();
+      try {
+        return std::stoi(range_item_str);
+      } catch (std::exception &ex) {
+        return symbol_table.evaluate_constant_integer_expression(
+            range_item_str);
+      }
+    };
+
+    const int64_t range_start = resolve_range_value(range_start_expr);
+    const int64_t range_stop = resolve_range_value(range_stop_expr);
+    const int64_t range_step =
+        (n_expr == 2) ? 1 : resolve_range_value(range_def->expression(1));
+
+    // Step must not be zero:
+    if (range_step == 0) {
+      printErrorMessage("Invalid range: step size must be non-zero.");
+    }
+
+    std::cout << "Range: Start = " << range_start << "; Step = " << range_step << "; Stop = " << range_stop << "\n";
+    auto range_start_mlir_val = get_or_create_constant_integer_value(
+        range_start, location, builder.getI64Type(), symbol_table, builder);
+    auto range_step_mlir_val = get_or_create_constant_integer_value(
+        range_step, location, builder.getI64Type(), symbol_table, builder);
+    auto range_stop_mlir_val = get_or_create_constant_integer_value(
+        range_stop, location, builder.getI64Type(), symbol_table, builder);
+    // I think we can handle RANGE with a memref<3xi64>...
+    mlir::Value array_slice = builder.create<mlir::quantum::ArraySliceOp>(
+        location, array_type, allocated_symbol,
+        llvm::makeArrayRef(std::vector<mlir::Value>{
+            range_start_mlir_val, range_step_mlir_val, range_stop_mlir_val}));
   } else {
     // handle concatenation
   }
