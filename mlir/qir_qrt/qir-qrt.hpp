@@ -72,7 +72,18 @@ Array *__quantum__rt__array_concatenate(Array *head, Array *tail);
 // Creates and returns an array that is a slice of an existing array. 
 // The int dim which dimension the slice is on (0 for 1d arrays). 
 // The Range range specifies the slice.
-Array *__quantum__rt__array_slice(Array *array, int32_t dim, Range range);
+// Note: QIR defines a Range as type { i64, i64, i64 }
+// i.e. a struct of 3 int64_t
+// and define an API at the *LLVM IR* level of passing this by value
+// i.e. the signature is %Range, not "%struct.Range* byval(%struct.Range)" 
+// Hence, it is actually equivalent to an expanded list of struct member.
+// https://lists.llvm.org/pipermail/llvm-dev/2018-April/122714.html
+// Until the spec. is updated (see https://github.com/microsoft/qsharp-language/issues/31)
+// this is actually the C-ABI that will match the QIR IR.
+Array *__quantum__rt__array_slice(Array *array, int32_t dim, int64_t range_start, int64_t range_step, int64_t range_end);
+// Note: Overloading is not possible in C, so just keep the implementation in this local func.
+Array *quantum__rt__array_slice(Array *array, int32_t dim, Range range);
+
 // Ref. counting
 void __quantum__rt__array_update_alias_count(Array *array, int64_t increment);
 void __quantum__rt__array_update_reference_count(Array *aux, int64_t count);

@@ -91,14 +91,14 @@ antlrcpp::Any qasm3_visitor::visitAliasStatement(
       printErrorMessage("Invalid range: step size must be non-zero.");
     }
 
-    std::cout << "Range: Start = " << range_start << "; Step = " << range_step << "; Stop = " << range_stop << "\n";
+    // std::cout << "Range: Start = " << range_start << "; Step = " <<
+    // range_step << "; Stop = " << range_stop << "\n";
     auto range_start_mlir_val = get_or_create_constant_integer_value(
         range_start, location, builder.getI64Type(), symbol_table, builder);
     auto range_step_mlir_val = get_or_create_constant_integer_value(
         range_step, location, builder.getI64Type(), symbol_table, builder);
     auto range_stop_mlir_val = get_or_create_constant_integer_value(
         range_stop, location, builder.getI64Type(), symbol_table, builder);
-    // I think we can handle RANGE with a memref<3xi64>...
     mlir::Value array_slice = builder.create<mlir::quantum::ArraySliceOp>(
         location, array_type, allocated_symbol,
         llvm::makeArrayRef(std::vector<mlir::Value>{

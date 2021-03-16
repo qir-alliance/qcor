@@ -813,7 +813,7 @@ class QarraySliceOpLowering : public ConversionPattern {
       symbol_ref = SymbolRefAttr::get(qir_qubit_array_slice, context);
     } else {
       // prototype is (%Array*, i32, %Range) -> %Array*
-      auto qalloc_ftype = LLVM::LLVMFunctionType::get(
+      auto qslice_ftype = LLVM::LLVMFunctionType::get(
           array_qbit_type,
           llvm::ArrayRef<Type>{array_qbit_type, IntegerType::get(context, 32),
                                range_type},
@@ -823,7 +823,7 @@ class QarraySliceOpLowering : public ConversionPattern {
       PatternRewriter::InsertionGuard insertGuard(rewriter);
       rewriter.setInsertionPointToStart(parentModule.getBody());
       rewriter.create<LLVM::LLVMFuncOp>(parentModule->getLoc(),
-                                        qir_qubit_array_slice, qalloc_ftype);
+                                        qir_qubit_array_slice, qslice_ftype);
       symbol_ref = mlir::SymbolRefAttr::get(qir_qubit_array_slice, context);
     }
 
@@ -857,9 +857,12 @@ class QarraySliceOpLowering : public ConversionPattern {
                                 /* dim = 0, 1d */ 0));
 
     // Make the call
-    rewriter.create<mlir::CallOp>(
+    auto slice_array_call = rewriter.create<mlir::CallOp>(
         loc, symbol_ref, array_qbit_type,
         ArrayRef<Value>({array_var, dim_id_int, rangeObj}));
+
+    variables.insert({name.str(), slice_array_call.getResult(0)});
+
     // Remove the old QuantumDialect QarraySliceOp
     rewriter.eraseOp(op);
 

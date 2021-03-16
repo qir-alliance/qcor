@@ -59,8 +59,9 @@ struct Array {
                      other.m_storage.end());
   }
 
-  int64_t size() { return m_storage.size() / m_itemSizeInBytes; }
+  int64_t size() const { return m_storage.size() / m_itemSizeInBytes; }
   void clear() { m_storage.clear(); }
+  int64_t element_size() const { return m_itemSizeInBytes; }
 
 private:
   // Must be const, i.e. changing the element size is NOT allowed.
@@ -85,3 +86,8 @@ struct Range {
   int64_t step;
   int64_t end;
 };
+
+namespace qcor {
+// Helper func.
+std::vector<int64_t> getRangeValues(Array *in_array, const Range &in_range);
+} // namespace qcor
