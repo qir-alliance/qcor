@@ -209,8 +209,8 @@ antlrcpp::Any qasm3_visitor::visitAliasStatement(
             // This is a complex one:
             const std::string new_var_name =
                 "__internal_concat_temp_" + std::to_string(temp_var_counter++);
-            std::cout << "Process " << new_var_name << " = "
-                      << in_termIdentifierNode->getText() << "\n";
+            // std::cout << "Process " << new_var_name << " = "
+            //           << in_termIdentifierNode->getText() << "\n";
             processIdentifierDef(new_var_name, in_termIdentifierNode);
             return new_var_name;
           };
