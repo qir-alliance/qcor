@@ -132,6 +132,69 @@ QCOR_EXPECT_TRUE(m6[2] == 0);
 QCOR_EXPECT_TRUE(m6[3] == 1);
 QCOR_EXPECT_TRUE(m6[4] == 1);
 QCOR_EXPECT_TRUE(m6[5] == 1);
+
+// Test concatenate:
+// Reset q to start next test
+reset q;
+let even_set = q[0:2:5];
+let odd_set = q[1:2:5];
+let both = even_set || odd_set;
+x both;
+// Measure all qubits
+bit m7[6];
+m7 = measure q;
+
+for i in [0:6] {
+  print(m7[i]);
+}
+// All ones
+QCOR_EXPECT_TRUE(m7[0] == 1);
+QCOR_EXPECT_TRUE(m7[1] == 1);
+QCOR_EXPECT_TRUE(m7[2] == 1);
+QCOR_EXPECT_TRUE(m7[3] == 1);
+QCOR_EXPECT_TRUE(m7[4] == 1);
+QCOR_EXPECT_TRUE(m7[5] == 1);
+
+// Test concatenate complex
+// Reset q to start next test
+reset q;
+// Inline concat: 0, 3, 1, 5
+let concat_inline = q[0:3:5] || q[1:4:5];
+x concat_inline;
+// Measure all qubits
+bit m8[6];
+m8 = measure q;
+
+for i in [0:6] {
+  print(m8[i]);
+}
+// 0, 3, 1, 5 ==> 1
+QCOR_EXPECT_TRUE(m8[0] == 1);
+QCOR_EXPECT_TRUE(m8[1] == 1);
+QCOR_EXPECT_TRUE(m8[2] == 0);
+QCOR_EXPECT_TRUE(m8[3] == 1);
+QCOR_EXPECT_TRUE(m8[4] == 0);
+QCOR_EXPECT_TRUE(m8[5] == 1);
+
+// Reset q to start next test
+reset q;
+// Multi-concat: 0, 1, 2, 4, 5 (no 3)
+let concat_multiple = q[0:1:2] || q[4:4] || q[5];
+x concat_multiple;
+// Measure all qubits
+bit m9[6];
+m9 = measure q;
+
+for i in [0:6] {
+  print(m9[i]);
+}
+// All ones except 3
+QCOR_EXPECT_TRUE(m9[0] == 1);
+QCOR_EXPECT_TRUE(m9[1] == 1);
+QCOR_EXPECT_TRUE(m9[2] == 1);
+QCOR_EXPECT_TRUE(m9[3] == 0);
+QCOR_EXPECT_TRUE(m9[4] == 1);
+QCOR_EXPECT_TRUE(m9[5] == 1);
 )#";
   auto mlir = qcor::mlir_compile("qasm3", alias_by_indicies, "test",
                                  qcor::OutputType::MLIR, true);

@@ -86,11 +86,12 @@ Array *__quantum__rt__array_copy(Array *array, bool forceNewInstance) {
 }
 
 Array *__quantum__rt__array_concatenate(Array *head, Array *tail) {
-  if (verbose)
-    std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
   if (head && tail) {
     auto resultArray = new Array(*head);
     resultArray->append(*tail);
+    if (verbose)
+      std::cout << "[qir-qrt] Concatenate two arrays of size " << head->size()
+                << " and " << tail->size() << ".\n";
     return resultArray;
   }
 

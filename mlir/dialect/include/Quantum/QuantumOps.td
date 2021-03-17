@@ -41,6 +41,11 @@ def ArraySliceOp : QuantumOp<"qarray_slice", []> {
     let arguments = (ins ArrayType:$qreg, Variadic<I64>:$slice_range);
     let results = (outs ArrayType:$array_slice);
 }
+// Array Concatenation
+def ArrayConcatOp : QuantumOp<"qarray_concat", []> {
+    let arguments = (ins ArrayType:$qreg1, ArrayType:$qreg2);
+    let results = (outs ArrayType:$concat_array);
+}
 
 def InstOp : QuantumOp<"inst", [AttrSizedOperandSegments]> {
     let arguments = (ins StrAttr:$name, Variadic<QubitType>:$qubits, Variadic<F64>:$params);
