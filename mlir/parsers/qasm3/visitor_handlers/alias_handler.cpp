@@ -23,9 +23,35 @@ antlrcpp::Any qasm3_visitor::visitAliasStatement(
   // register
   auto alias = context->Identifier()->getText();
 
-  // Get the name and symbol Value of the original register
+  // Get the name and symbol Value of the original register.
+  // We need to determine the alias array size and cache it 
+  // for broadcast to work on the result array.
   auto allocated_variable = context->indexIdentifier()->Identifier()->getText();
   auto allocated_symbol = symbol_table.get_symbol(allocated_variable);
+  // Determine the first qreg size
+  const auto get_qreg_size = [&](const std::string &qreg_name) {
+    uint64_t nqubits;
+    auto qreg_value = symbol_table.get_symbol(qreg_name);
+    if (auto op = qreg_value.getDefiningOp<mlir::quantum::QallocOp>()) {
+      nqubits = op.size().getLimitedValue();
+    } else {
+      auto attributes = symbol_table.get_variable_attributes(qreg_name);
+      if (!attributes.empty()) {
+        try {
+          nqubits = std::stoi(attributes[0]);
+        } catch (...) {
+          printErrorMessage("Could not infer qubit[] size from block argument.",
+                            context);
+        }
+      } else {
+        printErrorMessage(
+            "Could not infer qubit[] size from block argument. No size "
+            "attribute for variable in symbol table.",
+            context);
+      }
+    }
+    return nqubits;
+  };
 
   // handle q[1, 3, 5] comma syntax
   if (context->indexIdentifier()->LBRACKET()) {
@@ -42,7 +68,8 @@ antlrcpp::Any qasm3_visitor::visitAliasStatement(
         builder.create<mlir::quantum::QaliasArrayAllocOp>(
             location, array_type, integer_attr, str_attr);
     // Add the alias register to the symbol table
-    symbol_table.add_symbol(alias, alias_allocation);
+    symbol_table.add_symbol(alias, alias_allocation,
+                            {std::to_string(n_expressions)});
 
     auto counter = 0;
     for (auto expr : expressions) {
@@ -103,6 +130,33 @@ antlrcpp::Any qasm3_visitor::visitAliasStatement(
         location, array_type, allocated_symbol,
         llvm::makeArrayRef(std::vector<mlir::Value>{
             range_start_mlir_val, range_step_mlir_val, range_stop_mlir_val}));
+    
+    // Determine and cache the slice size for instruction broadcasting.
+    const int64_t orig_size = get_qreg_size(allocated_variable);
+    const auto slice_size_calc = [](int64_t orig_size, int64_t start,
+                                    int64_t step, int64_t end) -> int64_t {
+      // If step > 0 and lo > hi, or step < 0 and lo < hi, the range is empty.
+      // Else for step > 0, if n values are in the range, the last one is
+      // lo + (n-1)*step, which must be <= hi.  Rearranging,
+      // n <= (hi - lo)/step + 1, so taking the floor of the RHS gives
+      // the proper value.
+      assert(step != 0);
+      // Convert to positive indices (if given as negative)
+      const int64_t lo = start >= 0 ? start : orig_size + start;
+      const int64_t hi = end >= 0 ? end : orig_size + end;
+      if (lo == hi) {
+        return 1;
+      }
+      if (step > 0 && lo < hi) {
+        return 1 + (hi - lo) / step;
+      } else if (step < 0 && lo > hi) {
+        return 1 + (lo - hi) / (-step);
+      } else {
+        return 0;
+      }
+    };
+    const auto new_size = slice_size_calc(orig_size, range_start, range_step, range_stop);
+    symbol_table.add_symbol(alias, array_slice, {std::to_string(new_size)});
   } else {
     // handle concatenation
   }

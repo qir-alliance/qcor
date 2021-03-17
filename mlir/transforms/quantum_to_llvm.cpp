@@ -864,7 +864,7 @@ class QarraySliceOpLowering : public ConversionPattern {
     variables.insert({name.str(), slice_array_call.getResult(0)});
 
     // Remove the old QuantumDialect QarraySliceOp
-    rewriter.eraseOp(op);
+    rewriter.replaceOp(op, slice_array_call.getResult(0));
 
     return success();
   }
