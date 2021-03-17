@@ -8,7 +8,7 @@ link_directories(${XACC_ROOT}/lib)
 #target_link_libraries(qasm3VisitorTester qcor-mlir-api gtest gtest_main)
 
 add_executable(qasm3VisitorAliasTester test_alias_handler.cpp)
-add_test(NAME qcor_qasm3_quantum_alias_decl_tester COMMAND test_alias_handler)
+add_test(NAME qcor_qasm3_quantum_alias_decl_tester COMMAND qasm3VisitorAliasTester)
 target_include_directories(qasm3VisitorAliasTester PRIVATE . ../../ ${XACC_ROOT}/include/gtest)
 target_link_libraries(qasm3VisitorAliasTester qcor-mlir-api gtest gtest_main)
 
