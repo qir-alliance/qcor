@@ -41,3 +41,15 @@ add_executable(qasm3CompilerTester_Subroutine test_subroutine.cpp)
 add_test(NAME qcor_qasm3_test_subroutine COMMAND qasm3CompilerTester_Subroutine)
 target_include_directories(qasm3CompilerTester_Subroutine PRIVATE . ../../ ${XACC_ROOT}/include/gtest)
 target_link_libraries(qasm3CompilerTester_Subroutine qcor-mlir-api gtest gtest_main)
+
+
+#add_executable(qasm3CompilerTester_GlobalConstInSubroutine test_use_global_const_in_subroutine.cpp)
+#add_test(NAME qcor_qasm3_test_global_const_subroutine COMMAND qasm3CompilerTester_GlobalConstInSubroutine)
+#target_include_directories(qasm3CompilerTester_GlobalConstInSubroutine PRIVATE . ../../ ${XACC_ROOT}/include/gtest)
+#target_link_libraries(qasm3CompilerTester_GlobalConstInSubroutine qcor-mlir-api gtest gtest_main)
+
+
+add_executable(qasm3CompilerTester_Arithmetic test_complex_arithmetic.cpp)
+add_test(NAME qcor_qasm3_test_arithmetic COMMAND qasm3CompilerTester_Arithmetic)
+target_include_directories(qasm3CompilerTester_Arithmetic PRIVATE . ../../ ${XACC_ROOT}/include/gtest)
+target_link_libraries(qasm3CompilerTester_Arithmetic qcor-mlir-api gtest gtest_main)
