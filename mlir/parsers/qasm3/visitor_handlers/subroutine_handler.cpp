@@ -127,7 +127,8 @@ antlrcpp::Any qasm3_visitor::visitSubroutineDefinition(
       } else {
         argument_types.push_back(array_type);
         auto designator = quantum_arg->designator()->getText();
-        auto qreg_size = symbol_table.evaluate_constant_integer_expression(designator);
+        auto qreg_size =
+            symbol_table.evaluate_constant_integer_expression(designator);
         arg_attributes.push_back({std::to_string(qreg_size)});
       }
       // std::cout << "ARG NAME: "
@@ -145,11 +146,41 @@ antlrcpp::Any qasm3_visitor::visitSubroutineDefinition(
     // can return bit, bit[], uint[], int[], float[], bool
     if (classical_type->bitType()) {
       if (auto designator = classical_type->designator()) {
-        auto bit_size = symbol_table.evaluate_constant_integer_expression(designator->getText());
+        auto bit_size = symbol_table.evaluate_constant_integer_expression(
+            designator->getText());
         llvm::ArrayRef<int64_t> shape{bit_size};
         return_type = mlir::MemRefType::get(shape, result_type);
       } else {
         return_type = result_type;
+      }
+    } else if (auto single_desig = classical_type->singleDesignatorType()) {
+      if (single_desig->getText() == "float") {
+        auto bit_width = symbol_table.evaluate_constant_integer_expression(
+            classical_type->designator()->getText());
+        llvm::ArrayRef<int64_t> shape{1};
+        if (bit_width == 16) {
+          return_type = mlir::MemRefType::get(shape, builder.getF16Type());
+        } else if (bit_width == 32) {
+          return_type = mlir::MemRefType::get(shape, builder.getF32Type());
+        } else if (bit_width == 64) {
+          return_type = mlir::MemRefType::get(shape, builder.getF64Type());
+        } else {
+          printErrorMessage(
+              "on subroutine return type - we only support 16, 32, or 64 width "
+              "floating point types.",
+              context);
+        }
+      } else if (single_desig->getText() == "int") {
+        auto bit_width = symbol_table.evaluate_constant_integer_expression(
+            classical_type->designator()->getText());
+        llvm::ArrayRef<int64_t> shape{1};
+        return_type =
+            mlir::MemRefType::get(shape, builder.getIntegerType(bit_width));
+      } else {
+        printErrorMessage(
+            "we do not yet support this subroutine single designator return "
+            "type.",
+            context);
       }
     } else {
       printErrorMessage("Alex implement other return types.", context);
@@ -199,8 +230,8 @@ antlrcpp::Any qasm3_visitor::visitSubroutineDefinition(
   //   builder.setInsertionPointToStart(b);
   // } else {
   //   builder.restoreInsertionPoint(main_block);
-  // }    
-  
+  // }
+
   builder.restoreInsertionPoint(main_block);
 
   symbol_table.exit_scope();
