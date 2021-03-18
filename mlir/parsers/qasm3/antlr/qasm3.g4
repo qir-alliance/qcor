@@ -462,7 +462,7 @@ subroutineBlock
 
 // if have subroutine w/ out args, is ambiguous; may get matched as identifier
 subroutineCall
-    : Identifier ( LPAREN expressionList? RPAREN )? expressionList
+    : Identifier ( LPAREN expressionList? RPAREN ) expressionList
     ;
 
 /*** Directives ***/
@@ -571,7 +571,7 @@ Identifier : FirstIdCharacter GeneralIdCharacter* ;
 
 fragment SciNotation : [eE] ;
 fragment PlusMinus : [-+] ;
-fragment Float : Digit+ DOT Digit* ;
+fragment Float : Digit+ DOT Digit* | DOT Digit*;
 RealNumber : Float (SciNotation PlusMinus? Integer )? ;
 
 fragment TimeUnit : 'dt' | 'ns' | 'us' | 'µs' | 'ms' | 's' ;
