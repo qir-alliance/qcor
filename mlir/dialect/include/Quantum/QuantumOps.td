@@ -17,9 +17,34 @@ def QallocOp : QuantumOp<"qalloc", []> {
     let results = (outs ArrayType:$qubits);
 }
 
+// Create an array holding Qubit pointers for aliasing purposes,
+// i.e. not allocating new qubits.
+def QaliasArrayAllocOp : QuantumOp<"createQubitArray", []> {
+    let arguments = (ins AnyI64Attr:$size, StrAttr:$name);
+    let results = (outs ArrayType:$qubits);
+}
+
 def ExtractQubitOp : QuantumOp<"qextract", []> {
     let arguments = (ins ArrayType:$qreg, AnyInteger:$idx);
     let results = (outs QubitType:$qbit);
+}
+
+// Assign a qubit pointer (specified by the Qubit array and index) to an alias pointer. 
+// Signature: void qassign(Array* destination_array, int destination_idx, Array* source_array, int source_idx)
+def AssignQubitOp : QuantumOp<"qassign", []> {
+    let arguments = (ins ArrayType:$dest_qreg, AnyInteger:$dest_idx, ArrayType:$src_qreg, AnyInteger:$src_idx);
+    let results = (outs);
+}
+
+// Extract array slice
+def ArraySliceOp : QuantumOp<"qarray_slice", []> {
+    let arguments = (ins ArrayType:$qreg, Variadic<I64>:$slice_range);
+    let results = (outs ArrayType:$array_slice);
+}
+// Array Concatenation
+def ArrayConcatOp : QuantumOp<"qarray_concat", []> {
+    let arguments = (ins ArrayType:$qreg1, ArrayType:$qreg2);
+    let results = (outs ArrayType:$concat_array);
 }
 
 def InstOp : QuantumOp<"inst", [AttrSizedOperandSegments]> {

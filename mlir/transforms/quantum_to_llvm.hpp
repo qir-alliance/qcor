@@ -22,4 +22,6 @@ struct QuantumToLLVMLoweringPass
   QuantumToLLVMLoweringPass(std::vector<std::string>& f_names) :function_names(f_names) {}
 };
 
-}  // namespace qcor
+// Helper func.
+mlir::Type get_quantum_type(std::string type, mlir::MLIRContext *context);
+} // namespace qcor

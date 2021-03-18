@@ -1,6 +1,6 @@
 #include "qir-qrt.hpp"
 #include <iostream>
-
+#include <cstring>
 extern "C" {
 Array *__quantum__rt__array_create_1d(int32_t itemSizeInBytes,
                                       int64_t count_items) {
@@ -13,6 +13,40 @@ int64_t __quantum__rt__array_get_size_1d(Array *state1) {
   if (verbose)
     std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
   return state1->size();
+}
+
+Array *__quantum__rt__array_slice(Array *array, int32_t dim,
+                                  int64_t range_start, int64_t range_step,
+                                  int64_t range_end) {
+  return quantum__rt__array_slice(array, dim,
+                                  {range_start, range_step, range_end});
+}
+
+Array *quantum__rt__array_slice(Array *array, int32_t dim, Range range) {
+  if (verbose)
+    std::cout << "[qir-qrt] Extract array slice (dim = " << dim
+              << ") for the range [" << range.start << ":" << range.step << ":"
+              << range.end << "].\n";
+
+  const std::vector<int64_t> range_idxs = qcor::getRangeValues(array, range);
+  if (verbose) {
+    std::cout << "[qir-qrt] Resolve range indices:";
+    for (const auto &idx : range_idxs) {
+      std::cout << idx << " ";
+    }
+    std::cout << "\n";
+  }
+
+  auto resultArray = new Array(range_idxs.size(), array->element_size());
+  int64_t counter = 0;
+  for (const auto &idx : range_idxs) {
+    int8_t *src_ptr = array->getItemPointer(idx);
+    int8_t *dest_ptr = resultArray->getItemPointer(counter);
+    memcpy(dest_ptr, src_ptr, array->element_size());
+    counter++;
+  }
+
+  return resultArray;
 }
 
 void __quantum__rt__array_update_alias_count(Array *array, int64_t increment) {
@@ -52,11 +86,12 @@ Array *__quantum__rt__array_copy(Array *array, bool forceNewInstance) {
 }
 
 Array *__quantum__rt__array_concatenate(Array *head, Array *tail) {
-  if (verbose)
-    std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
   if (head && tail) {
     auto resultArray = new Array(*head);
     resultArray->append(*tail);
+    if (verbose)
+      std::cout << "[qir-qrt] Concatenate two arrays of size " << head->size()
+                << " and " << tail->size() << ".\n";
     return resultArray;
   }
 
