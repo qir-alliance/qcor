@@ -39,6 +39,7 @@ class qasm3_visitor : public qasm3::qasm3BaseVisitor {
     qubit_type = mlir::OpaqueType::get(context, dialect, qubit_type_name);
     array_type = mlir::OpaqueType::get(context, dialect, array_type_name);
     result_type = mlir::IntegerType::get(context, 1);
+    symbol_table.set_op_builder(builder);
   }
 
   // Visit nodes corresponding to quantum variable and gate declarations.

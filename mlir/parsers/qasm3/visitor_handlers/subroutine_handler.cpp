@@ -62,7 +62,7 @@ antlrcpp::Any qasm3_visitor::visitSubroutineDefinition(
         argument_types.push_back(mlir_type);
       } else if (type == "bool") {
         mlir::Type mlir_type;
-        llvm::ArrayRef<int64_t> shaperef{1};
+        llvm::ArrayRef<int64_t> shaperef{};
         mlir_type = mlir::MemRefType::get(shaperef, builder.getIntegerType(1));
         argument_types.push_back(mlir_type);
       } else if (type.find("uint") != std::string::npos) {
@@ -73,7 +73,7 @@ antlrcpp::Any qasm3_visitor::visitSubroutineDefinition(
             symbol_table.evaluate_constant_integer_expression(idx_str);
 
         mlir::Type mlir_type;
-        llvm::ArrayRef<int64_t> shaperef{1};
+        llvm::ArrayRef<int64_t> shaperef{};
         mlir_type = mlir::MemRefType::get(
             shaperef, builder.getIntegerType(bit_size, false));
         argument_types.push_back(mlir_type);
@@ -85,7 +85,7 @@ antlrcpp::Any qasm3_visitor::visitSubroutineDefinition(
             symbol_table.evaluate_constant_integer_expression(idx_str);
 
         mlir::Type mlir_type;
-        llvm::ArrayRef<int64_t> shaperef{1};
+        llvm::ArrayRef<int64_t> shaperef{};
         mlir_type =
             mlir::MemRefType::get(shaperef, builder.getIntegerType(bit_size));
         argument_types.push_back(mlir_type);
@@ -107,7 +107,7 @@ antlrcpp::Any qasm3_visitor::visitSubroutineDefinition(
           printErrorMessage(
               "We only accept float types of bit width 16, 32, 64.");
         }
-        llvm::ArrayRef<int64_t> shaperef{1};
+        llvm::ArrayRef<int64_t> shaperef{};
         mlir_type = mlir::MemRefType::get(shaperef, mlir_type);
         argument_types.push_back(mlir_type);
       } else if (type.find("angle") != std::string::npos) {
@@ -157,7 +157,7 @@ antlrcpp::Any qasm3_visitor::visitSubroutineDefinition(
       if (single_desig->getText() == "float") {
         auto bit_width = symbol_table.evaluate_constant_integer_expression(
             classical_type->designator()->getText());
-        llvm::ArrayRef<int64_t> shape{1};
+        llvm::ArrayRef<int64_t> shape{};
         if (bit_width == 16) {
           return_type = mlir::MemRefType::get(shape, builder.getF16Type());
         } else if (bit_width == 32) {
@@ -173,9 +173,9 @@ antlrcpp::Any qasm3_visitor::visitSubroutineDefinition(
       } else if (single_desig->getText() == "int") {
         auto bit_width = symbol_table.evaluate_constant_integer_expression(
             classical_type->designator()->getText());
-        llvm::ArrayRef<int64_t> shape{1};
-        return_type =
-            mlir::MemRefType::get(shape, builder.getIntegerType(bit_width));
+        llvm::ArrayRef<int64_t> shape{};
+        return_type = builder.getIntegerType(bit_width);
+        // mlir::MemRefType::get(shape, builder.getIntegerType(bit_width));
       } else {
         printErrorMessage(
             "we do not yet support this subroutine single designator return "
@@ -225,13 +225,6 @@ antlrcpp::Any qasm3_visitor::visitSubroutineDefinition(
   }
   m_module.push_back(function);
 
-  // builder.restoreInsertionPoint(main_block);
-  // if (auto b = symbol_table.get_last_created_block()) {
-  //   builder.setInsertionPointToStart(b);
-  // } else {
-  //   builder.restoreInsertionPoint(main_block);
-  // }
-
   builder.restoreInsertionPoint(main_block);
 
   symbol_table.exit_scope();
@@ -260,11 +253,18 @@ antlrcpp::Any qasm3_visitor::visitReturnStatement(
     // load and return if it is a bit
     // printErrorMessage("Putting this here til I fix this");
     if (!current_function_return_type.isa<mlir::MemRefType>()) {
-      // This is a bit and not a bit[]
-      auto tmp = get_or_create_constant_index_value(0, location, 64,
-                                                    symbol_table, builder);
-      llvm::ArrayRef<mlir::Value> zero_index(tmp);
-      value = builder.create<mlir::LoadOp>(location, value, zero_index);
+      if (current_function_return_type.isa<mlir::IntegerType>() &&
+          current_function_return_type.getIntOrFloatBitWidth() == 1) {
+        // This is a bit and not a bit[]
+        auto tmp = get_or_create_constant_index_value(0, location, 64,
+                                                      symbol_table, builder);
+        llvm::ArrayRef<mlir::Value> zero_index(tmp);
+        value = builder.create<mlir::LoadOp>(location, value, zero_index);
+      } else {
+        value = builder.create<mlir::LoadOp>(location, value);  //, zero_index);
+      }
+    } else {
+      printErrorMessage("We do not return memrefs from subroutines.", context);
     }
 
   } else {

@@ -4,8 +4,10 @@
 TEST(qasm3VisitorTester, checkDeclaration) {
   const std::string src = R"#(OPENQASM 3;
 include "qelib1.inc";
-int[10] x, y;
-QCOR_EXPECT_TRUE(x == 0);
+int[10] x = 5;
+int[10] y;
+print(x);
+QCOR_EXPECT_TRUE(x == 5);
 QCOR_EXPECT_TRUE(y == 0);
 
 int[5] xx=2, yy=1;
@@ -22,30 +24,36 @@ QCOR_EXPECT_TRUE(b1[3] == 0);
 bit k, kk[22];
 QCOR_EXPECT_TRUE(k == 0);
 QCOR_EXPECT_TRUE(kk[13] == 0);
-
 bool bb = False;
 bool m=True, n=bool(xx);
 QCOR_EXPECT_TRUE(m == 1);
 QCOR_EXPECT_TRUE(bb == 0);
 QCOR_EXPECT_TRUE(n == 0);
-
 const c = 5.5e3, d=5;
 const e = 2.2;
 QCOR_EXPECT_TRUE(c == 5500.0);
 QCOR_EXPECT_TRUE(d == 5);
 QCOR_EXPECT_TRUE(e == 2.2);
-
 x q2;
 k = measure q2;
 QCOR_EXPECT_TRUE(k == 1);
-
 for i in [0:22] {
     QCOR_EXPECT_TRUE(kk[i] == 0);
 }
+
+float[64] f = 3.14;
+float[64] test = 3.14 - f;
+QCOR_EXPECT_TRUE(test < .001);
 )#";
   auto mlir =
       qcor::mlir_compile("qasm3", src, "test", qcor::OutputType::MLIR, true);
   std::cout << "MLIR:\n" << mlir << "\n";
+      auto llvmi =
+      qcor::mlir_compile("qasm3", src, "test", qcor::OutputType::LLVMMLIR, true);
+  std::cout << "LLVM:\n" << llvmi << "\n";
+    auto llvm =
+      qcor::mlir_compile("qasm3", src, "test", qcor::OutputType::LLVMIR, true);
+  std::cout << "LLVM:\n" << llvm << "\n";
   EXPECT_FALSE(qcor::execute("qasm3", src, "test"));
 
   const std::string src2 = R"#(OPENQASM 3;

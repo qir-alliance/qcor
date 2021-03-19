@@ -201,9 +201,15 @@ antlrcpp::Any qasm3_visitor::visitLoopStatement(
                                                      symbol_table, builder);
       llvm::ArrayRef<mlir::Value> zero_index(tmp2);
 
-      auto loop_var_memref = allocate_1d_memory_and_initialize(
-          location, 1, builder.getI64Type(), std::vector<mlir::Value>{tmp},
-          llvm::makeArrayRef(std::vector<mlir::Value>{tmp2}));
+      // auto loop_var_memref = allocate_1d_memory_and_initialize(
+      //     location, 1, builder.getI64Type(), std::vector<mlir::Value>{tmp},
+      //     llvm::makeArrayRef(std::vector<mlir::Value>{tmp2}));
+
+      llvm::ArrayRef<int64_t> shaperef{};
+      auto mem_type = mlir::MemRefType::get(shaperef, builder.getI64Type());
+      mlir::Value loop_var_memref =
+          builder.create<mlir::AllocaOp>(location, mem_type);
+      builder.create<mlir::StoreOp>(location, tmp, loop_var_memref);
 
       auto b_val = get_or_create_constant_integer_value(
           b, location, builder.getI64Type(), symbol_table, builder);
@@ -213,7 +219,7 @@ antlrcpp::Any qasm3_visitor::visitLoopStatement(
       // Save the current builder point
       // auto savept = builder.saveInsertionPoint();
       auto loaded_var =
-          builder.create<mlir::LoadOp>(location, loop_var_memref, zero_index);
+          builder.create<mlir::LoadOp>(location, loop_var_memref);//, zero_index);
 
       symbol_table.add_symbol(idx_var_name, loaded_var, {}, true);
 
@@ -242,7 +248,7 @@ antlrcpp::Any qasm3_visitor::visitLoopStatement(
       builder.setInsertionPointToStart(headerBlock);
 
       auto load =
-          builder.create<mlir::LoadOp>(location, loop_var_memref, zero_index);
+          builder.create<mlir::LoadOp>(location, loop_var_memref);
       auto cmp = builder.create<mlir::CmpIOp>(
           location, mlir::CmpIPredicate::slt, load, b_val);
       builder.create<mlir::CondBranchOp>(location, cmp, bodyBlock, exitBlock);
@@ -250,7 +256,7 @@ antlrcpp::Any qasm3_visitor::visitLoopStatement(
       builder.setInsertionPointToStart(bodyBlock);
       // body needs to load the loop variable
       auto x =
-          builder.create<mlir::LoadOp>(location, loop_var_memref, zero_index);
+          builder.create<mlir::LoadOp>(location, loop_var_memref);
       symbol_table.add_symbol(idx_var_name, x, {}, true);
 
       current_loop_exit_block = exitBlock;
@@ -266,12 +272,11 @@ antlrcpp::Any qasm3_visitor::visitLoopStatement(
 
       builder.setInsertionPointToStart(incBlock);
       auto load_inc =
-          builder.create<mlir::LoadOp>(location, loop_var_memref, zero_index);
+          builder.create<mlir::LoadOp>(location, loop_var_memref);
       auto add = builder.create<mlir::AddIOp>(location, load_inc, c_val);
 
       builder.create<mlir::StoreOp>(
-          location, add, loop_var_memref,
-          llvm::makeArrayRef(std::vector<mlir::Value>{tmp2}));
+          location, add, loop_var_memref);
 
       builder.create<mlir::BranchOp>(location, headerBlock);
 

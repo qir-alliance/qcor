@@ -68,7 +68,6 @@ void qasm3_visitor::createInstOps_HandleBroadcast(
     } else if (qbit_values.size() == 2) {
       if (qbit_values[0].getType() == array_type &&
           qbit_values[1].getType() == array_type) {
-
         auto n = get_qreg_size(qbit_values[0], qreg_names[0]);
         auto m = get_qreg_size(qbit_values[1], qreg_names[1]);
 
@@ -271,10 +270,7 @@ antlrcpp::Any qasm3_visitor::visitKernelCall(
 
       auto arg = exp_generator.current_value;
       if (arg.getType().isa<mlir::MemRefType>()) {
-        arg = builder.create<mlir::LoadOp>(
-            location, arg,
-            get_or_create_constant_index_value(0, location, 64, symbol_table,
-                                               builder));
+        arg = builder.create<mlir::LoadOp>(location, arg);
       }
       print_args.push_back(arg);
     }
