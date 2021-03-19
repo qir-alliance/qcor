@@ -41,6 +41,14 @@ class ScopedSymbolTable {
   std::map<std::string, double> global_constants;
 
  public:
+
+  template<typename T>
+  T get_global_constant(const std::string variable_name) {
+    if (!global_constants.count(variable_name)) {
+      printErrorMessage("Invalid global constant variable name: " + variable_name);
+    }
+    return (T) global_constants[variable_name];
+  }
   void set_op_builder(mlir::OpBuilder& b) { builder = &b; }
 
   void evaluate_const_global(const std::string variable_name,

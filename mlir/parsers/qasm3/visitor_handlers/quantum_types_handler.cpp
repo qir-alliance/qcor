@@ -36,6 +36,8 @@ antlrcpp::Any qasm3_visitor::visitQuantumDeclaration(
       try {
         size = std::stoi(exp_list->expression(0)->getText());
       } catch (...) {
+
+        
         // check if this is a constant expression
         qasm3_expression_generator exp_generator(builder, symbol_table,
                                                  file_name);
@@ -49,6 +51,8 @@ antlrcpp::Any qasm3_visitor::visitQuantumDeclaration(
             printErrorMessage(
                 "This variable qubit size must be a constant integer.");
           }
+        } else {
+          size = symbol_table.get_global_constant<int64_t>(exp_list->expression(0)->getText());
         }
       }
     }
