@@ -103,4 +103,19 @@ Array *__quantum__rt__array_project(Array *array, int dim, int64_t index);
 
 // String-related API
 void __quantum__rt__string_update_reference_count(void *str, int64_t count);
+
+// Tuples:
+TuplePtr __quantum__rt__tuple_create(int64_t size);
+void __quantum__rt__tuple_update_reference_count(TuplePtr th, int32_t c);
+void __quantum__rt__tuple_update_alias_count(TuplePtr th, int32_t c);
+
+// Callables:
+void __quantum__rt__callable_update_reference_count(Callable *clb, int32_t c);
+void __quantum__rt__callable_update_alias_count(Callable *clb, int32_t c);
+void __quantum__rt__callable_invoke(Callable *clb, TuplePtr args, TuplePtr res);
+Callable *__quantum__rt__callable_copy(Callable *clb, bool force);
+void __quantum__rt__capture_update_reference_count(Callable *clb,
+                                                   int32_t count);
+void __quantum__rt__capture_update_alias_count(Callable *clb, int32_t count);
+void __quantum__rt__callable_memory_management(int32_t index, Callable* clb, int64_t parameter);
 }

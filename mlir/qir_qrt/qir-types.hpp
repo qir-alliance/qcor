@@ -2,7 +2,7 @@
 
 #include <cassert>
 #include <stdexcept>
-
+#include <functional>
 // Defines implementations of QIR Opaque types
 
 // FIXME - Qubit should be a struct that keeps track of idx
@@ -69,8 +69,6 @@ private:
   Storage m_storage;
 };
 
-using TupleHeader = int *;
-
 enum Pauli : int8_t {
   Pauli_I = 0,
   Pauli_X,
@@ -87,7 +85,67 @@ struct Range {
   int64_t end;
 };
 
+using TuplePtr = int8_t *;
+struct TupleHeader {
+  // Opaque/generic storage
+  using Storage = std::vector<int8_t>;
+  TuplePtr getTuple() { return &m_storage.front(); }
+  static TupleHeader *create(int size) { return new TupleHeader(size); }
+  static TupleHeader *getHeader(TuplePtr tuple) {
+    // Get the TupleHeader wrapper
+    return reinterpret_cast<TupleHeader *>(tuple -
+                                        offsetof(TupleHeader, m_storage));
+  }
+
+private:
+  TupleHeader(int size) : m_storage(size, 0){};
+  Storage m_storage;
+};
+
+// Callable:
+// Note: this implementation is not fully spec-conformed
+// since we don't handle complex adj or ctrl callables.
+// Currently, this is to support wrapping a C++ function (classical)
+// and providing it to Q# for invocation.
+// TODO: we need a strategy to incorporate MSFT runtime implementation
+// to support callables that are *created* by Q# code.
+// These Q#-created callables have many more features as described in:
+// https://github.com/microsoft/qsharp-language/blob/main/Specifications/QIR/Callables.md
+// Forward declare:
+namespace qcor {
+namespace qsharp {
+class IFunctor;
+}
+} // namespace qcor
+
+struct Callable {
+  void invoke(TuplePtr args, TuplePtr result);
+  Callable(qcor::qsharp::IFunctor *in_functor) : m_functor(in_functor) {}
+
+private:
+  qcor::qsharp::IFunctor *m_functor;
+};
+
 namespace qcor {
 // Helper func.
-std::vector<int64_t> getRangeValues(Array *in_array, const Range &in_range);
+std::vector<int64_t> getRangeValues(::Array *in_array, const ::Range &in_range);
+
+namespace qsharp {
+class IFunctor {
+public:
+  virtual void execute(TuplePtr args, TuplePtr result) = 0;
+};
+template <typename ReturnType, typename... ArgTypes>
+class CallBack : public IFunctor {
+public:
+  CallBack(std::function<ReturnType(ArgTypes...)> in_func) : m_func(in_func){};
+  virtual void execute(TuplePtr args, TuplePtr result) override {
+    printf("Howdy callable\n");
+    printf(__PRETTY_FUNCTION__);
+  }
+
+private:
+  std::function<ReturnType(ArgTypes...)> m_func;
+};
+} // namespace qsharp
 } // namespace qcor
