@@ -117,6 +117,7 @@ doubleDesignatorType
 noDesignatorType
     : 'bool'
     | timingType
+    | 'int' | 'int64_t' | 'float' | 'double'
     ;
 
 classicalType

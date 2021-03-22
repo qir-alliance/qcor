@@ -214,7 +214,143 @@ antlrcpp::Any qasm3_visitor::visitNoDesignatorDeclaration(
       // Save the allocation, the store op
       symbol_table.add_symbol(variable, allocation);
     }
-  } else {
+  } else if (context->noDesignatorType()->getText().find("int") != std::string::npos) {
+    // THis can now be either an identifierList or an equalsAssignementList
+    mlir::Attribute init_attr;
+    mlir::Type value_type;
+    std::string type = context->noDesignatorType()->getText();
+    auto bit_width = type == "int" ? 32 : 64;
+    value_type = builder.getIntegerType(bit_width);
+    init_attr = mlir::IntegerAttr::get(value_type, 0);
+    std::vector<std::string> variable_names;
+    std::vector<mlir::Value> initial_values;
+    if (auto id_list = context->identifierList()) {
+      for (auto id : id_list->Identifier()) {
+        variable_names.push_back(id->getText());
+        initial_values.push_back(
+            builder.create<mlir::ConstantOp>(location, init_attr));
+      }
+    } else {
+      auto equals_list = context->equalsAssignmentList();
+      for (auto id : equals_list->Identifier()) {
+        variable_names.push_back(id->getText());
+      }
+      for (auto eq_expr : equals_list->equalsExpression()) {
+        qasm3_expression_generator equals_exp_generator(builder, symbol_table,
+                                                        file_name, value_type);
+        equals_exp_generator.visit(eq_expr->expression());
+        initial_values.push_back(equals_exp_generator.current_value);
+      }
+    }
+
+    // Store the initial values
+    for (int i = 0; i < variable_names.size(); i++) {
+      auto variable = variable_names[i];
+      llvm::ArrayRef<int64_t> shaperef{};
+      auto mem_type = mlir::MemRefType::get(shaperef, value_type);
+      mlir::Value allocation =
+          builder.create<mlir::AllocaOp>(location, mem_type);
+
+      auto init = initial_values[i];
+      if (value_type.getIntOrFloatBitWidth() <
+          initial_values[i].getType().getIntOrFloatBitWidth()) {
+        init = builder.create<mlir::TruncateIOp>(location, init, value_type);
+      }
+
+      // Store the value to the 0th index of this storeop
+      builder.create<mlir::StoreOp>(location, init, allocation);
+
+      // Save the allocation, the store op
+      symbol_table.add_symbol(variable, allocation);
+    }
+  } else if (context->noDesignatorType()->getText() == "float") {
+    // THis can now be either an identifierList or an equalsAssignementList
+    mlir::Attribute init_attr;
+    mlir::Type value_type;
+    value_type = builder.getF32Type();
+    init_attr = mlir::FloatAttr::get(value_type, 0);
+    std::vector<std::string> variable_names;
+    std::vector<mlir::Value> initial_values;
+    if (auto id_list = context->identifierList()) {
+      for (auto id : id_list->Identifier()) {
+        variable_names.push_back(id->getText());
+        initial_values.push_back(
+            builder.create<mlir::ConstantOp>(location, init_attr));
+      }
+    } else {
+      auto equals_list = context->equalsAssignmentList();
+      for (auto id : equals_list->Identifier()) {
+        variable_names.push_back(id->getText());
+      }
+      for (auto eq_expr : equals_list->equalsExpression()) {
+        qasm3_expression_generator equals_exp_generator(builder, symbol_table,
+                                                        file_name, value_type);
+        equals_exp_generator.visit(eq_expr->expression());
+        initial_values.push_back(equals_exp_generator.current_value);
+      }
+    }
+
+    // Store the initial values
+    for (int i = 0; i < variable_names.size(); i++) {
+      auto variable = variable_names[i];
+      llvm::ArrayRef<int64_t> shaperef{};
+      auto mem_type = mlir::MemRefType::get(shaperef, value_type);
+      mlir::Value allocation =
+          builder.create<mlir::AllocaOp>(location, mem_type);
+
+      auto init = initial_values[i];
+      
+      // Store the value to the 0th index of this storeop
+      builder.create<mlir::StoreOp>(location, init, allocation);
+
+      // Save the allocation, the store op
+      symbol_table.add_symbol(variable, allocation);
+    }
+  } else if (context->noDesignatorType()->getText() == "double") {
+    // THis can now be either an identifierList or an equalsAssignementList
+    mlir::Attribute init_attr;
+    mlir::Type value_type;
+    value_type = builder.getF64Type();
+    init_attr = mlir::FloatAttr::get(value_type, 0);
+    std::vector<std::string> variable_names;
+    std::vector<mlir::Value> initial_values;
+    if (auto id_list = context->identifierList()) {
+      for (auto id : id_list->Identifier()) {
+        variable_names.push_back(id->getText());
+        initial_values.push_back(
+            builder.create<mlir::ConstantOp>(location, init_attr));
+      }
+    } else {
+      auto equals_list = context->equalsAssignmentList();
+      for (auto id : equals_list->Identifier()) {
+        variable_names.push_back(id->getText());
+      }
+      for (auto eq_expr : equals_list->equalsExpression()) {
+        qasm3_expression_generator equals_exp_generator(builder, symbol_table,
+                                                        file_name, value_type);
+        equals_exp_generator.visit(eq_expr->expression());
+        initial_values.push_back(equals_exp_generator.current_value);
+      }
+    }
+
+    // Store the initial values
+    for (int i = 0; i < variable_names.size(); i++) {
+      auto variable = variable_names[i];
+      llvm::ArrayRef<int64_t> shaperef{};
+      auto mem_type = mlir::MemRefType::get(shaperef, value_type);
+      mlir::Value allocation =
+          builder.create<mlir::AllocaOp>(location, mem_type);
+
+      auto init = initial_values[i];
+      
+      // Store the value to the 0th index of this storeop
+      builder.create<mlir::StoreOp>(location, init, allocation);
+
+      // Save the allocation, the store op
+      symbol_table.add_symbol(variable, allocation);
+    }
+  }
+  else {
     printErrorMessage("We do not yet support this no designator type: " +
                           context->noDesignatorType()->getText(),
                       context);

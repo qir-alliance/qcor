@@ -69,3 +69,9 @@ add_executable(qasm3CompilerTester_Superposition test_superposition.cpp)
 add_test(NAME qcor_qasm3_test_superposition COMMAND qasm3CompilerTester_Superposition)
 target_include_directories(qasm3CompilerTester_Superposition PRIVATE . ../../ ${XACC_ROOT}/include/gtest)
 target_link_libraries(qasm3CompilerTester_Superposition qcor-mlir-api gtest gtest_main)
+
+
+add_executable(qasm3CompilerTester_DefaultTypes test_default_designators.cpp)
+add_test(NAME qcor_qasm3_test_default_types COMMAND qasm3CompilerTester_DefaultTypes)
+target_include_directories(qasm3CompilerTester_DefaultTypes PRIVATE . ../../ ${XACC_ROOT}/include/gtest)
+target_link_libraries(qasm3CompilerTester_DefaultTypes qcor-mlir-api gtest gtest_main)
