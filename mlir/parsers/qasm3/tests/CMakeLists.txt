@@ -58,3 +58,14 @@ add_executable(qasm3CompilerTester_Arithmetic test_complex_arithmetic.cpp)
 add_test(NAME qcor_qasm3_test_arithmetic COMMAND qasm3CompilerTester_Arithmetic)
 target_include_directories(qasm3CompilerTester_Arithmetic PRIVATE . ../../ ${XACC_ROOT}/include/gtest)
 target_link_libraries(qasm3CompilerTester_Arithmetic qcor-mlir-api gtest gtest_main)
+
+
+add_executable(qasm3CompilerTester_ControlDirectives test_control_directives.cpp)
+add_test(NAME qcor_qasm3_test_control_directives COMMAND qasm3CompilerTester_ControlDirectives)
+target_include_directories(qasm3CompilerTester_ControlDirectives PRIVATE . ../../ ${XACC_ROOT}/include/gtest)
+target_link_libraries(qasm3CompilerTester_ControlDirectives qcor-mlir-api gtest gtest_main)
+
+add_executable(qasm3CompilerTester_Superposition test_superposition.cpp)
+add_test(NAME qcor_qasm3_test_superposition COMMAND qasm3CompilerTester_Superposition)
+target_include_directories(qasm3CompilerTester_Superposition PRIVATE . ../../ ${XACC_ROOT}/include/gtest)
+target_link_libraries(qasm3CompilerTester_Superposition qcor-mlir-api gtest gtest_main)

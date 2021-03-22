@@ -133,93 +133,114 @@ antlrcpp::Any qasm3_visitor::visitLoopStatement(
       //     rangeDefinition
       // : LBRACKET expression? COLON expression? ( COLON expression )? RBRACKET
       // ;
-      auto is_constant = [](const std::string idx_str) {
-        try {
-          std::stoi(idx_str);
-          return true;
-        } catch (std::exception& ex) {
-          return false;
-        }
-      };
-
+     
       auto range_str =
           range->getText().substr(1, range->getText().length() - 2);
       auto range_elements = split(range_str, ':');
       auto n_expr = range->expression().size();
       int a, b, c;
-      if (is_constant(range_elements[0])) {
-        a = std::stoi(range_elements[0]);
+
+      // First question what type should we use?
+      mlir::Type int_type = builder.getI64Type();
+      if (symbol_table.has_symbol(range->expression(0)->getText())) {
+        int_type =
+            symbol_table.get_symbol(range->expression(0)->getText()).getType();
+      }
+      if (n_expr == 3) {
+        if (symbol_table.has_symbol(range->expression(1)->getText())) {
+          int_type = symbol_table.get_symbol(range->expression(1)->getText())
+                         .getType();
+        } else if (symbol_table.has_symbol(range->expression(2)->getText())) {
+          int_type = symbol_table.get_symbol(range->expression(2)->getText())
+                         .getType();
+        }
+      } else {
+        if (symbol_table.has_symbol(range->expression(1)->getText())) {
+          int_type = symbol_table.get_symbol(range->expression(1)->getText())
+                         .getType();
+        }
+      }
+
+      if (int_type.isa<mlir::MemRefType>()) {
+        int_type = int_type.cast<mlir::MemRefType>().getElementType();
+      }
+
+      c = 1;
+      mlir::Value a_value, b_value,
+          c_value = get_or_create_constant_integer_value(c, location, int_type,
+                                                         symbol_table, builder);
+
+      if (symbol_table.has_symbol(range->expression(0)->getText())) {
+        a_value = symbol_table.get_symbol(range->expression(0)->getText());
+        a_value = builder.create<mlir::LoadOp>(location, a_value);
+        if (a_value.getType() != int_type) {
+          printErrorMessage("For loop a, b, and c types are not equal.",
+                            context, {a_value, c_value});
+        }
       } else {
         // infer the constant from the symbol table
         a = symbol_table.evaluate_constant_integer_expression(
             range->expression(0)->getText());
+        a_value = get_or_create_constant_integer_value(a, location, int_type,
+                                                       symbol_table, builder);
       }
 
-      c = 1;
       if (n_expr == 3) {
-        if (is_constant(range_elements[2])) {
-          b = std::stoi(range_elements[2]);
+        if (symbol_table.has_symbol(range->expression(2)->getText())) {
+          b_value = symbol_table.get_symbol(range->expression(2)->getText());
+          b_value = builder.create<mlir::LoadOp>(location, b_value);
+          if (b_value.getType() != int_type) {
+            printErrorMessage("For loop a, b, and c types are not equal.",
+                              context, {a_value, b_value});
+          }
         } else {
           b = symbol_table.evaluate_constant_integer_expression(
               range->expression(2)->getText());
+          b_value = get_or_create_constant_integer_value(
+              b, location, a_value.getType(), symbol_table, builder);
         }
-        if (is_constant(range_elements[1])) {
-          c = std::stoi(range_elements[1]);
+        if (symbol_table.has_symbol(range->expression(1)->getText())) {
+          c_value = symbol_table.get_symbol(range->expression(1)->getText());
+          c_value = builder.create<mlir::LoadOp>(location, c_value);
+          if (c_value.getType() != int_type) {
+            printErrorMessage("For loop a, b, and c types are not equal.",
+                              context, {a_value, c_value});
+          }
         } else {
           c = symbol_table.evaluate_constant_integer_expression(
               range->expression(1)->getText());
+          c_value = get_or_create_constant_integer_value(
+              c, location, a_value.getType(), symbol_table, builder);
         }
+
       } else {
-        if (is_constant(range_elements[1])) {
-          b = std::stoi(range_elements[1]);
+        if (symbol_table.has_symbol(range->expression(1)->getText())) {
+          b_value = symbol_table.get_symbol(range->expression(1)->getText());
+          b_value = builder.create<mlir::LoadOp>(location, b_value);
+          if (b_value.getType() != int_type) {
+            printErrorMessage("For loop a, b, and c types are not equal.",
+                              context, {a_value, b_value});
+          }
         } else {
           b = symbol_table.evaluate_constant_integer_expression(
               range->expression(1)->getText());
+          b_value = get_or_create_constant_integer_value(
+              b, location, a_value.getType(), symbol_table, builder);
         }
-      }
-      // std::cout << "A,b,c: " << a << ", " << b << ", " << c << "\n";
-
-      if (a < 0) {
-        printErrorMessage("first element of range must be >= 0.");
-      }
-
-      if (c < 1) {
-        printErrorMessage("step element of range must be > 0.");
-      }
-
-      if (b < a) {
-        printErrorMessage(
-            "end value of range must be greater than start value.");
       }
 
       // Create a new scope for the for loop
       symbol_table.enter_new_scope();
 
-      auto tmp = get_or_create_constant_integer_value(
-          a, location, builder.getI64Type(), symbol_table, builder);
-      auto tmp2 = get_or_create_constant_index_value(0, location, 64,
-                                                     symbol_table, builder);
-      llvm::ArrayRef<mlir::Value> zero_index(tmp2);
-
-      // auto loop_var_memref = allocate_1d_memory_and_initialize(
-      //     location, 1, builder.getI64Type(), std::vector<mlir::Value>{tmp},
-      //     llvm::makeArrayRef(std::vector<mlir::Value>{tmp2}));
-
       llvm::ArrayRef<int64_t> shaperef{};
-      auto mem_type = mlir::MemRefType::get(shaperef, builder.getI64Type());
+      auto mem_type = mlir::MemRefType::get(shaperef, a_value.getType());
       mlir::Value loop_var_memref =
           builder.create<mlir::AllocaOp>(location, mem_type);
-      builder.create<mlir::StoreOp>(location, tmp, loop_var_memref);
-
-      auto b_val = get_or_create_constant_integer_value(
-          b, location, builder.getI64Type(), symbol_table, builder);
-      auto c_val = get_or_create_constant_integer_value(
-          c, location, builder.getI64Type(), symbol_table, builder);
+      builder.create<mlir::StoreOp>(location, a_value, loop_var_memref);
 
       // Save the current builder point
       // auto savept = builder.saveInsertionPoint();
-      auto loaded_var =
-          builder.create<mlir::LoadOp>(location, loop_var_memref);//, zero_index);
+      auto loaded_var = builder.create<mlir::LoadOp>(location, loop_var_memref);
 
       symbol_table.add_symbol(idx_var_name, loaded_var, {}, true);
 
@@ -247,16 +268,14 @@ antlrcpp::Any qasm3_visitor::visitLoopStatement(
       builder.create<mlir::BranchOp>(location, headerBlock);
       builder.setInsertionPointToStart(headerBlock);
 
-      auto load =
-          builder.create<mlir::LoadOp>(location, loop_var_memref);
+      auto load = builder.create<mlir::LoadOp>(location, loop_var_memref);
       auto cmp = builder.create<mlir::CmpIOp>(
-          location, mlir::CmpIPredicate::slt, load, b_val);
+          location, mlir::CmpIPredicate::slt, load, b_value);
       builder.create<mlir::CondBranchOp>(location, cmp, bodyBlock, exitBlock);
 
       builder.setInsertionPointToStart(bodyBlock);
       // body needs to load the loop variable
-      auto x =
-          builder.create<mlir::LoadOp>(location, loop_var_memref);
+      auto x = builder.create<mlir::LoadOp>(location, loop_var_memref);
       symbol_table.add_symbol(idx_var_name, x, {}, true);
 
       current_loop_exit_block = exitBlock;
@@ -271,12 +290,10 @@ antlrcpp::Any qasm3_visitor::visitLoopStatement(
       builder.create<mlir::BranchOp>(location, incBlock);
 
       builder.setInsertionPointToStart(incBlock);
-      auto load_inc =
-          builder.create<mlir::LoadOp>(location, loop_var_memref);
-      auto add = builder.create<mlir::AddIOp>(location, load_inc, c_val);
+      auto load_inc = builder.create<mlir::LoadOp>(location, loop_var_memref);
+      auto add = builder.create<mlir::AddIOp>(location, load_inc, c_value);
 
-      builder.create<mlir::StoreOp>(
-          location, add, loop_var_memref);
+      builder.create<mlir::StoreOp>(location, add, loop_var_memref);
 
       builder.create<mlir::BranchOp>(location, headerBlock);
 

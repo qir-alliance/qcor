@@ -76,7 +76,6 @@ antlrcpp::Any qasm3_visitor::visitConstantDeclaration(
     symbol_table.evaluate_const_global(
         var_name, equals_expr->expression()->getText(), value_type,
         m_module.getRegion().getBlocks().front(), location);
-
   }
 
   return 0;
@@ -445,12 +444,13 @@ antlrcpp::Any qasm3_visitor::visitClassicalAssignment(
   if (rhs_type.isa<mlir::MemRefType>()) {
     // if rhs is a memref, let's load its 0th index value
     rhs_type = rhs_type.cast<mlir::MemRefType>().getElementType();
-    auto load_rhs = builder.create<mlir::LoadOp>(location, rhs);//, zero_index);
+    auto load_rhs =
+        builder.create<mlir::LoadOp>(location, rhs);  //, zero_index);
     load_result_rhs = load_rhs.result();
   }
 
   // Load the LHS value
-  auto load = builder.create<mlir::LoadOp>(location, lhs);//, zero_index);
+  auto load = builder.create<mlir::LoadOp>(location, lhs);  //, zero_index);
   auto load_result = load.result();
 
   // Check what the assignment op is...
@@ -474,7 +474,8 @@ antlrcpp::Any qasm3_visitor::visitClassicalAssignment(
     // Store the added value to the lhs
     llvm::ArrayRef<mlir::Value> zero_index2(get_or_create_constant_index_value(
         0, location, 64, symbol_table, builder));
-    builder.create<mlir::StoreOp>(location, current_value, lhs);//, zero_index2);
+    builder.create<mlir::StoreOp>(location, current_value,
+                                  lhs);  //, zero_index2);
 
   } else if (assignment_op == "-=") {
     // If either are floats, use float subtraction
@@ -492,9 +493,11 @@ antlrcpp::Any qasm3_visitor::visitClassicalAssignment(
     }
 
     // // Store the added value to the lhs
-    // llvm::ArrayRef<mlir::Value> zero_index2(get_or_create_constant_index_value(
+    // llvm::ArrayRef<mlir::Value>
+    // zero_index2(get_or_create_constant_index_value(
     //     0, location, 64, symbol_table, builder));
-    builder.create<mlir::StoreOp>(location, current_value, lhs);//, zero_index2);
+    builder.create<mlir::StoreOp>(location, current_value,
+                                  lhs);  //, zero_index2);
 
   } else if (assignment_op == "*=") {
     // If either are floats, use float multiplication
@@ -515,6 +518,14 @@ antlrcpp::Any qasm3_visitor::visitClassicalAssignment(
     builder.create<mlir::StoreOp>(location, current_value, lhs);
   } else if (assignment_op == "/=") {
     if (lhs_type.isa<mlir::FloatType>() || rhs_type.isa<mlir::FloatType>()) {
+      if (!lhs_type.isa<mlir::FloatType>()) {
+        load_result =
+            builder.create<mlir::SIToFPOp>(location, load_result, rhs_type);
+      } else if (!rhs_type.isa<mlir::FloatType>()) {
+        load_result_rhs =
+            builder.create<mlir::SIToFPOp>(location, load_result_rhs, lhs_type);
+      }
+
       current_value =
           builder.create<mlir::DivFOp>(location, load_result, load_result_rhs);
     } else if (lhs_type.isa<mlir::IntegerType>() &&

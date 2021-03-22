@@ -333,7 +333,7 @@ antlrcpp::Any qasm3_expression_generator::visitAdditiveExpression(
         // both as float
         if (!lhs.getType().isa<mlir::FloatType>()) {
           lhs = builder.create<mlir::SIToFPOp>(location, lhs, rhs.getType());
-         
+
         } else if (!rhs.getType().isa<mlir::FloatType>()) {
           rhs = builder.create<mlir::SIToFPOp>(location, rhs, lhs.getType());
         }
@@ -362,35 +362,11 @@ antlrcpp::Any qasm3_expression_generator::visitAdditiveExpression(
         // One of these at least is a float, need to have
         // both as float
         if (!lhs.getType().isa<mlir::FloatType>()) {
-          if (auto op = lhs.getDefiningOp<mlir::ConstantOp>()) {
-            auto value = op.getValue()
-                             .cast<mlir::IntegerAttr>()
-                             .getValue()
-                             .getLimitedValue();
-            lhs = builder.create<mlir::ConstantOp>(
-                location, mlir::FloatAttr::get(rhs.getType(), (double)value));
-          } else {
-            printErrorMessage("Must cast lhs to float, but it is not constant.",
-                              ctx, {lhs, rhs});
-          }
+          lhs = builder.create<mlir::SIToFPOp>(location, lhs, rhs.getType());
+
         } else if (!rhs.getType().isa<mlir::FloatType>()) {
-          if (auto op = rhs.getDefiningOp<mlir::ConstantOp>()) {
-            auto value = op.getValue()
-                             .cast<mlir::IntegerAttr>()
-                             .getValue()
-                             .getLimitedValue();
-            rhs = builder.create<mlir::ConstantOp>(
-                location, mlir::FloatAttr::get(lhs.getType(), (double)value));
-          } else {
-            printErrorMessage("Must cast rhs to float, but it is not constant.",
-                              ctx, {lhs, rhs});
-          }
+          rhs = builder.create<mlir::SIToFPOp>(location, rhs, lhs.getType());
         }
-        // else {
-        //   printErrorMessage(
-        //       "Could not perform subtraction, incompatible types: " +
-        //       ctx->getText());
-        // }
 
         createOp<mlir::SubFOp>(location, lhs, rhs);
       } else if (lhs.getType().isa<mlir::IntegerType>() &&
@@ -488,13 +464,11 @@ antlrcpp::Any qasm3_expression_generator::visitXOrExpression(
 
       mlir::Value loop_var_memref = builder.create<mlir::AllocaOp>(
           location, mlir::MemRefType::get(shaperef, builder.getI64Type()));
-      builder.create<mlir::StoreOp>(location, ret2,
-                                    loop_var_memref);  
+      builder.create<mlir::StoreOp>(location, ret2, loop_var_memref);
 
       mlir::Value product_memref = builder.create<mlir::AllocaOp>(
           location, mlir::MemRefType::get(shaperef, lhs_element_type));
-      builder.create<mlir::StoreOp>(location, ret3,
-                                    product_memref); 
+      builder.create<mlir::StoreOp>(location, ret3, product_memref);
 
       auto integer_attr = mlir::IntegerAttr::get(builder.getI64Type(), 1);
       auto ret = builder.create<mlir::ConstantOp>(location, integer_attr);
@@ -600,9 +574,8 @@ antlrcpp::Any qasm3_expression_generator::visitMultiplicativeExpression(
         // One of these at least is a float, need to have
         // both as float
         if (!lhs.getType().isa<mlir::FloatType>()) {
-
           lhs = builder.create<mlir::SIToFPOp>(location, lhs, rhs.getType());
-         
+
         } else if (!rhs.getType().isa<mlir::FloatType>()) {
           rhs = builder.create<mlir::SIToFPOp>(location, rhs, lhs.getType());
         }
@@ -622,30 +595,40 @@ antlrcpp::Any qasm3_expression_generator::visitMultiplicativeExpression(
         // One of these at least is a float, need to have
         // both as float
         if (!lhs.getType().isa<mlir::FloatType>()) {
-          if (auto op = lhs.getDefiningOp<mlir::ConstantOp>()) {
-            auto value = op.getValue()
-                             .cast<mlir::IntegerAttr>()
-                             .getValue()
-                             .getLimitedValue();
-            lhs = builder.create<mlir::ConstantOp>(
-                location, mlir::FloatAttr::get(rhs.getType(), (double)value));
-          } else {
-            printErrorMessage(
-                "Must cast lhs to float, but it is not constant.");
-          }
+          lhs = builder.create<mlir::SIToFPOp>(location, lhs, rhs.getType());
+
         } else if (!rhs.getType().isa<mlir::FloatType>()) {
-          if (auto op = rhs.getDefiningOp<mlir::ConstantOp>()) {
-            auto value = op.getValue()
-                             .cast<mlir::IntegerAttr>()
-                             .getValue()
-                             .getLimitedValue();
-            rhs = builder.create<mlir::ConstantOp>(
-                location, mlir::FloatAttr::get(lhs.getType(), (double)value));
-          } else {
-            printErrorMessage(
-                "Must cast rhs to float, but it is not constant.");
-          }
+          rhs = builder.create<mlir::SIToFPOp>(location, rhs, lhs.getType());
         }
+
+        // if (!lhs.getType().isa<mlir::FloatType>()) {
+        //   if (auto op = lhs.getDefiningOp<mlir::ConstantOp>()) {
+        //     auto value = op.getValue()
+        //                      .cast<mlir::IntegerAttr>()
+        //                      .getValue()
+        //                      .getLimitedValue();
+        //     lhs = builder.create<mlir::ConstantOp>(
+        //         location, mlir::FloatAttr::get(rhs.getType(),
+        //         (double)value));
+        //   } else {
+        //     printErrorMessage(
+        //         "Must cast lhs to float, but it is not constant.");
+        //   }
+        // } else if (!rhs.getType().isa<mlir::FloatType>()) {
+        //   if (auto op = rhs.getDefiningOp<mlir::ConstantOp>()) {
+        //     auto value = op.getValue()
+        //                      .cast<mlir::IntegerAttr>()
+        //                      .getValue()
+        //                      .getLimitedValue();
+        //     rhs = builder.create<mlir::ConstantOp>(
+        //         location, mlir::FloatAttr::get(lhs.getType(),
+        //         (double)value));
+        //   } else {
+        //     printErrorMessage(
+        //         "Must cast rhs to float, but it is not constant.", ctx, {lhs,
+        //         rhs});
+        //   }
+        // }
 
         createOp<mlir::DivFOp>(location, lhs, rhs);
       } else if (lhs.getType().isa<mlir::IntegerType>() &&

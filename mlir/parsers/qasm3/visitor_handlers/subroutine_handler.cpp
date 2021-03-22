@@ -157,13 +157,12 @@ antlrcpp::Any qasm3_visitor::visitSubroutineDefinition(
       if (single_desig->getText() == "float") {
         auto bit_width = symbol_table.evaluate_constant_integer_expression(
             classical_type->designator()->getText());
-        llvm::ArrayRef<int64_t> shape{};
         if (bit_width == 16) {
-          return_type = mlir::MemRefType::get(shape, builder.getF16Type());
+          return_type = builder.getF16Type();
         } else if (bit_width == 32) {
-          return_type = mlir::MemRefType::get(shape, builder.getF32Type());
+          return_type = builder.getF32Type();
         } else if (bit_width == 64) {
-          return_type = mlir::MemRefType::get(shape, builder.getF64Type());
+          return_type = builder.getF64Type();
         } else {
           printErrorMessage(
               "on subroutine return type - we only support 16, 32, or 64 width "
@@ -173,9 +172,7 @@ antlrcpp::Any qasm3_visitor::visitSubroutineDefinition(
       } else if (single_desig->getText() == "int") {
         auto bit_width = symbol_table.evaluate_constant_integer_expression(
             classical_type->designator()->getText());
-        llvm::ArrayRef<int64_t> shape{};
         return_type = builder.getIntegerType(bit_width);
-        // mlir::MemRefType::get(shape, builder.getIntegerType(bit_width));
       } else {
         printErrorMessage(
             "we do not yet support this subroutine single designator return "
