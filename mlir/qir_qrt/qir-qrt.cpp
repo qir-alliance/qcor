@@ -333,7 +333,7 @@ void __quantum__rt__end_ctrl_u_region(Qubit * ctrl_qbit) {
       std::make_pair("control-idx", ctrlIdx),
   });
 
-  std::cout << "Running Ctrl on " << ctrlIdx << ":\n" << ctrlKernel->toString() << "\n";
+  // std::cout << "Running Ctrl on " << ctrlIdx << ":\n" << ctrlKernel->toString() << "\n";
   for (int instId = 0; instId < ctrlKernel->nInstructions(); ++instId) {
     ::quantum::qrt_impl->general_instruction(
         ctrlKernel->getInstruction(instId));

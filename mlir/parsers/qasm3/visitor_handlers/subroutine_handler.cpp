@@ -88,7 +88,7 @@ antlrcpp::Any qasm3_visitor::visitSubroutineDefinition(
         llvm::ArrayRef<int64_t> shaperef{};
         mlir_type =
             mlir::MemRefType::get(shaperef, builder.getIntegerType(bit_size));
-        argument_types.push_back(builder.getIntegerType(bit_size));
+        argument_types.push_back(mlir_type);
       } else if (type.find("float") != std::string::npos) {
         auto start = type.find_first_of("[");
         auto finish = type.find_first_of("]");
