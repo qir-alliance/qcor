@@ -40,7 +40,7 @@ LogicalResult StartPowURegionOpLowering::matchAndRewrite(
       return SymbolRefAttr::get(qir_start_func, context);
     } else {
       
-      // prototype should be () -> void :
+      // prototype should be (int64_t) -> void :
 
       auto void_type = LLVM::LLVMVoidType::get(context);
 
@@ -93,16 +93,16 @@ LogicalResult EndPowURegionOpLowering::matchAndRewrite(
   }();
 
   // Get the power
-  auto endpow = cast<mlir::quantum::EndPowURegion>(op);
-  auto pow = endpow.pow();
+  // auto endpow = cast<mlir::quantum::EndPowURegion>(op);
+  // auto pow = endpow.pow();
 
-  Value create_pow_int = rewriter.create<LLVM::ConstantOp>(
-      location, IntegerType::get(rewriter.getContext(), 64),
-      rewriter.getIntegerAttr(rewriter.getI64Type(), pow));
+  // Value create_pow_int = rewriter.create<LLVM::ConstantOp>(
+  //     location, IntegerType::get(rewriter.getContext(), 64),
+  //     rewriter.getIntegerAttr(rewriter.getI64Type(), pow));
 
   rewriter.create<mlir::CallOp>(
       location, qir_get_fn_ptr, LLVM::LLVMVoidType::get(context),
-      llvm::makeArrayRef(std::vector<mlir::Value>{create_pow_int}));
+      operands);
 
   rewriter.eraseOp(op);
 

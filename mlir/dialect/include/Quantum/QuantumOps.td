@@ -73,7 +73,7 @@ def StartPowURegion : QuantumOp<"start_pow_u_region", []> {
 }
 
 def EndPowURegion : QuantumOp<"end_pow_u_region", []> {
-  let arguments = (ins AnyI64Attr:$pow);
+  let arguments = (ins AnyI64:$pow);
   let results = (outs);
 }
 

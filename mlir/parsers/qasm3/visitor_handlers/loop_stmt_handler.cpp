@@ -133,7 +133,7 @@ antlrcpp::Any qasm3_visitor::visitLoopStatement(
       //     rangeDefinition
       // : LBRACKET expression? COLON expression? ( COLON expression )? RBRACKET
       // ;
-     
+
       auto range_str =
           range->getText().substr(1, range->getText().length() - 2);
       auto range_elements = split(range_str, ':');
@@ -214,19 +214,27 @@ antlrcpp::Any qasm3_visitor::visitLoopStatement(
         }
 
       } else {
-        if (symbol_table.has_symbol(range->expression(1)->getText())) {
-          b_value = symbol_table.get_symbol(range->expression(1)->getText());
-          b_value = builder.create<mlir::LoadOp>(location, b_value);
-          if (b_value.getType() != int_type) {
-            printErrorMessage("For loop a, b, and c types are not equal.",
-                              context, {a_value, b_value});
+        // if (symbol_table.has_symbol(range->expression(1)->getText())) {
+        //   b_value = symbol_table.get_symbol(range->expression(1)->getText());
+        //   b_value = builder.create<mlir::LoadOp>(location, b_value);
+        //   if (b_value.getType() != int_type) {
+        //     printErrorMessage("For loop a, b, and c types are not equal.",
+        //                       context, {a_value, b_value});
+        //   }
+        // } else {
+          qasm3_expression_generator exp_generator(builder, symbol_table,
+                                                   file_name);
+          exp_generator.visit(range->expression(1));
+          b_value = exp_generator.current_value;
+          if (b_value.getType().isa<mlir::MemRefType>()) {
+            b_value = builder.create<mlir::LoadOp>(location, b_value);
           }
-        } else {
-          b = symbol_table.evaluate_constant_integer_expression(
-              range->expression(1)->getText());
-          b_value = get_or_create_constant_integer_value(
-              b, location, a_value.getType(), symbol_table, builder);
-        }
+
+          // b = symbol_table.evaluate_constant_integer_expression(
+          //     range->expression(1)->getText());
+          // b_value = get_or_create_constant_integer_value(
+          //     b, location, a_value.getType(), symbol_table, builder);
+        // }
       }
 
       // Create a new scope for the for loop

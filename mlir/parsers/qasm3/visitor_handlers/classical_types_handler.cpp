@@ -678,9 +678,9 @@ antlrcpp::Any qasm3_visitor::visitClassicalAssignment(
   } else if (assignment_op == "^=") {
     current_value =
         builder.create<mlir::XOrOp>(location, load_result, load_result_rhs);
-    llvm::ArrayRef<mlir::Value> zero_index2(get_or_create_constant_index_value(
-        0, location, 64, symbol_table, builder));
-    builder.create<mlir::StoreOp>(location, current_value, lhs, zero_index2);
+    // llvm::ArrayRef<mlir::Value> zero_index2(get_or_create_constant_index_value(
+        // 0, location, 64, symbol_table, builder));
+    builder.create<mlir::StoreOp>(location, current_value, lhs);//, zero_index2);
   } else if (assignment_op == "=") {
     // FIXME This assumes we have a memref<1x??> = memref<1x??>
     // what if we have multiple elements in the memref???

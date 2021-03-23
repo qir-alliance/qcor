@@ -32,7 +32,9 @@ void __quantum__rt__finalize();
 void __quantum__rt__set_external_qreg(qreg* q);
 
 // QIS API (i.e. quantum instructions)
+void __quantum__qis__swap(Qubit* src, Qubit* tgt);
 void __quantum__qis__cnot(Qubit* src, Qubit* tgt);
+void __quantum__qis__cphase(double x, Qubit* src, Qubit* tgt);
 void __quantum__qis__h(Qubit* q);
 void __quantum__qis__s(Qubit* q);
 void __quantum__qis__sdg(Qubit* q);

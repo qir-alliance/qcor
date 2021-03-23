@@ -22,7 +22,9 @@ template <typename T>
 bool ptr_is_a(std::shared_ptr<Observable> ptr) {
   return std::dynamic_pointer_cast<T>(ptr) != nullptr;
 }
-class NISQ : public ::quantum::QuantumRuntime {//}, xacc::Cloneable<::quantum::QuantumRuntime> {
+class NISQ : public ::quantum::QuantumRuntime,
+             // Cloneable for use in qir-qrt ctrl, pow, adj regions.
+             public xacc::Cloneable<::quantum::QuantumRuntime> {
  protected:
   std::shared_ptr<xacc::CompositeInstruction> program;
   std::shared_ptr<xacc::IRProvider> provider;
@@ -35,14 +37,9 @@ class NISQ : public ::quantum::QuantumRuntime {//}, xacc::Cloneable<::quantum::Q
     for (int i = 0; i < parameters.size(); i++) {
       inst->setParameter(i, parameters[i]);
     }
-    // Not in a controlled-block
-    // if (xacc::internal_compiler::__controlledIdx.empty()) {
-    // Add the instruction
+
     program->addInstruction(inst);
-    // } else {
-    //   // In a controlled block:
-    //   add_controlled_inst(inst, __controlledIdx[0]);
-    // }
+
   }
 
   void two_qubit_inst(const std::string &name, const qubit &qidx1,
@@ -53,16 +50,16 @@ class NISQ : public ::quantum::QuantumRuntime {//}, xacc::Cloneable<::quantum::Q
     for (int i = 0; i < parameters.size(); i++) {
       inst->setParameter(i, parameters[i]);
     }
-    // Not in a controlled-block
-    // if (xacc::internal_compiler::__controlledIdx.empty()) {
+
     program->addInstruction(inst);
-    // } else {
-    //   // In a controlled block:
-    //   add_controlled_inst(inst, __controlledIdx[0]);
-    // }
+  
   }
 
  public:
+  std::shared_ptr<::quantum::QuantumRuntime> clone() override {
+    return std::make_shared<NISQ>();
+  }
+
   void initialize(const std::string kernel_name) override {
     provider = xacc::getIRProvider("quantum");
     program = provider->createComposite(kernel_name);
@@ -160,7 +157,9 @@ class NISQ : public ::quantum::QuantumRuntime {//}, xacc::Cloneable<::quantum::Q
               inst->bits()[1]},
           params);
     } else {
-      xacc::error("Nisq quantum runtime general_instruction can only take 1 and 2 qubit operations.");
+      xacc::error(
+          "Nisq quantum runtime general_instruction can only take 1 and 2 "
+          "qubit operations.");
     }
     return;
   }

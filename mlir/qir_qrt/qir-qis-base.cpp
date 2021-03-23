@@ -16,6 +16,22 @@ void __quantum__qis__cnot(Qubit *src, Qubit *tgt) {
   ::quantum::cnot({"q", src_copy}, {"q", tgt_copy});
 }
 
+void __quantum__qis__swap(Qubit *src, Qubit *tgt) {
+  std::size_t src_copy = src->id;
+  std::size_t tgt_copy = tgt->id;
+  if (verbose)
+    printf("[qir-qrt] Applying Swap %lu, %lu\n", src_copy, tgt_copy);
+  ::quantum::swap({"q", src_copy}, {"q", tgt_copy});
+}
+
+void __quantum__qis__cphase(double x, Qubit *src, Qubit *tgt) {
+  std::size_t src_copy = src->id;
+  std::size_t tgt_copy = tgt->id;
+  if (verbose)
+    printf("[qir-qrt] Applying CPhase %lu, %lu\n", src_copy, tgt_copy);
+  ::quantum::cphase({"q", src_copy}, {"q", tgt_copy}, x);
+}
+
 void __quantum__qis__h(Qubit *q) {
   std::size_t qcopy = q->id;
   if (verbose)

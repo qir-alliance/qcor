@@ -96,9 +96,12 @@ InstOpLowering::matchAndRewrite(Operation *op, ArrayRef<Value> operands,
   // double parameters first if we have them...
   std::vector<mlir::Value> func_args;
 
-  auto n_params = instOp.params().size();
   auto n_qbits = instOp.qubits().size();
-  for (int i = n_params + n_qbits - 1; i >= 0; i--) {
+  // Add the parameters first
+  for (size_t i = n_qbits; i < operands.size(); i++) {
+    func_args.push_back(operands[i]);
+  }
+  for (size_t i = 0; i < n_qbits; i++) {
     func_args.push_back(operands[i]);
   }
 
