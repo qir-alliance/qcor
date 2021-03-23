@@ -47,6 +47,36 @@ def ArrayConcatOp : QuantumOp<"qarray_concat", []> {
     let results = (outs ArrayType:$concat_array);
 }
 
+def StartCtrlURegion : QuantumOp<"start_ctrl_u_region", []> {
+  let arguments = (ins);
+  let results = (outs);
+}
+
+def EndCtrlURegion : QuantumOp<"end_ctrl_u_region", []> {
+  let arguments = (ins QubitType:$ctrl_qubit);
+  let results = (outs);
+}
+
+def StartAdjointURegion : QuantumOp<"start_adj_u_region", []> {
+  let arguments = (ins);
+  let results = (outs);
+}
+
+def EndAdjointURegion : QuantumOp<"end_adj_u_region", []> {
+  let arguments = (ins);
+  let results = (outs);
+}
+
+def StartPowURegion : QuantumOp<"start_pow_u_region", []> {
+  let arguments = (ins);
+  let results = (outs);
+}
+
+def EndPowURegion : QuantumOp<"end_pow_u_region", []> {
+  let arguments = (ins AnyI64Attr:$pow);
+  let results = (outs);
+}
+
 def InstOp : QuantumOp<"inst", [AttrSizedOperandSegments]> {
     let arguments = (ins StrAttr:$name, Variadic<QubitType>:$qubits, Variadic<F64>:$params);
     let results = (outs Optional<ResultType>:$bit);

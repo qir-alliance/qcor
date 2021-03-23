@@ -63,6 +63,8 @@ public:
   virtual void exp(qreg q, const double theta,
                    std::shared_ptr<xacc::Observable> H) = 0;
 
+  virtual void general_instruction(std::shared_ptr<xacc::Instruction> inst) = 0;
+
   // Submission API. Submit the constructed CompositeInstruction operating
   // on the provided AcceleratorBuffer(s) (note qreg wraps an AcceleratorBuffer)
   virtual void submit(xacc::AcceleratorBuffer *buffer) = 0;

@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <vector>
+#include <stack>
 #include "qalloc.hpp"
 #include "qir-types.hpp"
 
@@ -55,6 +56,13 @@ void __quantum__rt__result_update_reference_count(Result *, int64_t count);
 // Qubit Alloc/Dealloc API
 Array* __quantum__rt__qubit_allocate_array(uint64_t idx);
 void __quantum__rt__qubit_release_array(Array* q);
+
+void __quantum__rt__start_ctrl_u_region();
+void __quantum__rt__end_ctrl_u_region(Qubit * ctrl_qubit);
+void __quantum__rt__start_adj_u_region();
+void __quantum__rt__end_adj_u_region();
+void __quantum__rt__start_pow_u_region();
+void __quantum__rt__end_pow_u_region(int64_t power);
 
 // Array API
 // Create an array

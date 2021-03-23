@@ -23,6 +23,9 @@ std::string qpu_name = "qpp";
 std::string qpu_config = "";
 QRT_MODE mode = QRT_MODE::FTQC;
 std::vector<std::unique_ptr<Array>> allocated_arrays;
+std::stack<std::shared_ptr<xacc::CompositeInstruction>> internal_xacc_ir;
+std::stack<std::shared_ptr<::quantum::QuantumRuntime>> internal_runtimes;
+
 int shots = 0;
 bool verbose = false;
 bool external_qreg_provided = false;
@@ -46,8 +49,8 @@ void print_help() {
   exit(0);
 }
 
-void __quantum__rt__initialize(int argc, int8_t** argv) {
-  char** casted = reinterpret_cast<char**>(argv);
+void __quantum__rt__initialize(int argc, int8_t **argv) {
+  char **casted = reinterpret_cast<char **>(argv);
   std::vector<std::string> args(casted, casted + argc);
 
   mode = QRT_MODE::FTQC;
@@ -138,22 +141,24 @@ void initialize() {
         xacc::internal_compiler::__qrt_env);
     ::quantum::qrt_impl->initialize("empty");
     initialized = true;
+
+    // Save the original runtime by pushing it on 
+    // the stack, we'll always at least have this one
+    internal_runtimes.push(::quantum::qrt_impl);
   }
 }
 
-void __quantum__rt__set_external_qreg(qreg* q) {
+void __quantum__rt__set_external_qreg(qreg *q) {
   global_qreg = xacc::as_shared_ptr(q->results());
   external_qreg_provided = true;
 }
 
-
-
-Array* __quantum__rt__qubit_allocate_array(uint64_t size) {
+Array *__quantum__rt__qubit_allocate_array(uint64_t size) {
   if (verbose) printf("[qir-qrt] Allocating qubit array of size %lu.\n", size);
 
   auto new_array = std::make_unique<Array>(size);
   for (uint64_t i = 0; i < size; i++) {
-    auto qubit = Qubit::allocate(); 
+    auto qubit = Qubit::allocate();
     int8_t *arrayPtr = (*new_array)[i];
     // Sequence: Cast to arrayPtr to Qubit**
     auto qubitPtr = reinterpret_cast<Qubit **>(arrayPtr);
@@ -174,16 +179,177 @@ Array* __quantum__rt__qubit_allocate_array(uint64_t size) {
   return raw_ptr;
 }
 
-int8_t* __quantum__rt__array_get_element_ptr_1d(Array* q, uint64_t idx) {
+void __quantum__rt__start_pow_u_region() {
+  // Create a new NISQ based runtime so that we can
+  // queue up instructions and get them as a CompositeInstruction
+  auto tmp_runtime = xacc::getService<::quantum::QuantumRuntime>("nisq");
+  tmp_runtime->initialize("empty");
+
+  // Add the new tmp runtime to the stack
+  internal_runtimes.push(tmp_runtime);
+
+  // Set the current runtime to the new tmp one
+  ::quantum::qrt_impl = tmp_runtime;
+
+  // Now all subsequent qrt calls will queue to our
+  // temp created runtime, until we hit end_pow_u_region
+  return;
+}
+
+void __quantum__rt__end_pow_u_region(int64_t power) {
+  // Get the temp runtime created by start_pow_u_region.
+  auto runtime = internal_runtimes.top();
+  // Get the program we built up
+  auto program = runtime->get_current_program();
+  // Remove the tmp runtime
+  internal_runtimes.pop();
+
+  // Set the quantum runtime to the one before this
+  // temp one we just popped off
+  ::quantum::qrt_impl = internal_runtimes.top();
+
+  // Now apply the U region to the given power, U^power
+  for (int64_t i = 0; i < power; i++) {
+    for (auto inst : program->getInstructions()) {
+      ::quantum::qrt_impl->general_instruction(inst);
+    }
+  }
+
+  return;
+}
+
+void __quantum__rt__start_adj_u_region() {
+  // Create a new NISQ based runtime so that we can
+  // queue up instructions and get them as a CompositeInstruction
+  auto tmp_runtime = xacc::getService<::quantum::QuantumRuntime>("nisq");
+  tmp_runtime->initialize("empty");
+
+  // Add the new tmp runtime to the stack
+  internal_runtimes.push(tmp_runtime);
+
+  // Set the current runtime to the new tmp one
+  ::quantum::qrt_impl = tmp_runtime;
+
+  // Now all subsequent qrt calls will queue to our
+  // temp created runtime, until we hit end_adj_u_region
+  return;
+}
+
+void __quantum__rt__end_adj_u_region() {
+  // Get the temp runtime created by start_adj_u_region.
+  auto runtime = internal_runtimes.top();
+  // Get the program we built up
+  auto program = runtime->get_current_program();
+  // Remove the tmp runtime
+  internal_runtimes.pop();
+
+  // Set the quantum runtime to the one before this
+  // temp one we just popped off
+  ::quantum::qrt_impl = internal_runtimes.top();
+
+  // get the instructions
+  auto instructions = program->getInstructions();
+
+  // Assert that we don't have measurement
+  if (!std::all_of(
+          instructions.cbegin(), instructions.cend(),
+          [](const auto &inst) { return inst->name() != "Measure"; })) {
+    xacc::error(
+        "Unable to create Adjoint for kernels that have Measure operations.");
+  }
+
+  auto provider = xacc::getIRProvider("quantum");
+  for (std::size_t i = 0; i < instructions.size(); i++) {
+    auto inst = program->getInstruction(i);
+    // Parametric gates:
+    if (inst->name() == "Rx" || inst->name() == "Ry" || inst->name() == "Rz" ||
+        inst->name() == "CPHASE" || inst->name() == "U1" ||
+        inst->name() == "CRZ") {
+      inst->setParameter(0, -inst->getParameter(0).template as<double>());
+    }
+    // Handle U3
+    if (inst->name() == "U") {
+      inst->setParameter(0, -inst->getParameter(0).template as<double>());
+      inst->setParameter(1, -inst->getParameter(1).template as<double>());
+      inst->setParameter(2, -inst->getParameter(2).template as<double>());
+
+    }
+    // Handles T and S gates, etc... => T -> Tdg
+    else if (inst->name() == "T") {
+      auto tdg = provider->createInstruction("Tdg", inst->bits());
+      program->replaceInstruction(i, tdg);
+    } else if (inst->name() == "S") {
+      auto sdg = provider->createInstruction("Sdg", inst->bits());
+      program->replaceInstruction(i, sdg);
+    }
+  }
+
+  // We update/replace instructions in the derived.parent_kernel composite,
+  // hence collecting these new instructions and reversing the sequence.
+  auto new_instructions = program->getInstructions();
+  std::reverse(new_instructions.begin(), new_instructions.end());
+
+  for (auto inst : new_instructions) {
+    ::quantum::qrt_impl->general_instruction(inst);
+  }
+
+  return;
+}
+
+void __quantum__rt__start_ctrl_u_region() {
+  // Create a new NISQ based runtime so that we can
+  // queue up instructions and get them as a CompositeInstruction
+  auto tmp_runtime = xacc::getService<::quantum::QuantumRuntime>("nisq");
+  tmp_runtime->initialize("empty");
+
+  // Add the new tmp runtime to the stack
+  internal_runtimes.push(tmp_runtime);
+
+  // Set the current runtime to the new tmp one
+  ::quantum::qrt_impl = tmp_runtime;
+
+  // Now all subsequent qrt calls will queue to our
+  // temp created runtime, until we hit end_ctrl_u_region
+  return;
+}
+
+void __quantum__rt__end_ctrl_u_region(Qubit * ctrl_qbit) {
+  // Get the temp runtime created by start_adj_u_region.
+  auto runtime = internal_runtimes.top();
+  // Get the program we built up
+  auto program = runtime->get_current_program();
+  // Remove the tmp runtime
+  internal_runtimes.pop();
+
+  // Set the quantum runtime to the one before this
+  // temp one we just popped off
+  ::quantum::qrt_impl = internal_runtimes.top();
+ 
+  int ctrlIdx = ctrl_qbit->id;
+  auto ctrlKernel = std::dynamic_pointer_cast<xacc::CompositeInstruction>(
+      xacc::getService<xacc::Instruction>("C-U"));
+  ctrlKernel->expand({
+      std::make_pair("U", program),
+      std::make_pair("control-idx", ctrlIdx),
+  });
+
+  // std::cout << "HELLO\n" << ctrlKernel->toString() << "\n";
+  for (int instId = 0; instId < ctrlKernel->nInstructions(); ++instId) {
+    ::quantum::qrt_impl->general_instruction(
+        ctrlKernel->getInstruction(instId));
+  }
+  return;
+}
+
+int8_t *__quantum__rt__array_get_element_ptr_1d(Array *q, uint64_t idx) {
   Array &arr = *q;
   int8_t *ptr = arr[idx];
   // Don't deref the underlying type since we don't know what it points to.
-  if (verbose)
-    printf("[qir-qrt] Returning array element at idx=%lu.\n", idx);
+  if (verbose) printf("[qir-qrt] Returning array element at idx=%lu.\n", idx);
   return ptr;
 }
 
-void __quantum__rt__qubit_release_array(Array* q) {
+void __quantum__rt__qubit_release_array(Array *q) {
   // Note: calling qubit_release_array means the Qubits
   // are permanently deallocated.
   // Shallow references (e.g. in array slices) could become dangling if not
@@ -193,7 +359,7 @@ void __quantum__rt__qubit_release_array(Array* q) {
   // => the backend won't apply any further instructions on these.
   for (std::size_t i = 0; i < allocated_arrays.size(); i++) {
     if (allocated_arrays[i].get() == q) {
-      auto& array_ptr = allocated_arrays[i];
+      auto &array_ptr = allocated_arrays[i];
       auto array_size = array_ptr->size();
       if (verbose && mode == QRT_MODE::FTQC)
         printf("[qir-qrt] deallocating the qubit array of size %lu\n",

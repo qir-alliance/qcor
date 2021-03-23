@@ -170,6 +170,20 @@ antlrcpp::Any qasm3_visitor::visitQuantumGateCall(
     name = "u3";
   }
 
+  std::vector<qasm3Parser::QuantumGateModifierContext*> modifiers;
+  if (context->quantumGateName()->quantumGateModifier()) {
+    auto qgn = context->quantumGateName();
+    while (auto qgm = qgn->quantumGateModifier()) {
+      modifiers.push_back(qgm);
+      qgn = qgn->quantumGateName();
+    }
+  }
+
+  for (auto m : modifiers) {
+    auto pos = name.find(m->getText());
+    name.erase(pos, m->getText().length());
+  }
+
   std::vector<mlir::Value> qbit_values, param_values;
 
   if (auto expression_list = context->expressionList()) {
@@ -248,9 +262,48 @@ antlrcpp::Any qasm3_visitor::visitQuantumGateCall(
       qbit_values.push_back(qbit);
     }
   }
+  
+  bool has_ctrl = false;
+  enum EndAction { EndCtrlU, EndAdjU, EndPowU };
+  std::stack<std::pair<EndAction, int64_t>> action_and_extrainfo;
+  for (auto m : modifiers) {
+    if (m->getText().find("pow") != std::string::npos) {
+      builder.create<mlir::quantum::StartPowURegion>(location);
+      auto power = symbol_table.evaluate_constant_integer_expression(
+          m->expression()->getText());
+      action_and_extrainfo.emplace(std::make_pair(EndAction::EndPowU, power));
+    } else if (m->getText().find("inv") != std::string::npos) {
+      builder.create<mlir::quantum::StartAdjointURegion>(location);
+      action_and_extrainfo.emplace(std::make_pair(EndAction::EndAdjU, 0));
+    } else if (m->getText().find("ctrl") != std::string::npos) {
+      has_ctrl = true;
+      builder.create<mlir::quantum::StartCtrlURegion>(location);
+      action_and_extrainfo.emplace(std::make_pair(EndAction::EndCtrlU, 0));
+    }
+  }
+
+  // Potentially get the ctrl qubit
+  mlir::Value ctrl_bit;
+  if (has_ctrl) {
+    ctrl_bit = *qbit_values.begin();
+    qbit_values.erase(qbit_values.begin());
+  }
 
   createInstOps_HandleBroadcast(name, qbit_values, qreg_names, param_values,
                                 location, context);
+
+  while (!action_and_extrainfo.empty()) {
+    auto top = action_and_extrainfo.top();
+    if (top.first == EndAction::EndPowU) {
+      auto pow_attr = mlir::IntegerAttr::get(builder.getI64Type(), top.second);
+      builder.create<mlir::quantum::EndPowURegion>(location, pow_attr);
+    } else if (top.first == EndAction::EndAdjU) {
+      builder.create<mlir::quantum::EndAdjointURegion>(location);
+    } else if (top.first == EndAction::EndCtrlU) {
+      builder.create<mlir::quantum::EndCtrlURegion>(location, ctrl_bit);
+    }
+    action_and_extrainfo.pop();
+  }
 
   return 0;
 }

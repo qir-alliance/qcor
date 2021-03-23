@@ -247,7 +247,7 @@ quantumBarrier
     ;
 
 quantumGateModifier
-    : ( 'inv' | 'pow' LBRACKET expression RBRACKET | 'ctrl' ) '@'
+    : ( 'inv' | 'pow' LPAREN expression RPAREN | 'ctrl' ) '@'
     ;
 
 quantumGateCall

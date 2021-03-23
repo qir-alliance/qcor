@@ -35,6 +35,8 @@ antlrcpp::Any qasm3_expression_generator::visitTerminal(
     indexed_variable_value = current_value;
     if (casting_indexed_integer_to_bool) {
       internal_value_type = builder.getIndexType();
+    } else if (indexed_variable_value.getType().isa<mlir::MemRefType>()) {
+      internal_value_type = builder.getIndexType();
     }
   } else if (node->getSymbol()->getText() == "]") {
     if (casting_indexed_integer_to_bool) {
@@ -66,10 +68,7 @@ antlrcpp::Any qasm3_expression_generator::visitTerminal(
                                              builder));
       auto shift = builder.create<mlir::UnsignedShiftRightOp>(
           location, load_value, casted_idx);
-      // auto shift_load_value = builder.create<mlir::LoadOp>(
-      //     location, shift,
-      //     get_or_create_constant_index_value(0, location, 64, symbol_table,
-      //                                        builder));
+      
       auto old_int_type = internal_value_type;
       internal_value_type = indexed_variable_value.getType();
       auto and_value = builder.create<mlir::AndOp>(

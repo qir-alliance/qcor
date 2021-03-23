@@ -70,8 +70,18 @@ add_test(NAME qcor_qasm3_test_superposition COMMAND qasm3CompilerTester_Superpos
 target_include_directories(qasm3CompilerTester_Superposition PRIVATE . ../../ ${XACC_ROOT}/include/gtest)
 target_link_libraries(qasm3CompilerTester_Superposition qcor-mlir-api gtest gtest_main)
 
+add_executable(qasm3CompilerTester_Modifiers test_modifiers.cpp)
+add_test(NAME qcor_qasm3_test_modifiers COMMAND qasm3CompilerTester_Modifiers)
+target_include_directories(qasm3CompilerTester_Modifiers PRIVATE . ../../ ${XACC_ROOT}/include/gtest)
+target_link_libraries(qasm3CompilerTester_Modifiers qcor-mlir-api gtest gtest_main)
+
 
 add_executable(qasm3CompilerTester_DefaultTypes test_default_designators.cpp)
 add_test(NAME qcor_qasm3_test_default_types COMMAND qasm3CompilerTester_DefaultTypes)
 target_include_directories(qasm3CompilerTester_DefaultTypes PRIVATE . ../../ ${XACC_ROOT}/include/gtest)
 target_link_libraries(qasm3CompilerTester_DefaultTypes qcor-mlir-api gtest gtest_main)
+
+add_executable(qasm3CompilerTester_Bell test_bell.cpp)
+add_test(NAME qcor_qasm3_test_bell COMMAND qasm3CompilerTester_Bell)
+target_include_directories(qasm3CompilerTester_Bell PRIVATE . ../../ ${XACC_ROOT}/include/gtest)
+target_link_libraries(qasm3CompilerTester_Bell qcor-mlir-api gtest gtest_main)
