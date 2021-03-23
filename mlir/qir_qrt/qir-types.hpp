@@ -87,19 +87,21 @@ struct Range {
 
 using TuplePtr = int8_t *;
 struct TupleHeader {
-  // Opaque/generic storage
-  using Storage = std::vector<int8_t>;
-  TuplePtr getTuple() { return &m_storage.front(); }
-  static TupleHeader *create(int size) { return new TupleHeader(size); }
-  static TupleHeader *getHeader(TuplePtr tuple) {
-    // Get the TupleHeader wrapper
-    return reinterpret_cast<TupleHeader *>(tuple -
-                                        offsetof(TupleHeader, m_storage));
+  // Tuple data
+  int32_t m_tupleSize; 
+  int8_t m_data[];
+  
+  TuplePtr getTuple() { return m_data; }
+  size_t tupleSize() const { return m_tupleSize; }
+  static TupleHeader *create(int size) {
+    int8_t *buffer = new int8_t[sizeof(TupleHeader) + size];
+    TupleHeader *th = reinterpret_cast<TupleHeader *>(buffer);
+    th->m_tupleSize = size;
+    return th;
   }
-
-private:
-  TupleHeader(int size) : m_storage(size, 0){};
-  Storage m_storage;
+  static TupleHeader *getHeader(TuplePtr tuple) {
+    return reinterpret_cast<TupleHeader *>(tuple - offsetof(TupleHeader, m_data));
+  }
 };
 
 // Callable:

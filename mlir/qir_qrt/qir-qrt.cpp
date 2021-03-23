@@ -240,6 +240,9 @@ bool __quantum__rt__result_equal(Result *res, Result *comp) {
   return false;
 }
 
+Result* __quantum__rt__result_get_one() { return ResultOne; }
+Result* __quantum__rt__result_get_zero() { return ResultZero;}
+
 void __quantum__rt__string_update_reference_count(void *str, int64_t count) {
   // TODO
   if (verbose) std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";

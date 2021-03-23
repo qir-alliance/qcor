@@ -51,6 +51,9 @@ Result* __quantum__qis__mz(Qubit* q);
 // Compare results.
 bool __quantum__rt__result_equal(Result *res, Result *comp);
 void __quantum__rt__result_update_reference_count(Result *, int64_t count);
+// Get reference Result.
+Result* __quantum__rt__result_get_one();
+Result* __quantum__rt__result_get_zero();
 
 // Qubit Alloc/Dealloc API
 Array* __quantum__rt__qubit_allocate_array(uint64_t idx);
