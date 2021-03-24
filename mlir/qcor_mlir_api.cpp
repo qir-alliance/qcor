@@ -110,7 +110,7 @@ int execute(const std::string &src_language_type, const std::string &src,
   mlir::MLIRContext context;
   context.loadDialect<mlir::quantum::QuantumDialect, mlir::StandardOpsDialect,
                       mlir::scf::SCFDialect, mlir::AffineDialect>();
-  
+
   std::vector<std::string> unique_function_names;
 
   std::shared_ptr<QuantumMLIRGenerator> mlir_generator;
@@ -129,26 +129,25 @@ int execute(const std::string &src_language_type, const std::string &src,
   unique_function_names = mlir_generator->seen_function_names();
   auto module = mlir_generator->get_module();
 
-DiagnosticEngine& engine = context.getDiagEngine();
 
-/// Handle the reported diagnostic.
+  // Handle the reported diagnostic.
   // Return success to signal that the diagnostic has either been fully
   // processed, or failure if the diagnostic should be propagated to the
   // previous handlers.
-  DiagnosticEngine::HandlerID id =
-      engine.registerHandler([&](Diagnostic &diag) -> LogicalResult {
-        std::cout << "Dumping Module after error.\n";
-        module->dump();
-        for (auto &n : diag.getNotes()) {
-          std::string s;
-          llvm::raw_string_ostream os(s);
-          n.print(os);
-          os.flush();
-          std::cout << "DiagnosticEngine Note: " << s << "\n";
-        }
-        bool should_propagate_diagnostic = true;
-        return failure(should_propagate_diagnostic);
-      });
+  DiagnosticEngine &engine = context.getDiagEngine();
+  engine.registerHandler([&](Diagnostic &diag) -> LogicalResult {
+    std::cout << "Dumping Module after error.\n";
+    module->dump();
+    for (auto &n : diag.getNotes()) {
+      std::string s;
+      llvm::raw_string_ostream os(s);
+      n.print(os);
+      os.flush();
+      std::cout << "DiagnosticEngine Note: " << s << "\n";
+    }
+    bool should_propagate_diagnostic = true;
+    return failure(should_propagate_diagnostic);
+  });
 
   // Create the PassManager for lowering to LLVM MLIR and run it
   mlir::PassManager pm(&context);
@@ -182,7 +181,10 @@ DiagnosticEngine& engine = context.getDiagEngine();
   jit.jit_compile(std::move(llvmModule),
                   std::vector<std::string>{std::string(QCOR_INSTALL_DIR) +
                                            std::string("/lib/libqir-qrt") +
-                                           std::string(QCOR_LIB_SUFFIX)});
+                                           std::string(QCOR_LIB_SUFFIX)
+                                           , "/usr/local/aideqc/llvm/lib/libLLVMAnalysis.so",
+                                           "/usr/local/aideqc/llvm/lib/libLLVMInstrumentation.so",
+                                           "/usr/local/aideqc/llvm/lib/libLLVMX86CodeGen.so"});
 
   std::vector<std::string> argv;
   std::vector<char *> cstrs;

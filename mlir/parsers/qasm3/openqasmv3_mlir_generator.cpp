@@ -155,7 +155,6 @@ void OpenQasmV3MLIRGenerator::finalize_mlirgen() {
 
       builder.setInsertionPointToEnd(b);
     } else {
-      //   std::cout << "CURRENT BLOCK WAS NULL\n";
       builder.setInsertionPointToEnd(main_entry_block);
     }
 

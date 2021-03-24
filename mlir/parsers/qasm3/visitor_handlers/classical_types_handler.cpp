@@ -58,6 +58,7 @@ namespace qcor {
 antlrcpp::Any qasm3_visitor::visitConstantDeclaration(
     qasm3Parser::ConstantDeclarationContext* context) {
   auto ass_list = context->equalsAssignmentList();
+  auto location = get_location(builder, file_name, context);
 
   for (int i = 0; i < ass_list->Identifier().size(); i++) {
     auto var_name = ass_list->Identifier(i)->getText();
@@ -66,11 +67,15 @@ antlrcpp::Any qasm3_visitor::visitConstantDeclaration(
     }
     auto equals_expr = ass_list->equalsExpression(i);
 
+    mlir::OpBuilder tmp_builder(builder.getContext());
     qasm3_expression_generator exp_generator(builder, symbol_table, file_name);
     exp_generator.visit(equals_expr);
     auto expr_value = exp_generator.current_value;
+    auto value_type = expr_value.getType();
 
-    symbol_table.add_symbol(var_name, expr_value, {"const"});
+    symbol_table.evaluate_const_global(
+        var_name, equals_expr->expression()->getText(), value_type,
+        m_module.getRegion().getBlocks().front(), location);
   }
 
   return 0;
@@ -139,14 +144,19 @@ antlrcpp::Any qasm3_visitor::visitSingleDesignatorDeclaration(
   // Store the initial values
   for (int i = 0; i < variable_names.size(); i++) {
     auto variable = variable_names[i];
-    llvm::ArrayRef<int64_t> shaperef{1};
+    llvm::ArrayRef<int64_t> shaperef{};
     auto mem_type = mlir::MemRefType::get(shaperef, value_type);
     mlir::Value allocation = builder.create<mlir::AllocaOp>(location, mem_type);
 
+    auto init = initial_values[i];
+    if (type == "int" &&
+        value_type.getIntOrFloatBitWidth() <
+            initial_values[i].getType().getIntOrFloatBitWidth()) {
+      init = builder.create<mlir::TruncateIOp>(location, init, value_type);
+    }
+
     // Store the value to the 0th index of this storeop
-    builder.create<mlir::StoreOp>(location, initial_values[i], allocation,
-                                  get_or_create_constant_index_value(
-                                      0, location, 64, symbol_table, builder));
+    builder.create<mlir::StoreOp>(location, init, allocation);
 
     // Save the allocation, the store op
     symbol_table.add_symbol(variable, allocation);
@@ -191,21 +201,156 @@ antlrcpp::Any qasm3_visitor::visitNoDesignatorDeclaration(
 
     for (int i = 0; i < var_names.size(); i++) {
       auto variable = var_names[i];
-      llvm::ArrayRef<int64_t> shaperef{1};
+      llvm::ArrayRef<int64_t> shaperef{};
       auto mem_type = mlir::MemRefType::get(shaperef, value_type);
       mlir::Value allocation =
           builder.create<mlir::AllocaOp>(location, mem_type);
 
       // Store the value to the 0th index of this storeop
-      builder.create<mlir::StoreOp>(
-          location, initial_values[i], allocation,
-          get_or_create_constant_index_value(0, location, 64, symbol_table,
-                                             builder));
+      builder.create<mlir::StoreOp>(location, initial_values[i], allocation);
+      // get_or_create_constant_index_value(0, location, 64, symbol_table,
+      //  builder));
 
       // Save the allocation, the store op
       symbol_table.add_symbol(variable, allocation);
     }
-  } else {
+  } else if (context->noDesignatorType()->getText().find("int") != std::string::npos) {
+    // THis can now be either an identifierList or an equalsAssignementList
+    mlir::Attribute init_attr;
+    mlir::Type value_type;
+    std::string type = context->noDesignatorType()->getText();
+    auto bit_width = type == "int" ? 32 : 64;
+    value_type = builder.getIntegerType(bit_width);
+    init_attr = mlir::IntegerAttr::get(value_type, 0);
+    std::vector<std::string> variable_names;
+    std::vector<mlir::Value> initial_values;
+    if (auto id_list = context->identifierList()) {
+      for (auto id : id_list->Identifier()) {
+        variable_names.push_back(id->getText());
+        initial_values.push_back(
+            builder.create<mlir::ConstantOp>(location, init_attr));
+      }
+    } else {
+      auto equals_list = context->equalsAssignmentList();
+      for (auto id : equals_list->Identifier()) {
+        variable_names.push_back(id->getText());
+      }
+      for (auto eq_expr : equals_list->equalsExpression()) {
+        qasm3_expression_generator equals_exp_generator(builder, symbol_table,
+                                                        file_name, value_type);
+        equals_exp_generator.visit(eq_expr->expression());
+        initial_values.push_back(equals_exp_generator.current_value);
+      }
+    }
+
+    // Store the initial values
+    for (int i = 0; i < variable_names.size(); i++) {
+      auto variable = variable_names[i];
+      llvm::ArrayRef<int64_t> shaperef{};
+      auto mem_type = mlir::MemRefType::get(shaperef, value_type);
+      mlir::Value allocation =
+          builder.create<mlir::AllocaOp>(location, mem_type);
+
+      auto init = initial_values[i];
+      if (value_type.getIntOrFloatBitWidth() <
+          initial_values[i].getType().getIntOrFloatBitWidth()) {
+        init = builder.create<mlir::TruncateIOp>(location, init, value_type);
+      }
+
+      // Store the value to the 0th index of this storeop
+      builder.create<mlir::StoreOp>(location, init, allocation);
+
+      // Save the allocation, the store op
+      symbol_table.add_symbol(variable, allocation);
+    }
+  } else if (context->noDesignatorType()->getText() == "float") {
+    // THis can now be either an identifierList or an equalsAssignementList
+    mlir::Attribute init_attr;
+    mlir::Type value_type;
+    value_type = builder.getF32Type();
+    init_attr = mlir::FloatAttr::get(value_type, 0);
+    std::vector<std::string> variable_names;
+    std::vector<mlir::Value> initial_values;
+    if (auto id_list = context->identifierList()) {
+      for (auto id : id_list->Identifier()) {
+        variable_names.push_back(id->getText());
+        initial_values.push_back(
+            builder.create<mlir::ConstantOp>(location, init_attr));
+      }
+    } else {
+      auto equals_list = context->equalsAssignmentList();
+      for (auto id : equals_list->Identifier()) {
+        variable_names.push_back(id->getText());
+      }
+      for (auto eq_expr : equals_list->equalsExpression()) {
+        qasm3_expression_generator equals_exp_generator(builder, symbol_table,
+                                                        file_name, value_type);
+        equals_exp_generator.visit(eq_expr->expression());
+        initial_values.push_back(equals_exp_generator.current_value);
+      }
+    }
+
+    // Store the initial values
+    for (int i = 0; i < variable_names.size(); i++) {
+      auto variable = variable_names[i];
+      llvm::ArrayRef<int64_t> shaperef{};
+      auto mem_type = mlir::MemRefType::get(shaperef, value_type);
+      mlir::Value allocation =
+          builder.create<mlir::AllocaOp>(location, mem_type);
+
+      auto init = initial_values[i];
+      
+      // Store the value to the 0th index of this storeop
+      builder.create<mlir::StoreOp>(location, init, allocation);
+
+      // Save the allocation, the store op
+      symbol_table.add_symbol(variable, allocation);
+    }
+  } else if (context->noDesignatorType()->getText() == "double") {
+    // THis can now be either an identifierList or an equalsAssignementList
+    mlir::Attribute init_attr;
+    mlir::Type value_type;
+    value_type = builder.getF64Type();
+    init_attr = mlir::FloatAttr::get(value_type, 0);
+    std::vector<std::string> variable_names;
+    std::vector<mlir::Value> initial_values;
+    if (auto id_list = context->identifierList()) {
+      for (auto id : id_list->Identifier()) {
+        variable_names.push_back(id->getText());
+        initial_values.push_back(
+            builder.create<mlir::ConstantOp>(location, init_attr));
+      }
+    } else {
+      auto equals_list = context->equalsAssignmentList();
+      for (auto id : equals_list->Identifier()) {
+        variable_names.push_back(id->getText());
+      }
+      for (auto eq_expr : equals_list->equalsExpression()) {
+        qasm3_expression_generator equals_exp_generator(builder, symbol_table,
+                                                        file_name, value_type);
+        equals_exp_generator.visit(eq_expr->expression());
+        initial_values.push_back(equals_exp_generator.current_value);
+      }
+    }
+
+    // Store the initial values
+    for (int i = 0; i < variable_names.size(); i++) {
+      auto variable = variable_names[i];
+      llvm::ArrayRef<int64_t> shaperef{};
+      auto mem_type = mlir::MemRefType::get(shaperef, value_type);
+      mlir::Value allocation =
+          builder.create<mlir::AllocaOp>(location, mem_type);
+
+      auto init = initial_values[i];
+      
+      // Store the value to the 0th index of this storeop
+      builder.create<mlir::StoreOp>(location, init, allocation);
+
+      // Save the allocation, the store op
+      symbol_table.add_symbol(variable, allocation);
+    }
+  }
+  else {
     printErrorMessage("We do not yet support this no designator type: " +
                           context->noDesignatorType()->getText(),
                       context);
@@ -252,10 +397,21 @@ antlrcpp::Any qasm3_visitor::visitBitDeclaration(
         init_indices.push_back(get_or_create_constant_index_value(
             i, location, 64, symbol_table, builder));
       }
-      auto allocation = allocate_1d_memory_and_initialize(
-          location, size, builder.getI1Type(), init_values,
-          llvm::makeArrayRef(init_indices));
-      symbol_table.add_symbol(var_name, allocation);
+      if (size == 1) {
+        llvm::ArrayRef<int64_t> shaperef{};
+        auto mem_type = mlir::MemRefType::get(shaperef, builder.getI1Type());
+        mlir::Value allocation =
+            builder.create<mlir::AllocaOp>(location, mem_type);
+
+        // Store the value to the 0th index of this storeop
+        builder.create<mlir::StoreOp>(location, init_values[0], allocation);
+        symbol_table.add_symbol(var_name, allocation);
+      } else {
+        auto allocation = allocate_1d_memory_and_initialize(
+            location, size, builder.getI1Type(), init_values,
+            llvm::makeArrayRef(init_indices));
+        symbol_table.add_symbol(var_name, allocation);
+      }
     }
   } else {
     // Second case is indexEqualsAssignmentList, so bits with initialization
@@ -370,47 +526,52 @@ antlrcpp::Any qasm3_visitor::visitClassicalAssignment(
     }
 
     // Scenarios:
+    // memref<type> = call ... -> memref<type>
     // memref<Nxtype> = call ... -> type (like bit)
     // memref<Nxtype> = call ... -> memref<Mxtype>, N has to equal M
 
-    auto lhs_shape = lhs.getType().cast<mlir::MemRefType>().getShape()[0];
-    if (rhs.getType().isa<mlir::MemRefType>()) {
-      auto rhs_shape = rhs.getType().cast<mlir::MemRefType>().getShape()[0];
+    if (lhs.getType().cast<mlir::MemRefType>().getRank() != 0) {
+      auto lhs_shape = lhs.getType().cast<mlir::MemRefType>().getShape()[0];
+      if (rhs.getType().isa<mlir::MemRefType>()) {
+        auto rhs_shape = rhs.getType().cast<mlir::MemRefType>().getShape()[0];
 
-      if (lhs_shape != rhs_shape) {
-        printErrorMessage(
-            "return value from subroutine call does not have the correct "
-            "memref "
-            "shape.",
-            context, {lhs, rhs});
-      }
+        if (lhs_shape != rhs_shape) {
+          printErrorMessage(
+              "return value from subroutine call does not have the correct "
+              "memref "
+              "shape.",
+              context, {lhs, rhs});
+        }
 
-      for (int i = 0; i < lhs_shape; i++) {
+        for (int i = 0; i < lhs_shape; i++) {
+          mlir::Value pos = get_or_create_constant_integer_value(
+              i, location, builder.getIntegerType(64), symbol_table, builder);
+          auto load = builder.create<mlir::LoadOp>(location, rhs, pos);
+          builder.create<mlir::StoreOp>(
+              location, load, lhs,
+              llvm::makeArrayRef(std::vector<mlir::Value>{pos}));
+        }
+      } else {
+        if (lhs_shape != 1) {
+          printErrorMessage("rhs and lhs memref shapes do not match.", context,
+                            {lhs, rhs});
+        }
         mlir::Value pos = get_or_create_constant_integer_value(
-            i, location, builder.getIntegerType(64), symbol_table, builder);
-        auto load = builder.create<mlir::LoadOp>(location, rhs, pos);
+            0, location, builder.getIntegerType(64), symbol_table, builder);
         builder.create<mlir::StoreOp>(
-            location, load, lhs,
+            location, rhs, lhs,
             llvm::makeArrayRef(std::vector<mlir::Value>{pos}));
       }
     } else {
-      if (lhs_shape != 1) {
-        printErrorMessage("rhs and lhs memref shapes do not match.", context,
-                          {lhs, rhs});
-      }
-      mlir::Value pos = get_or_create_constant_integer_value(
-          0, location, builder.getIntegerType(64), symbol_table, builder);
-      builder.create<mlir::StoreOp>(
-          location, rhs, lhs,
-          llvm::makeArrayRef(std::vector<mlir::Value>{pos}));
+      builder.create<mlir::StoreOp>(location, rhs, lhs);
     }
 
     return 0;
   }
 
   // Create a 0 index value for our Load and Store Ops
-  llvm::ArrayRef<mlir::Value> zero_index(get_or_create_constant_index_value(
-      0, location, 64, symbol_table, builder));
+  // llvm::ArrayRef<mlir::Value> zero_index(get_or_create_constant_index_value(
+  //     0, location, 64, symbol_table, builder));
 
   // Get the lhs and rhs types
   auto lhs_type = lhs.getType().cast<mlir::MemRefType>().getElementType();
@@ -419,12 +580,13 @@ antlrcpp::Any qasm3_visitor::visitClassicalAssignment(
   if (rhs_type.isa<mlir::MemRefType>()) {
     // if rhs is a memref, let's load its 0th index value
     rhs_type = rhs_type.cast<mlir::MemRefType>().getElementType();
-    auto load_rhs = builder.create<mlir::LoadOp>(location, rhs, zero_index);
+    auto load_rhs =
+        builder.create<mlir::LoadOp>(location, rhs);  //, zero_index);
     load_result_rhs = load_rhs.result();
   }
 
   // Load the LHS value
-  auto load = builder.create<mlir::LoadOp>(location, lhs, zero_index);
+  auto load = builder.create<mlir::LoadOp>(location, lhs);  //, zero_index);
   auto load_result = load.result();
 
   // Check what the assignment op is...
@@ -448,7 +610,8 @@ antlrcpp::Any qasm3_visitor::visitClassicalAssignment(
     // Store the added value to the lhs
     llvm::ArrayRef<mlir::Value> zero_index2(get_or_create_constant_index_value(
         0, location, 64, symbol_table, builder));
-    builder.create<mlir::StoreOp>(location, current_value, lhs, zero_index2);
+    builder.create<mlir::StoreOp>(location, current_value,
+                                  lhs);  //, zero_index2);
 
   } else if (assignment_op == "-=") {
     // If either are floats, use float subtraction
@@ -465,10 +628,12 @@ antlrcpp::Any qasm3_visitor::visitClassicalAssignment(
                         context, {lhs, rhs});
     }
 
-    // Store the added value to the lhs
-    llvm::ArrayRef<mlir::Value> zero_index2(get_or_create_constant_index_value(
-        0, location, 64, symbol_table, builder));
-    builder.create<mlir::StoreOp>(location, current_value, lhs, zero_index2);
+    // // Store the added value to the lhs
+    // llvm::ArrayRef<mlir::Value>
+    // zero_index2(get_or_create_constant_index_value(
+    //     0, location, 64, symbol_table, builder));
+    builder.create<mlir::StoreOp>(location, current_value,
+                                  lhs);  //, zero_index2);
 
   } else if (assignment_op == "*=") {
     // If either are floats, use float multiplication
@@ -486,11 +651,17 @@ antlrcpp::Any qasm3_visitor::visitClassicalAssignment(
     }
 
     // Store the added value to the lhs
-    llvm::ArrayRef<mlir::Value> zero_index2(get_or_create_constant_index_value(
-        0, location, 64, symbol_table, builder));
-    builder.create<mlir::StoreOp>(location, current_value, lhs, zero_index2);
+    builder.create<mlir::StoreOp>(location, current_value, lhs);
   } else if (assignment_op == "/=") {
     if (lhs_type.isa<mlir::FloatType>() || rhs_type.isa<mlir::FloatType>()) {
+      if (!lhs_type.isa<mlir::FloatType>()) {
+        load_result =
+            builder.create<mlir::SIToFPOp>(location, load_result, rhs_type);
+      } else if (!rhs_type.isa<mlir::FloatType>()) {
+        load_result_rhs =
+            builder.create<mlir::SIToFPOp>(location, load_result_rhs, lhs_type);
+      }
+
       current_value =
           builder.create<mlir::DivFOp>(location, load_result, load_result_rhs);
     } else if (lhs_type.isa<mlir::IntegerType>() &&
@@ -502,23 +673,18 @@ antlrcpp::Any qasm3_visitor::visitClassicalAssignment(
                         context, {lhs, rhs});
     }
 
-    llvm::ArrayRef<mlir::Value> zero_index2(get_or_create_constant_index_value(
-        0, location, 64, symbol_table, builder));
-    builder.create<mlir::StoreOp>(location, current_value, lhs, zero_index2);
+    builder.create<mlir::StoreOp>(location, current_value, lhs);
 
   } else if (assignment_op == "^=") {
     current_value =
         builder.create<mlir::XOrOp>(location, load_result, load_result_rhs);
-    llvm::ArrayRef<mlir::Value> zero_index2(get_or_create_constant_index_value(
-        0, location, 64, symbol_table, builder));
-    builder.create<mlir::StoreOp>(location, current_value, lhs, zero_index2);
+    // llvm::ArrayRef<mlir::Value> zero_index2(get_or_create_constant_index_value(
+        // 0, location, 64, symbol_table, builder));
+    builder.create<mlir::StoreOp>(location, current_value, lhs);//, zero_index2);
   } else if (assignment_op == "=") {
-
     // FIXME This assumes we have a memref<1x??> = memref<1x??>
     // what if we have multiple elements in the memref???
-    builder.create<mlir::StoreOp>(location, rhs, lhs,
-                                  get_or_create_constant_index_value(
-                                      0, location, 64, symbol_table, builder));
+    builder.create<mlir::StoreOp>(location, load_result_rhs, lhs);
   } else {
     printErrorMessage(ass_op->getText() + " not yet supported for this type.",
                       context);

@@ -1,6 +1,7 @@
 #include <Eigen/Dense>
 #include <Utils.hpp>
 
+#include "CommonGates.hpp"
 #include "FermionOperator.hpp"
 #include "ObservableTransform.hpp"
 #include "PauliOperator.hpp"
@@ -12,7 +13,6 @@
 #include "xacc_internal_compiler.hpp"
 #include "xacc_observable.hpp"
 #include "xacc_service.hpp"
-#include "CommonGates.hpp"
 
 using namespace cppmicroservices;
 using namespace xacc;
@@ -22,7 +22,9 @@ template <typename T>
 bool ptr_is_a(std::shared_ptr<Observable> ptr) {
   return std::dynamic_pointer_cast<T>(ptr) != nullptr;
 }
-class NISQ : public ::quantum::QuantumRuntime {
+class NISQ : public ::quantum::QuantumRuntime,
+             // Cloneable for use in qir-qrt ctrl, pow, adj regions.
+             public xacc::Cloneable<::quantum::QuantumRuntime> {
  protected:
   std::shared_ptr<xacc::CompositeInstruction> program;
   std::shared_ptr<xacc::IRProvider> provider;
@@ -35,14 +37,9 @@ class NISQ : public ::quantum::QuantumRuntime {
     for (int i = 0; i < parameters.size(); i++) {
       inst->setParameter(i, parameters[i]);
     }
-    // Not in a controlled-block
-    // if (xacc::internal_compiler::__controlledIdx.empty()) {
-    // Add the instruction
+
     program->addInstruction(inst);
-    // } else {
-    //   // In a controlled block:
-    //   add_controlled_inst(inst, __controlledIdx[0]);
-    // }
+
   }
 
   void two_qubit_inst(const std::string &name, const qubit &qidx1,
@@ -53,16 +50,16 @@ class NISQ : public ::quantum::QuantumRuntime {
     for (int i = 0; i < parameters.size(); i++) {
       inst->setParameter(i, parameters[i]);
     }
-    // Not in a controlled-block
-    // if (xacc::internal_compiler::__controlledIdx.empty()) {
+
     program->addInstruction(inst);
-    // } else {
-    //   // In a controlled block:
-    //   add_controlled_inst(inst, __controlledIdx[0]);
-    // }
+  
   }
 
  public:
+  std::shared_ptr<::quantum::QuantumRuntime> clone() override {
+    return std::make_shared<NISQ>();
+  }
+
   void initialize(const std::string kernel_name) override {
     provider = xacc::getIRProvider("quantum");
     program = provider->createComposite(kernel_name);
@@ -137,6 +134,36 @@ class NISQ : public ::quantum::QuantumRuntime {
     two_qubit_inst("CRZ", src_idx, tgt_idx, {theta});
   }
 
+  void general_instruction(std::shared_ptr<xacc::Instruction> inst) override {
+    std::vector<double> params;
+    for (auto p : inst->getParameters()) {
+      params.push_back(p.as<double>());
+    }
+    if (inst->bits().size() == 1) {
+      one_qubit_inst(
+          inst->name(),
+          qubit{
+              inst->getBufferNames().empty() ? "q" : inst->getBufferNames()[0],
+              inst->bits()[0]},
+          params);
+    } else if (inst->bits().size() == 2) {
+      two_qubit_inst(
+          inst->name(),
+          qubit{
+              inst->getBufferNames().empty() ? "q" : inst->getBufferNames()[0],
+              inst->bits()[0]},
+          qubit{
+              inst->getBufferNames().empty() ? "q" : inst->getBufferNames()[1],
+              inst->bits()[1]},
+          params);
+    } else {
+      xacc::error(
+          "Nisq quantum runtime general_instruction can only take 1 and 2 "
+          "qubit operations.");
+    }
+    return;
+  }
+
   void exp(qreg q, const double theta, xacc::Observable &H) override {
     exp(q, theta, xacc::as_shared_ptr(&H));
   }
@@ -206,11 +233,15 @@ class NISQ : public ::quantum::QuantumRuntime {
         qidxs.push_back(qid);
 
         if (pop == "X") {
-          basis_front.emplace_back(std::make_shared<xacc::quantum::Hadamard>(qid));
-          basis_back.emplace_back(std::make_shared<xacc::quantum::Hadamard>(qid));
+          basis_front.emplace_back(
+              std::make_shared<xacc::quantum::Hadamard>(qid));
+          basis_back.emplace_back(
+              std::make_shared<xacc::quantum::Hadamard>(qid));
         } else if (pop == "Y") {
-          basis_front.emplace_back(std::make_shared<xacc::quantum::Rx>(qid, 1.57079362679));
-          basis_back.emplace_back(std::make_shared<xacc::quantum::Rx>(qid, -1.57079362679));
+          basis_front.emplace_back(
+              std::make_shared<xacc::quantum::Rx>(qid, 1.57079362679));
+          basis_back.emplace_back(
+              std::make_shared<xacc::quantum::Rx>(qid, -1.57079362679));
         }
       }
 
@@ -262,8 +293,9 @@ class NISQ : public ::quantum::QuantumRuntime {
                        std::make_move_iterator(basis_back.begin()),
                        std::make_move_iterator(basis_back.end()));
     }
-    for (auto& inst : exp_insts) {
-      inst->setBufferNames(std::vector<std::string>(inst->bits().size(), q_name));
+    for (auto &inst : exp_insts) {
+      inst->setBufferNames(
+          std::vector<std::string>(inst->bits().size(), q_name));
       program->addInstruction(inst);
     }
   }

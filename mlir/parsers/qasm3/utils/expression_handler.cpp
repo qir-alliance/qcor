@@ -35,6 +35,8 @@ antlrcpp::Any qasm3_expression_generator::visitTerminal(
     indexed_variable_value = current_value;
     if (casting_indexed_integer_to_bool) {
       internal_value_type = builder.getIndexType();
+    } else if (indexed_variable_value.getType().isa<mlir::MemRefType>()) {
+      internal_value_type = builder.getIndexType();
     }
   } else if (node->getSymbol()->getText() == "]") {
     if (casting_indexed_integer_to_bool) {
@@ -66,10 +68,7 @@ antlrcpp::Any qasm3_expression_generator::visitTerminal(
                                              builder));
       auto shift = builder.create<mlir::UnsignedShiftRightOp>(
           location, load_value, casted_idx);
-      // auto shift_load_value = builder.create<mlir::LoadOp>(
-      //     location, shift,
-      //     get_or_create_constant_index_value(0, location, 64, symbol_table,
-      //                                        builder));
+
       auto old_int_type = internal_value_type;
       internal_value_type = indexed_variable_value.getType();
       auto and_value = builder.create<mlir::AndOp>(
@@ -87,17 +86,17 @@ antlrcpp::Any qasm3_expression_generator::visitTerminal(
           internal_value_type.cast<mlir::OpaqueType>().getTypeData().str() ==
               "Qubit") {
         if (current_value.getType().isa<mlir::MemRefType>()) {
-          if (current_value.getType().cast<mlir::MemRefType>().getRank() == 1 &&
-              current_value.getType().cast<mlir::MemRefType>().getShape()[0] ==
-                  1) {
-            current_value = builder.create<mlir::LoadOp>(
-                location, current_value,
-                get_or_create_constant_index_value(0, location, 64,
-                                                   symbol_table, builder));
+          if (current_value.getType().cast<mlir::MemRefType>().getRank() == 0) {
+            current_value =
+                builder.create<mlir::LoadOp>(location, current_value);
           } else {
             printErrorMessage("Terminator ']' -> Invalid qubit array index: ",
                               current_value);
           }
+        }
+        if (current_value.getType().getIntOrFloatBitWidth() < 64) {
+          current_value = builder.create<mlir::ZeroExtendIOp>(
+              location, current_value, builder.getI64Type());
         }
         update_current_value(builder.create<mlir::quantum::ExtractQubitOp>(
             location, get_custom_opaque_type("Qubit", builder.getContext()),
@@ -137,25 +136,21 @@ antlrcpp::Any qasm3_expression_generator::visitComparsionExpression(
     auto rhs_type = rhs.getType();
     if (auto mem_value_type = lhs_type.dyn_cast_or_null<mlir::MemRefType>()) {
       if (mem_value_type.getElementType().isIntOrIndexOrFloat() &&
-          mem_value_type.getRank() == 1 && mem_value_type.getShape()[0] == 1) {
+          mem_value_type.getRank() ==
+              0) {  // && mem_value_type.getShape()[0] == 1) {
         // Load this memref value
 
-        lhs = builder.create<mlir::LoadOp>(
-            location, lhs,
-            get_or_create_constant_index_value(0, location, 64, symbol_table,
-                                               builder));
+        lhs = builder.create<mlir::LoadOp>(location, lhs);
       }
     }
 
     if (auto mem_value_type = rhs_type.dyn_cast_or_null<mlir::MemRefType>()) {
       if (mem_value_type.getElementType().isIntOrIndexOrFloat() &&
-          mem_value_type.getRank() == 1 && mem_value_type.getShape()[0] == 1) {
+          mem_value_type.getRank() ==
+              0) {  // && mem_value_type.getShape()[0] == 1) {
         // Load this memref value
 
-        rhs = builder.create<mlir::LoadOp>(
-            location, rhs,
-            get_or_create_constant_index_value(0, location, 64, symbol_table,
-                                               builder));
+        rhs = builder.create<mlir::LoadOp>(location, rhs);
       }
     }
 
@@ -176,11 +171,11 @@ antlrcpp::Any qasm3_expression_generator::visitComparsionExpression(
 
         // We need the comparison to be on the same bit width
         if (lhs_bw < rhs_bw) {
-          rhs = builder.create<mlir::IndexCastOp>(
-              location, rhs, builder.getIntegerType(lhs_bw));
-        } else if (lhs_bw > rhs_bw) {
-          lhs = builder.create<mlir::IndexCastOp>(
+          lhs = builder.create<mlir::ZeroExtendIOp>(
               location, lhs, builder.getIntegerType(rhs_bw));
+        } else if (lhs_bw > rhs_bw) {
+          rhs = builder.create<mlir::ZeroExtendIOp>(
+              location, rhs, builder.getIntegerType(lhs_bw));
         }
 
         // create the binary op value
@@ -211,10 +206,10 @@ antlrcpp::Any qasm3_expression_generator::visitComparsionExpression(
             ? current_value.getType().cast<mlir::MemRefType>().getElementType()
             : current_value.getType();
 
-    current_value = builder.create<mlir::LoadOp>(
-        location, current_value,
-        get_or_create_constant_index_value(0, location, 64, symbol_table,
-                                           builder));
+    current_value = builder.create<mlir::LoadOp>(location, current_value);
+    // ,
+    // get_or_create_constant_index_value(0, location, 64, symbol_table,
+    //                                    builder));
 
     mlir::CmpIPredicate p = mlir::CmpIPredicate::eq;
     if (found_negation_unary_op) {
@@ -259,48 +254,52 @@ antlrcpp::Any qasm3_expression_generator::visitUnaryExpression(
   }
   return visitChildren(ctx);
 }
-// antlrcpp::Any qasm3_expression_generator::visitIncrementor(
-//     qasm3Parser::IncrementorContext* ctx) {
-//   auto location = get_location(builder, file_name, ctx);
+antlrcpp::Any qasm3_expression_generator::visitIncrementor(
+    qasm3Parser::IncrementorContext* ctx) {
+  printErrorMessage("Alex, please implement incrementor.", ctx);
+  return 0;
+  //   auto location = get_location(builder, file_name, ctx);
 
-//   auto type = ctx->getText();
-//   if (type == "++") {
-//     if (current_value.getType().isa<mlir::IntegerType>()) {
-//       auto tmp = builder.create<mlir::AddIOp>(
-//           location, current_value,
-//           get_or_create_constant_integer_value(
-//               1, location, current_value.getType().getIntOrFloatBitWidth()));
+  //   auto type = ctx->getText();
+  //   if (type == "++") {
+  //     if (current_value.getType().isa<mlir::IntegerType>()) {
+  //       auto tmp = builder.create<mlir::AddIOp>(
+  //           location, current_value,
+  //           get_or_create_constant_integer_value(
+  //               1, location,
+  //               current_value.getType().getIntOrFloatBitWidth()));
 
-//       auto memref = current_value.getDefiningOp<mlir::LoadOp>().memref();
-//       builder.create<mlir::StoreOp>(
-//           location, tmp, memref,
-//           llvm::makeArrayRef(
-//               std::vector<mlir::Value>{get_or_create_constant_index_value(
-//                   0, location,
-//                   current_value.getType().getIntOrFloatBitWidth())}));
-//     } else {
-//       printErrorMessage("we can only increment integer types.");
-//     }
-//   } else if (type == "--") {
-//     if (current_value.getType().isa<mlir::IntegerType>()) {
-//       auto tmp = builder.create<mlir::SubIOp>(
-//           location, current_value,
-//           get_or_create_constant_integer_value(
-//               1, location, current_value.getType().getIntOrFloatBitWidth()));
+  //       auto memref = current_value.getDefiningOp<mlir::LoadOp>().memref();
+  //       builder.create<mlir::StoreOp>(
+  //           location, tmp, memref,
+  //           llvm::makeArrayRef(
+  //               std::vector<mlir::Value>{get_or_create_constant_index_value(
+  //                   0, location,
+  //                   current_value.getType().getIntOrFloatBitWidth())}));
+  //     } else {
+  //       printErrorMessage("we can only increment integer types.");
+  //     }
+  //   } else if (type == "--") {
+  //     if (current_value.getType().isa<mlir::IntegerType>()) {
+  //       auto tmp = builder.create<mlir::SubIOp>(
+  //           location, current_value,
+  //           get_or_create_constant_integer_value(
+  //               1, location,
+  //               current_value.getType().getIntOrFloatBitWidth()));
 
-//       auto memref = current_value.getDefiningOp<mlir::LoadOp>().memref();
-//       builder.create<mlir::StoreOp>(
-//           location, tmp, memref,
-//           llvm::makeArrayRef(
-//               std::vector<mlir::Value>{get_or_create_constant_index_value(
-//                   0, location,
-//                   current_value.getType().getIntOrFloatBitWidth())}));
-//     } else {
-//       printErrorMessage("we can only decrement integer types.");
-//     }
-//   }
-//   return 0;
-// }
+  //       auto memref = current_value.getDefiningOp<mlir::LoadOp>().memref();
+  //       builder.create<mlir::StoreOp>(
+  //           location, tmp, memref,
+  //           llvm::makeArrayRef(
+  //               std::vector<mlir::Value>{get_or_create_constant_index_value(
+  //                   0, location,
+  //                   current_value.getType().getIntOrFloatBitWidth())}));
+  //     } else {
+  //       printErrorMessage("we can only decrement integer types.");
+  //     }
+  //   }
+  //   return 0;
+}
 
 antlrcpp::Any qasm3_expression_generator::visitAdditiveExpression(
     qasm3Parser::AdditiveExpressionContext* ctx) {
@@ -313,19 +312,17 @@ antlrcpp::Any qasm3_expression_generator::visitAdditiveExpression(
 
     visit(ctx->multiplicativeExpression());
     auto rhs = current_value;
-    
+
     if (lhs.getType().isa<mlir::MemRefType>()) {
-      lhs = builder.create<mlir::LoadOp>(
-          location, lhs,
-          get_or_create_constant_index_value(0, location, 64, symbol_table,
-                                             builder));
+      lhs = builder.create<mlir::LoadOp>(location, lhs);  //,
+      // get_or_create_constant_index_value(0, location, 64, symbol_table,
+      //  builder));
     }
 
     if (rhs.getType().isa<mlir::MemRefType>()) {
-      rhs = builder.create<mlir::LoadOp>(
-          location, rhs,
-          get_or_create_constant_index_value(0, location, 64, symbol_table,
-                                             builder));
+      rhs = builder.create<mlir::LoadOp>(location, rhs);  //,
+      // get_or_create_constant_index_value(0, location, 64, symbol_table,
+      //  builder));
     }
 
     if (bin_op == "+") {
@@ -334,39 +331,24 @@ antlrcpp::Any qasm3_expression_generator::visitAdditiveExpression(
         // One of these at least is a float, need to have
         // both as float
         if (!lhs.getType().isa<mlir::FloatType>()) {
-          if (auto op = lhs.getDefiningOp<mlir::ConstantOp>()) {
-            auto value = op.getValue()
-                             .cast<mlir::IntegerAttr>()
-                             .getValue()
-                             .getLimitedValue();
-            lhs = builder.create<mlir::ConstantOp>(
-                location, mlir::FloatAttr::get(rhs.getType(), (double)value));
-          } else {
-            printErrorMessage("Must cast lhs to float, but it is not constant.",
-                              ctx, {lhs, rhs});
-          }
+          lhs = builder.create<mlir::SIToFPOp>(location, lhs, rhs.getType());
+
         } else if (!rhs.getType().isa<mlir::FloatType>()) {
-          if (auto op = rhs.getDefiningOp<mlir::ConstantOp>()) {
-            auto value = op.getValue()
-                             .cast<mlir::IntegerAttr>()
-                             .getValue()
-                             .getLimitedValue();
-            rhs = builder.create<mlir::ConstantOp>(
-                location, mlir::FloatAttr::get(lhs.getType(), (double)value));
-          } else {
-            printErrorMessage("Must cast rhs to float, but it is not constant.",
-                              ctx, {lhs, rhs});
-          }
+          rhs = builder.create<mlir::SIToFPOp>(location, rhs, lhs.getType());
         }
 
         createOp<mlir::AddFOp>(location, lhs, rhs);
       } else if (lhs.getType().isa<mlir::IntegerType>() &&
                  rhs.getType().isa<mlir::IntegerType>()) {
-        if (lhs.getType().getIntOrFloatBitWidth() < rhs.getType().getIntOrFloatBitWidth()) {
-          lhs = builder.create<mlir::ZeroExtendIOp>(location, lhs,rhs.getType() );
+        if (lhs.getType().getIntOrFloatBitWidth() <
+            rhs.getType().getIntOrFloatBitWidth()) {
+          lhs =
+              builder.create<mlir::ZeroExtendIOp>(location, lhs, rhs.getType());
         }
-        if (rhs.getType().getIntOrFloatBitWidth() < lhs.getType().getIntOrFloatBitWidth()) {
-          rhs = builder.create<mlir::ZeroExtendIOp>(location, rhs,lhs.getType() );
+        if (rhs.getType().getIntOrFloatBitWidth() <
+            lhs.getType().getIntOrFloatBitWidth()) {
+          rhs =
+              builder.create<mlir::ZeroExtendIOp>(location, rhs, lhs.getType());
         }
         createOp<mlir::AddIOp>(location, lhs, rhs).result();
       } else {
@@ -374,41 +356,16 @@ antlrcpp::Any qasm3_expression_generator::visitAdditiveExpression(
                           ctx, {lhs, rhs});
       }
     } else if (bin_op == "-") {
-
       if (lhs.getType().isa<mlir::FloatType>() ||
           rhs.getType().isa<mlir::FloatType>()) {
         // One of these at least is a float, need to have
         // both as float
         if (!lhs.getType().isa<mlir::FloatType>()) {
-          if (auto op = lhs.getDefiningOp<mlir::ConstantOp>()) {
-            auto value = op.getValue()
-                             .cast<mlir::IntegerAttr>()
-                             .getValue()
-                             .getLimitedValue();
-            lhs = builder.create<mlir::ConstantOp>(
-                location, mlir::FloatAttr::get(rhs.getType(), (double)value));
-          } else {
-            printErrorMessage("Must cast lhs to float, but it is not constant.",
-                              ctx, {lhs, rhs});
-          }
+          lhs = builder.create<mlir::SIToFPOp>(location, lhs, rhs.getType());
+
         } else if (!rhs.getType().isa<mlir::FloatType>()) {
-          if (auto op = rhs.getDefiningOp<mlir::ConstantOp>()) {
-            auto value = op.getValue()
-                             .cast<mlir::IntegerAttr>()
-                             .getValue()
-                             .getLimitedValue();
-            rhs = builder.create<mlir::ConstantOp>(
-                location, mlir::FloatAttr::get(lhs.getType(), (double)value));
-          } else {
-            printErrorMessage("Must cast rhs to float, but it is not constant.",
-                              ctx, {lhs, rhs});
-          }
+          rhs = builder.create<mlir::SIToFPOp>(location, rhs, lhs.getType());
         }
-        // else {
-        //   printErrorMessage(
-        //       "Could not perform subtraction, incompatible types: " +
-        //       ctx->getText());
-        // }
 
         createOp<mlir::SubFOp>(location, lhs, rhs);
       } else if (lhs.getType().isa<mlir::IntegerType>() &&
@@ -439,17 +396,14 @@ antlrcpp::Any qasm3_expression_generator::visitXOrExpression(
     mlir::Type lhs_element_type;
     if (auto lhs_type = lhs.getType().dyn_cast_or_null<mlir::MemRefType>()) {
       lhs_element_type = lhs_type.getElementType();
-      if (lhs_type.getRank() != 1 && lhs_type.getShape()[0] != 1) {
+      if (lhs_type.getRank() != 0) {  //} && lhs_type.getShape()[0] != 1) {
         printErrorMessage(
-            "Cannot handle lhs for ^ that is memref of rank != 1 and shape "
-            "!= 1.",
-            ctx, {lhs});
+            "Cannot handle lhs for ^ that is memref of rank != 0.", ctx, {lhs});
       }
 
-      lhs = builder.create<mlir::LoadOp>(
-          location, lhs,
-          get_or_create_constant_index_value(0, location, 64, symbol_table,
-                                             builder));
+      lhs = builder.create<mlir::LoadOp>(location, lhs);  //,
+      // get_or_create_constant_index_value(0, location, 64, symbol_table,
+      //  builder));
     } else {
       lhs_element_type = lhs.getType();
     }
@@ -465,17 +419,13 @@ antlrcpp::Any qasm3_expression_generator::visitXOrExpression(
     mlir::Type rhs_element_type;
     if (auto rhs_type = rhs.getType().dyn_cast_or_null<mlir::MemRefType>()) {
       rhs_element_type = rhs_type.getElementType();
-      if (rhs_type.getRank() != 1 && rhs_type.getShape()[0] != 1) {
+      if (rhs_type.getRank() != 0) {  //} && rhs_type.getShape()[0] != 1) {
         printErrorMessage(
-            "Cannot handle rhs for ^ that is memref of rank != 1 and shape "
-            "!= 1.",
-            ctx, {lhs, rhs});
+            "Cannot handle rhs for ^ that is memref of rank != 1 .", ctx,
+            {lhs, rhs});
       }
 
-      rhs = builder.create<mlir::LoadOp>(
-          location, rhs,
-          get_or_create_constant_index_value(0, location, 64, symbol_table,
-                                             builder));
+      rhs = builder.create<mlir::LoadOp>(location, rhs);
     } else {
       rhs_element_type = rhs.getType();
     }
@@ -503,37 +453,31 @@ antlrcpp::Any qasm3_expression_generator::visitXOrExpression(
           1, location, lhs_element_type, symbol_table, builder);
       llvm::ArrayRef<mlir::Value> zero_index(tmp2);
 
-      llvm::ArrayRef<int64_t> shaperef{1};
+      llvm::ArrayRef<int64_t> shaperef{};
       auto mem_type = mlir::MemRefType::get(shaperef, lhs_element_type);
+
+      auto integer_attr2 = mlir::IntegerAttr::get(lhs_element_type, 0);
+      auto ret2 = builder.create<mlir::ConstantOp>(location, integer_attr2);
+      auto integer_attr3 = mlir::IntegerAttr::get(lhs_element_type, 1);
+      auto ret3 = builder.create<mlir::ConstantOp>(location, integer_attr3);
 
       mlir::Value loop_var_memref = builder.create<mlir::AllocaOp>(
           location, mlir::MemRefType::get(shaperef, builder.getI64Type()));
-      builder.create<mlir::StoreOp>(
-          location,
-          get_or_create_constant_integer_value(0, location, lhs_element_type,
-                                               symbol_table, builder),
-          loop_var_memref,
-          get_or_create_constant_index_value(0, location, 64, symbol_table,
-                                             builder));
+      builder.create<mlir::StoreOp>(location, ret2, loop_var_memref);
 
       mlir::Value product_memref = builder.create<mlir::AllocaOp>(
           location, mlir::MemRefType::get(shaperef, lhs_element_type));
-      builder.create<mlir::StoreOp>(
-          location,
-          get_or_create_constant_integer_value(1, location, lhs_element_type,
-                                               symbol_table, builder),
-          product_memref,
-          get_or_create_constant_index_value(0, location, 64, symbol_table,
-                                             builder));
+      builder.create<mlir::StoreOp>(location, ret3, product_memref);
 
+      auto integer_attr = mlir::IntegerAttr::get(builder.getI64Type(), 1);
+      auto ret = builder.create<mlir::ConstantOp>(location, integer_attr);
       auto b_val = rhs;
-      auto c_val = get_or_create_constant_integer_value(
-          1, location, builder.getI64Type(), symbol_table, builder);
+      auto c_val = ret;
 
       // Save the current builder point
       // auto savept = builder.saveInsertionPoint();
-      auto loaded_var =
-          builder.create<mlir::LoadOp>(location, loop_var_memref, zero_index);
+      auto loaded_var = builder.create<mlir::LoadOp>(
+          location, loop_var_memref);  //, zero_index);
 
       auto savept = builder.saveInsertionPoint();
       auto currRegion = builder.getBlock()->getParent();
@@ -547,32 +491,37 @@ antlrcpp::Any qasm3_expression_generator::visitXOrExpression(
       builder.create<mlir::BranchOp>(location, headerBlock);
       builder.setInsertionPointToStart(headerBlock);
 
-      auto load =
-          builder.create<mlir::LoadOp>(location, loop_var_memref, zero_index);
+      auto load = builder.create<mlir::LoadOp>(
+          location, loop_var_memref).result();  //, zero_index);
+      
+      if (load.getType().getIntOrFloatBitWidth() < b_val.getType().getIntOrFloatBitWidth()) {
+        load = builder.create<mlir::ZeroExtendIOp>(location, load, b_val.getType());
+      } else if (b_val.getType().getIntOrFloatBitWidth() < load.getType().getIntOrFloatBitWidth()) {
+        b_val = builder.create<mlir::ZeroExtendIOp>(location, b_val, load.getType());
+      }
+
       auto cmp = builder.create<mlir::CmpIOp>(
           location, mlir::CmpIPredicate::slt, load, b_val);
       builder.create<mlir::CondBranchOp>(location, cmp, bodyBlock, exitBlock);
 
       builder.setInsertionPointToStart(bodyBlock);
       // body needs to load the loop variable
-      auto x =
-          builder.create<mlir::LoadOp>(location, product_memref, zero_index);
+      auto x = builder.create<mlir::LoadOp>(location,
+                                            product_memref);  //, zero_index);
 
       auto mult = builder.create<mlir::MulIOp>(location, x, lhs);
-      builder.create<mlir::StoreOp>(
-          location, mult, product_memref,
-          llvm::makeArrayRef(std::vector<mlir::Value>{tmp2}));
+      builder.create<mlir::StoreOp>(location, mult, product_memref);  //,
+      // llvm::makeArrayRef(std::vector<mlir::Value>{tmp2}));
 
       builder.create<mlir::BranchOp>(location, incBlock);
 
       builder.setInsertionPointToStart(incBlock);
-      auto load_inc =
-          builder.create<mlir::LoadOp>(location, loop_var_memref, zero_index);
+      auto load_inc = builder.create<mlir::LoadOp>(
+          location, loop_var_memref);  //, zero_index);
       auto add = builder.create<mlir::AddIOp>(location, load_inc, c_val);
 
-      builder.create<mlir::StoreOp>(
-          location, add, loop_var_memref,
-          llvm::makeArrayRef(std::vector<mlir::Value>{tmp2}));
+      builder.create<mlir::StoreOp>(location, add, loop_var_memref);  //,
+      // llvm::makeArrayRef(std::vector<mlir::Value>{tmp2}));
 
       builder.create<mlir::BranchOp>(location, headerBlock);
 
@@ -580,8 +529,8 @@ antlrcpp::Any qasm3_expression_generator::visitXOrExpression(
 
       symbol_table.set_last_created_block(exitBlock);
 
-      current_value =
-          builder.create<mlir::LoadOp>(location, product_memref, zero_index);
+      current_value = builder.create<mlir::LoadOp>(
+          location, product_memref);  //, zero_index);
       return 0;
     } else if (lhs_element_type.isa<mlir::FloatType>()) {
       if (!rhs_element_type.isa<mlir::FloatType>()) {
@@ -607,7 +556,6 @@ antlrcpp::Any qasm3_expression_generator::visitMultiplicativeExpression(
   if (auto mult_expr = ctx->multiplicativeExpression()) {
     auto bin_op = ctx->binary_op->getText();
 
-
     visitExpressionTerminator(mult_expr->expressionTerminator());
     auto lhs = current_value;
 
@@ -615,17 +563,15 @@ antlrcpp::Any qasm3_expression_generator::visitMultiplicativeExpression(
     auto rhs = current_value;
 
     if (lhs.getType().isa<mlir::MemRefType>()) {
-      lhs = builder.create<mlir::LoadOp>(
-          location, lhs,
-          get_or_create_constant_index_value(0, location, 64, symbol_table,
-                                             builder));
+      lhs = builder.create<mlir::LoadOp>(location, lhs);  //,
+      // get_or_create_constant_index_value(0, location, 64, symbol_table,
+      //  builder));
     }
 
     if (rhs.getType().isa<mlir::MemRefType>()) {
-      rhs = builder.create<mlir::LoadOp>(
-          location, rhs,
-          get_or_create_constant_index_value(0, location, 64, symbol_table,
-                                             builder));
+      rhs = builder.create<mlir::LoadOp>(location, rhs);  //,
+      // get_or_create_constant_index_value(0, location, 64, symbol_table,
+      //  builder));
     }
 
     if (bin_op == "*") {
@@ -634,29 +580,10 @@ antlrcpp::Any qasm3_expression_generator::visitMultiplicativeExpression(
         // One of these at least is a float, need to have
         // both as float
         if (!lhs.getType().isa<mlir::FloatType>()) {
-          if (auto op = lhs.getDefiningOp<mlir::ConstantOp>()) {
-            auto value = op.getValue()
-                             .cast<mlir::IntegerAttr>()
-                             .getValue()
-                             .getLimitedValue();
-            lhs = builder.create<mlir::ConstantOp>(
-                location, mlir::FloatAttr::get(rhs.getType(), (double)value));
-          } else {
-            printErrorMessage("Must cast lhs to float, but it is not constant.",
-                              ctx, {lhs, rhs});
-          }
+          lhs = builder.create<mlir::SIToFPOp>(location, lhs, rhs.getType());
+
         } else if (!rhs.getType().isa<mlir::FloatType>()) {
-          if (auto op = rhs.getDefiningOp<mlir::ConstantOp>()) {
-            auto value = op.getValue()
-                             .cast<mlir::IntegerAttr>()
-                             .getValue()
-                             .getLimitedValue();
-            rhs = builder.create<mlir::ConstantOp>(
-                location, mlir::FloatAttr::get(lhs.getType(), (double)value));
-          } else {
-            printErrorMessage("Must cast rhs to float, but it is not constant.",
-                              ctx, {lhs, rhs});
-          }
+          rhs = builder.create<mlir::SIToFPOp>(location, rhs, lhs.getType());
         }
 
         createOp<mlir::MulFOp>(location, lhs, rhs);
@@ -674,30 +601,40 @@ antlrcpp::Any qasm3_expression_generator::visitMultiplicativeExpression(
         // One of these at least is a float, need to have
         // both as float
         if (!lhs.getType().isa<mlir::FloatType>()) {
-          if (auto op = lhs.getDefiningOp<mlir::ConstantOp>()) {
-            auto value = op.getValue()
-                             .cast<mlir::IntegerAttr>()
-                             .getValue()
-                             .getLimitedValue();
-            lhs = builder.create<mlir::ConstantOp>(
-                location, mlir::FloatAttr::get(rhs.getType(), (double)value));
-          } else {
-            printErrorMessage(
-                "Must cast lhs to float, but it is not constant.");
-          }
+          lhs = builder.create<mlir::SIToFPOp>(location, lhs, rhs.getType());
+
         } else if (!rhs.getType().isa<mlir::FloatType>()) {
-          if (auto op = rhs.getDefiningOp<mlir::ConstantOp>()) {
-            auto value = op.getValue()
-                             .cast<mlir::IntegerAttr>()
-                             .getValue()
-                             .getLimitedValue();
-            rhs = builder.create<mlir::ConstantOp>(
-                location, mlir::FloatAttr::get(lhs.getType(), (double)value));
-          } else {
-            printErrorMessage(
-                "Must cast rhs to float, but it is not constant.");
-          }
+          rhs = builder.create<mlir::SIToFPOp>(location, rhs, lhs.getType());
         }
+
+        // if (!lhs.getType().isa<mlir::FloatType>()) {
+        //   if (auto op = lhs.getDefiningOp<mlir::ConstantOp>()) {
+        //     auto value = op.getValue()
+        //                      .cast<mlir::IntegerAttr>()
+        //                      .getValue()
+        //                      .getLimitedValue();
+        //     lhs = builder.create<mlir::ConstantOp>(
+        //         location, mlir::FloatAttr::get(rhs.getType(),
+        //         (double)value));
+        //   } else {
+        //     printErrorMessage(
+        //         "Must cast lhs to float, but it is not constant.");
+        //   }
+        // } else if (!rhs.getType().isa<mlir::FloatType>()) {
+        //   if (auto op = rhs.getDefiningOp<mlir::ConstantOp>()) {
+        //     auto value = op.getValue()
+        //                      .cast<mlir::IntegerAttr>()
+        //                      .getValue()
+        //                      .getLimitedValue();
+        //     rhs = builder.create<mlir::ConstantOp>(
+        //         location, mlir::FloatAttr::get(lhs.getType(),
+        //         (double)value));
+        //   } else {
+        //     printErrorMessage(
+        //         "Must cast rhs to float, but it is not constant.", ctx, {lhs,
+        //         rhs});
+        //   }
+        // }
 
         createOp<mlir::DivFOp>(location, lhs, rhs);
       } else if (lhs.getType().isa<mlir::IntegerType>() &&
@@ -779,13 +716,13 @@ antlrcpp::Any qasm3_expression_generator::visitExpressionTerminator(
     } else {
       auto idx = std::stoi(integer->getText());
       // std::cout << "Integer Terminator " << integer->getText() << ", " << idx
-      //           << ", " << number_width << "\n";
-      current_value = get_or_create_constant_integer_value(
-          multiplier * idx, location,
+      // << "\n";
+      auto integer_attr = mlir::IntegerAttr::get(
           (internal_value_type.dyn_cast_or_null<mlir::IntegerType>()
                ? internal_value_type.cast<mlir::IntegerType>()
                : builder.getI64Type()),
-          symbol_table, builder);
+          idx);
+      current_value = builder.create<mlir::ConstantOp>(location, integer_attr);
     }
     return 0;
   } else if (auto real = ctx->RealNumber()) {
@@ -816,10 +753,13 @@ antlrcpp::Any qasm3_expression_generator::visitExpressionTerminator(
       // scopes
       // if (symbol_table.get_current_scope() != 0) {
       //   auto var_attrs = symbol_table.get_variable_attributes(id->getText());
-      //   if (!var_attrs.empty() && std::find(var_attrs.begin(), var_attrs.end(),
-      //                                       "const") != std::end(var_attrs)) {
-      //     auto constant_val = value.getDefiningOp<mlir::ConstantOp>().value();
-      //     value = builder.create<mlir::ConstantOp>(location, constant_val);
+      //   if (!var_attrs.empty() && std::find(var_attrs.begin(),
+      //   var_attrs.end(),
+      //                                       "const") != std::end(var_attrs))
+      //                                       {
+      //     auto constant_val =
+      //     value.getDefiningOp<mlir::ConstantOp>().value(); value =
+      //     builder.create<mlir::ConstantOp>(location, constant_val);
       //   }
       // }
     }
@@ -869,15 +809,12 @@ antlrcpp::Any qasm3_expression_generator::visitExpressionTerminator(
         if (auto mem_value_type =
                 value_type.dyn_cast_or_null<mlir::MemRefType>()) {
           if (mem_value_type.getElementType().isIntOrIndex() &&
-              mem_value_type.getRank() == 1 &&
-              mem_value_type.getShape()[0] == 1) {
+              mem_value_type.getRank() == 0) {
             // Load this memref value
             // then add a CmpIOp to compare it to 1
             // return value will be new current_value
-            auto load = builder.create<mlir::LoadOp>(
-                location, current_value,
-                get_or_create_constant_index_value(0, location, 64,
-                                                   symbol_table, builder));
+            auto load =
+                builder.create<mlir::LoadOp>(location, current_value);  //,
             current_value = builder.create<mlir::CmpIOp>(
                 location, mlir::CmpIPredicate::eq, load,
                 get_or_create_constant_integer_value(
@@ -1184,19 +1121,19 @@ antlrcpp::Any qasm3_expression_generator::visitExpressionTerminator(
           builder, symbol_table, file_name,
           get_custom_opaque_type("Qubit", builder.getContext()));
       qubit_exp_generator.visit(expression);
-
       operands.push_back(qubit_exp_generator.current_value);
     }
-    auto call_op = builder.create<mlir::CallOp>(location, func,
-                                                llvm::makeArrayRef(operands)).getResult(0);
+    auto call_op =
+        builder
+            .create<mlir::CallOp>(location, func, llvm::makeArrayRef(operands))
+            .getResult(0);
     // If RHS is a memref<1xTYPE> then lets load it first
     if (auto rhs_mem = call_op.getType().dyn_cast_or_null<mlir::MemRefType>()) {
       call_op = builder.create<mlir::LoadOp>(
-          location, call_op,
-          get_or_create_constant_index_value(0, location, 64,
-                                             symbol_table, builder));
+          location, call_op);
     }
-    // printErrorMessage("HELLO should we return the loaded result here?", ctx, {call_op.getResult(0)});
+    // printErrorMessage("HELLO should we return the loaded result here?", ctx,
+    // {call_op.getResult(0)});
 
     update_current_value(call_op);
 
@@ -1234,58 +1171,3 @@ antlrcpp::Any qasm3_expression_generator::visitExpressionTerminator(
 }
 
 }  // namespace qcor
-
-/*keeping in case i need later
-for (int j = 0; j < bit_width; j++) {
-                auto j_val = get_or_create_constant_integer_value(
-                    j, location, builder.getI32Type(), symbol_table, builder);
-                auto load_bit_j =
-                    builder.create<mlir::LoadOp>(location, var_to_cast, j_val);
-                // Extend i1 to the same width as i
-                auto load_j_ext = builder.create<mlir::ZeroExtendIOp>(
-                    location, load_bit_j, int_value_type);
-
-                // Negate bits[j] to get -bit[j]`
-                auto neg_load_j = builder.create<mlir::SubIOp>(
-                    location,
-                    builder.create<mlir::ConstantOp>(location, init_attr),
-                    load_j_ext);
-
-                // load the current value of i
-                auto load_i = builder.create<mlir::LoadOp>(
-                    location, init_allocation,
-                    get_or_create_constant_index_value(0, location, bit_width,
-                                                       symbol_table, builder));
-
-                // first = -bits[j] ^ i
-                auto xored_val =
-                    builder.create<mlir::XOrOp>(location, neg_load_j, load_i);
-
-                // (1 << j)
-                // create j integer index
-                // auto j_val = get_or_create_constant_integer_value(
-                //     j, location, int_value_type, symbol_table, builder);
-                // second = (1 << j)
-                j_val = builder.create<mlir::TruncateIOp>(location, j_val,
-              int_value_type); auto shift_left_val =
-              builder.create<mlir::ShiftLeftOp>( location,
-                    get_or_create_constant_integer_value(
-                        1, location, int_value_type, symbol_table, builder),
-                    j_val);
-
-                // (-bits[j] ^ i) & (1 << j)
-                auto result = builder.create<mlir::AndOp>(location, xored_val,
-                                                          shift_left_val);
-
-                auto load_i2 = builder.create<mlir::LoadOp>(
-                    location, init_allocation,
-                    get_or_create_constant_index_value(0, location, bit_width,
-                                                       symbol_table, builder));
-                auto result_to_store =
-                    builder.create<mlir::XOrOp>(location, load_i2, result);
-
-                auto val = builder.create<mlir::StoreOp>(
-                    location, result_to_store, init_allocation,
-                    get_or_create_constant_index_value(0, location, 64,
-                                                       symbol_table, builder));
-              }*/

@@ -13,6 +13,10 @@
 #include "lowering/QubitArrayAllocOpLowering.hpp"
 #include "lowering/SetQregOpLowering.hpp"
 #include "lowering/StdAtanOpLowering.hpp"
+#include "lowering/PowURegionLowering.hpp"
+#include "lowering/AdjointURegionLowering.hpp"
+#include "lowering/CtrlURegionLowering.hpp"
+
 #include <iostream>
 
 namespace qcor {
@@ -82,7 +86,13 @@ void QuantumToLLVMLoweringPass::runOnOperation() {
   patterns.insert<AssignQubitOpConversion>(&getContext(), variables);
   patterns.insert<QarraySliceOpLowering>(&getContext(), variables);
   patterns.insert<QarrayConcatOpLowering>(&getContext(), variables);
-
+  patterns.insert<StartPowURegionOpLowering>(&getContext());
+  patterns.insert<EndPowURegionOpLowering>(&getContext());
+  patterns.insert<StartAdjointURegionOpLowering>(&getContext());
+  patterns.insert<EndAdjointURegionOpLowering>(&getContext());
+  patterns.insert<StartCtrlURegionOpLowering>(&getContext());
+  patterns.insert<EndCtrlURegionOpLowering>(&getContext());
+  
   // We want to completely lower to LLVM, so we use a `FullConversion`. This
   // ensures that only legal operations will remain after the conversion.
   auto module = getOperation();

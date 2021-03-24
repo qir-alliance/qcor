@@ -59,6 +59,7 @@ class qasm3_expression_generator : public qasm3::qasm3BaseVisitor {
       qasm3Parser::MultiplicativeExpressionContext* ctx) override;
   antlrcpp::Any visitAdditiveExpression(
       qasm3Parser::AdditiveExpressionContext* ctx) override;
+  antlrcpp::Any visitIncrementor(qasm3Parser::IncrementorContext* ctx) override;
 
   antlrcpp::Any visitXOrExpression(
       qasm3Parser::XOrExpressionContext* ctx) override;

@@ -68,7 +68,6 @@ void qasm3_visitor::createInstOps_HandleBroadcast(
     } else if (qbit_values.size() == 2) {
       if (qbit_values[0].getType() == array_type &&
           qbit_values[1].getType() == array_type) {
-
         auto n = get_qreg_size(qbit_values[0], qreg_names[0]);
         auto m = get_qreg_size(qbit_values[1], qreg_names[1]);
 
@@ -171,6 +170,20 @@ antlrcpp::Any qasm3_visitor::visitQuantumGateCall(
     name = "u3";
   }
 
+  std::vector<qasm3Parser::QuantumGateModifierContext*> modifiers;
+  if (context->quantumGateName()->quantumGateModifier()) {
+    auto qgn = context->quantumGateName();
+    while (auto qgm = qgn->quantumGateModifier()) {
+      modifiers.push_back(qgm);
+      qgn = qgn->quantumGateName();
+    }
+  }
+
+  for (auto m : modifiers) {
+    auto pos = name.find(m->getText());
+    name.erase(pos, m->getText().length());
+  }
+
   std::vector<mlir::Value> qbit_values, param_values;
 
   if (auto expression_list = context->expressionList()) {
@@ -215,10 +228,7 @@ antlrcpp::Any qasm3_visitor::visitQuantumGateCall(
     qreg_names.push_back(qbit_var_name);
     if (idx_identifier->LBRACKET()) {
       // this is a qubit indexed from an array
-      auto idx_str = idx_identifier->expressionList()
-                         ->expression(0)
-                         ->expressionTerminator()
-                         ->getText();
+      auto idx_str = idx_identifier->expressionList()->expression(0)->getText();
       mlir::Value value;
       try {
         value = get_or_extract_qubit(qbit_var_name, std::stoi(idx_str),
@@ -234,9 +244,26 @@ antlrcpp::Any qasm3_visitor::visitQuantumGateCall(
           value = builder.create<mlir::quantum::ExtractQubitOp>(
               location, qubit_type, qubits, qbit);
         } else {
-          printErrorMessage(
-              "Invalid measurement index on the given qubit register: " +
-              qbit_var_name + ", " + idx_str);
+          qasm3_expression_generator exp_generator(builder, symbol_table,
+                                                   file_name, qubit_type);
+          exp_generator.visit(idx_identifier->expressionList()->expression(0));
+          value = exp_generator.current_value;
+          if (!value.getDefiningOp<mlir::quantum::ExtractQubitOp>()) {
+            auto qubits = symbol_table.get_symbol(qbit_var_name);
+
+            auto qubit_type =
+                get_custom_opaque_type("Qubit", builder.getContext());
+
+            if (value.getType().getIntOrFloatBitWidth() < 64) {
+              value = builder.create<mlir::ZeroExtendIOp>(location, value,
+                                                          builder.getI64Type());
+            }
+            value = builder.create<mlir::quantum::ExtractQubitOp>(
+                location, qubit_type, qubits, value);
+          }
+          // printErrorMessage(
+          //     "Invalid measurement index on the given qubit register: " +
+          //     qbit_var_name + ", " + idx_str);
         }
       }
 
@@ -250,8 +277,76 @@ antlrcpp::Any qasm3_visitor::visitQuantumGateCall(
     }
   }
 
-  createInstOps_HandleBroadcast(name, qbit_values, qreg_names, param_values,
-                                location, context);
+  bool has_ctrl = false;
+  enum EndAction { EndCtrlU, EndAdjU, EndPowU };
+  std::stack<std::pair<EndAction, mlir::Value>> action_and_extrainfo;
+  for (auto m : modifiers) {
+    if (m->getText().find("pow") != std::string::npos) {
+      builder.create<mlir::quantum::StartPowURegion>(location);
+      mlir::Value power;
+      if (symbol_table.has_symbol(m->expression()->getText())) {
+        power = symbol_table.get_symbol(m->expression()->getText());
+        if (power.getType().isa<mlir::MemRefType>()) {
+          power = builder.create<mlir::LoadOp>(location, power);
+          if (power.getType().getIntOrFloatBitWidth() < 64) {
+            power = builder.create<mlir::ZeroExtendIOp>(location, power,
+                                                        builder.getI64Type());
+          }
+        }
+      } else {
+        auto p = symbol_table.evaluate_constant_integer_expression(
+            m->expression()->getText());
+        auto pow_attr = mlir::IntegerAttr::get(builder.getI64Type(), p);
+        power = builder.create<mlir::ConstantOp>(location, pow_attr);
+      }
+      action_and_extrainfo.emplace(std::make_pair(EndAction::EndPowU, power));
+    } else if (m->getText().find("inv") != std::string::npos) {
+      builder.create<mlir::quantum::StartAdjointURegion>(location);
+      action_and_extrainfo.emplace(
+          std::make_pair(EndAction::EndAdjU, mlir::Value()));
+    } else if (m->getText().find("ctrl") != std::string::npos) {
+      has_ctrl = true;
+      builder.create<mlir::quantum::StartCtrlURegion>(location);
+      action_and_extrainfo.emplace(
+          std::make_pair(EndAction::EndCtrlU, mlir::Value()));
+    }
+  }
+
+  // Potentially get the ctrl qubit
+  mlir::Value ctrl_bit;
+  if (has_ctrl) {
+    ctrl_bit = *qbit_values.begin();
+    qbit_values.erase(qbit_values.begin());
+  }
+
+  if (symbol_table.has_seen_function(name)) {
+    std::vector<mlir::Value> operands;
+    for (auto p : param_values) {
+      operands.push_back(p);
+    }
+    for (auto q : qbit_values) {
+      operands.push_back(q);
+    }
+
+    builder.create<mlir::CallOp>(location, symbol_table.get_seen_function(name),
+                                 operands);
+
+  } else {
+    createInstOps_HandleBroadcast(name, qbit_values, qreg_names, param_values,
+                                  location, context);
+  }
+
+  while (!action_and_extrainfo.empty()) {
+    auto top = action_and_extrainfo.top();
+    if (top.first == EndAction::EndPowU) {
+      builder.create<mlir::quantum::EndPowURegion>(location, top.second);
+    } else if (top.first == EndAction::EndAdjU) {
+      builder.create<mlir::quantum::EndAdjointURegion>(location);
+    } else if (top.first == EndAction::EndCtrlU) {
+      builder.create<mlir::quantum::EndCtrlURegion>(location, ctrl_bit);
+    }
+    action_and_extrainfo.pop();
+  }
 
   return 0;
 }
@@ -271,10 +366,7 @@ antlrcpp::Any qasm3_visitor::visitKernelCall(
 
       auto arg = exp_generator.current_value;
       if (arg.getType().isa<mlir::MemRefType>()) {
-        arg = builder.create<mlir::LoadOp>(
-            location, arg,
-            get_or_create_constant_index_value(0, location, 64, symbol_table,
-                                               builder));
+        arg = builder.create<mlir::LoadOp>(location, arg);
       }
       print_args.push_back(arg);
     }
@@ -358,8 +450,22 @@ antlrcpp::Any qasm3_visitor::visitSubroutineCall(
     qreg_names.push_back(expression->getText());
   }
 
-  createInstOps_HandleBroadcast(name, qbit_values, qreg_names, param_values,
-                                location, context);
+  if (symbol_table.has_seen_function(name)) {
+    std::vector<mlir::Value> operands;
+    for (auto p : param_values) {
+      operands.push_back(p);
+    }
+    for (auto q : qbit_values) {
+      operands.push_back(q);
+    }
+
+    builder.create<mlir::CallOp>(location, symbol_table.get_seen_function(name),
+                                 operands);
+
+  } else {
+    createInstOps_HandleBroadcast(name, qbit_values, qreg_names, param_values,
+                                  location, context);
+  }
   return 0;
 }
 }  // namespace qcor

@@ -28,11 +28,11 @@ public:
     T__74 = 75, T__75 = 76, T__76 = 77, T__77 = 78, T__78 = 79, T__79 = 80, 
     T__80 = 81, T__81 = 82, T__82 = 83, T__83 = 84, T__84 = 85, T__85 = 86, 
     T__86 = 87, T__87 = 88, T__88 = 89, T__89 = 90, T__90 = 91, T__91 = 92, 
-    LBRACKET = 93, RBRACKET = 94, LBRACE = 95, RBRACE = 96, LPAREN = 97, 
-    RPAREN = 98, COLON = 99, SEMICOLON = 100, DOT = 101, COMMA = 102, EQUALS = 103, 
-    ARROW = 104, MINUS = 105, Constant = 106, Whitespace = 107, Newline = 108, 
-    Integer = 109, Identifier = 110, RealNumber = 111, TimingLiteral = 112, 
-    StringLiteral = 113, LineComment = 114, BlockComment = 115
+    T__92 = 93, T__93 = 94, LBRACKET = 95, RBRACKET = 96, LBRACE = 97, RBRACE = 98, 
+    LPAREN = 99, RPAREN = 100, COLON = 101, SEMICOLON = 102, DOT = 103, 
+    COMMA = 104, EQUALS = 105, ARROW = 106, MINUS = 107, Constant = 108, 
+    Whitespace = 109, Newline = 110, Integer = 111, Identifier = 112, RealNumber = 113, 
+    TimingLiteral = 114, StringLiteral = 115, LineComment = 116, BlockComment = 117
   };
 
   enum {
@@ -1057,9 +1057,9 @@ public:
   public:
     QuantumGateModifierContext(antlr4::ParserRuleContext *parent, size_t invokingState);
     virtual size_t getRuleIndex() const override;
-    antlr4::tree::TerminalNode *LBRACKET();
+    antlr4::tree::TerminalNode *LPAREN();
     ExpressionContext *expression();
-    antlr4::tree::TerminalNode *RBRACKET();
+    antlr4::tree::TerminalNode *RPAREN();
 
     virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
     virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;

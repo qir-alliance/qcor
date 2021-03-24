@@ -1,10 +1,14 @@
 #pragma once
 
+#include <iostream>
 #include <map>
 #include <vector>
 
 #include "Quantum/QuantumOps.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "mlir/IR/Builders.h"
+#include "mlir/IR/BuiltinOps.h"
+#include "mlir/IR/BuiltinTypes.h"
 
 namespace qcor {
 using SymbolTable = std::map<std::string, mlir::Value>;
@@ -31,7 +35,27 @@ class ScopedSymbolTable {
 
   mlir::Block* last_created_block;
 
+  mlir::OpBuilder* builder;
+
+  std::map<std::string, mlir::Type> global_constant_memref_types;
+  std::map<std::string, double> global_constants;
+
  public:
+
+  template<typename T>
+  T get_global_constant(const std::string variable_name) {
+    if (!global_constants.count(variable_name)) {
+      printErrorMessage("Invalid global constant variable name: " + variable_name);
+    }
+    return (T) global_constants[variable_name];
+  }
+  void set_op_builder(mlir::OpBuilder& b) { builder = &b; }
+
+  void evaluate_const_global(const std::string variable_name,
+                             const std::string expr_str, mlir::Type type,
+                             mlir::Block& module_block,
+                             mlir::Location location);
+
   ScopedSymbolTable() {
     // start the global table
     scoped_symbol_tables.push_back(SymbolTable{});
@@ -237,6 +261,15 @@ class ScopedSymbolTable {
 
   // get symbol at the current scope, will search parent scopes
   mlir::Value get_symbol(const std::string variable_name) {
+    if (global_constant_memref_types.count(variable_name)) {
+      llvm::ArrayRef<int64_t> shape{};
+      return builder->create<mlir::GetGlobalMemrefOp>(
+          builder->getUnknownLoc(),
+          mlir::MemRefType::get(shape,
+                                global_constant_memref_types[variable_name]),
+          variable_name);
+    }
+
     if (!has_symbol(variable_name)) {
       printErrorMessage("invalid symbol, not in the symbol table - " +
                         variable_name);
@@ -263,6 +296,7 @@ class ScopedSymbolTable {
   std::size_t get_parent_scope() {
     return current_scope >= 1 ? current_scope - 1 : 0;
   }
+
   ~ScopedSymbolTable() {}
 };
 }  // namespace qcor

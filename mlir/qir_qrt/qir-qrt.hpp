@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <vector>
+#include <stack>
 #include "qalloc.hpp"
 #include "qir-types.hpp"
 
@@ -31,7 +32,9 @@ void __quantum__rt__finalize();
 void __quantum__rt__set_external_qreg(qreg* q);
 
 // QIS API (i.e. quantum instructions)
+void __quantum__qis__swap(Qubit* src, Qubit* tgt);
 void __quantum__qis__cnot(Qubit* src, Qubit* tgt);
+void __quantum__qis__cphase(double x, Qubit* src, Qubit* tgt);
 void __quantum__qis__h(Qubit* q);
 void __quantum__qis__s(Qubit* q);
 void __quantum__qis__sdg(Qubit* q);
@@ -58,6 +61,13 @@ Result* __quantum__rt__result_get_zero();
 // Qubit Alloc/Dealloc API
 Array* __quantum__rt__qubit_allocate_array(uint64_t idx);
 void __quantum__rt__qubit_release_array(Array* q);
+
+void __quantum__rt__start_ctrl_u_region();
+void __quantum__rt__end_ctrl_u_region(Qubit * ctrl_qubit);
+void __quantum__rt__start_adj_u_region();
+void __quantum__rt__end_adj_u_region();
+void __quantum__rt__start_pow_u_region();
+void __quantum__rt__end_pow_u_region(int64_t power);
 
 // Array API
 // Create an array
