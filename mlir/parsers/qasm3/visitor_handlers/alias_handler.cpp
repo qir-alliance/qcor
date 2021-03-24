@@ -247,6 +247,18 @@ antlrcpp::Any qasm3_visitor::visitAliasStatement(
   // e.g. alias = q[1,3,5] || q[2] || q[4:2:8]
   processIdentifierDef(alias, context->indexIdentifier());
 
+  // If the aliasing qreg is of size 1, just returns the Qubit.
+  // (rather than an array of size 1).
+  assert(!symbol_table.get_variable_attributes(alias).empty());
+  const size_t alias_reg_size =
+      std::stoi(symbol_table.get_variable_attributes(alias)[0]);
+  if (alias_reg_size == 1) {
+    auto qubit_value =
+        get_or_extract_qubit(alias, 0, location, symbol_table, builder);
+    // Overwrite the alias with the qubit.
+    symbol_table.add_symbol(alias, qubit_value, {"1"}, true);
+  }
+
   return 0;
 }
 } // namespace qcor
