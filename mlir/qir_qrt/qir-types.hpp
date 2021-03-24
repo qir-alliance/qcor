@@ -3,6 +3,8 @@
 #include <cassert>
 #include <stdexcept>
 #include <functional>
+#include <cstring>
+#include <iostream>
 // Defines implementations of QIR Opaque types
 
 // FIXME - Qubit should be a struct that keeps track of idx
@@ -120,10 +122,10 @@ class IFunctor;
 }
 } // namespace qcor
 
+// QIR Callable implementation.
 struct Callable {
   void invoke(TuplePtr args, TuplePtr result);
   Callable(qcor::qsharp::IFunctor *in_functor) : m_functor(in_functor) {}
-
 private:
   qcor::qsharp::IFunctor *m_functor;
 };
@@ -133,21 +135,11 @@ namespace qcor {
 std::vector<int64_t> getRangeValues(::Array *in_array, const ::Range &in_range);
 
 namespace qsharp {
+// A generic base class of qcor function-like objects
+// that will be invoked by Q# as a callable.
 class IFunctor {
 public:
   virtual void execute(TuplePtr args, TuplePtr result) = 0;
-};
-template <typename ReturnType, typename... ArgTypes>
-class CallBack : public IFunctor {
-public:
-  CallBack(std::function<ReturnType(ArgTypes...)> in_func) : m_func(in_func){};
-  virtual void execute(TuplePtr args, TuplePtr result) override {
-    printf("Howdy callable\n");
-    printf(__PRETTY_FUNCTION__);
-  }
-
-private:
-  std::function<ReturnType(ArgTypes...)> m_func;
 };
 } // namespace qsharp
 } // namespace qcor
