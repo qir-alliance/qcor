@@ -106,6 +106,7 @@ LogicalResult PrintOpLowering::matchAndRewrite(
     } else if (auto mem_ref_type =
                    operand.getType().dyn_cast_or_null<mlir::MemRefType>()) {
       if (mem_ref_type.getElementType().isa<mlir::IntegerType>() &&
+          mem_ref_type.getRank() > 0 &&
           mem_ref_type.getElementType().getIntOrFloatBitWidth() == 1) {
         // This is a bit array...
         auto dim = mem_ref_type.getShape()[0];
@@ -151,6 +152,7 @@ LogicalResult PrintOpLowering::matchAndRewrite(
     } else if (auto mem_ref_type =
                    o.getType().dyn_cast_or_null<mlir::MemRefType>()) {
       if (mem_ref_type.getElementType().isa<mlir::IntegerType>() &&
+          mem_ref_type.getRank() > 0 &&
           mem_ref_type.getElementType().getIntOrFloatBitWidth() == 1) {
         // This is a bit array...
         auto dim = mem_ref_type.getShape()[0];
