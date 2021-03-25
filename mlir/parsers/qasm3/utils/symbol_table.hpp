@@ -33,7 +33,7 @@ class ScopedSymbolTable {
 
   std::map<std::string, mlir::FuncOp> seen_functions;
 
-  mlir::Block* last_created_block;
+  mlir::Block* last_created_block = nullptr;
 
   mlir::OpBuilder* builder;
 
@@ -92,7 +92,7 @@ class ScopedSymbolTable {
     // last_created_block = nullptr;
   }
 
-  void set_last_created_block(mlir::Block* b) { last_created_block = b; }
+  void set_last_created_block(mlir::Block* b) {last_created_block = b; }
   mlir::Block* get_last_created_block() { return last_created_block; }
 
   void add_seen_function(const std::string name, mlir::FuncOp function) {

@@ -45,7 +45,6 @@ h counting;
 // Loop over and create ctrl-U**2k
 int repetitions = 1;
 for i in [0:n_counting] {
-    print("i is ", i, repetitions);
     ctrl @ pow(repetitions) @ oracle counting[i], state;
     repetitions *= 2;
 }

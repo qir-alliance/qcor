@@ -11,7 +11,7 @@ class Module;
 namespace xacc {
 class CompositeInstruction;
 class HeterogeneousMap;
-}
+}  // namespace xacc
 
 namespace qcor {
 class LLVMJIT;
@@ -51,7 +51,8 @@ class QJIT {
                    const std::string &extra_functions_src = "",
                    std::vector<std::string> extra_headers = {});
 
-  void jit_compile(std::unique_ptr<llvm::Module> m, std::vector<std::string> extra_shared_lib_paths ={});
+  void jit_compile(std::unique_ptr<llvm::Module> m,
+                   std::vector<std::string> extra_shared_lib_paths = {});
 
   void write_cache();
 
@@ -62,9 +63,9 @@ class QJIT {
     kernel_functor(args...);
   }
 
-  int invoke_main(int argc, char** argv) {
+  int invoke_main(int argc, char **argv) {
     auto f_ptr = kernel_name_to_f_ptr["main"];
-    int (*kernel_functor)(int, char**) = (int (*)(int, char**))f_ptr;
+    int (*kernel_functor)(int, char **) = (int (*)(int, char **))f_ptr;
     return kernel_functor(argc, argv);
   }
 

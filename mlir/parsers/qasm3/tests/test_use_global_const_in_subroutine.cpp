@@ -18,8 +18,6 @@ def test(float[32]:tt)-> int[64] {
     int[64] s = 10;
     print("s = ", s);
     print(tt);
-    tt = 2.2;
-    print(tt);
     s = shots;
     for i in [0:n] {
       print(i);

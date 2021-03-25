@@ -491,13 +491,17 @@ antlrcpp::Any qasm3_expression_generator::visitXOrExpression(
       builder.create<mlir::BranchOp>(location, headerBlock);
       builder.setInsertionPointToStart(headerBlock);
 
-      auto load = builder.create<mlir::LoadOp>(
-          location, loop_var_memref).result();  //, zero_index);
-      
-      if (load.getType().getIntOrFloatBitWidth() < b_val.getType().getIntOrFloatBitWidth()) {
-        load = builder.create<mlir::ZeroExtendIOp>(location, load, b_val.getType());
-      } else if (b_val.getType().getIntOrFloatBitWidth() < load.getType().getIntOrFloatBitWidth()) {
-        b_val = builder.create<mlir::ZeroExtendIOp>(location, b_val, load.getType());
+      auto load = builder.create<mlir::LoadOp>(location, loop_var_memref)
+                      .result();  //, zero_index);
+
+      if (load.getType().getIntOrFloatBitWidth() <
+          b_val.getType().getIntOrFloatBitWidth()) {
+        load = builder.create<mlir::ZeroExtendIOp>(location, load,
+                                                   b_val.getType());
+      } else if (b_val.getType().getIntOrFloatBitWidth() <
+                 load.getType().getIntOrFloatBitWidth()) {
+        b_val = builder.create<mlir::ZeroExtendIOp>(location, b_val,
+                                                    load.getType());
       }
 
       auto cmp = builder.create<mlir::CmpIOp>(
@@ -1129,8 +1133,7 @@ antlrcpp::Any qasm3_expression_generator::visitExpressionTerminator(
             .getResult(0);
     // If RHS is a memref<1xTYPE> then lets load it first
     if (auto rhs_mem = call_op.getType().dyn_cast_or_null<mlir::MemRefType>()) {
-      call_op = builder.create<mlir::LoadOp>(
-          location, call_op);
+      call_op = builder.create<mlir::LoadOp>(location, call_op);
     }
     // printErrorMessage("HELLO should we return the loaded result here?", ctx,
     // {call_op.getResult(0)});
@@ -1145,13 +1148,26 @@ antlrcpp::Any qasm3_expression_generator::visitExpressionTerminator(
     auto func =
         symbol_table.get_seen_function(kernel_call->Identifier()->getText());
 
+    // func.get
     std::vector<mlir::Value> operands;
     auto expression_list = kernel_call->expressionList()->expression();
-    for (auto expression : expression_list) {
-      qasm3_expression_generator param_exp_generator(builder, symbol_table,
-                                                     file_name);
-      param_exp_generator.visit(expression);
-      operands.push_back(param_exp_generator.current_value);
+
+    for (auto exp : expression_list) {
+      // auto exp_str = exp->getText();
+      qasm3_expression_generator exp_generator(builder, symbol_table,
+                                               file_name);
+      exp_generator.visit(exp);
+
+      auto arg = exp_generator.current_value;
+      if (arg.getType().isa<mlir::MemRefType>()) {
+        auto element_type =
+            arg.getType().cast<mlir::MemRefType>().getElementType();
+        if (!(element_type.isa<mlir::IntegerType>() &&
+              element_type.getIntOrFloatBitWidth() == 1)) {
+          arg = builder.create<mlir::LoadOp>(location, arg);
+        }
+      }
+      operands.push_back(arg);
     }
 
     auto call_op = builder.create<mlir::CallOp>(location, func,

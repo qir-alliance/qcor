@@ -85,3 +85,8 @@ add_executable(qasm3CompilerTester_Bell test_bell.cpp)
 add_test(NAME qcor_qasm3_test_bell COMMAND qasm3CompilerTester_Bell)
 target_include_directories(qasm3CompilerTester_Bell PRIVATE . ../../ ${XACC_ROOT}/include/gtest)
 target_link_libraries(qasm3CompilerTester_Bell qcor-mlir-api gtest gtest_main)
+
+add_executable(qasm3CompilerTester_Kernel test_kernel.cpp)
+add_test(NAME qcor_qasm3_test_kernel COMMAND qasm3CompilerTester_Kernel)
+target_include_directories(qasm3CompilerTester_Kernel PRIVATE . ../../ ${CMAKE_SOURCE_DIR}/tools/clang-wrapper/ ${CMAKE_SOURCE_DIR}/handlers ${XACC_ROOT}/include/gtest)
+target_link_libraries(qasm3CompilerTester_Kernel qcor-mlir-api gtest gtest_main qcor-clang-wrapper qcor-syntax-handler ${CLANG_LIBS})

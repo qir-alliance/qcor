@@ -351,6 +351,117 @@ antlrcpp::Any qasm3_visitor::visitQuantumGateCall(
   return 0;
 }
 
+antlrcpp::Any qasm3_visitor::visitKernelDeclaration(
+    qasm3Parser::KernelDeclarationContext* context) {
+  // kernelDeclaration
+  //   : 'kernel' Identifier ( LPAREN classicalTypeList? RPAREN )?
+  //   returnSignature? classicalType? SEMICOLON
+  //   ;
+  // returnSignature
+  //   : ARROW classicalType
+  //   ;
+  // classicalType
+  //   : singleDesignatorType designator
+  //   | doubleDesignatorType doubleDesignator
+  //   | noDesignatorType
+  //   | bitType designator?
+  //   ;
+
+  auto location = get_location(builder, file_name, context);
+  auto name = context->Identifier()->getText();
+
+  std::vector<mlir::Type> types;
+  if (auto typelist = context->classicalTypeList()) {
+    for (auto type_ctx : typelist->classicalType()) {
+      types.push_back(convertQasm3Type(type_ctx, symbol_table, builder));
+    }
+  }
+
+  bool has_return = false;
+  mlir::Type return_type = builder.getIntegerType(32);
+  if (context->returnSignature()) {
+    has_return = true;
+    auto classical_type = context->returnSignature()->classicalType();
+    // can return bit, bit[], uint[], int[], float[], bool
+    if (classical_type->bitType()) {
+      if (auto designator = classical_type->designator()) {
+        auto bit_size = symbol_table.evaluate_constant_integer_expression(
+            designator->getText());
+        llvm::ArrayRef<int64_t> shape{bit_size};
+        return_type = mlir::MemRefType::get(shape, result_type);
+      } else {
+        return_type = result_type;
+      }
+    } else if (auto single_desig = classical_type->singleDesignatorType()) {
+      if (single_desig->getText() == "float") {
+        auto bit_width = symbol_table.evaluate_constant_integer_expression(
+            classical_type->designator()->getText());
+        if (bit_width == 16) {
+          return_type = builder.getF16Type();
+        } else if (bit_width == 32) {
+          return_type = builder.getF32Type();
+        } else if (bit_width == 64) {
+          return_type = builder.getF64Type();
+        } else {
+          printErrorMessage(
+              "on subroutine return type - we only support 16, 32, or 64 width "
+              "floating point types.",
+              context);
+        }
+      } else if (single_desig->getText() == "int") {
+        auto bit_width = symbol_table.evaluate_constant_integer_expression(
+            classical_type->designator()->getText());
+        return_type = builder.getIntegerType(bit_width);
+      } else {
+        printErrorMessage(
+            "we do not yet support this subroutine single designator return "
+            "type.",
+            context);
+      }
+    } 
+    else if (auto no_desig = classical_type->noDesignatorType()) {
+      if (no_desig->getText().find("uint") != std::string::npos) {
+        return_type = builder.getIntegerType(32, false);
+      } else if (no_desig->getText().find("int") != std::string::npos) {
+        return_type = builder.getIntegerType(32);
+      } else if (no_desig->getText().find("float") != std::string::npos) {
+        return_type = builder.getF32Type();
+      } else if (no_desig->getText().find("double") != std::string::npos) {
+        return_type = builder.getF64Type();
+      } else if (no_desig->getText().find("int64_t") != std::string::npos) {
+        return_type = builder.getI64Type();
+      } else {
+        printErrorMessage("Invalid no-designator default type.", context);
+      }
+    } 
+    else {
+      printErrorMessage("Alex implement other return types.", context);
+    }
+  }
+  mlir::FuncOp function;
+  if (has_return) {
+    auto func_type = builder.getFunctionType(types, return_type);
+    auto proto = mlir::FuncOp::create(builder.getUnknownLoc(), name, func_type);
+    mlir::FuncOp function2(proto);
+    function = function2;
+  } else {
+    auto func_type = builder.getFunctionType(types, llvm::None);
+    auto proto = mlir::FuncOp::create(builder.getUnknownLoc(), name, func_type);
+    mlir::FuncOp function2(proto);
+    function = function2;
+  }
+ 
+  auto savept = builder.saveInsertionPoint();
+
+  builder.setInsertionPointToStart(&m_module.getRegion().getBlocks().front());
+  builder.create<mlir::FuncOp>(location, name, function.getType().cast<mlir::FunctionType>());
+  builder.restoreInsertionPoint(savept);
+
+  symbol_table.add_seen_function(name, function);
+
+  return 0;
+}
+
 antlrcpp::Any qasm3_visitor::visitKernelCall(
     qasm3Parser::KernelCallContext* context) {
   auto location = get_location(builder, file_name, context);
@@ -375,6 +486,29 @@ antlrcpp::Any qasm3_visitor::visitKernelCall(
     return 0;
   }
 
+  if (symbol_table.has_seen_function(context->Identifier()->getText())) {
+    auto expr_list = context->expressionList();
+    std::vector<mlir::Value> kernel_args;
+
+    for (auto exp : expr_list->expression()) {
+      // auto exp_str = exp->getText();
+      qasm3_expression_generator exp_generator(builder, symbol_table,
+                                               file_name);
+      exp_generator.visit(exp);
+
+      auto arg = exp_generator.current_value;
+      if (arg.getType().isa<mlir::MemRefType>()) {
+        arg = builder.create<mlir::LoadOp>(location, arg);
+      }
+      kernel_args.push_back(arg);
+    }
+    
+    builder.create<mlir::CallOp>(
+        location,
+        symbol_table.get_seen_function(context->Identifier()->getText()),
+        llvm::makeArrayRef(kernel_args));
+    return 0;
+  }
   return 0;
 }
 

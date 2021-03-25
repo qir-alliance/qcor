@@ -219,8 +219,12 @@ antlrcpp::Any qasm3_visitor::visitNoDesignatorDeclaration(
     mlir::Attribute init_attr;
     mlir::Type value_type;
     std::string type = context->noDesignatorType()->getText();
-    auto bit_width = type == "int" ? 32 : 64;
-    value_type = builder.getIntegerType(bit_width);
+    auto bit_width = (type == "int" || type == "uint") ? 32 : 64;
+    if (context->noDesignatorType()->getText().find("u") != std::string::npos) {
+      value_type = builder.getIntegerType(bit_width, false);
+    } else {
+      value_type = builder.getIntegerType(bit_width);
+    }
     init_attr = mlir::IntegerAttr::get(value_type, 0);
     std::vector<std::string> variable_names;
     std::vector<mlir::Value> initial_values;

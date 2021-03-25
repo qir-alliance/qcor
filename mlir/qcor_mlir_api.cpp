@@ -1,6 +1,7 @@
 #include "qcor_mlir_api.hpp"
 
 #include "Quantum/QuantumDialect.h"
+#include "llvm/Linker/Linker.h"
 #include "llvm/Support/TargetSelect.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
@@ -129,7 +130,6 @@ int execute(const std::string &src_language_type, const std::string &src,
   unique_function_names = mlir_generator->seen_function_names();
   auto module = mlir_generator->get_module();
 
-
   // Handle the reported diagnostic.
   // Return success to signal that the diagnostic has either been fully
   // processed, or failure if the diagnostic should be propagated to the
@@ -178,13 +178,112 @@ int execute(const std::string &src_language_type, const std::string &src,
   // Compile the LLVM module, this is basically
   // just building up the LLVM JIT engine and
   // loading all seen function pointers
-  jit.jit_compile(std::move(llvmModule),
-                  std::vector<std::string>{std::string(QCOR_INSTALL_DIR) +
-                                           std::string("/lib/libqir-qrt") +
-                                           std::string(QCOR_LIB_SUFFIX)
-                                           , "/usr/local/aideqc/llvm/lib/libLLVMAnalysis.so",
-                                           "/usr/local/aideqc/llvm/lib/libLLVMInstrumentation.so",
-                                           "/usr/local/aideqc/llvm/lib/libLLVMX86CodeGen.so"});
+  jit.jit_compile(
+      std::move(llvmModule),
+      std::vector<std::string>{
+          std::string(QCOR_INSTALL_DIR) + std::string("/lib/libqir-qrt") +
+              std::string(QCOR_LIB_SUFFIX),
+          "/usr/local/aideqc/llvm/lib/libLLVMAnalysis.so",
+          "/usr/local/aideqc/llvm/lib/libLLVMInstrumentation.so",
+          "/usr/local/aideqc/llvm/lib/libLLVMX86CodeGen.so"});
+
+  std::vector<std::string> argv;
+  std::vector<char *> cstrs;
+  argv.insert(argv.begin(), "appExec");
+  for (auto &s : argv) {
+    cstrs.push_back(&s.front());
+  }
+
+  return jit.invoke_main(cstrs.size(), cstrs.data());
+}
+
+int execute(const std::string &src_language_type, const std::string &src,
+            const std::string &kernel_name, 
+            std::vector<std::unique_ptr<llvm::Module>>& extra, int opt_level) {
+  mlir::registerAsmPrinterCLOptions();
+  mlir::registerMLIRContextCLOptions();
+
+  mlir::MLIRContext context;
+  context.loadDialect<mlir::quantum::QuantumDialect, mlir::StandardOpsDialect,
+                      mlir::scf::SCFDialect, mlir::AffineDialect>();
+
+  std::vector<std::string> unique_function_names;
+
+  std::shared_ptr<QuantumMLIRGenerator> mlir_generator;
+  if (src_language_type == "openqasm") {
+    mlir_generator = std::make_shared<OpenQasmMLIRGenerator>(context);
+  } else if (src_language_type == "qasm3") {
+    mlir_generator = std::make_shared<OpenQasmV3MLIRGenerator>(context);
+  } else {
+    std::cout << "No other mlir generators yet.\n";
+    exit(1);
+  }
+
+  mlir_generator->initialize_mlirgen(true, kernel_name);
+  mlir_generator->mlirgen(src);
+  mlir_generator->finalize_mlirgen();
+  unique_function_names = mlir_generator->seen_function_names();
+  auto module = mlir_generator->get_module();
+
+  // Handle the reported diagnostic.
+  // Return success to signal that the diagnostic has either been fully
+  // processed, or failure if the diagnostic should be propagated to the
+  // previous handlers.
+  DiagnosticEngine &engine = context.getDiagEngine();
+  engine.registerHandler([&](Diagnostic &diag) -> LogicalResult {
+    std::cout << "Dumping Module after error.\n";
+    module->dump();
+    for (auto &n : diag.getNotes()) {
+      std::string s;
+      llvm::raw_string_ostream os(s);
+      n.print(os);
+      os.flush();
+      std::cout << "DiagnosticEngine Note: " << s << "\n";
+    }
+    bool should_propagate_diagnostic = true;
+    return failure(should_propagate_diagnostic);
+  });
+
+  // Create the PassManager for lowering to LLVM MLIR and run it
+  mlir::PassManager pm(&context);
+  pm.addPass(
+      std::make_unique<qcor::QuantumToLLVMLoweringPass>(unique_function_names));
+  auto module_op = (*module).getOperation();
+  if (mlir::failed(pm.run(module_op))) {
+    std::cout << "Pass Manager Failed\n";
+    return 1;
+  }
+
+  // Now lower MLIR to LLVM IR
+  llvm::LLVMContext llvmContext;
+  auto llvmModule = mlir::translateModuleToLLVMIR(*module, llvmContext);
+
+  // Optimize the LLVM IR
+  llvm::InitializeNativeTarget();
+  llvm::InitializeNativeTargetAsmPrinter();
+  auto optPipeline = mlir::makeOptimizingTransformer(opt_level, 0, nullptr);
+  if (auto err = optPipeline(llvmModule.get())) {
+    llvm::errs() << "Failed to optimize LLVM IR " << err << "\n";
+    return 1;
+  }
+
+  // Use the Linker to add extra code to the module
+  llvm::Linker linker(*llvmModule);
+  for (auto &m : extra) {
+    linker.linkInModule(std::move(m));
+  }
+
+  // Instantiate our JIT engine
+  QJIT jit;
+
+  // Compile the LLVM module, this is basically
+  // just building up the LLVM JIT engine and
+  // loading all seen function pointers
+  jit.jit_compile(
+      std::move(llvmModule),
+      std::vector<std::string>{
+          std::string(QCOR_INSTALL_DIR) + std::string("/lib/libqir-qrt") +
+              std::string(QCOR_LIB_SUFFIX)});
 
   std::vector<std::string> argv;
   std::vector<char *> cstrs;

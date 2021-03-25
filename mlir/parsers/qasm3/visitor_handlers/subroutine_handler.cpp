@@ -16,103 +16,9 @@ antlrcpp::Any qasm3_visitor::visitSubroutineDefinition(
   if (auto arg_list = context->classicalArgumentList()) {
     // list of type:varname
     for (auto arg : arg_list->classicalArgument()) {
-      //       bitType
-      //     : 'bit'
-      //     | 'creg'
-      //     ;
-
-      // singleDesignatorType
-      //     : 'int'
-      //     | 'uint'
-      //     | 'float'
-      //     | 'angle'
-      //     ;
-
-      // doubleDesignatorType
-      //     : 'fixed'
-      //     ;
-
-      // noDesignatorType
-      //     : 'bool'
-      //     | timingType
-      //     ;
-
-      // classicalType
-      //     : singleDesignatorType designator
-      //     | doubleDesignatorType doubleDesignator
-      //     | noDesignatorType
-      //     | bitType designator?
-      //     ;
       auto type = arg->classicalType()->getText();
-      if (type == "bit") {
-        // result type
-        argument_types.push_back(result_type);
-      } else if (type.find("bit") != std::string::npos &&
-                 type.find("[") != std::string::npos) {
-        // array type
-        auto start = type.find_first_of("[");
-        auto finish = type.find_first_of("]");
-        auto idx_str = type.substr(start + 1, finish - start - 1);
-        auto bit_size =
-            symbol_table.evaluate_constant_integer_expression(idx_str);
-
-        mlir::Type mlir_type;
-        llvm::ArrayRef<int64_t> shaperef{bit_size};
-        mlir_type = mlir::MemRefType::get(shaperef, result_type);
-        argument_types.push_back(mlir_type);
-      } else if (type == "bool") {
-        mlir::Type mlir_type;
-        llvm::ArrayRef<int64_t> shaperef{};
-        mlir_type = mlir::MemRefType::get(shaperef, builder.getIntegerType(1));
-        argument_types.push_back(mlir_type);
-      } else if (type.find("uint") != std::string::npos) {
-        auto start = type.find_first_of("[");
-        auto finish = type.find_first_of("]");
-        auto idx_str = type.substr(start + 1, finish - start - 1);
-        auto bit_size =
-            symbol_table.evaluate_constant_integer_expression(idx_str);
-
-        mlir::Type mlir_type;
-        llvm::ArrayRef<int64_t> shaperef{};
-        mlir_type = mlir::MemRefType::get(
-            shaperef, builder.getIntegerType(bit_size, false));
-        argument_types.push_back(mlir_type);
-      } else if (type.find("int") != std::string::npos) {
-        auto start = type.find_first_of("[");
-        auto finish = type.find_first_of("]");
-        auto idx_str = type.substr(start + 1, finish - start - 1);
-        auto bit_size =
-            symbol_table.evaluate_constant_integer_expression(idx_str);
-
-        mlir::Type mlir_type;
-        llvm::ArrayRef<int64_t> shaperef{};
-        mlir_type =
-            mlir::MemRefType::get(shaperef, builder.getIntegerType(bit_size));
-        argument_types.push_back(mlir_type);
-      } else if (type.find("float") != std::string::npos) {
-        auto start = type.find_first_of("[");
-        auto finish = type.find_first_of("]");
-        auto idx_str = type.substr(start + 1, finish - start - 1);
-        auto bit_size =
-            symbol_table.evaluate_constant_integer_expression(idx_str);
-
-        mlir::Type mlir_type;
-        if (bit_size == 16) {
-          mlir_type = builder.getF16Type();
-        } else if (bit_size == 32) {
-          mlir_type = builder.getF32Type();
-        } else if (bit_size == 64) {
-          mlir_type = builder.getF64Type();
-        } else {
-          printErrorMessage(
-              "We only accept float types of bit width 16, 32, 64.");
-        }
-        llvm::ArrayRef<int64_t> shaperef{};
-        mlir_type = mlir::MemRefType::get(shaperef, mlir_type);
-        argument_types.push_back(mlir_type);
-      } else if (type.find("angle") != std::string::npos) {
-      }
-
+      argument_types.push_back(
+          convertQasm3Type(arg->classicalType(), symbol_table, builder));
       arg_names.push_back(arg->association()->Identifier()->getText());
       arg_attributes.push_back({});
     }
@@ -131,9 +37,7 @@ antlrcpp::Any qasm3_visitor::visitSubroutineDefinition(
             symbol_table.evaluate_constant_integer_expression(designator);
         arg_attributes.push_back({std::to_string(qreg_size)});
       }
-      // std::cout << "ARG NAME: "
-      //           << quantum_arg->association()->Identifier()->getText() <<
-      //           "\n";
+
       arg_names.push_back(quantum_arg->association()->Identifier()->getText());
     }
   }
@@ -178,6 +82,20 @@ antlrcpp::Any qasm3_visitor::visitSubroutineDefinition(
             "we do not yet support this subroutine single designator return "
             "type.",
             context);
+      }
+    } else if (auto no_desig = classical_type->noDesignatorType()) {
+      if (no_desig->getText().find("uint") != std::string::npos) {
+        return_type = builder.getIntegerType(32, false);
+      } else if (no_desig->getText().find("int") != std::string::npos) {
+        return_type = builder.getIntegerType(32);
+      } else if (no_desig->getText().find("float") != std::string::npos) {
+        return_type = builder.getF32Type();
+      } else if (no_desig->getText().find("double") != std::string::npos) {
+        return_type = builder.getF64Type();
+      } else if (no_desig->getText().find("int64_t") != std::string::npos) {
+        return_type = builder.getI64Type();
+      } else {
+        printErrorMessage("Invalid no-designator default type.", context);
       }
     } else {
       printErrorMessage("Alex implement other return types.", context);

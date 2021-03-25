@@ -8,6 +8,12 @@ namespace qcor {
 extern std::string qpu_name;
 extern int shots;
 
+// Add this for internal development, specifically JIT tests
+// where I don't want AddPredefines to add qcor.hpp. For example
+// where I want to compile a simple c++ code with no dependencies, 
+// I don't want to include qcor.hpp bc it makes it much slower.
+namespace __internal__developer__flags__ { extern bool add_predefines;}
+
 class QCORSyntaxHandler : public SyntaxHandler {
 public:
   QCORSyntaxHandler() : SyntaxHandler("qcor") {}
