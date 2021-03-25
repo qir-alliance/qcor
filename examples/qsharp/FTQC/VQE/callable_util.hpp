@@ -3,7 +3,6 @@
 
 namespace qcor {
 namespace qsharp {
-
 // Helper to marshal (pack and unpack) C++ data to Q# QIR data
 // e.g. vector is converted to Array type.
 template <typename T>
@@ -46,27 +45,29 @@ TuplePtr unpack(TuplePtr in_tuple, std::vector<T> &out_val) {
   return in_tuple + sizeof(::Array *);
 }
 
+template <typename T> T marshal_one(TuplePtr &io_ptr) {
+  T t;
+  io_ptr = qsharp::unpack(io_ptr, t);
+  return t;
+}
+
+template <typename... Args> std::tuple<Args...> marshal(TuplePtr &io_ptr) {
+  return std::make_tuple(marshal_one<Args>(io_ptr)...);
+}
+
 template <typename ReturnType, typename... Args>
 class qs_callback : public qsharp::IFunctor {
 public:
-  virtual void execute(TuplePtr args, TuplePtr result) override {
-    auto next = qsharp::unpack(args, m_costVal);
-    next = qsharp::unpack(next, m_previousParams);
-    auto _result = internal_execute();
-    auto test = qsharp::pack(result, _result);
-  }
   qs_callback(std::function<ReturnType(Args...)> &functor)
       : m_functor(functor) {}
-
-private:
-  std::vector<double> internal_execute() {
-    std::vector<double> result = m_functor(m_costVal, m_previousParams);
-    return result;
+  virtual void execute(TuplePtr args, TuplePtr result) override {
+    auto tuple_ptr = args;
+    auto args_tuple = marshal<Args...>(tuple_ptr);
+    // Pack the result to the return QIR Tuple
+    qsharp::pack(result, std::apply(m_functor, args_tuple));
   }
 
 private:
-  double m_costVal = 0.0;
-  std::vector<double> m_previousParams;
   std::function<ReturnType(Args...)> m_functor;
 };
 
