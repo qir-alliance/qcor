@@ -28,7 +28,6 @@ TuplePtr __quantum__rt__tuple_copy(int8_t *tuple, bool forceNewInstance) {
 }
 
 void Callable::invoke(TuplePtr args, TuplePtr result) {
-  std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
   if (m_functor) {
     m_functor->execute(args, result);
   }

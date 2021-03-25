@@ -6,11 +6,8 @@ open QCOR.Intrinsic;
 // Note: parameter initialization is done here.
 // Returns the final energy.
 operation DeuteronVqe(shots: Int, stepper : ((Double, Double[]) => Double[])) : Double {
-    // Deuteron Hamiltonian:
-    // H = "5.907 - 2.1433 X0X1 - 2.1433 Y0Y1 + .21829 Z0 - 6.125 Z1");
     // Initial parameters
-    let initial_params = [1.23];
-        
+    let initial_params = [1.234];   
     mutable opt_params = initial_params;
     mutable energy_val = 0.0;
     use qubits = Qubit[2]
@@ -24,6 +21,8 @@ operation DeuteronVqe(shots: Int, stepper : ((Double, Double[]) => Double[])) : 
             let z0_z1_exps = DeuteronZ0_Z1(qubits, shots, opt_params[0]);
             let z0Exp = z0_z1_exps[0];
             let z1Exp = z0_z1_exps[1];
+            // Deuteron energy:
+            // H = 5.907 - 2.1433 X0X1 - 2.1433 Y0Y1 + .21829 Z0 - 6.125 Z1
             set energy_val = 5.907 - 2.1433 * xxExp - 2.1433 * yyExp + 0.21829 * z0Exp - 6.125 * z1Exp;
             // Stepping...
             set opt_params = stepper(energy_val, opt_params);
