@@ -418,8 +418,7 @@ antlrcpp::Any qasm3_visitor::visitKernelDeclaration(
             "type.",
             context);
       }
-    } 
-    else if (auto no_desig = classical_type->noDesignatorType()) {
+    } else if (auto no_desig = classical_type->noDesignatorType()) {
       if (no_desig->getText().find("uint") != std::string::npos) {
         return_type = builder.getIntegerType(32, false);
       } else if (no_desig->getText().find("int") != std::string::npos) {
@@ -433,8 +432,7 @@ antlrcpp::Any qasm3_visitor::visitKernelDeclaration(
       } else {
         printErrorMessage("Invalid no-designator default type.", context);
       }
-    } 
-    else {
+    } else {
       printErrorMessage("Alex implement other return types.", context);
     }
   }
@@ -450,11 +448,12 @@ antlrcpp::Any qasm3_visitor::visitKernelDeclaration(
     mlir::FuncOp function2(proto);
     function = function2;
   }
- 
+
   auto savept = builder.saveInsertionPoint();
 
   builder.setInsertionPointToStart(&m_module.getRegion().getBlocks().front());
-  builder.create<mlir::FuncOp>(location, name, function.getType().cast<mlir::FunctionType>());
+  builder.create<mlir::FuncOp>(location, name,
+                               function.getType().cast<mlir::FunctionType>());
   builder.restoreInsertionPoint(savept);
 
   symbol_table.add_seen_function(name, function);
@@ -477,7 +476,12 @@ antlrcpp::Any qasm3_visitor::visitKernelCall(
 
       auto arg = exp_generator.current_value;
       if (arg.getType().isa<mlir::MemRefType>()) {
-        arg = builder.create<mlir::LoadOp>(location, arg);
+        auto element_type =
+            arg.getType().cast<mlir::MemRefType>().getElementType();
+        if (!(element_type.isa<mlir::IntegerType>() &&
+              element_type.getIntOrFloatBitWidth() == 1)) {
+          arg = builder.create<mlir::LoadOp>(location, arg);
+        }
       }
       print_args.push_back(arg);
     }
@@ -502,7 +506,7 @@ antlrcpp::Any qasm3_visitor::visitKernelCall(
       }
       kernel_args.push_back(arg);
     }
-    
+
     builder.create<mlir::CallOp>(
         location,
         symbol_table.get_seen_function(context->Identifier()->getText()),

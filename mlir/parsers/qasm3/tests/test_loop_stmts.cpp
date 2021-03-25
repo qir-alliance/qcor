@@ -44,6 +44,8 @@ for i in [0:4] {
  }
 }
 QCOR_EXPECT_TRUE(loop_count == 12);
+
+
 )#";
   auto mlir = qcor::mlir_compile("qasm3", for_stmt, "for_stmt",
                                  qcor::OutputType::MLIR, false);
@@ -63,6 +65,17 @@ QCOR_EXPECT_TRUE(i == 10);
                                  qcor::OutputType::MLIR, false);
   std::cout << mlir2 << "\n";
   EXPECT_FALSE(qcor::execute("qasm3", while_stmt, "while_stmt"));
+
+    const std::string decrement = R"#(OPENQASM 3;
+include "qelib1.inc";
+for j in [10:-1:0] {
+  print(j);
+}
+)#";
+  auto mlir3 = qcor::mlir_compile("qasm3", decrement, "decrement",
+                                 qcor::OutputType::MLIR, false);
+  std::cout << mlir3 << "\n";
+  EXPECT_FALSE(qcor::execute("qasm3", decrement, "decrement"));
 }
 
 int main(int argc, char **argv) {

@@ -201,21 +201,22 @@ antlrcpp::Any qasm3_visitor::visitQuantumMeasurementAssignment(
           llvm::makeArrayRef(std::vector<mlir::Value>{}));
 
       // Get the bit or bit[]
-      int bit_idx = 0;
+      mlir::Value v;
       if (auto index_list =
               indexIdentifierList->indexIdentifier(0)->expressionList()) {
         // Need to extract element from bit array to set it
-        auto idx_str = index_list->expression(0)->getText();
-        bit_idx = std::stoi(idx_str);
+        qasm3_expression_generator equals_exp_generator(builder, symbol_table,
+                                                        file_name);
+        equals_exp_generator.visit(index_list->expression(0));
+        v = equals_exp_generator.current_value;
+      } else {
+        v = get_or_create_constant_index_value(
+          0, location, 64, symbol_table, builder);
       }
-
-      // Store the mz result into the bit_value
-      mlir::Value pos = get_or_create_constant_index_value(
-          bit_idx, location, 64, symbol_table, builder);
 
       builder.create<mlir::StoreOp>(
           location, instop.bit(), bit_value,
-          llvm::makeArrayRef(std::vector<mlir::Value>{pos}));
+          llvm::makeArrayRef(std::vector<mlir::Value>{v}));
     } else {
       // This is the case where we are measuring an entire qubit array
       // to a bit array

@@ -170,42 +170,32 @@ antlrcpp::Any qasm3_visitor::visitLoopStatement(
           c_value = get_or_create_constant_integer_value(c, location, int_type,
                                                          symbol_table, builder);
 
-      if (symbol_table.has_symbol(range->expression(0)->getText())) {
-        a_value = symbol_table.get_symbol(range->expression(0)->getText());
+      qasm3_expression_generator exp_generator(builder, symbol_table,
+                                               file_name);
+      exp_generator.visit(range->expression(0));
+      a_value = exp_generator.current_value;
+      if (a_value.getType().isa<mlir::MemRefType>()) {
         a_value = builder.create<mlir::LoadOp>(location, a_value);
-        if (a_value.getType() != int_type) {
-          printErrorMessage("For loop a, b, and c types are not equal.",
-                            context, {a_value, c_value});
-        }
-      } else {
-        // infer the constant from the symbol table
-        a = symbol_table.evaluate_constant_integer_expression(
-            range->expression(0)->getText());
-        a_value = get_or_create_constant_integer_value(a, location, int_type,
-                                                       symbol_table, builder);
       }
 
       if (n_expr == 3) {
-        if (symbol_table.has_symbol(range->expression(2)->getText())) {
-          b_value = symbol_table.get_symbol(range->expression(2)->getText());
+        qasm3_expression_generator exp_generator(builder, symbol_table,
+                                                 file_name);
+        exp_generator.visit(range->expression(2));
+        b_value = exp_generator.current_value;
+        if (b_value.getType().isa<mlir::MemRefType>()) {
           b_value = builder.create<mlir::LoadOp>(location, b_value);
-          if (b_value.getType() != int_type) {
-            printErrorMessage("For loop a, b, and c types are not equal.",
-                              context, {a_value, b_value});
-          }
-        } else {
-          b = symbol_table.evaluate_constant_integer_expression(
-              range->expression(2)->getText());
-          b_value = get_or_create_constant_integer_value(
-              b, location, a_value.getType(), symbol_table, builder);
         }
+
         if (symbol_table.has_symbol(range->expression(1)->getText())) {
-          c_value = symbol_table.get_symbol(range->expression(1)->getText());
-          c_value = builder.create<mlir::LoadOp>(location, c_value);
-          if (c_value.getType() != int_type) {
-            printErrorMessage("For loop a, b, and c types are not equal.",
-                              context, {a_value, c_value});
-          }
+          printErrorMessage("You must provide loop step as a constant value.",
+                            context);
+          // c_value = symbol_table.get_symbol(range->expression(1)->getText());
+          // c_value = builder.create<mlir::LoadOp>(location, c_value);
+          // if (c_value.getType() != int_type) {
+          //   printErrorMessage("For loop a, b, and c types are not equal.",
+          //                     context, {a_value, c_value});
+          // }
         } else {
           c = symbol_table.evaluate_constant_integer_expression(
               range->expression(1)->getText());
@@ -214,27 +204,13 @@ antlrcpp::Any qasm3_visitor::visitLoopStatement(
         }
 
       } else {
-        // if (symbol_table.has_symbol(range->expression(1)->getText())) {
-        //   b_value = symbol_table.get_symbol(range->expression(1)->getText());
-        //   b_value = builder.create<mlir::LoadOp>(location, b_value);
-        //   if (b_value.getType() != int_type) {
-        //     printErrorMessage("For loop a, b, and c types are not equal.",
-        //                       context, {a_value, b_value});
-        //   }
-        // } else {
-          qasm3_expression_generator exp_generator(builder, symbol_table,
-                                                   file_name);
-          exp_generator.visit(range->expression(1));
-          b_value = exp_generator.current_value;
-          if (b_value.getType().isa<mlir::MemRefType>()) {
-            b_value = builder.create<mlir::LoadOp>(location, b_value);
-          }
-
-          // b = symbol_table.evaluate_constant_integer_expression(
-          //     range->expression(1)->getText());
-          // b_value = get_or_create_constant_integer_value(
-          //     b, location, a_value.getType(), symbol_table, builder);
-        // }
+        qasm3_expression_generator exp_generator(builder, symbol_table,
+                                                 file_name);
+        exp_generator.visit(range->expression(1));
+        b_value = exp_generator.current_value;
+        if (b_value.getType().isa<mlir::MemRefType>()) {
+          b_value = builder.create<mlir::LoadOp>(location, b_value);
+        }
       }
 
       // Create a new scope for the for loop
@@ -278,7 +254,7 @@ antlrcpp::Any qasm3_visitor::visitLoopStatement(
 
       auto load = builder.create<mlir::LoadOp>(location, loop_var_memref);
       auto cmp = builder.create<mlir::CmpIOp>(
-          location, mlir::CmpIPredicate::slt, load, b_value);
+          location, c > 0 ? mlir::CmpIPredicate::slt : mlir::CmpIPredicate::sge, load, b_value);
       builder.create<mlir::CondBranchOp>(location, cmp, bodyBlock, exitBlock);
 
       builder.setInsertionPointToStart(bodyBlock);
@@ -299,7 +275,9 @@ antlrcpp::Any qasm3_visitor::visitLoopStatement(
 
       builder.setInsertionPointToStart(incBlock);
       auto load_inc = builder.create<mlir::LoadOp>(location, loop_var_memref);
-      auto add = builder.create<mlir::AddIOp>(location, load_inc, c_value);
+
+        auto add = builder.create<mlir::AddIOp>(location, load_inc, c_value);
+
 
       builder.create<mlir::StoreOp>(location, add, loop_var_memref);
 

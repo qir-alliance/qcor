@@ -214,7 +214,8 @@ antlrcpp::Any qasm3_visitor::visitNoDesignatorDeclaration(
       // Save the allocation, the store op
       symbol_table.add_symbol(variable, allocation);
     }
-  } else if (context->noDesignatorType()->getText().find("int") != std::string::npos) {
+  } else if (context->noDesignatorType()->getText().find("int") !=
+             std::string::npos) {
     // THis can now be either an identifierList or an equalsAssignementList
     mlir::Attribute init_attr;
     mlir::Type value_type;
@@ -303,7 +304,7 @@ antlrcpp::Any qasm3_visitor::visitNoDesignatorDeclaration(
           builder.create<mlir::AllocaOp>(location, mem_type);
 
       auto init = initial_values[i];
-      
+
       // Store the value to the 0th index of this storeop
       builder.create<mlir::StoreOp>(location, init, allocation);
 
@@ -346,15 +347,14 @@ antlrcpp::Any qasm3_visitor::visitNoDesignatorDeclaration(
           builder.create<mlir::AllocaOp>(location, mem_type);
 
       auto init = initial_values[i];
-      
+
       // Store the value to the 0th index of this storeop
       builder.create<mlir::StoreOp>(location, init, allocation);
 
       // Save the allocation, the store op
       symbol_table.add_symbol(variable, allocation);
     }
-  }
-  else {
+  } else {
     printErrorMessage("We do not yet support this no designator type: " +
                           context->noDesignatorType()->getText(),
                       context);
@@ -523,10 +523,20 @@ antlrcpp::Any qasm3_visitor::visitClassicalAssignment(
   // bit = subroutine_call(params) qbits...
   if (auto call_op = rhs.getDefiningOp<mlir::CallOp>()) {
     int bit_idx = 0;
+    bool we_have_lhs_idx = false;
+    mlir::Value v;
     if (auto index_list = context->indexIdentifier(0)->expressionList()) {
       // Need to extract element from bit array to set it
-      auto idx_str = index_list->expression(0)->getText();
-      bit_idx = std::stoi(idx_str);
+      // auto idx_str = index_list->expression(0)->getText();
+      // bit_idx = std::stoi(idx_str);
+      we_have_lhs_idx = true;
+      qasm3_expression_generator equals_exp_generator(builder, symbol_table,
+                                                      file_name);
+      equals_exp_generator.visit(index_list->expression(0));
+      v = equals_exp_generator.current_value;
+    } else {
+      v = get_or_create_constant_index_value(0, location, 64, symbol_table,
+                                             builder);
     }
 
     // Scenarios:
@@ -556,15 +566,14 @@ antlrcpp::Any qasm3_visitor::visitClassicalAssignment(
               llvm::makeArrayRef(std::vector<mlir::Value>{pos}));
         }
       } else {
-        if (lhs_shape != 1) {
+        if (lhs_shape != 1 && !we_have_lhs_idx) {
           printErrorMessage("rhs and lhs memref shapes do not match.", context,
                             {lhs, rhs});
         }
-        mlir::Value pos = get_or_create_constant_integer_value(
-            0, location, builder.getIntegerType(64), symbol_table, builder);
+
         builder.create<mlir::StoreOp>(
             location, rhs, lhs,
-            llvm::makeArrayRef(std::vector<mlir::Value>{pos}));
+            llvm::makeArrayRef(std::vector<mlir::Value>{v}));
       }
     } else {
       builder.create<mlir::StoreOp>(location, rhs, lhs);
@@ -682,9 +691,11 @@ antlrcpp::Any qasm3_visitor::visitClassicalAssignment(
   } else if (assignment_op == "^=") {
     current_value =
         builder.create<mlir::XOrOp>(location, load_result, load_result_rhs);
-    // llvm::ArrayRef<mlir::Value> zero_index2(get_or_create_constant_index_value(
-        // 0, location, 64, symbol_table, builder));
-    builder.create<mlir::StoreOp>(location, current_value, lhs);//, zero_index2);
+    // llvm::ArrayRef<mlir::Value>
+    // zero_index2(get_or_create_constant_index_value( 0, location, 64,
+    // symbol_table, builder));
+    builder.create<mlir::StoreOp>(location, current_value,
+                                  lhs);  //, zero_index2);
   } else if (assignment_op == "=") {
     // FIXME This assumes we have a memref<1x??> = memref<1x??>
     // what if we have multiple elements in the memref???
