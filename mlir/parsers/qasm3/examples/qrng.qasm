@@ -28,8 +28,9 @@ def generate_random_int() qubit:q -> int {
     }
     // Print the binary string
     print("random binary: ", b);
-    int n = int[32](b);
-    return n;
+
+    // Cast to int and return
+    return int[32](b);
 }
 
 // Allocate a single qubit

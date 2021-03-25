@@ -183,9 +183,16 @@ antlrcpp::Any qasm3_visitor::visitReturnStatement(
     }
 
   } else {
-    visitChildren(context->statement());
-
-    value = symbol_table.get_last_value_added();
+    if (auto expr_stmt = context->statement()->expressionStatement()) {
+      qasm3_expression_generator exp_generator(builder, symbol_table,
+                                               file_name);
+      exp_generator.visit(expr_stmt);
+      value = exp_generator.current_value;
+    } else {
+      visitChildren(context->statement());
+      value = symbol_table.get_last_value_added();
+    }
+    
   }
   is_return_stmt = false;
 
