@@ -2,11 +2,11 @@
 #include <iostream>
 
 extern "C" {
-int8_t *__quantum__rt__tuple_create(int64_t size) {
+TuplePtr __quantum__rt__tuple_create(int64_t size) {
   if (verbose)
-    std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
-  Array *tuplePtrArray = new Array(size);
-  return reinterpret_cast<int8_t *>(tuplePtrArray);
+    std::cout << "[qir-qrt] Create a tuple of size " << size << ".\n";
+  auto tupleHeader = TupleHeader::create(size);
+  return tupleHeader->getTuple();
 }
 
 void __quantum__rt__tuple_update_reference_count(int8_t *tuple,
@@ -20,10 +20,16 @@ void __quantum__rt__tuple_update_alias_count(int8_t *tuple, int32_t increment) {
     std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
 }
 
-int8_t *__quantum__rt__tuple_copy(int8_t *tuple, bool forceNewInstance) {
+TuplePtr __quantum__rt__tuple_copy(int8_t *tuple, bool forceNewInstance) {
   if (verbose)
     std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
 
   return nullptr;
+}
+
+void Callable::invoke(TuplePtr args, TuplePtr result) {
+  if (m_functor) {
+    m_functor->execute(args, result);
+  }
 }
 }

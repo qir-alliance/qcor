@@ -2,7 +2,6 @@
 
 #include <cassert>
 #include <stdexcept>
-
 // Defines implementations of QIR Opaque types
 
 // FIXME - Qubit should be a struct that keeps track of idx
@@ -69,8 +68,6 @@ private:
   Storage m_storage;
 };
 
-using TupleHeader = int *;
-
 enum Pauli : int8_t {
   Pauli_I = 0,
   Pauli_X,
@@ -87,7 +84,59 @@ struct Range {
   int64_t end;
 };
 
+using TuplePtr = int8_t *;
+struct TupleHeader {
+  // Tuple data
+  int32_t m_tupleSize; 
+  int8_t m_data[];
+  
+  TuplePtr getTuple() { return m_data; }
+  size_t tupleSize() const { return m_tupleSize; }
+  static TupleHeader *create(int size) {
+    int8_t *buffer = new int8_t[sizeof(TupleHeader) + size];
+    TupleHeader *th = reinterpret_cast<TupleHeader *>(buffer);
+    th->m_tupleSize = size;
+    return th;
+  }
+  static TupleHeader *getHeader(TuplePtr tuple) {
+    return reinterpret_cast<TupleHeader *>(tuple - offsetof(TupleHeader, m_data));
+  }
+};
+
+// Callable:
+// Note: this implementation is not fully spec-conformed
+// since we don't handle complex adj or ctrl callables.
+// Currently, this is to support wrapping a C++ function (classical)
+// and providing it to Q# for invocation.
+// TODO: we need a strategy to incorporate MSFT runtime implementation
+// to support callables that are *created* by Q# code.
+// These Q#-created callables have many more features as described in:
+// https://github.com/microsoft/qsharp-language/blob/main/Specifications/QIR/Callables.md
+// Forward declare:
+namespace qcor {
+namespace qsharp {
+class IFunctor;
+}
+} // namespace qcor
+
+// QIR Callable implementation.
+struct Callable {
+  void invoke(TuplePtr args, TuplePtr result);
+  Callable(qcor::qsharp::IFunctor *in_functor) : m_functor(in_functor) {}
+private:
+  qcor::qsharp::IFunctor *m_functor;
+};
+
 namespace qcor {
 // Helper func.
-std::vector<int64_t> getRangeValues(Array *in_array, const Range &in_range);
+std::vector<int64_t> getRangeValues(::Array *in_array, const ::Range &in_range);
+
+namespace qsharp {
+// A generic base class of qcor function-like objects
+// that will be invoked by Q# as a callable.
+class IFunctor {
+public:
+  virtual void execute(TuplePtr args, TuplePtr result) = 0;
+};
+} // namespace qsharp
 } // namespace qcor

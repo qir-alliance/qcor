@@ -1,5 +1,5 @@
 file(GLOB SRC *.cpp)
-file(GLOB HEADERS qir-types.hpp qir-qrt.hpp)
+file(GLOB HEADERS qir-types.hpp qir-qrt.hpp qir-types-utils.hpp)
 
 add_library(qir-qrt SHARED ${SRC})
 
