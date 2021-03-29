@@ -19,6 +19,8 @@ class QuantumMLIRGenerator {
 
  public:
   QuantumMLIRGenerator(mlir::MLIRContext& ctx) : context(ctx), builder(&ctx) {}
+  QuantumMLIRGenerator(mlir::OpBuilder b, mlir::MLIRContext& ctx)
+      : context(ctx), builder(b) {}
 
   // This method can be implemented by subclasses to
   // introduce any initialization steps required for constructing
@@ -37,7 +39,7 @@ class QuantumMLIRGenerator {
   mlir::OwningModuleRef get_module() {
     return mlir::OwningModuleRef(mlir::OwningOpRef<mlir::ModuleOp>(m_module));
   }
-
+  
   std::vector<std::string> seen_function_names() { return function_names; }
 
   // Finalize method, override to provide any end operations
