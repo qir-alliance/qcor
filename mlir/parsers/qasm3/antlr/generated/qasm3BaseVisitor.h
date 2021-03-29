@@ -341,6 +341,10 @@ public:
     return visitChildren(ctx);
   }
 
+  virtual antlrcpp::Any visitCLikeLoopStatement(qasm3Parser::CLikeLoopStatementContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
   virtual antlrcpp::Any visitControlDirectiveStatement(qasm3Parser::ControlDirectiveStatementContext *ctx) override {
     return visitChildren(ctx);
   }

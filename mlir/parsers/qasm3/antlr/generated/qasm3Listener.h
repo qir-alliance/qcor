@@ -259,6 +259,9 @@ public:
   virtual void enterLoopStatement(qasm3Parser::LoopStatementContext *ctx) = 0;
   virtual void exitLoopStatement(qasm3Parser::LoopStatementContext *ctx) = 0;
 
+  virtual void enterCLikeLoopStatement(qasm3Parser::CLikeLoopStatementContext *ctx) = 0;
+  virtual void exitCLikeLoopStatement(qasm3Parser::CLikeLoopStatementContext *ctx) = 0;
+
   virtual void enterControlDirectiveStatement(qasm3Parser::ControlDirectiveStatementContext *ctx) = 0;
   virtual void exitControlDirectiveStatement(qasm3Parser::ControlDirectiveStatementContext *ctx) = 0;
 

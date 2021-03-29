@@ -261,6 +261,9 @@ public:
   virtual void enterLoopStatement(qasm3Parser::LoopStatementContext * /*ctx*/) override { }
   virtual void exitLoopStatement(qasm3Parser::LoopStatementContext * /*ctx*/) override { }
 
+  virtual void enterCLikeLoopStatement(qasm3Parser::CLikeLoopStatementContext * /*ctx*/) override { }
+  virtual void exitCLikeLoopStatement(qasm3Parser::CLikeLoopStatementContext * /*ctx*/) override { }
+
   virtual void enterControlDirectiveStatement(qasm3Parser::ControlDirectiveStatementContext * /*ctx*/) override { }
   virtual void exitControlDirectiveStatement(qasm3Parser::ControlDirectiveStatementContext * /*ctx*/) override { }
 

@@ -182,6 +182,8 @@ public:
 
     virtual antlrcpp::Any visitLoopStatement(qasm3Parser::LoopStatementContext *context) = 0;
 
+    virtual antlrcpp::Any visitCLikeLoopStatement(qasm3Parser::CLikeLoopStatementContext *context) = 0;
+
     virtual antlrcpp::Any visitControlDirectiveStatement(qasm3Parser::ControlDirectiveStatementContext *context) = 0;
 
     virtual antlrcpp::Any visitControlDirective(qasm3Parser::ControlDirectiveContext *context) = 0;

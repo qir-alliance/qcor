@@ -28,11 +28,11 @@ public:
     T__74 = 75, T__75 = 76, T__76 = 77, T__77 = 78, T__78 = 79, T__79 = 80, 
     T__80 = 81, T__81 = 82, T__82 = 83, T__83 = 84, T__84 = 85, T__85 = 86, 
     T__86 = 87, T__87 = 88, T__88 = 89, T__89 = 90, T__90 = 91, T__91 = 92, 
-    T__92 = 93, T__93 = 94, LBRACKET = 95, RBRACKET = 96, LBRACE = 97, RBRACE = 98, 
-    LPAREN = 99, RPAREN = 100, COLON = 101, SEMICOLON = 102, DOT = 103, 
-    COMMA = 104, EQUALS = 105, ARROW = 106, MINUS = 107, Constant = 108, 
-    Whitespace = 109, Newline = 110, Integer = 111, Identifier = 112, RealNumber = 113, 
-    TimingLiteral = 114, StringLiteral = 115, LineComment = 116, BlockComment = 117
+    T__92 = 93, T__93 = 94, T__94 = 95, LBRACKET = 96, RBRACKET = 97, LBRACE = 98, 
+    RBRACE = 99, LPAREN = 100, RPAREN = 101, COLON = 102, SEMICOLON = 103, 
+    DOT = 104, COMMA = 105, EQUALS = 106, ARROW = 107, MINUS = 108, Constant = 109, 
+    Whitespace = 110, Newline = 111, Integer = 112, Identifier = 113, RealNumber = 114, 
+    TimingLiteral = 115, StringLiteral = 116, LineComment = 117, BlockComment = 118
   };
 
   explicit qasm3Lexer(antlr4::CharStream *input);

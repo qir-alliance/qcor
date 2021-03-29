@@ -28,11 +28,11 @@ public:
     T__74 = 75, T__75 = 76, T__76 = 77, T__77 = 78, T__78 = 79, T__79 = 80, 
     T__80 = 81, T__81 = 82, T__82 = 83, T__83 = 84, T__84 = 85, T__85 = 86, 
     T__86 = 87, T__87 = 88, T__88 = 89, T__89 = 90, T__90 = 91, T__91 = 92, 
-    T__92 = 93, T__93 = 94, LBRACKET = 95, RBRACKET = 96, LBRACE = 97, RBRACE = 98, 
-    LPAREN = 99, RPAREN = 100, COLON = 101, SEMICOLON = 102, DOT = 103, 
-    COMMA = 104, EQUALS = 105, ARROW = 106, MINUS = 107, Constant = 108, 
-    Whitespace = 109, Newline = 110, Integer = 111, Identifier = 112, RealNumber = 113, 
-    TimingLiteral = 114, StringLiteral = 115, LineComment = 116, BlockComment = 117
+    T__92 = 93, T__93 = 94, T__94 = 95, LBRACKET = 96, RBRACKET = 97, LBRACE = 98, 
+    RBRACE = 99, LPAREN = 100, RPAREN = 101, COLON = 102, SEMICOLON = 103, 
+    DOT = 104, COMMA = 105, EQUALS = 106, ARROW = 107, MINUS = 108, Constant = 109, 
+    Whitespace = 110, Newline = 111, Integer = 112, Identifier = 113, RealNumber = 114, 
+    TimingLiteral = 115, StringLiteral = 116, LineComment = 117, BlockComment = 118
   };
 
   enum {
@@ -63,14 +63,14 @@ public:
     RuleBooleanExpression = 70, RuleComparsionExpression = 71, RuleEqualsExpression = 72, 
     RuleAssignmentOperator = 73, RuleEqualsAssignmentList = 74, RuleMembershipTest = 75, 
     RuleSetDeclaration = 76, RuleProgramBlock = 77, RuleBranchingStatement = 78, 
-    RuleLoopSignature = 79, RuleLoopStatement = 80, RuleControlDirectiveStatement = 81, 
-    RuleControlDirective = 82, RuleKernelDeclaration = 83, RuleKernelCall = 84, 
-    RuleSubroutineDefinition = 85, RuleReturnStatement = 86, RuleSubroutineBlock = 87, 
-    RuleSubroutineCall = 88, RulePragma = 89, RuleTimingType = 90, RuleTimingBox = 91, 
-    RuleTimingTerminator = 92, RuleTimingIdentifier = 93, RuleTimingInstructionName = 94, 
-    RuleTimingInstruction = 95, RuleTimingStatement = 96, RuleCalibration = 97, 
-    RuleCalibrationGrammarDeclaration = 98, RuleCalibrationDefinition = 99, 
-    RuleCalibrationGrammar = 100, RuleCalibrationArgumentList = 101
+    RuleLoopSignature = 79, RuleLoopStatement = 80, RuleCLikeLoopStatement = 81, 
+    RuleControlDirectiveStatement = 82, RuleControlDirective = 83, RuleKernelDeclaration = 84, 
+    RuleKernelCall = 85, RuleSubroutineDefinition = 86, RuleReturnStatement = 87, 
+    RuleSubroutineBlock = 88, RuleSubroutineCall = 89, RulePragma = 90, 
+    RuleTimingType = 91, RuleTimingBox = 92, RuleTimingTerminator = 93, 
+    RuleTimingIdentifier = 94, RuleTimingInstructionName = 95, RuleTimingInstruction = 96, 
+    RuleTimingStatement = 97, RuleCalibration = 98, RuleCalibrationGrammarDeclaration = 99, 
+    RuleCalibrationDefinition = 100, RuleCalibrationGrammar = 101, RuleCalibrationArgumentList = 102
   };
 
   explicit qasm3Parser(antlr4::TokenStream *input);
@@ -164,6 +164,7 @@ public:
   class BranchingStatementContext;
   class LoopSignatureContext;
   class LoopStatementContext;
+  class CLikeLoopStatementContext;
   class ControlDirectiveStatementContext;
   class ControlDirectiveContext;
   class KernelDeclarationContext;
@@ -287,6 +288,7 @@ public:
     ControlDirectiveStatementContext *controlDirectiveStatement();
     AliasStatementContext *aliasStatement();
     QuantumStatementContext *quantumStatement();
+    ReturnStatementContext *returnStatement();
     Qcor_test_statementContext *qcor_test_statement();
 
     virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
@@ -1584,6 +1586,35 @@ public:
   };
 
   LoopStatementContext* loopStatement();
+
+  class  CLikeLoopStatementContext : public antlr4::ParserRuleContext {
+  public:
+    CLikeLoopStatementContext(antlr4::ParserRuleContext *parent, size_t invokingState);
+    virtual size_t getRuleIndex() const override;
+    std::vector<antlr4::tree::TerminalNode *> LPAREN();
+    antlr4::tree::TerminalNode* LPAREN(size_t i);
+    ClassicalTypeContext *classicalType();
+    antlr4::tree::TerminalNode *Identifier();
+    EqualsExpressionContext *equalsExpression();
+    std::vector<antlr4::tree::TerminalNode *> SEMICOLON();
+    antlr4::tree::TerminalNode* SEMICOLON(size_t i);
+    BooleanExpressionContext *booleanExpression();
+    ExpressionContext *expression();
+    std::vector<antlr4::tree::TerminalNode *> RPAREN();
+    antlr4::tree::TerminalNode* RPAREN(size_t i);
+    antlr4::tree::TerminalNode *LBRACE();
+    ProgramBlockContext *programBlock();
+    antlr4::tree::TerminalNode *RBRACE();
+    antlr4::tree::TerminalNode *COLON();
+
+    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
+    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
+
+    virtual antlrcpp::Any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+   
+  };
+
+  CLikeLoopStatementContext* cLikeLoopStatement();
 
   class  ControlDirectiveStatementContext : public antlr4::ParserRuleContext {
   public:

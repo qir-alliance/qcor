@@ -38,6 +38,7 @@ statement
     | controlDirectiveStatement
     | aliasStatement
     | quantumStatement
+    | returnStatement
     | qcor_test_statement
     ;
 
@@ -428,6 +429,23 @@ loopSignature
 
 loopStatement: loopSignature programBlock ;
 
+cLikeLoopStatement 
+    : 'for' LPAREN 
+            classicalType Identifier equalsExpression ';' 
+            booleanExpression ';' 
+            expression
+            RPAREN 
+            LBRACE 
+              programBlock 
+            RBRACE
+    | 'for' LPAREN
+              classicalType Identifier ':' 'range' LPAREN expression RPAREN
+            RPAREN 
+            LBRACE 
+              programBlock 
+            RBRACE 
+    ;
+    
 controlDirectiveStatement
     : controlDirective SEMICOLON
     ;
