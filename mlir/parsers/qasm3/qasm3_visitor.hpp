@@ -27,7 +27,7 @@ namespace qcor {
 class qasm3_visitor : public qasm3::qasm3BaseVisitor {
  public:
   // Return the symbol table.
-  ScopedSymbolTable& getScopedSymbolTable() { return symbol_table; }
+  ScopedSymbolTable* getScopedSymbolTable() { return &symbol_table; }
 
   // The constructor, instantiates commonly used opaque types
   qasm3_visitor(mlir::OpBuilder b, mlir::ModuleOp m, std::string& fname)

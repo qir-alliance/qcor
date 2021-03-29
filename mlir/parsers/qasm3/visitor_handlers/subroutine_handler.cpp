@@ -166,20 +166,30 @@ antlrcpp::Any qasm3_visitor::visitReturnStatement(
     value = symbol_table.get_symbol(ret_stmt);
     // Actually return value if it is a bit[],
     // load and return if it is a bit
-    // printErrorMessage("Putting this here til I fix this");
-    if (!current_function_return_type.isa<mlir::MemRefType>()) {
-      if (current_function_return_type.isa<mlir::IntegerType>() &&
-          current_function_return_type.getIntOrFloatBitWidth() == 1) {
-        // This is a bit and not a bit[]
-        auto tmp = get_or_create_constant_index_value(0, location, 64,
-                                                      symbol_table, builder);
-        llvm::ArrayRef<mlir::Value> zero_index(tmp);
-        value = builder.create<mlir::LoadOp>(location, value, zero_index);
+
+    if (current_function_return_type) {  // this means it is a subroutine
+      if (!current_function_return_type.isa<mlir::MemRefType>()) {
+        if (current_function_return_type.isa<mlir::IntegerType>() &&
+            current_function_return_type.getIntOrFloatBitWidth() == 1) {
+          // This is a bit and not a bit[]
+          auto tmp = get_or_create_constant_index_value(0, location, 64,
+                                                        symbol_table, builder);
+          llvm::ArrayRef<mlir::Value> zero_index(tmp);
+          value = builder.create<mlir::LoadOp>(location, value, zero_index);
+        } else {
+          value =
+              builder.create<mlir::LoadOp>(location, value);  //, zero_index);
+        }
       } else {
-        value = builder.create<mlir::LoadOp>(location, value);  //, zero_index);
+        printErrorMessage("We do not return memrefs from subroutines.",
+                          context);
       }
     } else {
-      printErrorMessage("We do not return memrefs from subroutines.", context);
+      if (auto t = value.getType().dyn_cast_or_null<mlir::MemRefType>()) {
+        if (t.getRank() == 0) {
+          value = builder.create<mlir::LoadOp>(location, value);
+        }
+      }
     }
 
   } else {
@@ -192,7 +202,6 @@ antlrcpp::Any qasm3_visitor::visitReturnStatement(
       visitChildren(context->statement());
       value = symbol_table.get_last_value_added();
     }
-    
   }
   is_return_stmt = false;
 

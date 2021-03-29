@@ -114,6 +114,11 @@ LogicalResult PrintOpLowering::matchAndRewrite(
           frmt_spec += "%d";
         }
         ss << "_bit_array_b_" << dim;
+      } else if (mem_ref_type.getElementType().isa<mlir::IntegerType>() &&
+                 mem_ref_type.getRank() == 0 &&
+                 mem_ref_type.getElementType().getIntOrFloatBitWidth() == 1) {
+        frmt_spec += "%d";
+        ss << "_bit_array_b_0";
       }
     } else {
       std::cout << "Currently invalid type to print.\n";
@@ -155,6 +160,7 @@ LogicalResult PrintOpLowering::matchAndRewrite(
           mem_ref_type.getRank() > 0 &&
           mem_ref_type.getElementType().getIntOrFloatBitWidth() == 1) {
         // This is a bit array...
+
         auto dim = mem_ref_type.getShape()[0];
         for (int i = 0; i < dim; i++) {
           auto attr = mlir::IntegerAttr::get(rewriter.getIndexType(), i);
@@ -163,6 +169,13 @@ LogicalResult PrintOpLowering::matchAndRewrite(
               loc, o, llvm::makeArrayRef(std::vector<mlir::Value>{ii}));
           args.push_back(z);
         }
+
+        continue;
+      } else if (mem_ref_type.getElementType().isa<mlir::IntegerType>() &&
+                 mem_ref_type.getRank() == 0 &&
+                 mem_ref_type.getElementType().getIntOrFloatBitWidth() == 1) {
+        auto z = rewriter.create<mlir::LoadOp>(loc, o);
+        args.push_back(z);
         continue;
       }
     }
