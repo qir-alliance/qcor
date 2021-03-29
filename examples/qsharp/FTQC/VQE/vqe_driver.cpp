@@ -1,8 +1,7 @@
 #include <iostream> 
 #include <vector>
-#include "qir-types.hpp"
 #include "opt_stepper.hpp"
-#include "callable_util.hpp"
+#include "qir-types-utils.hpp"
 
 // Include the external QSharp function.
 qcor_include_qsharp(QCOR__DeuteronVqe__body, double, int64_t shots, Callable* opt_stepper);
@@ -37,7 +36,7 @@ int main() {
   // Q# Callable type.
   const int64_t nb_shots = 2048;
   const double final_energy = QCOR__DeuteronVqe__body(
-      nb_shots, qsharp::createCallable(stepper_callable));
+      nb_shots, qir::createCallable(stepper_callable));
   std::cout << "Final energy = " << final_energy << "\n";
   return 0;
 }

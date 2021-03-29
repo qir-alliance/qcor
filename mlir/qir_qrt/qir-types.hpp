@@ -2,9 +2,6 @@
 
 #include <cassert>
 #include <stdexcept>
-#include <functional>
-#include <cstring>
-#include <iostream>
 // Defines implementations of QIR Opaque types
 
 // FIXME - Qubit should be a struct that keeps track of idx
