@@ -54,7 +54,8 @@ std::unique_ptr<clang::CodeGenAction> emit_llvm_ir(
   std::vector<std::string> base_includes{
       "-I@XACC_ROOT@/include/xacc", "-I@XACC_ROOT@/include/pybind11/include",
       "-I@CMAKE_INSTALL_PREFIX@/include/qcor",
-      "-I@XACC_ROOT@/include/quantum/gate", "-I@XACC_ROOT@/include/eigen"};
+      "-I@XACC_ROOT@/include/quantum/gate", "-I@XACC_ROOT@/include/eigen"
+      };
   for (auto extra : extra_headers) {
     base_includes.push_back(extra);
   }
@@ -95,7 +96,7 @@ std::unique_ptr<clang::CodeGenAction> emit_llvm_ir(
   // recognize. We need to extend the driver library to support this use model
   // (basically, exactly one input, and the operation mode is hard wired).
   SmallVector<const char *, 16> Args(argv, argv + argc);
-  Args.push_back("-fsyntax-only");
+  // Args.push_back("-fsyntax-only");
   std::unique_ptr<Compilation> C(TheDriver.BuildCompilation(Args));
   if (!C) {
     std::cout << "QCOR internal clang execution error. Could not create the "

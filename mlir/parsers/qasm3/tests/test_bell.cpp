@@ -19,7 +19,7 @@ for i in [0:100] {
   reset z;
 }
 print(count);
-QCOR_EXPECT_TRUE(count > 40);
+QCOR_EXPECT_TRUE(count > 30);
 )#";
   auto mlir = qcor::mlir_compile("qasm3", check_pow, "check_pow",
                                  qcor::OutputType::MLIR, false);

@@ -33,6 +33,10 @@ void printErrorMessage(const std::string msg,
 void printErrorMessage(const std::string msg, mlir::Value v);
 void printErrorMessage(const std::string msg, std::vector<mlir::Value>&& v);
 
+mlir::Type convertQasm3Type(qasm3::qasm3Parser::ClassicalTypeContext* ctx,
+                            ScopedSymbolTable& symbol_table,
+                            mlir::OpBuilder& builder, bool value_type = true);
+
 mlir::Location get_location(mlir::OpBuilder builder,
                             const std::string& file_name,
                             antlr4::ParserRuleContext* context);

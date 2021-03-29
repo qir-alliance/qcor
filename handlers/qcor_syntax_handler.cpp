@@ -13,6 +13,9 @@
 using namespace clang;
 
 namespace qcor {
+namespace __internal__developer__flags__ {
+bool add_predefines = true;
+}
 
 bool qrt = false;
 std::string qpu_name = "qpp";
@@ -331,9 +334,10 @@ void QCORSyntaxHandler::GetReplacement(
   OS << "}\n";
 
   if (add_het_map_ctor) {
-    // Remove "&" from type string before getting the Python variables in the HetMap.
-    // Note: HetMap can't store references.
-    const auto remove_ref_arg_type = [](const std::string &org_arg_type) -> std::string {
+    // Remove "&" from type string before getting the Python variables in the
+    // HetMap. Note: HetMap can't store references.
+    const auto remove_ref_arg_type =
+        [](const std::string &org_arg_type) -> std::string {
       // We intentially only support a very limited set of pass-by-ref types
       // from the HetMap.
       // Only do: double& and int&
@@ -349,7 +353,7 @@ void QCORSyntaxHandler::GetReplacement(
 
     // Strategy: we unpack the args in the HetMap and call
     // the appropriate ctor overload.
-    
+
     // For reference ctor params (e.g. double& and int&),
     // we create a local variable to copy the arg from the HetMap
     // before passing to the ctor.
@@ -366,22 +370,26 @@ void QCORSyntaxHandler::GetReplacement(
     int var_counter = 0;
     // Only handle non-qreg args
     for (int i = 1; i < program_parameters.size(); i++) {
-      // If this is a *supported* ref types: double&, int&, etc. 
+      // If this is a *supported* ref types: double&, int&, etc.
       if (remove_ref_arg_type(program_arg_types[i]) != program_arg_types[i]) {
         // Generate a temp var
-        const std::string new_var_name = "__temp_var__" + std::to_string(var_counter++);
+        const std::string new_var_name =
+            "__temp_var__" + std::to_string(var_counter++);
         // Copy the var from HetMap to the temp var
-        ref_type_copy_decl_ss << remove_ref_arg_type(program_arg_types[i]) << " "<< new_var_name << " = " << "args.get<" << remove_ref_arg_type(program_arg_types[i]) << ">(\""
-         << program_parameters[i] << "\");\n";
-        
-        // We just pass this copied var to the ctor 
+        ref_type_copy_decl_ss << remove_ref_arg_type(program_arg_types[i])
+                              << " " << new_var_name << " = "
+                              << "args.get<"
+                              << remove_ref_arg_type(program_arg_types[i])
+                              << ">(\"" << program_parameters[i] << "\");\n";
+
+        // We just pass this copied var to the ctor
         // where it expects a reference type.
-        arg_ctor_list.emplace_back(new_var_name); 
-      }
-      else {
+        arg_ctor_list.emplace_back(new_var_name);
+      } else {
         // Otherwise, just unpack the arg inline in the ctor call.
         std::stringstream ss;
-        ss << "args.get<" << program_arg_types[i] << ">(\""<< program_parameters[i] << "\")";
+        ss << "args.get<" << program_arg_types[i] << ">(\""
+           << program_parameters[i] << "\")";
         arg_ctor_list.emplace_back(ss.str());
       }
     }
@@ -394,29 +402,30 @@ void QCORSyntaxHandler::GetReplacement(
     // CTor call
     OS << "class " << kernel_name << " __ker__temp__(";
     // First arg: qreg
-    OS << "args.get<" << program_arg_types[0] << ">(\""
-       << program_parameters[0] << "\")";
+    OS << "args.get<" << program_arg_types[0] << ">(\"" << program_parameters[0]
+       << "\")";
     // The rest: either inline unpacking or temp var names (ref type)
-    for (const auto &arg_str: arg_ctor_list) {
+    for (const auto &arg_str : arg_ctor_list) {
       OS << ", " << arg_str;
     }
     OS << ");\n";
     OS << "}\n";
 
     OS << "void " << kernel_name
-       << "__with_parent_and_hetmap_args(std::shared_ptr<CompositeInstruction> parent, "
+       << "__with_parent_and_hetmap_args(std::shared_ptr<CompositeInstruction> "
+          "parent, "
           "HeterogeneousMap& args) {\n";
     OS << ref_type_copy_decl_ss.str();
     // CTor call with parent kernel
     OS << "class " << kernel_name << " __ker__temp__(parent, ";
     // Second arg: qreg
-    OS << "args.get<" << program_arg_types[0] << ">(\""
-       << program_parameters[0] << "\")";
+    OS << "args.get<" << program_arg_types[0] << ">(\"" << program_parameters[0]
+       << "\")";
     // The rest: either inline unpacking or temp var names (ref type)
-    for (const auto &arg_str: arg_ctor_list) {
+    for (const auto &arg_str : arg_ctor_list) {
       OS << ", " << arg_str;
     }
-    OS << ");\n";   
+    OS << ");\n";
     // The rest: either inline unpacking or temp var names (ref type)
     OS << "}\n";
   }
@@ -425,9 +434,11 @@ void QCORSyntaxHandler::GetReplacement(
 }
 
 void QCORSyntaxHandler::AddToPredefines(llvm::raw_string_ostream &OS) {
-  OS << "#include \"qcor.hpp\"\n";
-  OS << "using namespace qcor;\n";
-  OS << "using namespace xacc::internal_compiler;\n";
+  if (__internal__developer__flags__::add_predefines) {
+    OS << "#include \"qcor.hpp\"\n";
+    OS << "using namespace qcor;\n";
+    OS << "using namespace xacc::internal_compiler;\n";
+  }
 }
 
 class DoNothingConsumer : public ASTConsumer {

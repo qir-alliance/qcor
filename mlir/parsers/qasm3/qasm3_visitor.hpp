@@ -58,6 +58,8 @@ class qasm3_visitor : public qasm3::qasm3BaseVisitor {
       qasm3Parser::SubroutineCallContext* context) override;
   antlrcpp::Any visitKernelCall(
       qasm3Parser::KernelCallContext* context) override;
+  antlrcpp::Any visitKernelDeclaration(
+      qasm3Parser::KernelDeclarationContext* context) override;
 
   // Visit nodes corresponding to quantum measurement and
   // measurement assignment

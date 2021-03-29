@@ -195,6 +195,25 @@ QCOR_EXPECT_TRUE(m9[2] == 1);
 QCOR_EXPECT_TRUE(m9[3] == 0);
 QCOR_EXPECT_TRUE(m9[4] == 1);
 QCOR_EXPECT_TRUE(m9[5] == 1);
+
+// Check one-qubit alias:
+// Reset q to start next test
+reset q;
+let first_qubit = q[0];
+let last_qubit = q[5];
+x first_qubit;
+ctrl @ x first_qubit, last_qubit;
+// Measure all qubits
+bit m10[6];
+m10 = measure q;
+
+// First and last qubits are 1:
+QCOR_EXPECT_TRUE(m10[0] == 1);
+QCOR_EXPECT_TRUE(m10[1] == 0);
+QCOR_EXPECT_TRUE(m10[2] == 0);
+QCOR_EXPECT_TRUE(m10[3] == 0);
+QCOR_EXPECT_TRUE(m10[4] == 0);
+QCOR_EXPECT_TRUE(m10[5] == 1);
 )#";
   auto mlir = qcor::mlir_compile("qasm3", alias_by_indicies, "test",
                                  qcor::OutputType::MLIR, true);

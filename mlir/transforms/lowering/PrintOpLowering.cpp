@@ -1,4 +1,16 @@
 #include "PrintOpLowering.hpp"
+
+#include <iostream>
+
+#include "llvm/ADT/Sequence.h"
+#include "llvm/ADT/StringRef.h"
+#include "llvm/IR/Module.h"
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Support/ErrorOr.h"
+#include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Support/SourceMgr.h"
+#include "llvm/Support/TargetSelect.h"
+#include "llvm/Support/raw_ostream.h"
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Conversion/SCFToStandard/SCFToStandard.h"
 #include "mlir/Conversion/StandardToLLVM/ConvertStandardToLLVM.h"
@@ -11,16 +23,6 @@
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/Verifier.h"
 #include "mlir/InitAllDialects.h"
-#include "llvm/ADT/Sequence.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/IR/Module.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/ErrorOr.h"
-#include "llvm/Support/MemoryBuffer.h"
-#include "llvm/Support/SourceMgr.h"
-#include "llvm/Support/TargetSelect.h"
-#include "llvm/Support/raw_ostream.h"
-#include <iostream>
 namespace qcor {
 
 FlatSymbolRefAttr PrintOpLowering::getOrInsertPrintf(PatternRewriter &rewriter,
@@ -72,9 +74,9 @@ Value PrintOpLowering::getOrCreateGlobalString(Location loc, OpBuilder &builder,
 }
 
 // Match any Operation that is the QallocOp
-LogicalResult
-PrintOpLowering::matchAndRewrite(Operation *op, ArrayRef<Value> operands,
-                                 ConversionPatternRewriter &rewriter) const {
+LogicalResult PrintOpLowering::matchAndRewrite(
+    Operation *op, ArrayRef<Value> operands,
+    ConversionPatternRewriter &rewriter) const {
   // Local Declarations, get location, parentModule
   // and the context
   auto loc = op->getLoc();
@@ -101,6 +103,18 @@ PrintOpLowering::matchAndRewrite(Operation *op, ArrayRef<Value> operands,
                    "StringType") {
       frmt_spec += "%s";
       ss << "_string_s_";
+    } else if (auto mem_ref_type =
+                   operand.getType().dyn_cast_or_null<mlir::MemRefType>()) {
+      if (mem_ref_type.getElementType().isa<mlir::IntegerType>() &&
+          mem_ref_type.getRank() > 0 &&
+          mem_ref_type.getElementType().getIntOrFloatBitWidth() == 1) {
+        // This is a bit array...
+        auto dim = mem_ref_type.getShape()[0];
+        for (int i = 0; i < dim; i++) {
+          frmt_spec += "%d";
+        }
+        ss << "_bit_array_b_" << dim;
+      }
     } else {
       std::cout << "Currently invalid type to print.\n";
       operand.getType().dump();
@@ -135,6 +149,22 @@ PrintOpLowering::matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       auto op = o.getDefiningOp<mlir::quantum::CreateStringLiteralOp>();
       auto var_name = op.varname().str();
       o = variables[var_name];
+    } else if (auto mem_ref_type =
+                   o.getType().dyn_cast_or_null<mlir::MemRefType>()) {
+      if (mem_ref_type.getElementType().isa<mlir::IntegerType>() &&
+          mem_ref_type.getRank() > 0 &&
+          mem_ref_type.getElementType().getIntOrFloatBitWidth() == 1) {
+        // This is a bit array...
+        auto dim = mem_ref_type.getShape()[0];
+        for (int i = 0; i < dim; i++) {
+          auto attr = mlir::IntegerAttr::get(rewriter.getIndexType(), i);
+          auto ii = rewriter.create<mlir::ConstantOp>(loc, attr);
+          auto z = rewriter.create<mlir::LoadOp>(
+              loc, o, llvm::makeArrayRef(std::vector<mlir::Value>{ii}));
+          args.push_back(z);
+        }
+        continue;
+      }
     }
 
     args.push_back(o);
@@ -146,4 +176,4 @@ PrintOpLowering::matchAndRewrite(Operation *op, ArrayRef<Value> operands,
   // parentModule.dump();
   return success();
 }
-} // namespace qcor
+}  // namespace qcor
