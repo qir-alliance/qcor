@@ -26,8 +26,8 @@ print("N |1> measured = ", ones);
 print("N |0> measured = ", zeros);
 
 // give the randomness a bit of wriggle room
-QCOR_EXPECT_TRUE(ones > 480);
-QCOR_EXPECT_TRUE(zeros > 480);
+QCOR_EXPECT_TRUE(ones > 450);
+QCOR_EXPECT_TRUE(zeros > 450);
 )#";
   auto mlir = qcor::mlir_compile("qasm3", uint_index, "uint_index",
                                  qcor::OutputType::MLIR, false);

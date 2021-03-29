@@ -44,3 +44,4 @@ endif()
 install(TARGETS ${LIBRARY_NAME} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
 
 add_subdirectory(tests)
+add_subdirectory(handler)
