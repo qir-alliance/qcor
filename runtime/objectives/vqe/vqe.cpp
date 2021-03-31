@@ -96,7 +96,7 @@ public:
           xacc::getService<xacc::AlgorithmGradientStrategy>(
               options.getString("gradient-strategy"));
 
-      if (gradient_strategy->isNumerical()) {
+      if (gradient_strategy->isNumerical() && observable->getIdentitySubTerm()) {
         gradient_strategy->setFunctionValue(
             val - std::real(observable->getIdentitySubTerm()->coefficient()));
       }
