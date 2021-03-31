@@ -38,6 +38,12 @@ antlrcpp::Any qasm3_expression_generator::visitTerminal(
     } else if (indexed_variable_value.getType().isa<mlir::MemRefType>()) {
       internal_value_type = builder.getIndexType();
     }
+
+    // Extract the variable name VARNAME[IDX] by searching parent children
+    auto c = node->parent->children;
+    auto it = std::find(c.begin(), c.end(), node);
+    auto index = std::distance(c.begin(), it) - 1;
+    indexed_variable_name = node->parent->children[index]->getText();
   } else if (node->getSymbol()->getText() == "]") {
     if (casting_indexed_integer_to_bool) {
       // We have an indexed integer in indexed_variable_value
@@ -101,6 +107,43 @@ antlrcpp::Any qasm3_expression_generator::visitTerminal(
         update_current_value(builder.create<mlir::quantum::ExtractQubitOp>(
             location, get_custom_opaque_type("Qubit", builder.getContext()),
             indexed_variable_value, current_value));
+      } else if (indexed_variable_value.getType().isa<mlir::OpaqueType>() &&
+                 indexed_variable_value.getType()
+                         .cast<mlir::OpaqueType>()
+                         .getTypeData()
+                         .str() == "Array") {
+        // This can happen when we are using the qasm3 handler.
+        // We have a Array* (probably from a std::vector<double> e.g.),
+        // need to extract with the current qir qrt call, but we need to
+        // know the type - double for example. We store this in the symbol
+        // table variable attributes.
+
+        auto attrs =
+            symbol_table.get_variable_attributes(indexed_variable_name);
+        if (attrs.empty()) {
+          printErrorMessage(
+              "To index a non-qubit Array we have to know the type via the "
+              "variable attributes in the symbol table.");
+        }
+
+        // We have at least one, we assume the first is what 
+        // we want. 
+        auto attribute = attrs[0];
+        mlir::Type array_type;
+        if (attribute == "double") {
+          array_type = builder.getF64Type();
+        } else {
+          // Will add more later. 
+          printErrorMessage("We do not support this array type yet: " +
+                            attribute);
+        }
+
+        update_current_value(
+            builder.create<mlir::quantum::GeneralArrayExtractOp>(
+                location, array_type, indexed_variable_value, current_value));
+
+        // unset the variable name just in case
+        indexed_variable_name = "";
       } else {
         // We are loading from a variable
         llvm::ArrayRef<mlir::Value> idx(current_value);

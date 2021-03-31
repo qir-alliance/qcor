@@ -18,6 +18,8 @@ class qasm3_expression_generator : public qasm3::qasm3BaseVisitor {
   mlir::ModuleOp m_module;
   std::string file_name = "";
 
+  std::string indexed_variable_name = "";
+  
   bool builtin_math_func_treat_ints_as_float = false;
   bool casting_indexed_integer_to_bool = false;
   bool found_negation_unary_op = false;

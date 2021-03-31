@@ -29,6 +29,11 @@ def ExtractQubitOp : QuantumOp<"qextract", []> {
     let results = (outs QubitType:$qbit);
 }
 
+def GeneralArrayExtractOp : QuantumOp<"array_extract", []> {
+    let arguments = (ins ArrayType:$array, AnyInteger:$idx);
+    let results = (outs AnyType:$element);
+}
+
 // Assign a qubit pointer (specified by the Qubit array and index) to an alias pointer. 
 // Signature: void qassign(Array* destination_array, int destination_idx, Array* source_array, int source_idx)
 def AssignQubitOp : QuantumOp<"qassign", []> {

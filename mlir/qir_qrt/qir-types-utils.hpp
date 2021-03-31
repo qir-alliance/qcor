@@ -1,4 +1,6 @@
 #pragma once
+#include <cstring>
+#include <functional>
 #include "qir-types.hpp"
 #include <typeinfo>
 #include <vector>

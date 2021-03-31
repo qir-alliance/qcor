@@ -2,7 +2,6 @@
 
 #include <alloca.h>
 
-// #include "qcor.hpp"
 #include "config_file_parser.hpp"
 #include "qcor_config.hpp"
 #include "qrt.hpp"
@@ -49,10 +48,30 @@ void print_help() {
   exit(0);
 }
 
+namespace qcor {
+void initialize() { initialize(std::vector<std::string>{}); }
+
+void initialize(std::vector<std::string> argv) {
+  std::vector<char *> cstrs;
+  argv.insert(argv.begin(), "appExec");
+  for (auto &s : argv) {
+    cstrs.push_back(&s.front());
+  }
+  initialize(argv.size(), cstrs.data());
+}
+
+void initialize(int argc, char **argv) {
+  __quantum__rt__initialize(argc, reinterpret_cast<int8_t **>(argv));
+}
+qcor::qreg qalloc(const uint64_t size) {
+  if (!initialized) initialize();
+  return qcor::qreg(size);
+}
+}  // namespace qcor
+
 void __quantum__rt__initialize(int argc, int8_t **argv) {
   char **casted = reinterpret_cast<char **>(argv);
   std::vector<std::string> args(casted, casted + argc);
-
   mode = QRT_MODE::FTQC;
   for (size_t i = 0; i < args.size(); i++) {
     auto arg = args[i];
@@ -142,7 +161,7 @@ void initialize() {
     ::quantum::qrt_impl->initialize("empty");
     initialized = true;
 
-    // Save the original runtime by pushing it on 
+    // Save the original runtime by pushing it on
     // the stack, we'll always at least have this one
     internal_runtimes.push(::quantum::qrt_impl);
   }
@@ -313,7 +332,7 @@ void __quantum__rt__start_ctrl_u_region() {
   return;
 }
 
-void __quantum__rt__end_ctrl_u_region(Qubit * ctrl_qbit) {
+void __quantum__rt__end_ctrl_u_region(Qubit *ctrl_qbit) {
   // Get the temp runtime created by start_adj_u_region.
   auto runtime = internal_runtimes.top();
   // Get the program we built up
@@ -324,7 +343,7 @@ void __quantum__rt__end_ctrl_u_region(Qubit * ctrl_qbit) {
   // Set the quantum runtime to the one before this
   // temp one we just popped off
   ::quantum::qrt_impl = internal_runtimes.top();
- 
+
   int ctrlIdx = ctrl_qbit->id;
   auto ctrlKernel = std::dynamic_pointer_cast<xacc::CompositeInstruction>(
       xacc::getService<xacc::Instruction>("C-U"));
@@ -333,7 +352,8 @@ void __quantum__rt__end_ctrl_u_region(Qubit * ctrl_qbit) {
       std::make_pair("control-idx", ctrlIdx),
   });
 
-  // std::cout << "Running Ctrl on " << ctrlIdx << ":\n" << ctrlKernel->toString() << "\n";
+  // std::cout << "Running Ctrl on " << ctrlIdx << ":\n" <<
+  // ctrlKernel->toString() << "\n";
   for (int instId = 0; instId < ctrlKernel->nInstructions(); ++instId) {
     ::quantum::qrt_impl->general_instruction(
         ctrlKernel->getInstruction(instId));
@@ -406,8 +426,8 @@ bool __quantum__rt__result_equal(Result *res, Result *comp) {
   return false;
 }
 
-Result* __quantum__rt__result_get_one() { return ResultOne; }
-Result* __quantum__rt__result_get_zero() { return ResultZero;}
+Result *__quantum__rt__result_get_one() { return ResultOne; }
+Result *__quantum__rt__result_get_zero() { return ResultZero; }
 
 void __quantum__rt__string_update_reference_count(void *str, int64_t count) {
   // TODO

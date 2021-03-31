@@ -2,6 +2,7 @@
 #include "Quantum/QuantumDialect.h"
 #include "clang/AST/ASTConsumer.h"
 #include "clang/AST/Type.h"
+#include "clang/AST/TypeVisitor.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Frontend/FrontendPluginRegistry.h"
 #include "llvm/Bitcode/BitcodeWriter.h"
@@ -18,9 +19,16 @@
 #include "mlir/IR/Verifier.h"
 
 namespace qcor {
-mlir::Type convertClangType(const clang::Type* type, std::string& type_as_str,
-                            mlir::MLIRContext& context) {
-  if (auto BT = dyn_cast_or_null<clang::BuiltinType>(type)) {
+
+class ClangToMLIRTypeVisitor
+    : public clang::TypeVisitor<ClangToMLIRTypeVisitor, mlir::Type> {
+ public:
+  std::string& type_as_str;
+  mlir::MLIRContext& context;
+
+  ClangToMLIRTypeVisitor(mlir::MLIRContext& ctx, std::string& type_as_str_arg)
+      : type_as_str(type_as_str_arg), context(ctx) {}
+  mlir::Type VisitBuiltinType(const clang::BuiltinType* BT) {
     if (BT->isIntegerType()) {
       switch (BT->getKind()) {
         case BuiltinType::Short: {
@@ -66,16 +74,61 @@ mlir::Type convertClangType(const clang::Type* type, std::string& type_as_str,
       };
       // return CIL::IntegerTy::get(kind, qual, &mlirContext);
     } else if (BT->isFloatingType()) {
+      // FIXME DO THIS
     }
-  } else if (type->isStructuralType()) {
-    if (type_as_str == "qubit") {
-      return mlir::OpaqueType::get(&context,
-                                   mlir::Identifier::get("quantum", &context),
-                                   llvm::StringRef("Qubit"));
-    }
+    return mlir::Type();
   }
 
-  return mlir::Type();
+  // This will handle qubit = Qubit*
+  mlir::Type VisitTypedefType(const clang::TypedefType* r) {
+    if (r->isPointerType()) {
+      auto qual_type = r->getPointeeType();
+      if (qual_type.getAsString().find("Qubit") != std::string::npos) {
+        return mlir::OpaqueType::get(&context,
+                                     mlir::Identifier::get("quantum", &context),
+                                     llvm::StringRef("Qubit"));
+      }
+    }
+    r->dump();
+    return mlir::Type();
+  }
+
+  // This can handle qcor::qreg&
+  mlir::Type VisitLValueReferenceType(const clang::LValueReferenceType* r) {
+
+    auto qual_type = r->getPointeeType();
+    if (qual_type.getAsString().find("qreg") != std::string::npos) {
+      type_as_str = "qcor::qreg";
+      return mlir::OpaqueType::get(&context,
+                                   mlir::Identifier::get("quantum", &context),
+                                   llvm::StringRef("Array"));
+    }
+    r->dump();
+    return mlir::Type();
+  }
+
+  mlir::Type VisitElaboratedType(const clang::ElaboratedType* t) {
+    if (t->getNamedType().getAsString().find("vector") != std::string::npos) {
+      if (t->getNamedType().getAsString().find("double") != std::string::npos) {
+        type_as_str = "std::vector<double>";
+      } else if (t->getNamedType().getAsString().find("int") !=
+                 std::string::npos) {
+        type_as_str = "std::vector<int>";
+      }
+      return mlir::OpaqueType::get(&context,
+                                   mlir::Identifier::get("quantum", &context),
+                                   llvm::StringRef("Array"));
+    }
+
+    return mlir::Type();
+  }
+ 
+};
+
+mlir::Type convertClangType(const clang::Type* type, std::string& type_as_str,
+                            mlir::MLIRContext& context) {
+  ClangToMLIRTypeVisitor visitor(context, type_as_str);
+  return visitor.Visit(type);
 }
 
 mlir::Type convertReturnType(const clang::DeclSpec& spec,

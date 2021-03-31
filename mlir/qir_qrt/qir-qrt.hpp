@@ -1,13 +1,14 @@
 #pragma once
 
 #include <memory>
-#include <vector>
 #include <stack>
+#include <vector>
+
 #include "qalloc.hpp"
 #include "qir-types.hpp"
 
 namespace xacc {
-    class AcceleratorBuffer;
+class AcceleratorBuffer;
 }
 
 extern "C" {
@@ -20,6 +21,7 @@ extern Result *ResultOne;
 extern unsigned long allocated_qbits;
 extern bool initialized;
 extern bool verbose;
+extern std::string qpu_name;
 // Global register instance.
 extern std::shared_ptr<xacc::AcceleratorBuffer> global_qreg;
 extern QRT_MODE mode;
@@ -27,43 +29,44 @@ extern QRT_MODE mode;
 void initialize();
 
 // Initialize/Finalize/Config API
-void __quantum__rt__initialize(int argc, int8_t** argv);
+// __attribute__((constructor)) void __init_qir_qrt(int argc, char** argv);
+void __quantum__rt__initialize(int argc, int8_t **argv);
 void __quantum__rt__finalize();
-void __quantum__rt__set_external_qreg(qreg* q);
+void __quantum__rt__set_external_qreg(qreg *q);
 
 // QIS API (i.e. quantum instructions)
-void __quantum__qis__swap(Qubit* src, Qubit* tgt);
-void __quantum__qis__cnot(Qubit* src, Qubit* tgt);
-void __quantum__qis__cphase(double x, Qubit* src, Qubit* tgt);
-void __quantum__qis__h(Qubit* q);
-void __quantum__qis__s(Qubit* q);
-void __quantum__qis__sdg(Qubit* q);
-void __quantum__qis__t(Qubit* q);
-void __quantum__qis__tdg(Qubit* q);
-void __quantum__qis__reset(Qubit* q);
+void __quantum__qis__swap(Qubit *src, Qubit *tgt);
+void __quantum__qis__cnot(Qubit *src, Qubit *tgt);
+void __quantum__qis__cphase(double x, Qubit *src, Qubit *tgt);
+void __quantum__qis__h(Qubit *q);
+void __quantum__qis__s(Qubit *q);
+void __quantum__qis__sdg(Qubit *q);
+void __quantum__qis__t(Qubit *q);
+void __quantum__qis__tdg(Qubit *q);
+void __quantum__qis__reset(Qubit *q);
 
-void __quantum__qis__x(Qubit* q);
-void __quantum__qis__y(Qubit* q);
-void __quantum__qis__z(Qubit* q);
+void __quantum__qis__x(Qubit *q);
+void __quantum__qis__y(Qubit *q);
+void __quantum__qis__z(Qubit *q);
 
-void __quantum__qis__rx(double x, Qubit* q);
-void __quantum__qis__ry(double x, Qubit* q);
-void __quantum__qis__rz(double x, Qubit* q);
-void __quantum__qis__u3(double theta, double phi, double lambda, Qubit* q);
-Result* __quantum__qis__mz(Qubit* q);
+void __quantum__qis__rx(double x, Qubit *q);
+void __quantum__qis__ry(double x, Qubit *q);
+void __quantum__qis__rz(double x, Qubit *q);
+void __quantum__qis__u3(double theta, double phi, double lambda, Qubit *q);
+Result *__quantum__qis__mz(Qubit *q);
 // Compare results.
 bool __quantum__rt__result_equal(Result *res, Result *comp);
 void __quantum__rt__result_update_reference_count(Result *, int64_t count);
 // Get reference Result.
-Result* __quantum__rt__result_get_one();
-Result* __quantum__rt__result_get_zero();
+Result *__quantum__rt__result_get_one();
+Result *__quantum__rt__result_get_zero();
 
 // Qubit Alloc/Dealloc API
-Array* __quantum__rt__qubit_allocate_array(uint64_t idx);
-void __quantum__rt__qubit_release_array(Array* q);
+Array *__quantum__rt__qubit_allocate_array(uint64_t idx);
+void __quantum__rt__qubit_release_array(Array *q);
 
 void __quantum__rt__start_ctrl_u_region();
-void __quantum__rt__end_ctrl_u_region(Qubit * ctrl_qubit);
+void __quantum__rt__end_ctrl_u_region(Qubit *ctrl_qubit);
 void __quantum__rt__start_adj_u_region();
 void __quantum__rt__end_adj_u_region();
 void __quantum__rt__start_pow_u_region();
@@ -82,19 +85,23 @@ Array *__quantum__rt__array_copy(Array *array, bool forceNewInstance);
 // Concatenate
 Array *__quantum__rt__array_concatenate(Array *head, Array *tail);
 // Slice
-// Creates and returns an array that is a slice of an existing array. 
-// The int dim which dimension the slice is on (0 for 1d arrays). 
+// Creates and returns an array that is a slice of an existing array.
+// The int dim which dimension the slice is on (0 for 1d arrays).
 // The Range range specifies the slice.
 // Note: QIR defines a Range as type { i64, i64, i64 }
 // i.e. a struct of 3 int64_t
 // and define an API at the *LLVM IR* level of passing this by value
-// i.e. the signature is %Range, not "%struct.Range* byval(%struct.Range)" 
+// i.e. the signature is %Range, not "%struct.Range* byval(%struct.Range)"
 // Hence, it is actually equivalent to an expanded list of struct member.
 // https://lists.llvm.org/pipermail/llvm-dev/2018-April/122714.html
-// Until the spec. is updated (see https://github.com/microsoft/qsharp-language/issues/31)
-// this is actually the C-ABI that will match the QIR IR.
-Array *__quantum__rt__array_slice(Array *array, int32_t dim, int64_t range_start, int64_t range_step, int64_t range_end);
-// Note: Overloading is not possible in C, so just keep the implementation in this local func.
+// Until the spec. is updated (see
+// https://github.com/microsoft/qsharp-language/issues/31) this is actually the
+// C-ABI that will match the QIR IR.
+Array *__quantum__rt__array_slice(Array *array, int32_t dim,
+                                  int64_t range_start, int64_t range_step,
+                                  int64_t range_end);
+// Note: Overloading is not possible in C, so just keep the implementation in
+// this local func.
 Array *quantum__rt__array_slice(Array *array, int32_t dim, Range range);
 
 // Ref. counting
@@ -130,5 +137,41 @@ Callable *__quantum__rt__callable_copy(Callable *clb, bool force);
 void __quantum__rt__capture_update_reference_count(Callable *clb,
                                                    int32_t count);
 void __quantum__rt__capture_update_alias_count(Callable *clb, int32_t count);
-void __quantum__rt__callable_memory_management(int32_t index, Callable* clb, int64_t parameter);
+void __quantum__rt__callable_memory_management(int32_t index, Callable *clb,
+                                               int64_t parameter);
 }
+
+namespace qcor {
+using qubit = Qubit *;
+struct qreg {
+ protected:
+  Array *data;
+  uint64_t m_size;
+
+ public:
+  qreg(const qreg &other) {
+    data = other.data;
+    m_size = other.m_size;
+  }
+  qreg(const uint64_t size) {
+    data = __quantum__rt__qubit_allocate_array(size);
+    m_size = size;
+  }
+  qubit operator[](const uint64_t element) {
+    assert(element < m_size);
+    auto ptr = __quantum__rt__array_get_element_ptr_1d(data, element);
+    return reinterpret_cast<Qubit **>(ptr)[0];
+  }
+  Array* raw_array() {
+      return data;
+  }
+  ~qreg() {
+    __quantum__rt__qubit_release_array(data);
+  }
+};
+
+void initialize();
+void initialize(std::vector<std::string> args);
+void initialize(int argc, char **argv);
+qreg qalloc(const uint64_t size);
+}  // namespace qcor

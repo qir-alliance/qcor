@@ -475,6 +475,7 @@ antlrcpp::Any qasm3_visitor::visitKernelCall(
       exp_generator.visit(exp);
 
       auto arg = exp_generator.current_value;
+
       if (arg.getType().isa<mlir::MemRefType>()) {
         auto element_type =
             arg.getType().cast<mlir::MemRefType>().getElementType();

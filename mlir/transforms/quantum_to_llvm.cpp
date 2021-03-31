@@ -1,9 +1,16 @@
 #include "quantum_to_llvm.hpp"
+
+#include <iostream>
+
+#include "lowering/AdjointURegionLowering.hpp"
 #include "lowering/AssignQubitOpConversion.hpp"
 #include "lowering/CreateStringLiteralOpLowering.hpp"
+#include "lowering/CtrlURegionLowering.hpp"
 #include "lowering/DeallocOpLowering.hpp"
 #include "lowering/ExtractQubitOpConversion.hpp"
+#include "lowering/GeneralArrayExtractOpConversion.hpp"
 #include "lowering/InstOpLowering.hpp"
+#include "lowering/PowURegionLowering.hpp"
 #include "lowering/PrintOpLowering.hpp"
 #include "lowering/QRTFinalizeOpLowering.hpp"
 #include "lowering/QRTInitOpLowering.hpp"
@@ -13,11 +20,6 @@
 #include "lowering/QubitArrayAllocOpLowering.hpp"
 #include "lowering/SetQregOpLowering.hpp"
 #include "lowering/StdAtanOpLowering.hpp"
-#include "lowering/PowURegionLowering.hpp"
-#include "lowering/AdjointURegionLowering.hpp"
-#include "lowering/CtrlURegionLowering.hpp"
-
-#include <iostream>
 
 namespace qcor {
 mlir::Type get_quantum_type(std::string type, mlir::MLIRContext *context) {
@@ -30,7 +32,7 @@ void QuantumToLLVMLoweringPass::getDependentDialects(
 }
 
 struct QuantumLLVMTypeConverter : public LLVMTypeConverter {
-private:
+ private:
   Type convertOpaqueQuantumTypes(OpaqueType type) {
     if (type.getTypeData() == "Qubit") {
       return LLVM::LLVMPointerType::get(get_quantum_type("Qubit", context));
@@ -48,7 +50,7 @@ private:
 
   mlir::MLIRContext *context;
 
-public:
+ public:
   QuantumLLVMTypeConverter(mlir::MLIRContext *ctx)
       : LLVMTypeConverter(ctx), context(ctx) {
     addConversion(
@@ -79,6 +81,8 @@ void QuantumToLLVMLoweringPass::runOnOperation() {
   patterns.insert<SetQregOpLowering>(&getContext(), variables);
   patterns.insert<ExtractQubitOpConversion>(&getContext(), typeConverter,
                                             variables, qubit_extract_map);
+  patterns.insert<GeneralArrayExtractOpConversion>(
+      &getContext(), typeConverter, variables, qubit_extract_map);
   patterns.insert<DeallocOpLowering>(&getContext(), variables);
   patterns.insert<QRTInitOpLowering>(&getContext(), variables);
   patterns.insert<QRTFinalizeOpLowering>(&getContext(), variables);
@@ -92,11 +96,11 @@ void QuantumToLLVMLoweringPass::runOnOperation() {
   patterns.insert<EndAdjointURegionOpLowering>(&getContext());
   patterns.insert<StartCtrlURegionOpLowering>(&getContext());
   patterns.insert<EndCtrlURegionOpLowering>(&getContext());
-  
+
   // We want to completely lower to LLVM, so we use a `FullConversion`. This
   // ensures that only legal operations will remain after the conversion.
   auto module = getOperation();
   if (failed(applyFullConversion(module, target, std::move(patterns))))
     signalPassFailure();
 }
-} // namespace qcor
+}  // namespace qcor

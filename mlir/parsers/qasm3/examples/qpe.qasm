@@ -50,7 +50,7 @@ for i in [0:n_counting] {
 }
 
 // Run inverse QFT 
-iqft counting;
+iqf2 counting;
 
 // Now lets measure the counting qubits
 bit c[n_counting];
@@ -58,6 +58,4 @@ measure counting -> c;
 
 // Backend is QPP which is lsb, 
 // so return should be 100
-for i in [0:n_counting]{
-    print(c[i]);
-}
+print(c);

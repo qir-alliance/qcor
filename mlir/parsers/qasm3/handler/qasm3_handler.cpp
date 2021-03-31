@@ -4,8 +4,8 @@
 #include <regex>
 #include <sstream>
 
-#include "qasm3_handler_utils.hpp"
 #include "openqasmv3_mlir_generator.hpp"
+#include "qasm3_handler_utils.hpp"
 #include "quantum_to_llvm.hpp"
 
 using namespace clang;
@@ -18,11 +18,17 @@ void Qasm3SyntaxHandler::GetReplacement(Preprocessor &PP, Declarator &D,
   // Get the function name
   auto kernel_name = D.getName().Identifier->getName().str();
 
+  auto &diagnostics = PP.getDiagnostics();
+  auto invalid_kernel_arg = diagnostics.getCustomDiagID(
+      clang::DiagnosticsEngine::Fatal,
+      "Invalid quantum kernel argument - we do not know how to map this type "
+      "to a mlir::Type yet (%0 %1).");
+
   // Create the MLIRContext and load the dialects
   mlir::MLIRContext context;
   context
       .loadDialect<mlir::quantum::QuantumDialect, mlir::StandardOpsDialect>();
-  
+
   // Create the mlir generator for qasm3
   OpenQasmV3MLIRGenerator mlir_generator(context);
 
@@ -38,10 +44,9 @@ void Qasm3SyntaxHandler::GetReplacement(Preprocessor &PP, Declarator &D,
   // build up associated mlir::Type arguments,
   // For vectors use Array *
   std::vector<mlir::Type> arg_types;
-  std::vector<std::string> program_parameters, arg_type_strs;
+  std::vector<std::string> program_parameters, arg_type_strs, var_attributes;
   const DeclaratorChunk::FunctionTypeInfo &FTI = D.getFunctionTypeInfo();
   for (unsigned int ii = 0; ii < FTI.NumParams; ii++) {
-
     // Get parameters as a ParmVarDecl
     auto &paramInfo = FTI.Params[ii];
     auto &decl = paramInfo.Param;
@@ -50,35 +55,50 @@ void Qasm3SyntaxHandler::GetReplacement(Preprocessor &PP, Declarator &D,
     auto type = parm_var_decl->getType().getTypePtr();
 
     // Get VarName and Type as strings
-    Token IdentToken, TypeToken;
+    Token IdentToken, TypeToken, test;
     PP.getRawToken(paramInfo.IdentLoc, IdentToken);
     PP.getRawToken(decl->getBeginLoc(), TypeToken);
+
     auto var = PP.getSpelling(IdentToken);
     auto type_str = PP.getSpelling(TypeToken);
+
+    // Convert type to a mlir type
+    mlir::Type t = convertClangType(type, type_str, context);
+    if (!t) {
+      auto db = diagnostics.Report(invalid_kernel_arg);
+      db.AddString(type->getCanonicalTypeInternal().getAsString());
+      db.AddString(var);
+    }
+
+    arg_types.push_back(t);
 
     // Add them to the vectors
     program_parameters.push_back(var);
     arg_type_strs.push_back(type_str);
- 
-    // Convert type to a mlir type
-    mlir::Type t = convertClangType(type, type_str, context);
-    arg_types.push_back(t);
+
+    if (type->getCanonicalTypeInternal().getAsString().find("vector<double>") !=
+        std::string::npos) {
+      var_attributes.push_back("double");
+    } else {
+      var_attributes.push_back("");
+    }
   }
 
   // std::cout << "SRC:\n" << ss.str() << "\n";
 
-  // Get the return type as an mlir type, 
+  // Get the return type as an mlir type,
   // as well as a string
   std::string ret_type_str = "";
-  mlir::Type return_type = convertReturnType(D.getDeclSpec(), ret_type_str, context);
+  mlir::Type return_type =
+      convertReturnType(D.getDeclSpec(), ret_type_str, context);
 
   // Init the MLIRGen
   mlir_generator.initialize_mlirgen(kernel_name, arg_types, program_parameters,
-                                    return_type);
+                                    var_attributes, return_type);
 
   // Run the MLIRGen
   mlir_generator.mlirgen(src);
-  
+
   // Finalize and get the Module
   mlir_generator.finalize_mlirgen();
   auto module = mlir_generator.get_module();
@@ -138,11 +158,37 @@ void Qasm3SyntaxHandler::GetReplacement(Preprocessor &PP, Declarator &D,
   sss << "extern \"C\" { " << ret_type_str << " __internal_mlir_" << kernel_name
       << "(" << arg_type_strs[0];
   for (int i = 1; i < arg_type_strs.size(); i++) {
-    sss << ", " << arg_type_strs[i];
+    std::string type_name = arg_type_strs[i];
+    if (arg_type_strs[i].find("qcor::qreg") != std::string::npos) {
+      type_name = "Array*";
+    } else if (arg_type_strs[i].find("std::vector") != std::string::npos) {
+      type_name = "Array*";
+    }
+    sss << ", " << type_name;
   }
   sss << ");}\n";
+
   // Rewrite the function to call the internal function
   sss << getDeclText(PP, D).str() << "{\n";
+
+  // Perform any argument translation
+  // e.g. map qcor::qreg to Array* with q.raw_array();
+  for (int i = 0; i < arg_type_strs.size(); i++) {
+    if (arg_type_strs[i].find("qcor::qreg") != std::string::npos) {
+      auto old_var_name = program_parameters[i];
+      sss << "auto __tmp_internal_qreg_array_" << old_var_name << " = "
+          << old_var_name << ".raw_array();\n";
+      std::replace(program_parameters.begin(), program_parameters.end(),
+                   old_var_name, "__tmp_internal_qreg_array_" + old_var_name);
+    } else if (arg_type_strs[i].find("std::vector") != std::string::npos) {
+      auto old_var_name = program_parameters[i];
+      sss << "auto __tmp_internal_vector_array_" << old_var_name
+          << " = qcor::qir::toArray(" << old_var_name << ");\n";
+      std::replace(program_parameters.begin(), program_parameters.end(),
+                   old_var_name, "__tmp_internal_vector_array_" + old_var_name);
+    }
+  }
+  sss << "if (!initialized) initialize();\n";
   sss << "return __internal_mlir_" << kernel_name << "("
       << program_parameters[0];
   for (int i = 1; i < program_parameters.size(); i++) {
@@ -156,7 +202,11 @@ void Qasm3SyntaxHandler::GetReplacement(Preprocessor &PP, Declarator &D,
   return;
 }
 
-void Qasm3SyntaxHandler::AddToPredefines(llvm::raw_string_ostream &OS) {}
+void Qasm3SyntaxHandler::AddToPredefines(llvm::raw_string_ostream &OS) {
+  OS << "#include \"qir-qrt.hpp\"\n";
+  OS << "#include \"qir-types-utils.hpp\"\n";
+  OS << "using qcor::qubit;\n";
+}
 }  // namespace qcor
 
 static SyntaxHandlerRegistry::Add<qcor::Qasm3SyntaxHandler> X(

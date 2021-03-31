@@ -21,7 +21,7 @@ struct Qubit {
     return newQubit;
   }
 
-private:
+ private:
   Qubit(uint64_t idVal) : id(idVal) {}
 };
 
@@ -46,8 +46,8 @@ struct Array {
   };
   // Copy
   Array(const Array &other)
-      : m_itemSizeInBytes(other.m_itemSizeInBytes), m_storage(other.m_storage) {
-  }
+      : m_itemSizeInBytes(other.m_itemSizeInBytes),
+        m_storage(other.m_storage) {}
 
   void append(const Array &other) {
     if (other.m_itemSizeInBytes != m_itemSizeInBytes) {
@@ -62,7 +62,7 @@ struct Array {
   void clear() { m_storage.clear(); }
   int64_t element_size() const { return m_itemSizeInBytes; }
 
-private:
+ private:
   // Must be const, i.e. changing the element size is NOT allowed.
   const int m_itemSizeInBytes;
   Storage m_storage;
@@ -87,9 +87,9 @@ struct Range {
 using TuplePtr = int8_t *;
 struct TupleHeader {
   // Tuple data
-  int32_t m_tupleSize; 
+  int32_t m_tupleSize;
   int8_t m_data[];
-  
+
   TuplePtr getTuple() { return m_data; }
   size_t tupleSize() const { return m_tupleSize; }
   static TupleHeader *create(int size) {
@@ -99,7 +99,8 @@ struct TupleHeader {
     return th;
   }
   static TupleHeader *getHeader(TuplePtr tuple) {
-    return reinterpret_cast<TupleHeader *>(tuple - offsetof(TupleHeader, m_data));
+    return reinterpret_cast<TupleHeader *>(tuple -
+                                           offsetof(TupleHeader, m_data));
   }
 };
 
@@ -117,13 +118,14 @@ namespace qcor {
 namespace qsharp {
 class IFunctor;
 }
-} // namespace qcor
+}  // namespace qcor
 
 // QIR Callable implementation.
 struct Callable {
   void invoke(TuplePtr args, TuplePtr result);
   Callable(qcor::qsharp::IFunctor *in_functor) : m_functor(in_functor) {}
-private:
+
+ private:
   qcor::qsharp::IFunctor *m_functor;
 };
 
@@ -135,8 +137,8 @@ namespace qsharp {
 // A generic base class of qcor function-like objects
 // that will be invoked by Q# as a callable.
 class IFunctor {
-public:
+ public:
   virtual void execute(TuplePtr args, TuplePtr result) = 0;
 };
-} // namespace qsharp
-} // namespace qcor
+}  // namespace qsharp
+}  // namespace qcor
