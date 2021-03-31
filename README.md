@@ -21,6 +21,7 @@ To install `qcor` run the following command from your terminal
 ```bash
 /bin/bash -c "$(curl -fsSL https://aide-qc.github.io/deploy/install.sh)"
 ```
+To use the Python API, be sure to set your `PYTHONPATH`. 
 For more details, see [here](https://aide-qc.github.io/deploy/getting_started/).
 
 Nightly docker images are also available that serve up a [Theia IDE](https://theia-ide.org/) on port 3000. To use this image, run 
