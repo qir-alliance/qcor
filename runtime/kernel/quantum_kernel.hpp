@@ -288,12 +288,12 @@ using callable_function_ptr =
     void (*)(std::shared_ptr<xacc::CompositeInstruction>, Args...);
 
 template <typename... Args>
-class CallableKernel {
+class KernelSignature {
  protected:
   callable_function_ptr<Args...> &function_pointer;
 
  public:
-  CallableKernel(callable_function_ptr<Args...> &&f) : function_pointer(f) {}
+  KernelSignature(callable_function_ptr<Args...> &&f) : function_pointer(f) {}
   void operator()(std::shared_ptr<xacc::CompositeInstruction> ir,
                   Args... args) {
     function_pointer(ir, args...);
