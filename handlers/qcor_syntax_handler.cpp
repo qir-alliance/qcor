@@ -85,19 +85,15 @@ void QCORSyntaxHandler::GetReplacement(
   // with XACC api calls
   qcor::append_kernel(kernel_name, program_arg_types, program_parameters);
 
-  auto new_src = qcor::run_token_collector(PP, Toks, bufferNames);
+  for (int i = 0; i < program_arg_types.size(); i++) {
+    if (program_arg_types[i].find("CallableKernel") != std::string::npos) {
+      // we have a kernel we can call, need to add it to 
+      // append_kernel call. 
+      qcor::append_kernel(program_parameters[i], {}, {});
+    }
+  }
 
-  //   auto random_string = [](size_t length) {
-  //     auto randchar = []() -> char {
-  //       const char charset[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-  //                              "abcdefghijklmnopqrstuvwxyz";
-  //       const size_t max_index = (sizeof(charset) - 1);
-  //       return charset[rand() % max_index];
-  //     };
-  //     std::string str(length, 0);
-  //     std::generate_n(str.begin(), length, randchar);
-  //     return str;
-  //   };
+  auto new_src = qcor::run_token_collector(PP, Toks, bufferNames);
 
   // Rewrite the original function
   OS << "void " << kernel_name << "(" << program_arg_types[0] << " "
@@ -332,7 +328,7 @@ void QCORSyntaxHandler::GetReplacement(
   }
   OS << ");\n";
   OS << "}\n";
-
+   
   if (add_het_map_ctor) {
     // Remove "&" from type string before getting the Python variables in the
     // HetMap. Note: HetMap can't store references.

@@ -1,8 +1,8 @@
 #pragma once
 
+#include "qcor_observable.hpp"
 #include "qcor_utils.hpp"
 #include "qrt.hpp"
-#include "qcor_observable.hpp"
 
 namespace qcor {
 enum class QrtType { NISQ, FTQC };
@@ -222,7 +222,7 @@ class QuantumKernel {
     return visitor.getMat();
   }
 
-  static double observe(Observable& obs, Args... args) {
+  static double observe(Observable &obs, Args... args) {
     // instantiate and don't let it call the destructor
     Derived derived(args...);
     derived.disable_destructor = true;
@@ -236,8 +236,7 @@ class QuantumKernel {
     if (!std::all_of(
             instructions.cbegin(), instructions.cend(),
             [](const auto &inst) { return inst->name() != "Measure"; })) {
-      error(
-          "Unable to observe kernels that already have Measure operations.");
+      error("Unable to observe kernels that already have Measure operations.");
     }
 
     xacc::internal_compiler::execute_pass_manager();
@@ -262,8 +261,7 @@ class QuantumKernel {
     if (!std::all_of(
             instructions.cbegin(), instructions.cend(),
             [](const auto &inst) { return inst->name() != "Measure"; })) {
-      error(
-          "Unable to observe kernels that already have Measure operations.");
+      error("Unable to observe kernels that already have Measure operations.");
     }
 
     xacc::internal_compiler::execute_pass_manager();
@@ -283,6 +281,88 @@ class QuantumKernel {
   }
 
   virtual ~QuantumKernel() {}
+};
+
+template <typename... Args>
+using callable_function_ptr =
+    void (*)(std::shared_ptr<xacc::CompositeInstruction>, Args...);
+
+template <typename... Args>
+class CallableKernel {
+ protected:
+  callable_function_ptr<Args...> &function_pointer;
+
+ public:
+  CallableKernel(callable_function_ptr<Args...> &&f) : function_pointer(f) {}
+  void operator()(std::shared_ptr<xacc::CompositeInstruction> ir,
+                  Args... args) {
+    function_pointer(ir, args...);
+  }
+  void ctrl(std::shared_ptr<xacc::CompositeInstruction> ir, int ctrl_qbit,
+            Args... args) {
+    auto tempKernel = qcor::__internal__::create_composite("temp_control");
+    function_pointer(tempKernel, args...);
+
+    auto ctrlKernel = qcor::__internal__::create_ctrl_u();
+    ctrlKernel->expand({
+        std::make_pair("U", tempKernel),
+        std::make_pair("control-idx", ctrl_qbit),
+    });
+
+    for (int instId = 0; instId < ctrlKernel->nInstructions(); ++instId) {
+      ir->addInstruction(ctrlKernel->getInstruction(instId)->clone());
+    }
+  }
+
+  void ctrl(std::shared_ptr<xacc::CompositeInstruction> ir, qubit ctrl_qbit,
+            Args... args) {
+    int ctrl_bit = (int)ctrl_qbit.second;
+    ctrl(ir, ctrl_bit, args...);
+  }
+
+  void adjoint(std::shared_ptr<CompositeInstruction> ir, Args... args) {
+    auto tempKernel = qcor::__internal__::create_composite("temp_adjoint");
+    function_pointer(tempKernel, args...);
+ 
+    // get the instructions
+    auto instructions = tempKernel->getInstructions();
+    std::shared_ptr<CompositeInstruction> program = tempKernel;
+
+    // Assert that we don't have measurement
+    if (!std::all_of(
+            instructions.cbegin(), instructions.cend(),
+            [](const auto &inst) { return inst->name() != "Measure"; })) {
+      error(
+          "Unable to create Adjoint for kernels that have Measure operations.");
+    }
+
+    auto provider = qcor::__internal__::get_provider();
+    for (int i = 0; i < instructions.size(); i++) {
+      auto inst = tempKernel->getInstruction(i);
+      // Parametric gates:
+      if (inst->name() == "Rx" || inst->name() == "Ry" ||
+          inst->name() == "Rz" || inst->name() == "CPHASE" ||
+          inst->name() == "U1" || inst->name() == "CRZ") {
+        inst->setParameter(0, -inst->getParameter(0).template as<double>());
+      }
+      // Handles T and S gates, etc... => T -> Tdg
+      else if (inst->name() == "T") {
+        auto tdg = provider->createInstruction("Tdg", inst->bits());
+        program->replaceInstruction(i, tdg);
+      } else if (inst->name() == "S") {
+        auto sdg = provider->createInstruction("Sdg", inst->bits());
+        program->replaceInstruction(i, sdg);
+      }
+    }
+
+    // We update/replace instructions in the derived.parent_kernel composite,
+    // hence collecting these new instructions and reversing the sequence.
+    auto new_instructions = tempKernel->getInstructions();
+    std::reverse(new_instructions.begin(), new_instructions.end());
+
+    // add the instructions to the current parent kernel
+    ir->addInstructions(new_instructions);
+  }
 };
 
 }  // namespace qcor
