@@ -1,19 +1,18 @@
-#include "qcor.hpp"
-
 #include "cppmicroservices/BundleActivator.h"
 #include "cppmicroservices/BundleContext.h"
 #include "cppmicroservices/ServiceProperties.h"
+#include "qcor.hpp"
 using namespace cppmicroservices;
 
+#include <iomanip>
 #include <memory>
 #include <set>
-#include <iomanip> 
 
 #include "AlgorithmGradientStrategy.hpp"
 #include "xacc.hpp"
 #include "xacc_internal_compiler.hpp"
-#include "xacc_service.hpp"
 #include "xacc_plugin.hpp"
+#include "xacc_service.hpp"
 
 namespace {
 
@@ -22,17 +21,16 @@ std::ostream &operator<<(std::ostream &os, const std::vector<T> &v) {
   os << "[";
   for (int i = 0; i < v.size(); ++i) {
     os << v[i];
-    if (i != v.size() - 1)
-      os << ",";
+    if (i != v.size() - 1) os << ",";
   }
   os << "]";
   return os;
 }
-} // namespace
+}  // namespace
 namespace qcor {
 
 class VQEObjective : public ObjectiveFunction {
-public:
+ public:
   std::shared_ptr<xacc::Algorithm> vqe;
   double operator()(xacc::internal_compiler::qreg &qreg,
                     std::vector<double> &dx) override {
@@ -48,7 +46,8 @@ public:
           "QCOR VQE Error - could not initialize internal xacc vqe algorithm.");
     }
 
-    auto tmp_child = std::make_shared<xacc::AcceleratorBuffer>("temp_vqe_child", qreg.size());
+    auto tmp_child = std::make_shared<xacc::AcceleratorBuffer>("temp_vqe_child",
+                                                               qreg.size());
     auto val = vqe->execute(tmp_child, {})[0];
     double std_dev = 0.0;
     if (options.keyExists<int>("vqe-gather-statistics")) {
@@ -68,13 +67,16 @@ public:
       std_dev = std::sqrt(sq_sum / all_energies.size() - val * val);
     }
 
-    std::cout << "<H>(" << this->current_iterate_parameters << ") = " << std::setprecision(12) << val;
-    if (std::fabs(std_dev) > 1e-12) {
-      std::cout << " +- " << std_dev << "\n";
-    } else {
-      std::cout << std::endl;
+    if (options.keyExists<bool>("verbose") && options.get<bool>("verbose")) {
+      std::cout << "<H>(" << this->current_iterate_parameters
+                << ") = " << std::setprecision(12) << val;
+      if (std::fabs(std_dev) > 1e-12) {
+        std::cout << " +- " << std_dev << "\n";
+      } else {
+        std::cout << std::endl;
+      }
     }
-    
+
     // want to store parameters, have to do it here
     for (auto &child : tmp_child->getChildren()) {
       child->addExtraInfo("parameters", current_iterate_parameters);
@@ -96,7 +98,8 @@ public:
           xacc::getService<xacc::AlgorithmGradientStrategy>(
               options.getString("gradient-strategy"));
 
-      if (gradient_strategy->isNumerical() && observable->getIdentitySubTerm()) {
+      if (gradient_strategy->isNumerical() &&
+          observable->getIdentitySubTerm()) {
         gradient_strategy->setFunctionValue(
             val - std::real(observable->getIdentitySubTerm()->coefficient()));
       }
@@ -113,12 +116,12 @@ public:
     return val;
   }
 
-public:
+ public:
   int current_iteration = 0;
   const std::string name() const override { return "vqe"; }
   const std::string description() const override { return ""; }
 };
 
-} // namespace qcor
+}  // namespace qcor
 
 REGISTER_PLUGIN(qcor::VQEObjective, qcor::ObjectiveFunction)
