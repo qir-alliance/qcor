@@ -1,7 +1,13 @@
 #include <qcor_qft>
 
+// Here, we are saying this is what our QPE algorithm 
+// expects as a kernel signature for user-provided 
+// oracles. All oracles in this example must take a qreg and and int.
 using QPEOracleSignature = KernelSignature<qreg, int>;
 
+// Define our QPE algorithm, taking as input the 
+// qreg to run on and an Oracle provided as a 
+// qcor quantum kernel of the required function signature.
 __qpu__ void QuantumPhaseEstimation(qreg q, QPEOracleSignature oracle) {
   // We have nQubits, the last one we use
   // as the state qubit, the others we use as the counting qubits
@@ -47,6 +53,9 @@ __qpu__ void compositeOp(qreg q, int idx) { T(q[idx]); }
 
 int main(int argc, char **argv) {
   auto q = qalloc(4);
+
+  // Just pass the oracle kernel to the 
+  // phase estimation algorithm.
   QuantumPhaseEstimation(q, compositeOp);
   q.print();
 }
