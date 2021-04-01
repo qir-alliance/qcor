@@ -1,8 +1,8 @@
 #include <qcor_qft>
 
-using QPEOracle = CallableKernel<qreg, int>;
+using QPEOracleSignature = KernelSignature<qreg, int>;
 
-__qpu__ void QuantumPhaseEstimation(qreg q, QPEOracle oracle) {
+__qpu__ void QuantumPhaseEstimation(qreg q, QPEOracleSignature oracle) {
   // We have nQubits, the last one we use
   // as the state qubit, the others we use as the counting qubits
   const auto nQubits = q.size();
@@ -20,9 +20,7 @@ __qpu__ void QuantumPhaseEstimation(qreg q, QPEOracle oracle) {
   for (auto i : range(nCounting)) {
     const int nbCalls = 1 << i;
     for (auto j : range(nbCalls)) {
-      int ctlBit = i;
-      // Will be fixing this parent_kernel thing...
-      oracle.ctrl(ctlBit, q, state_qubit_idx);
+      oracle.ctrl(i, q, state_qubit_idx);
     }
   }
 
@@ -49,8 +47,6 @@ __qpu__ void compositeOp(qreg q, int idx) { T(q[idx]); }
 
 int main(int argc, char **argv) {
   auto q = qalloc(4);
-  // very cool, implicit conversion works here
-  // so you can just pass the kernel function
   QuantumPhaseEstimation(q, compositeOp);
   q.print();
 }
