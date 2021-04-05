@@ -26,3 +26,6 @@ add_test(NAME quasimo_qaoa COMMAND ${CMAKE_BINARY_DIR}/qcor ${CMAKE_CURRENT_SOUR
 add_test(NAME quasimo_qite COMMAND ${CMAKE_BINARY_DIR}/qcor ${CMAKE_CURRENT_SOURCE_DIR}/quasimo/QiteWorkflow.cpp)
 add_test(NAME quasimo_heisenberg COMMAND ${CMAKE_BINARY_DIR}/qcor ${CMAKE_CURRENT_SOURCE_DIR}/quasimo/TdWorkflowHeisenbergModel.cpp)
 add_test(NAME quasimo_verified_qpe COMMAND ${CMAKE_BINARY_DIR}/qcor ${CMAKE_CURRENT_SOURCE_DIR}/quasimo/VerifiedQuantumPhaseEstimation.cpp)
+add_test(NAME hadamard_ctrl_test COMMAND ${CMAKE_BINARY_DIR}/qcor ${CMAKE_CURRENT_SOURCE_DIR}/ctrl-gates/simple_hadamard_test.cpp)
+add_test(NAME multi_ctrl_test COMMAND ${CMAKE_BINARY_DIR}/qcor ${CMAKE_CURRENT_SOURCE_DIR}/ctrl-gates/multiple_controls.cpp)
+

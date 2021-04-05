@@ -149,7 +149,7 @@ class QuantumKernel {
 
   // Create the controlled version of this quantum kernel
   static void ctrl(std::shared_ptr<CompositeInstruction> parent_kernel,
-                   int ctrlIdx, Args... args) {
+                   const std::vector<int> &ctrlIdx, Args... args) {
     // instantiate and don't let it call the destructor
     Derived derived(args...);
     derived.disable_destructor = true;
@@ -169,6 +169,53 @@ class QuantumKernel {
     });
 
     // std::cout << "HELLO\n" << ctrlKernel->toString() << "\n";
+    for (int instId = 0; instId < ctrlKernel->nInstructions(); ++instId) {
+      parent_kernel->addInstruction(
+          ctrlKernel->getInstruction(instId)->clone());
+    }
+    // Need to reset and point current program to the parent
+    quantum::set_current_program(parent_kernel);
+  }
+
+  // Single-qubit overload
+  static void ctrl(std::shared_ptr<CompositeInstruction> parent_kernel,
+                   int ctrlIdx, Args... args) {
+    ctrl(parent_kernel, {ctrlIdx}, args...);
+  }
+
+  static void ctrl(std::shared_ptr<CompositeInstruction> parent_kernel,
+                   const std::vector<qubit> &ctrl_qbits, Args... args) {
+    const auto buffer_name = ctrl_qbits[0].first;
+
+    for (const auto &qb : ctrl_qbits) {
+      if (qb.first != buffer_name) {
+        // We can only handle control qubits on the same qReg.
+        error("Unable to handle control qubits from different registers");
+      }
+    }
+
+    std::vector<int> ctrl_bits;
+    std::transform(ctrl_qbits.begin(), ctrl_qbits.end(),
+                   std::back_inserter(ctrl_bits),
+                   [](auto qb) { return qb.second; });
+
+    // instantiate and don't let it call the destructor
+    Derived derived(args...);
+    derived.disable_destructor = true;
+
+    // run the operator()(args...) call to get the the functor
+    // as a CompositeInstruction (derived.parent_kernel)
+    derived(args...);
+
+    // Use the controlled gate module of XACC to transform
+    auto tempKernel = qcor::__internal__::create_composite("temp_control");
+    tempKernel->addInstruction(derived.parent_kernel);
+
+    auto ctrlKernel = qcor::__internal__::create_ctrl_u();
+    ctrlKernel->expand({{"U", tempKernel},
+                        {"control-idx", ctrl_bits},
+                        {"control-buffer", buffer_name}});
+
     for (int instId = 0; instId < ctrlKernel->nInstructions(); ++instId) {
       parent_kernel->addInstruction(
           ctrlKernel->getInstruction(instId)->clone());
