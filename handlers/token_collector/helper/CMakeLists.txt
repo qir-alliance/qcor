@@ -1,16 +1,16 @@
-add_subdirectory(helper)
-set(LIBRARY_NAME token_collector_util)
+
+set(LIBRARY_NAME token_collector_helper)
 add_library(${LIBRARY_NAME}
             SHARED
-            token_collector_util.cpp)
+            token_collector_helper.cpp)
 
 target_include_directories(${LIBRARY_NAME}
-                           PUBLIC . .. ${CMAKE_BINARY_DIR}
+                           PUBLIC . ${CMAKE_SOURCE_DIR}/handler 
                                   ${CLANG_INCLUDE_DIRS}
                                   ${LLVM_INCLUDE_DIRS})
 
 target_link_libraries(${LIBRARY_NAME}
-                      PRIVATE ${CLANG_LIBS} ${LLVM_LIBS} xacc::xacc xacc::quantum_gate qrt token_collector_helper)
+                      PRIVATE ${CLANG_LIBS} ${LLVM_LIBS} xacc::xacc xacc::quantum_gate qrt)
 
 if(APPLE)
   set_target_properties(${LIBRARY_NAME}
@@ -24,13 +24,3 @@ else()
 endif()
 
 install(TARGETS ${LIBRARY_NAME} DESTINATION lib)
-
-add_subdirectory(xasm)
-add_subdirectory(staq)
-#add_subdirectory(quil)
-add_subdirectory(unitary)
-add_subdirectory(pyxasm)
-
-if (QCOR_BUILD_TESTS)
-  add_subdirectory(tests)
-endif()
