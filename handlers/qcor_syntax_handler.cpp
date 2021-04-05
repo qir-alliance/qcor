@@ -87,14 +87,19 @@ void QCORSyntaxHandler::GetReplacement(
 
   for (int i = 0; i < program_arg_types.size(); i++) {
     if (program_arg_types[i].find("CallableKernel") != std::string::npos) {
-      // we have a kernel we can call, need to add it to 
-      // append_kernel call. 
+      // we have a kernel we can call, need to add it to
+      // append_kernel call.
       qcor::append_kernel(program_parameters[i], {}, {});
     }
   }
 
-  auto new_src = qcor::run_token_collector(PP, Toks, bufferNames);
+  std::string src_to_prepend;
+  auto new_src =
+      qcor::run_token_collector(PP, Toks, src_to_prepend, kernel_name, program_arg_types,
+                                program_parameters, bufferNames);
 
+  if (!src_to_prepend.empty()) OS << src_to_prepend;
+  
   // Rewrite the original function
   OS << "void " << kernel_name << "(" << program_arg_types[0] << " "
      << program_parameters[0];
@@ -328,7 +333,7 @@ void QCORSyntaxHandler::GetReplacement(
   }
   OS << ");\n";
   OS << "}\n";
-   
+
   if (add_het_map_ctor) {
     // Remove "&" from type string before getting the Python variables in the
     // HetMap. Note: HetMap can't store references.

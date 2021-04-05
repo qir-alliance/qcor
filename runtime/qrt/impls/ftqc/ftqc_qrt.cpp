@@ -20,6 +20,8 @@ class FTQC : public quantum::QuantumRuntime {
     qpu = xacc::internal_compiler::qpu;
   }
 
+  void __begin_mark_segment_as_compute() override { mark_as_compute = true; }
+  void __end_mark_segment_as_compute() override { mark_as_compute = false; }
   const std::string name() const override { return "ftqc"; }
   const std::string description() const override { return ""; }
 
@@ -146,10 +148,14 @@ class FTQC : public quantum::QuantumRuntime {
       instParams.emplace_back(val);
     }
     auto gateInst = provider->createInstruction(gateName, bits, instParams);
+    if (mark_as_compute) {
+      gateInst->attachMetadata({{"__qcor__compute__segment__", true}});
+    }
     qpu->apply(qReg, gateInst);
   }
 
  private:
+  bool mark_as_compute = false;
   std::shared_ptr<xacc::IRProvider> provider;
   std::shared_ptr<xacc::Accelerator> qpu;
   // TODO: eventually, we may want to support an arbitrary number of qubit

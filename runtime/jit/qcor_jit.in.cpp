@@ -311,8 +311,8 @@ class LLVMJIT {
         DL.getGlobalPrefix())));
 
     for (auto p : extra_paths) {
-      MainJD.addGenerator(cantFail(
-          DynamicLibrarySearchGenerator::Load(p.c_str(), DL.getGlobalPrefix())));
+      MainJD.addGenerator(cantFail(DynamicLibrarySearchGenerator::Load(
+          p.c_str(), DL.getGlobalPrefix())));
     }
 
     auto rt = MainJD.getDefaultResourceTracker();
@@ -381,7 +381,8 @@ void QJIT::write_cache() {
 }
 QJIT::~QJIT() { write_cache(); }
 
-void QJIT::jit_compile(std::unique_ptr<llvm::Module> m, std::vector<std::string> extra_shared_lib_paths) {
+void QJIT::jit_compile(std::unique_ptr<llvm::Module> m,
+                       std::vector<std::string> extra_shared_lib_paths) {
   std::vector<std::string> seen_functions;
   for (Function &f : *m) {
     auto name = f.getName().str();

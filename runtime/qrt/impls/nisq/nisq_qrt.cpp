@@ -26,6 +26,7 @@ class NISQ : public ::quantum::QuantumRuntime,
              // Cloneable for use in qir-qrt ctrl, pow, adj regions.
              public xacc::Cloneable<::quantum::QuantumRuntime> {
  protected:
+  bool mark_as_compute = false;
   std::shared_ptr<xacc::CompositeInstruction> program;
   std::shared_ptr<xacc::IRProvider> provider;
 
@@ -38,8 +39,11 @@ class NISQ : public ::quantum::QuantumRuntime,
       inst->setParameter(i, parameters[i]);
     }
 
-    program->addInstruction(inst);
+    if (mark_as_compute) {
+      inst->attachMetadata({{"__qcor__compute__segment__", true}});
+    }
 
+    program->addInstruction(inst);
   }
 
   void two_qubit_inst(const std::string &name, const qubit &qidx1,
@@ -51,8 +55,11 @@ class NISQ : public ::quantum::QuantumRuntime,
       inst->setParameter(i, parameters[i]);
     }
 
+    if (mark_as_compute) {
+      inst->attachMetadata({{"__qcor__compute__segment__", true}});
+    }
+
     program->addInstruction(inst);
-  
   }
 
  public:
@@ -64,6 +71,9 @@ class NISQ : public ::quantum::QuantumRuntime,
     provider = xacc::getIRProvider("quantum");
     program = provider->createComposite(kernel_name);
   }
+
+  void __begin_mark_segment_as_compute() override { mark_as_compute = true; }
+  void __end_mark_segment_as_compute() override { mark_as_compute = false; }
 
   void h(const qubit &qidx) override { one_qubit_inst("H", qidx); }
   void x(const qubit &qidx) override { one_qubit_inst("X", qidx); }

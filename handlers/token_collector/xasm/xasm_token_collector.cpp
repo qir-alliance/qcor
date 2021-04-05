@@ -153,6 +153,8 @@ void XasmTokenCollector::collect(clang::Preprocessor &PP,
 
         ss << PP.getSpelling(current_token) << space;
         i++;
+        if (i >= Toks.size()) break;
+
         current_token = Toks[i];
         if (current_token.is(clang::tok::semi)) {
           ss << ";";
