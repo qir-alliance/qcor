@@ -166,7 +166,7 @@ class TestKernelJIT(unittest.TestCase):
             for i in range(bitPrecision):
                 nbCalls = 2**i
                 for j in range(nbCalls):
-                    ctrl_bit = i
+                    ctrl_bit = q[i]
                     oracle.ctrl(ctrl_bit, q)
             
             # Inverse QFT on the counting qubits
