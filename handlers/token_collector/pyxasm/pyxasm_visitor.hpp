@@ -265,11 +265,31 @@ class pyxasm_visitor : public pyxasmBaseVisitor {
           }
         }
       } else {
+        // Handle Python list assignment:
+        // i.e. lhs = [a, b, c] => { a, b, c }
+        // NOTE: we only support simple lists, i.e. no nested.
+        const auto transformListAssignmentIfAny =
+            [](const std::string &in_expr) -> std::string {
+          const auto whitespace = " ";
+          // Trim leading and trailing spaces:
+          const auto strBegin = in_expr.find_first_not_of(whitespace);
+          const auto strEnd = in_expr.find_last_not_of(whitespace);
+          const auto strRange = strEnd - strBegin + 1;
+          const auto trim_expr = in_expr.substr(strBegin, strRange);
+
+          if (trim_expr.front() == '[' && trim_expr.back() == ']') {
+            return "{" + trim_expr.substr(1, trim_expr.size() - 2) + "}";
+          }
+
+          // Returns the original expression:
+          return in_expr;
+        };
+
         if (xacc::container::contains(declared_var_names, lhs)) {
-          ss << lhs << " = " << rhs << "; \n";
+          ss << lhs << " = " << transformListAssignmentIfAny(rhs) << "; \n";
         } else {
           // New variable: need to add *auto*
-          ss << "auto " << lhs << " = " << rhs << "; \n";
+          ss << "auto " << lhs << " = " << transformListAssignmentIfAny(rhs) << "; \n";
           new_var = lhs;
         }
       }

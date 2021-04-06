@@ -52,3 +52,10 @@ add_test (NAME qcor_python_jit_pass_manager
  )
  set_tests_properties(qcor_python_jit_pass_manager
      PROPERTIES ENVIRONMENT "PYTHONPATH=${CMAKE_INSTALL_PREFIX}:$ENV{PYTHONPATH}")
+
+add_test (NAME qcor_python_jit_multi_ctrl
+  COMMAND ${Python_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test_jit_multi_ctrl.py
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+)
+set_tests_properties(qcor_python_jit_multi_ctrl
+  PROPERTIES ENVIRONMENT "PYTHONPATH=${CMAKE_INSTALL_PREFIX}:$ENV{PYTHONPATH}")
