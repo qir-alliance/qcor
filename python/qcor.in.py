@@ -332,6 +332,48 @@ class qjit(object):
                     fbody_src = fbody_src.replace(
                         total_decompose_code, new_src)
 
+        if 'with compute' in fbody_src:
+            # All we really should need to do is 
+            # convert with compute to compute { 
+            # and with action to } action {
+            # then close with a } when we 
+            # hit a new col location
+            
+            assert(fbody_src.count('with compute') == fbody_src.count('with action'))
+
+            # split the function into lines
+            lines = fbody_src.split('\n')
+            new_src = ''
+            in_action_block = False
+            in_compute_block = False
+            action_col, compute_col = (0, 0)
+            for line in lines:
+                current_col = sum(1 for _ in itertools.takewhile(str.isspace, line)) 
+                if in_action_block and current_col <= action_col:
+                    new_src += '}\n'
+
+                if in_compute_block and current_col <= compute_col:
+                    # here we have just dropped out of compute col
+                    if 'with action' not in line:
+                        print('After compute block, you must provide the action block.')
+                        exit(1)
+
+                if 'with compute' in line:
+                    in_action_block = False
+                    in_compute_block = True
+                    compute_col = sum(1 for _ in itertools.takewhile(str.isspace, line))+1
+                    new_src += 'compute {\n'
+                elif 'with action' in line:
+                    in_action_block = True
+                    in_compute_block = False
+                    action_col = sum(1 for _ in itertools.takewhile(str.isspace, line)) 
+                    new_src += '} action {\n'
+                else:
+                    new_src += line + '\n'
+                
+            # update the source code
+            fbody_src = new_src
+
         # Users must provide arg types, if not we throw an error
         if not self.type_annotations or len(self.arg_names) != len(self.type_annotations):
             print('Error, you must provide type annotations for qcor quantum kernels.')
