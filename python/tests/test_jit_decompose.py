@@ -112,7 +112,7 @@ class TestKernelJIT(unittest.TestCase):
         counts = q.counts()
         print(counts)
         self.assertTrue('001' in counts)
-        self.assertTrue(counts['001'] == 1024)
+        self.assertTrue(counts['001'] > 1000)
     
     def test_more_decompose(self):
         try:
