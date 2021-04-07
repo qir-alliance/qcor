@@ -10,10 +10,10 @@ __qpu__ void f(qreg q) {
   // Call qft kernel (defined in a separate header file)
   int startIdx = 0;
   int shouldSwap = 1;
-  qft(q, startIdx, nQubits, shouldSwap);  
+  qft(q);  
   
   // Inverse QFT:
-  iqft(q, startIdx, nQubits, shouldSwap);
+  iqft(q);
   
   // Measure all qubits
   for (int qIdx = 0; qIdx < nQubits; ++qIdx) {

@@ -68,7 +68,7 @@ void StaqTokenCollector::collect(clang::Preprocessor &PP,
     // Note - we don't know the size of the buffer
     // at this point, so just create one with max size
     // and we can provide an IR Pass later that updates it
-    auto q = qalloc(std::numeric_limits<int>::max());
+    auto q = qalloc(1000);
     q.setNameAndStore(b.c_str());
 
     xx << "qreg " << b << "[" << q.size() << "];\n";
@@ -220,7 +220,7 @@ void StaqTokenCollector::collect(clang::Preprocessor &PP,
     next->accept(visitor);
   }
   if (hasOracle) {
-    ss << "auto anc = qalloc(" << std::numeric_limits<int>::max() << ");\n";
+    ss << "auto anc = qalloc(" << 1000 << ");\n";
   }
 
   if (!qreg_calls.empty() && bufferNames.size() == qreg_calls.size()) {

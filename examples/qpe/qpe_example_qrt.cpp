@@ -21,7 +21,7 @@ __qpu__ void compositeOp(qreg q) {
 // i.e. T|1> = exp(i*pi/4)|1>
 // We use 3 counting bits => totally 4 qubits.
 __qpu__ void QuantumPhaseEstimation(qreg q) {
-  const auto nQubits = q.size();
+  const std::size_t nQubits = q.size();
   // Last qubit is the eigenstate of the unitary operator 
   // hence, prepare it in |1> state
   X(q[nQubits - 1]);
@@ -33,7 +33,7 @@ __qpu__ void QuantumPhaseEstimation(qreg q) {
 
   // Apply Controlled-Oracle: in this example, Oracle is T gate;
   // i.e. Ctrl(T) = CPhase(pi/4)
-  const auto bitPrecision = nQubits - 1;
+  const std::size_t bitPrecision = nQubits - 1;
   for (int32_t i = 0; i < bitPrecision; ++i) {
     const int nbCalls = 1 << i;
     for (int j = 0; j < nbCalls; ++j) {
@@ -46,7 +46,8 @@ __qpu__ void QuantumPhaseEstimation(qreg q) {
   // Inverse QFT on the counting qubits:
   int startIdx = 0;
   int shouldSwap = 1;
-  iqft(q, startIdx, bitPrecision, shouldSwap);
+  auto r = q.extract_range({0, bitPrecision});
+  iqft(r);
 
   // Measure counting qubits
   for (int qIdx = 0; qIdx < bitPrecision; ++qIdx) {

@@ -121,6 +121,19 @@ void t(const qubit &qidx);
 void tdg(const qubit &qidx);
 void s(const qubit &qidx);
 void sdg(const qubit &qidx);
+// Reset a qubit (to zero state)
+void reset(const qubit &qidx);
+
+// broadcast across qreg
+void h(qreg &q);
+void x(qreg &q);
+void y(qreg &q);
+void z(qreg &q);
+void t(qreg &q);
+void tdg(qreg &q);
+void s(qreg &q);
+void sdg(qreg &q);
+void reset(qreg &qidx);
 
 // Common single-qubit, parameterized instructions
 void rx(const qubit &qidx, const double theta);
@@ -131,11 +144,18 @@ void u1(const qubit &qidx, const double theta);
 void u3(const qubit &qidx, const double theta, const double phi,
         const double lambda);
 
-// Reset a qubit (to zero state)
-void reset(const qubit &qidx);
+// broadcast rotations across qubits
+void rx(qreg &qidx, const double theta);
+void ry(qreg &qidx, const double theta);
+void rz(qreg &qidx, const double theta);
+// U1(theta) gate
+void u1(qreg &qidx, const double theta);
+void u3(qreg &qidx, const double theta, const double phi,
+        const double lambda);
 
-// Measure-Z
+// Measure-Z and broadcast mz
 bool mz(const qubit &qidx);
+void mz(qreg &q);
 
 // Common two-qubit gates.
 void cnot(const qubit &src_idx, const qubit &tgt_idx);

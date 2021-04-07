@@ -42,7 +42,7 @@ TEST(StaqTokenCollectorTester, checkSimple) {
   std::cout << "heres the test\n";
   std::cout << ss.str() << "\n";
 
-  EXPECT_EQ(R"#(auto anc = qalloc(2147483647);
+  EXPECT_EQ(R"#(auto anc = qalloc(1000);
 quantum::x(a[0]);
 quantum::x(a[1]);
 quantum::x(b[0]);

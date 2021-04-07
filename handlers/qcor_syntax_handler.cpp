@@ -37,7 +37,7 @@ void QCORSyntaxHandler::GetReplacement(Preprocessor &PP, Declarator &D,
     auto parm_var_decl = cast<ParmVarDecl>(decl);
     PP.getRawToken(paramInfo.IdentLoc, IdentToken);
     PP.getRawToken(decl->getBeginLoc(), TypeToken);
-
+    
     auto type = QualType::getAsString(parm_var_decl->getType().split(),
                                       PrintingPolicy{{}});
     auto var = PP.getSpelling(IdentToken);
@@ -48,6 +48,9 @@ void QCORSyntaxHandler::GetReplacement(Preprocessor &PP, Declarator &D,
     } else if (type == "qcor::qreg") {
       bufferNames.push_back(ident->getName().str());
       type = "qreg";
+    } else if (type.find("xacc::internal_compiler::qubit") != std::string::npos) {
+      bufferNames.push_back(ident->getName().str());
+      type = "qubit";
     }
 
     program_arg_types.push_back(type);

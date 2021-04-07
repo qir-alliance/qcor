@@ -163,17 +163,17 @@ __qpu__ void ccPhiAddModN(qreg q, int ctl1, int ctl2, int aux,
   int withSwap = 0;
   ccPhiAdd(q, ctl1, ctl2, a, startBitIdx, nbQubits, inv0);
   phiAdd(q, N, startBitIdx, nbQubits, inv1);
-  iqft(q, startBitIdx, nbQubits, withSwap);
+  iqft_range_opt_swap(q, startBitIdx, nbQubits, withSwap);
   int lastIdx = startBitIdx + nbQubits - 1;
   CX(q[lastIdx], q[aux]);
-  qft(q, startBitIdx, nbQubits, withSwap);
+  qft_range_opt_swap(q, startBitIdx, nbQubits, withSwap);
   cPhiAdd(q, aux, N, startBitIdx, nbQubits, inv0);
   ccPhiAdd(q, ctl1, ctl2, a, startBitIdx, nbQubits, inv1);
-  iqft(q, startBitIdx, nbQubits, withSwap);
+  iqft_range_opt_swap(q, startBitIdx, nbQubits, withSwap);
   X(q[lastIdx]);
   CX(q[lastIdx], q[aux]);
   X(q[lastIdx]);
-  qft(q, startBitIdx, nbQubits, withSwap);
+  qft_range_opt_swap(q, startBitIdx, nbQubits, withSwap);
   ccPhiAdd(q, ctl1, ctl2, a, startBitIdx, nbQubits, inv0);                          
 }
 
@@ -186,17 +186,17 @@ __qpu__ void ccPhiAddModN_inv(qreg q, int ctl1, int ctl2, int aux,
   int inv1 = 1;
   int withSwap = 0;
   ccPhiAdd(q, ctl1, ctl2, a, startBitIdx, nbQubits, inv1);                          
-  iqft(q, startBitIdx, nbQubits, withSwap);
+  iqft_range_opt_swap(q, startBitIdx, nbQubits, withSwap);
   int lastIdx = startBitIdx + nbQubits - 1;
   X(q[lastIdx]);
   CX(q[lastIdx], q[aux]);
   X(q[lastIdx]);
-  qft(q, startBitIdx, nbQubits, withSwap);
+  qft_range_opt_swap(q, startBitIdx, nbQubits, withSwap);
   ccPhiAdd(q, ctl1, ctl2, a, startBitIdx, nbQubits, inv0);
   cPhiAdd(q, aux, N, startBitIdx, nbQubits, inv1);
-  iqft(q, startBitIdx, nbQubits, withSwap);
+  iqft_range_opt_swap(q, startBitIdx, nbQubits, withSwap);
   CX(q[lastIdx], q[aux]);
-  qft(q, startBitIdx, nbQubits, withSwap);
+  qft_range_opt_swap(q, startBitIdx, nbQubits, withSwap);
   phiAdd(q, N, startBitIdx, nbQubits, inv0);
   ccPhiAdd(q, ctl1, ctl2, a, startBitIdx, nbQubits, inv1);
 }
@@ -222,7 +222,7 @@ __qpu__ void cMultModN(qreg q, int ctrlIdx,
   int withSwap = 0;
   // QFT on the auxilary:
   int qftSize = nbQubits + 1;
-  qft(q, auxStartBitIdx, qftSize, withSwap);
+  qft_range_opt_swap(q, auxStartBitIdx, qftSize, withSwap);
   for (int i = 0; i < nbQubits; ++i) {
     int tempA = 0;
     qcor::util::calcPowMultMod(tempA, i, a, N);
@@ -232,7 +232,7 @@ __qpu__ void cMultModN(qreg q, int ctrlIdx,
     ccPhiAddModN(q, xIdx, ctrlIdx, auxBit, tempA, N, auxStartBitIdx, qftSize);
   }
 
-  iqft(q, auxStartBitIdx, qftSize, withSwap);
+  iqft_range_opt_swap(q, auxStartBitIdx, qftSize, withSwap);
   
   for (int i = 0; i < nbQubits; ++i) {
     int idx1 = startBitIdx + i;
@@ -240,7 +240,7 @@ __qpu__ void cMultModN(qreg q, int ctrlIdx,
     cSwap(q, ctrlIdx, idx1, idx2);
   }
 
-  qft(q, auxStartBitIdx, qftSize, withSwap);
+  qft_range_opt_swap(q, auxStartBitIdx, qftSize, withSwap);
   
   int aInv = 0;
   qcor::util::modinv(aInv, a, N);
@@ -252,7 +252,7 @@ __qpu__ void cMultModN(qreg q, int ctrlIdx,
     ccPhiAddModN_inv(q, xIdx, ctrlIdx, auxBit, tempA, N, auxStartBitIdx, qftSize);
   }
 
-  iqft(q, auxStartBitIdx, qftSize, withSwap);
+  iqft_range_opt_swap(q, auxStartBitIdx, qftSize, withSwap);
 }
 
 // Period finding:
@@ -294,7 +294,7 @@ __qpu__ void periodFinding(qreg q, int a, int N) {
 
   // Apply inverse QFT on the up register (with Swap)
   int withSwap = 1;
-  iqft(q, upStart, upSize, withSwap);
+  iqft_range_opt_swap(q, upStart, upSize, withSwap);
 
   // Measure the upper register
   for (int i = 0; i < upSize; ++i) {

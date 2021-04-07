@@ -81,9 +81,12 @@ class xasm_single_visitor : public xasm::xasm_singleVisitor {
             buffer_names.push_back(buffer_name);
             inst->setBitExpression(i, bit_idx_expr);
           } else {
-            xacc::error("Must provide qreg[IDX] and not just qreg.");
+            // Indicate this is a qubit(-1) or a qreg(-2)
+            inst->setBitExpression(-1, bit_expr_str);
+            buffer_names.push_back(bit_expr_str);
           }
         }
+
         inst->setBufferNames(buffer_names);
 
         // Get the parameter expressions

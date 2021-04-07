@@ -2,10 +2,10 @@
 #ifndef QCOR_QRT_MAPPER_HPP_
 #define QCOR_QRT_MAPPER_HPP_
 
-#include "AllGateVisitor.hpp"
-#include "Circuit.hpp"
 #include <Instruction.hpp>
 
+#include "AllGateVisitor.hpp"
+#include "Circuit.hpp"
 #include "qrt.hpp"
 
 namespace qcor {
@@ -13,12 +13,29 @@ using namespace xacc::quantum;
 
 class qrt_mapper : public AllGateVisitor,
                    public xacc::InstructionVisitor<Circuit> {
-protected:
+ protected:
   std::stringstream ss;
   // The kernel name of the CompositeInstruction
   // that this mapper is visiting.
   std::string kernelName;
   void addOneQubitGate(const std::string name, xacc::Instruction &inst) {
+    if (!inst.getBitExpression(-1).empty()) {
+      // This is a qubit...
+      auto expr = inst.getBitExpression(-1);
+      ss << "quantum::" + name + "(" << expr;
+      
+      if (inst.isParameterized() && inst.name() != "Measure") {
+        ss << ", " << inst.getParameter(0).toString();
+        for (int i = 1; i < inst.nParameters(); i++) {
+          ss << ", " << inst.getParameter(i).toString() << "\n";
+        }
+      }
+      ss << ");\n";
+
+      return;
+    }
+
+    // This is a qreg[IDX]
     auto expr = inst.getBitExpression(0);
     ss << "quantum::" + name + "(" << inst.getBufferNames()[0] << "["
        << (expr.empty() ? std::to_string(inst.bits()[0]) : expr) << "]";
@@ -48,7 +65,7 @@ protected:
     ss << ");\n";
   }
 
-public:
+ public:
   // Ctor: cache the kernel name of the CompositeInstruction
   qrt_mapper(const std::string &top_level_kernel_name)
       : kernelName(top_level_kernel_name) {}
@@ -56,8 +73,8 @@ public:
 
   // Workaround cross-boundary (dlopen) dynamic type-casting issue (Apple Clang)
   // Construct the RTTI pointer offset map as fallback for dynamic_cast.
-  virtual std::unordered_map<std::string, ptrdiff_t>
-  getVisitorRttiMap() const override {
+  virtual std::unordered_map<std::string, ptrdiff_t> getVisitorRttiMap()
+      const override {
     // Currently, looks like only xacc::InstructionVisitor<Circuit> is having
     // this issue, but, technically, we can add all types here if needed to.
     static const std::unordered_map<std::string, ptrdiff_t> result{
@@ -148,5 +165,5 @@ public:
   }
   void visit(IfStmt &ifStmt) override {}
 };
-} // namespace qcor
+}  // namespace qcor
 #endif
