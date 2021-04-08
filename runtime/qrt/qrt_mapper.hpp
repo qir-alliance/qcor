@@ -49,12 +49,25 @@ class qrt_mapper : public AllGateVisitor,
   }
 
   void addTwoQubitGate(const std::string name, xacc::Instruction &inst) {
-    auto expr_src = inst.getBitExpression(0);
-    auto expr_tgt = inst.getBitExpression(1);
-    ss << "quantum::" + name + "(" << inst.getBufferNames()[0] << "["
-       << (expr_src.empty() ? std::to_string(inst.bits()[0]) : expr_src)
-       << "], " << inst.getBufferNames()[1] << "["
-       << (expr_tgt.empty() ? std::to_string(inst.bits()[1]) : expr_tgt) << "]";
+    std::string expr_src, expr_tgt;
+    if (!inst.getBitExpression(-1).empty()) {
+      expr_src = inst.getBitExpression(-1) + ", ";
+    } else {
+      expr_src = inst.getBitExpression(0);
+      expr_src = inst.getBufferNames()[0] + "["
+       + (expr_src.empty() ? std::to_string(inst.bits()[0]) : expr_src)
+       + "], ";
+    }
+    if (!inst.getBitExpression(-2).empty()) {
+      expr_tgt = inst.getBitExpression(-2);
+    } else {
+      expr_tgt = inst.getBitExpression(1);
+      expr_tgt = inst.getBufferNames()[1] + "["
+       + (expr_tgt.empty() ? std::to_string(inst.bits()[1]) : expr_tgt)
+       + "]";
+    }
+   
+    ss << "quantum::" + name + "(" << expr_src << expr_tgt;
     // Handle parameterized gate:
     if (inst.isParameterized()) {
       ss << ", " << inst.getParameter(0).toString();
