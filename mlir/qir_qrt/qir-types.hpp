@@ -2,6 +2,7 @@
 
 #include <cassert>
 #include <stdexcept>
+#include <atomic>
 // Defines implementations of QIR Opaque types
 
 // FIXME - Qubit should be a struct that keeps track of idx
@@ -41,13 +42,15 @@ struct Array {
   Array(int64_t nbItems, int itemSizeInBytes = sizeof(int8_t *))
       : m_itemSizeInBytes(itemSizeInBytes),
         // Initialized to zero
-        m_storage(nbItems * itemSizeInBytes, 0) {
+        m_storage(nbItems * itemSizeInBytes, 0),
+        m_refCount(1) {
     assert(m_itemSizeInBytes > 0);
   };
-  // Copy
+  // Copy ctor:
+  // note: we copy the Storage vector, hence set ref count to 1
   Array(const Array &other)
-      : m_itemSizeInBytes(other.m_itemSizeInBytes),
-        m_storage(other.m_storage) {}
+      : m_itemSizeInBytes(other.m_itemSizeInBytes), m_storage(other.m_storage),
+        m_refCount(1) {}
 
   void append(const Array &other) {
     if (other.m_itemSizeInBytes != m_itemSizeInBytes) {
@@ -62,10 +65,23 @@ struct Array {
   void clear() { m_storage.clear(); }
   int64_t element_size() const { return m_itemSizeInBytes; }
 
- private:
+  // Ref. counting:
+  void add_ref() { m_refCount += 1; }
+  // Release a single ref. 
+  // Returns true if this Array should be deleted
+  // if heap allocated (via new) 
+  bool release_ref() {
+    m_refCount -= 1;
+    return (m_refCount == 0);
+  }
+
+  int ref_count() const { return m_refCount; }
+
+private:
   // Must be const, i.e. changing the element size is NOT allowed.
   const int m_itemSizeInBytes;
   Storage m_storage;
+  std::atomic<int> m_refCount;
 };
 
 enum Pauli : int8_t {

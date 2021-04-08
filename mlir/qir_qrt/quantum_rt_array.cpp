@@ -50,15 +50,39 @@ Array *quantum__rt__array_slice(Array *array, int32_t dim, Range range) {
 }
 
 void __quantum__rt__array_update_alias_count(Array *array, int64_t increment) {
-  // TODO
   if (verbose)
     std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
+  // Looks like alias count has no functional significance, hence ignored.
 }
 
 void __quantum__rt__array_update_reference_count(Array *aux, int64_t count) {
-  // TODO
+  // Spec:
+  // Deallocates the array if the reference count becomes 0. 
+  // The behavior is undefined if the reference count becomes negative. 
+  // The call should be ignored if the given %Array* is a null pointer.  
   if (verbose)
     std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
+
+  if (!aux) {
+    // The call should be ignored if the given %Array* is a null pointer.
+    return;
+  }
+
+  if (increment > 0) {
+    for (int64_t i = 0; i < increment; ++i) {
+      array->add_ref();
+    }
+  } else {
+    for (int64_t i = 0; i < (-increment); ++i) {
+      if (array->release_ref()) {
+        // Deallocates the array if the reference count becomes 0. 
+        if (verbose)
+          std::cout << "Deallocates array.\n";
+        delete array;
+        return;
+      }
+    }
+  }
 }
 
 // Returns the number of dimensions in the array.
@@ -71,6 +95,7 @@ int32_t __quantum__rt__array_get_dim(Array *array) {
 int64_t __quantum__rt__array_get_size(Array *array, int32_t dim) {
   if (verbose)
     std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
+  // We don't support multi-dimensional arrays (yet).
   return 0;
 }
 
@@ -81,7 +106,10 @@ Array *__quantum__rt__array_copy(Array *array, bool forceNewInstance) {
   if (array && forceNewInstance) {
     return new Array(*array);
   }
-
+  // Spec:
+  // Returns the given array pointer (the first parameter), 
+  // after increasing its reference count by 1. 
+  array->add_ref();
   return array;
 }
 
