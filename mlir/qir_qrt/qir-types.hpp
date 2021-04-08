@@ -129,13 +129,12 @@ struct Array {
   bool release_ref() {
     m_refCount -= 1;
     qcor::internal::AllocationTracker::get().updateCount(this, m_refCount);
-    if (m_refCount == 0) {
-      qcor::internal::AllocationTracker::get().onDeallocate(this);
-    }
     return (m_refCount == 0);
   }
 
   int ref_count() const { return m_refCount; }
+
+  ~Array() { qcor::internal::AllocationTracker::get().onDeallocate(this); }
 
 private:
   // Must be const, i.e. changing the element size is NOT allowed.
