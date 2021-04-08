@@ -42,11 +42,11 @@ project(qcor LANGUAGES CXX C)
 option(QCOR_BUILD_TESTS "Build qcor tests" OFF)
 
 find_package(Git QUIET)
-if(GIT_FOUND AND EXISTS "${CMAKE_SOURCE_DIR}/.git")
-    execute_process(COMMAND ${GIT_EXECUTABLE} rev-parse --short HEAD WORKING_DIRECTORY "${local_dir}"
+if(GIT_FOUND)
+  execute_process(COMMAND /bin/bash ${CMAKE_SOURCE_DIR}/scripts/get_git_version.sh
                             OUTPUT_VARIABLE QCOR_BUILD_VERSION ERROR_QUIET
                             OUTPUT_STRIP_TRAILING_WHITESPACE)
-  message( STATUS "QCOR GIT hash: ${QCOR_BUILD_VERSION}")
+  message( STATUS "QCOR Version / HEAD commit hash: ${QCOR_BUILD_VERSION}")
 endif()
 
 find_package(XACC REQUIRED)
