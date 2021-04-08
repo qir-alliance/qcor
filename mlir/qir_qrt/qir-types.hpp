@@ -154,6 +154,11 @@ using TuplePtr = int8_t *;
 struct TupleHeader {
   // Tuple data
   int32_t m_tupleSize;
+  // Since the layout of this struct is important,
+  // (we cast a byte array to this struct)
+  // use a simple integer var as ref count.
+  int32_t m_refCount;
+  // Must be at the end
   int8_t m_data[];
 
   TuplePtr getTuple() { return m_data; }
@@ -162,12 +167,40 @@ struct TupleHeader {
     int8_t *buffer = new int8_t[sizeof(TupleHeader) + size];
     TupleHeader *th = reinterpret_cast<TupleHeader *>(buffer);
     th->m_tupleSize = size;
+    th->m_refCount = 1;
+    qcor::internal::AllocationTracker::get().onAllocate(th);
     return th;
   }
   static TupleHeader *getHeader(TuplePtr tuple) {
     return reinterpret_cast<TupleHeader *>(tuple -
                                            offsetof(TupleHeader, m_data));
   }
+
+  // Ref. counting:
+  void add_ref() {
+    m_refCount += 1;
+    qcor::internal::AllocationTracker::get().updateCount(this, m_refCount);
+  }
+  
+  // Release a single ref. and delete the Tuple
+  // if the ref. count == 0.
+  // Note: since we use a heap-allocated byte array to represent a tuple-header,
+  // hence we need to clean up here accordingly.
+  // Returns true if the Tuple has been deleted.
+  bool release_ref() {
+    m_refCount -= 1;
+    qcor::internal::AllocationTracker::get().updateCount(this, m_refCount);
+    if (m_refCount == 0) {
+      // Re-cast this to a byte-buffer.
+      int8_t *buffer = reinterpret_cast<int8_t *>(this);
+      delete[] buffer;
+      return true;
+    }
+
+    return false;
+  }
+
+  int ref_count() const { return m_refCount; }
 };
 
 // Callable:
