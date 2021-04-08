@@ -55,7 +55,7 @@ void __quantum__rt__array_update_alias_count(Array *array, int64_t increment) {
   // Looks like alias count has no functional significance, hence ignored.
 }
 
-void __quantum__rt__array_update_reference_count(Array *aux, int64_t count) {
+void __quantum__rt__array_update_reference_count(Array *array, int64_t increment) {
   // Spec:
   // Deallocates the array if the reference count becomes 0. 
   // The behavior is undefined if the reference count becomes negative. 
@@ -63,7 +63,7 @@ void __quantum__rt__array_update_reference_count(Array *aux, int64_t count) {
   if (verbose)
     std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
 
-  if (!aux) {
+  if (!array) {
     // The call should be ignored if the given %Array* is a null pointer.
     return;
   }

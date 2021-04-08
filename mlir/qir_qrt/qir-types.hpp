@@ -1,9 +1,53 @@
 #pragma once
 
-#include <cassert>
-#include <stdexcept>
 #include <atomic>
+#include <cassert>
+#include <memory>
+#include <stdexcept>
+#include <unordered_map>
+#include <vector>
+
 // Defines implementations of QIR Opaque types
+
+namespace qcor {
+namespace internal {
+// Internal tracker to make sure we're doing proper
+// ref. counting, e.g. when generating QIR LLVM IR.
+class AllocationTracker {
+public:
+  static AllocationTracker &get();
+
+  void onAllocate(void *objPtr) {
+    assert(m_refCountMap.find(objPtr) == m_refCountMap.end());
+    m_refCountMap[objPtr] = 1;
+  }
+
+  void updateCount(void *objPtr, int newCount) {
+    assert(m_refCountMap.find(objPtr) != m_refCountMap.end());
+    assert(newCount >= 0);
+    m_refCountMap[objPtr] = newCount;
+  }
+
+  // Check if we have any leakage.
+  // Returns false if no leak, true otherwise.
+  // Can be use at shut-down (Finalize) to detect leakage.
+  bool checkLeak() const {
+    for (const auto &[ptr, count] : m_refCountMap) {
+      if (count > 0) {
+        return true;
+      }
+    }
+    // No leak, all objects have been released.
+    return false;
+  }
+
+private:
+  AllocationTracker(){};
+  static AllocationTracker *m_globalTracker;
+  std::unordered_map<void *, int> m_refCountMap;
+};
+} // namespace internal
+} // namespace qcor
 
 // FIXME - Qubit should be a struct that keeps track of idx
 // qreg name, array it comes from, and associated accelerator buffer
@@ -22,7 +66,7 @@ struct Qubit {
     return newQubit;
   }
 
- private:
+private:
   Qubit(uint64_t idVal) : id(idVal) {}
 };
 
@@ -42,15 +86,17 @@ struct Array {
   Array(int64_t nbItems, int itemSizeInBytes = sizeof(int8_t *))
       : m_itemSizeInBytes(itemSizeInBytes),
         // Initialized to zero
-        m_storage(nbItems * itemSizeInBytes, 0),
-        m_refCount(1) {
+        m_storage(nbItems * itemSizeInBytes, 0), m_refCount(1) {
     assert(m_itemSizeInBytes > 0);
+    qcor::internal::AllocationTracker::get().onAllocate(this);
   };
   // Copy ctor:
   // note: we copy the Storage vector, hence set ref count to 1
   Array(const Array &other)
       : m_itemSizeInBytes(other.m_itemSizeInBytes), m_storage(other.m_storage),
-        m_refCount(1) {}
+        m_refCount(1) {
+    qcor::internal::AllocationTracker::get().onAllocate(this);
+  }
 
   void append(const Array &other) {
     if (other.m_itemSizeInBytes != m_itemSizeInBytes) {
@@ -66,12 +112,16 @@ struct Array {
   int64_t element_size() const { return m_itemSizeInBytes; }
 
   // Ref. counting:
-  void add_ref() { m_refCount += 1; }
-  // Release a single ref. 
+  void add_ref() {
+    m_refCount += 1;
+    qcor::internal::AllocationTracker::get().updateCount(this, m_refCount);
+  }
+  // Release a single ref.
   // Returns true if this Array should be deleted
-  // if heap allocated (via new) 
+  // if heap allocated (via new)
   bool release_ref() {
     m_refCount -= 1;
+    qcor::internal::AllocationTracker::get().updateCount(this, m_refCount);
     return (m_refCount == 0);
   }
 
@@ -134,14 +184,14 @@ namespace qcor {
 namespace qsharp {
 class IFunctor;
 }
-}  // namespace qcor
+} // namespace qcor
 
 // QIR Callable implementation.
 struct Callable {
   void invoke(TuplePtr args, TuplePtr result);
   Callable(qcor::qsharp::IFunctor *in_functor) : m_functor(in_functor) {}
 
- private:
+private:
   qcor::qsharp::IFunctor *m_functor;
 };
 
@@ -153,8 +203,8 @@ namespace qsharp {
 // A generic base class of qcor function-like objects
 // that will be invoked by Q# as a callable.
 class IFunctor {
- public:
+public:
   virtual void execute(TuplePtr args, TuplePtr result) = 0;
 };
-}  // namespace qsharp
-}  // namespace qcor
+} // namespace qsharp
+} // namespace qcor
