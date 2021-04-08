@@ -1,4 +1,3 @@
-# Need to make sure to use the separate MLIR install
 set(LLVM_ROOT ${MLIR_DIR})
 find_package(MLIR REQUIRED CONFIG)
 

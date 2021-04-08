@@ -62,6 +62,9 @@ add_subdirectory(tools)
 add_subdirectory(lib)
 
 if (NOT ${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+  if (NOT MLIR_DIR) 
+    set(MLIR_DIR ${LLVM_ROOT}/lib/cmake/mlir)
+  endif()
   add_subdirectory(mlir)
 endif()
 
