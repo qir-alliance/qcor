@@ -22,6 +22,13 @@ public:
     m_refCountMap[objPtr] = 1;
   }
 
+  void onDeallocate(void *objPtr) {
+    assert(m_refCountMap.find(objPtr) != m_refCountMap.end());
+    // Remove from the tracking map
+    // (allocation by new may return the same address)
+    m_refCountMap.erase(objPtr);
+  }
+
   void updateCount(void *objPtr, int newCount) {
     assert(m_refCountMap.find(objPtr) != m_refCountMap.end());
     assert(newCount >= 0);
@@ -122,6 +129,9 @@ struct Array {
   bool release_ref() {
     m_refCount -= 1;
     qcor::internal::AllocationTracker::get().updateCount(this, m_refCount);
+    if (m_refCount == 0) {
+      qcor::internal::AllocationTracker::get().onDeallocate(this);
+    }
     return (m_refCount == 0);
   }
 
@@ -193,6 +203,7 @@ struct TupleHeader {
     if (m_refCount == 0) {
       // Re-cast this to a byte-buffer.
       int8_t *buffer = reinterpret_cast<int8_t *>(this);
+      qcor::internal::AllocationTracker::get().onDeallocate(this);
       delete[] buffer;
       return true;
     }
