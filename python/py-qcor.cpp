@@ -508,10 +508,16 @@ PYBIND11_MODULE(_pyqcor, m) {
       py::arg("placement_name"), "Set the placement strategy.");
 
   m.def("qalloc", &::qalloc, py::return_value_policy::reference, "");
+  py::class_<xacc::internal_compiler::qubit>(m, "qubit", "");
   py::class_<xacc::internal_compiler::qreg>(m, "qreg", "")
       .def("size", &xacc::internal_compiler::qreg::size, "")
       .def("print", &xacc::internal_compiler::qreg::print, "")
       .def("counts", &xacc::internal_compiler::qreg::counts, "")
+      .def("extract_range", [](xacc::internal_compiler::qreg& q, std::size_t start, std::size_t end){
+        std::vector<std::size_t> r{start, end};
+        return q.extract_range(r);
+      }, "")
+      // .def("extract_qubits", &xacc::internal_compiler::qreg::extract_qubits, "")
       .def("exp_val_z", &xacc::internal_compiler::qreg::exp_val_z, "")
       .def("results", [](xacc::internal_compiler::qreg& q){
         auto buffer = q.results_shared();

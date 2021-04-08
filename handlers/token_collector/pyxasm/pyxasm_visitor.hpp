@@ -108,7 +108,9 @@ class pyxasm_visitor : public pyxasmBaseVisitor {
                 buffer_names.push_back(buffer_name);
                 inst->setBitExpression(i, bit_idx_expr);
               } else {
-                xacc::error("Must provide qreg[IDX] and not just qreg.");
+                // Indicate this is a qubit(-1) or a qreg(-2)
+                inst->setBitExpression(-1, bit_expr_str);
+                buffer_names.push_back(bit_expr_str);
               }
             }
             inst->setBufferNames(buffer_names);
@@ -154,11 +156,14 @@ class pyxasm_visitor : public pyxasmBaseVisitor {
           // Note: these circuits (except exp_i_theta) don't have QRT
           // equivalents.
           // Condition: first argument is a qubit register
-          else if (!context->trailer()[0]->arglist()->argument().empty() &&
-                   xacc::container::contains(bufferNames, context->trailer()[0]
-                                                              ->arglist()
-                                                              ->argument(0)
-                                                              ->getText())) {
+          else if (xacc::container::contains(
+                       ::quantum::kernels_in_translation_unit, inst_name) ||
+                   !context->trailer()[0]->arglist()->argument().empty() &&
+                       xacc::container::contains(bufferNames,
+                                                 context->trailer()[0]
+                                                     ->arglist()
+                                                     ->argument(0)
+                                                     ->getText())) {
             std::stringstream ss;
             // Use the kernel call with a parent kernel arg.
             ss << inst_name << "(parent_kernel, ";
@@ -234,8 +239,7 @@ class pyxasm_visitor : public pyxasmBaseVisitor {
     }
 
     std::stringstream ss;
-    ss << "for (auto " << counter_expr << " : " << iter_container
-       << ") {\n";
+    ss << "for (auto " << counter_expr << " : " << iter_container << ") {\n";
     result.first = ss.str();
     in_for_loop = true;
     return 0;
@@ -289,7 +293,8 @@ class pyxasm_visitor : public pyxasmBaseVisitor {
           ss << lhs << " = " << transformListAssignmentIfAny(rhs) << "; \n";
         } else {
           // New variable: need to add *auto*
-          ss << "auto " << lhs << " = " << transformListAssignmentIfAny(rhs) << "; \n";
+          ss << "auto " << lhs << " = " << transformListAssignmentIfAny(rhs)
+             << "; \n";
           new_var = lhs;
         }
       }

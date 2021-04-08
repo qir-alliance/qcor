@@ -190,6 +190,8 @@ const std::pair<std::string, std::string> QJIT::run_syntax_handler(
     auto arg_var = split(arg, ' ');
     if (arg_var[0] == "qreg") {
       bufferNames.push_back(arg_var[1]);
+    } else if (arg_var[0] == "qubit") {
+      bufferNames.push_back(arg_var[1]);
     }
     arg_types.push_back(arg_var[0]);
     arg_vars.push_back(arg_var[1]);

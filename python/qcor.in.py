@@ -34,6 +34,7 @@ FLOAT_REF = typing.NewType('value', float)
 INT_REF = typing.NewType('value', int)
 
 typing_to_simple_map = {'<class \'_pyqcor.qreg\'>': 'qreg',
+                            '<class \'_pyqcor.qubit\'>': 'qubit',
                             '<class \'float\'>': 'float', 'typing.List[float]': 'List[float]',
                             '<class \'int\'>': 'int', 'typing.List[int]': 'List[int]',
                             '<class \'_pyxacc.quantum.PauliOperator\'>': 'PauliOperator',
@@ -192,6 +193,7 @@ class qjit(object):
         self.kwargs = kwargs
         self.function = function
         self.allowed_type_cpp_map = {'<class \'_pyqcor.qreg\'>': 'qreg',
+                                     '<class \'_pyqcor.qubit\'>': 'qubit',
                                      '<class \'float\'>': 'double', 'typing.List[float]': 'std::vector<double>',
                                      '<class \'int\'>': 'int', 'typing.List[int]': 'std::vector<int>',
                                      '<class \'_pyxacc.quantum.PauliOperator\'>': 'qcor::PauliOperator',
@@ -463,6 +465,7 @@ class qjit(object):
         self.sorted_kernel_dep = self.__kernels__graph.getSortedDependency(
             self.function.__name__)
 
+        # print(self.src)
         # Run the QJIT compile step to store function pointers internally
         self._qjit.internal_python_jit_compile(
             self.src, self.sorted_kernel_dep, self.extra_cpp_code, extra_headers)
