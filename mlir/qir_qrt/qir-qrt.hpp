@@ -56,7 +56,7 @@ void __quantum__qis__u3(double theta, double phi, double lambda, Qubit *q);
 Result *__quantum__qis__mz(Qubit *q);
 // Compare results.
 bool __quantum__rt__result_equal(Result *res, Result *comp);
-void __quantum__rt__result_update_reference_count(Result *, int64_t count);
+void __quantum__rt__result_update_reference_count(Result *, int32_t count);
 // Get reference Result.
 Result *__quantum__rt__result_get_one();
 Result *__quantum__rt__result_get_zero();
@@ -105,8 +105,8 @@ Array *__quantum__rt__array_slice(Array *array, int32_t dim,
 Array *quantum__rt__array_slice(Array *array, int32_t dim, Range range);
 
 // Ref. counting
-void __quantum__rt__array_update_alias_count(Array *array, int64_t increment);
-void __quantum__rt__array_update_reference_count(Array *aux, int64_t count);
+void __quantum__rt__array_update_alias_count(Array *array, int32_t increment);
+void __quantum__rt__array_update_reference_count(Array *aux, int32_t count);
 
 // Multi-dimension Array API
 int32_t __quantum__rt__array_get_dim(Array *array);
@@ -122,7 +122,7 @@ int8_t *__quantum__rt__array_get_element_ptr(Array *array, ...);
 Array *__quantum__rt__array_project(Array *array, int dim, int64_t index);
 
 // String-related API
-void __quantum__rt__string_update_reference_count(void *str, int64_t count);
+void __quantum__rt__string_update_reference_count(void *str, int32_t count);
 
 // Tuples:
 TuplePtr __quantum__rt__tuple_create(int64_t size);

@@ -49,13 +49,13 @@ Array *quantum__rt__array_slice(Array *array, int32_t dim, Range range) {
   return resultArray;
 }
 
-void __quantum__rt__array_update_alias_count(Array *array, int64_t increment) {
+void __quantum__rt__array_update_alias_count(Array *array, int32_t increment) {
   if (verbose)
     std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
   // Looks like alias count has no functional significance, hence ignored.
 }
 
-void __quantum__rt__array_update_reference_count(Array *array, int64_t increment) {
+void __quantum__rt__array_update_reference_count(Array *array, int32_t increment) {
   // Spec:
   // Deallocates the array if the reference count becomes 0. 
   // The behavior is undefined if the reference count becomes negative. 
@@ -68,6 +68,9 @@ void __quantum__rt__array_update_reference_count(Array *array, int64_t increment
     return;
   }
 
+  if (verbose)
+    std::cout << "Current ref. count = " << array->ref_count() << "; increment = " << increment << "\n";
+  
   if (increment > 0) {
     for (int64_t i = 0; i < increment; ++i) {
       array->add_ref();
