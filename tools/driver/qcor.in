@@ -61,6 +61,8 @@ def main(argv=None):
         parser.add_argument('-version', metavar='', help='returns the current qcor build version.')
         parser.add_argument('-pythonpath', metavar='', help='print the correct PYTHONPATH to leverage qcor and xacc python API.')
         parser.add_argument('-keep-llvm-file', metavar='', help='keep intermediate LLVM files.')
+        parser.add_argument('-print-final-submission', metavar='', help='print the final quantum circuit for backend submission (ignored in FTQC).')
+
         args = parser.parse_args(sys.argv)
 
     if '-pythonpath' in sys.argv[1:]:
@@ -304,6 +306,10 @@ def main(argv=None):
     if '@QCOR_APPEND_PLUGIN_PATH@':
         sys.argv += ['-D__internal__qcor__compile__plugin__path=\"@QCOR_APPEND_PLUGIN_PATH@\"']
     
+    if '-print-final-submission' in sys.argv[1:]:
+        sys.argv.remove('-print-final-submission')
+        sys.argv += ['-D__internal__qcor__print__final__submission']
+
     # Get the filename we are compiling or the object file
     filename = ''
     fileType = ''

@@ -55,7 +55,9 @@ public:
 #ifdef __internal__qcor__compile__decorator__list
   xacc::internal_compiler::apply_decorators(__internal__qcor__compile__decorator__list);
 #endif
-
+#ifdef __internal__qcor__print__final__submission
+    xacc::internal_compiler::__print_final_submission = true;
+#endif
   }
 };
 internal_startup startup;

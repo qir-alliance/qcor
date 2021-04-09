@@ -21,6 +21,7 @@ std::string __user_opt_passes = "";
 std::string __placement_name = "";
 std::vector<int> __qubit_map = {};
 std::string __qrt_env = "nisq";
+bool __print_final_submission = false;
 
 void execute_pass_manager(
     std::shared_ptr<CompositeInstruction> optional_composite) {
