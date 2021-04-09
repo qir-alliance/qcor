@@ -317,6 +317,19 @@ class NISQ : public ::quantum::QuantumRuntime,
   }
 
   void submit(xacc::AcceleratorBuffer **buffers, const int nBuffers) override {
+    // What if we get an array of buffers but they 
+    // are all the same pointer
+    std::set<xacc::AcceleratorBuffer*> ptrs;
+    for (int i = 0; i < nBuffers; i++) {
+      ptrs.insert(buffers[i]);
+    }
+    // If size is 1 here, then we only have 
+    // one pointer, like in the case of qubit.results()
+    if (ptrs.size() == 1) {
+      submit(buffers[0]);
+      return;
+    }
+    
     xacc::internal_compiler::execute(buffers, nBuffers, program);
   }
 

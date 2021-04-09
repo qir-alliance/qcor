@@ -68,6 +68,7 @@ class xasm_single_visitor : public xasm::xasm_singleVisitor {
 
         // Get the qubit expresssions
         std::vector<std::string> buffer_names;
+        int count = 1;
         for (int i = 0; i < required_bits; i++) {
           auto bit_expr = context->explist()->exp(i);
           auto bit_expr_str = bit_expr->getText();
@@ -82,9 +83,10 @@ class xasm_single_visitor : public xasm::xasm_singleVisitor {
             inst->setBitExpression(i, bit_idx_expr);
           } else {
             // Indicate this is a qubit(-1) or a qreg(-2)
-            inst->setBitExpression(-1, bit_expr_str);
+            inst->setBitExpression(-1*count, bit_expr_str);
             buffer_names.push_back(bit_expr_str);
           }
+          count++;
         }
 
         inst->setBufferNames(buffer_names);

@@ -370,7 +370,7 @@ class KernelSignature {
   void adjoint(std::shared_ptr<CompositeInstruction> ir, Args... args) {
     auto tempKernel = qcor::__internal__::create_composite("temp_adjoint");
     function_pointer(tempKernel, args...);
- 
+
     // get the instructions
     auto instructions = tempKernel->getInstructions();
     std::shared_ptr<CompositeInstruction> program = tempKernel;
@@ -411,5 +411,40 @@ class KernelSignature {
     ir->addInstructions(new_instructions);
   }
 };
+
+template <typename Derived>
+using OneQubitKernel = QuantumKernel<Derived, qubit>;
+
+template <typename Derived>
+using TwoQubitKernel = QuantumKernel<Derived, qubit, qubit>;
+
+#define ONE_QUBIT_KERNEL_CTRL_ENABLER(CLASSNAME, QRTNAME) \
+class CLASSNAME : public OneQubitKernel<class CLASSNAME> { \
+ public: \
+  CLASSNAME(qubit q) : OneQubitKernel<CLASSNAME>(q) {} \
+  CLASSNAME(std::shared_ptr<qcor::CompositeInstruction> _parent_kernel, qubit q) \
+      : OneQubitKernel<CLASSNAME>(_parent_kernel, q) { throw std::runtime_error("you cannot call this.");} \
+  void operator()(qubit q) { \
+    parent_kernel = \
+        qcor::__internal__::create_composite("__tmp_one_qubit_ctrl_enabler"); \
+    quantum::set_current_program(parent_kernel); \
+    if (runtime_env == QrtType::FTQC) { \
+      quantum::set_current_buffer(q.results()); \
+    } \
+    ::quantum::QRTNAME(q); \
+    return; \
+  } \
+  virtual ~CLASSNAME() {} \
+}; 
+
+ONE_QUBIT_KERNEL_CTRL_ENABLER(X, x)
+ONE_QUBIT_KERNEL_CTRL_ENABLER(Y, y)
+ONE_QUBIT_KERNEL_CTRL_ENABLER(Z, z)
+ONE_QUBIT_KERNEL_CTRL_ENABLER(H, h)
+ONE_QUBIT_KERNEL_CTRL_ENABLER(T, t)
+ONE_QUBIT_KERNEL_CTRL_ENABLER(Tdg, tdg)
+ONE_QUBIT_KERNEL_CTRL_ENABLER(S, s)
+ONE_QUBIT_KERNEL_CTRL_ENABLER(Sdg, sdg)
+
 
 }  // namespace qcor
