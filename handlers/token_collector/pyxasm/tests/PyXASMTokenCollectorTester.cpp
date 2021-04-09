@@ -75,6 +75,33 @@ quantum::x(qb[i]);
   EXPECT_EQ(expectedCodeGen, ss.str());
 }
 
+TEST(PyXASMTokenCollectorTester, checkPythonList) {
+  LexerHelper helper;
+
+  auto [tokens, PP] = helper.Lex(R"(
+    # inline initializer list
+    apply_X_at_idx.ctrl([q[1], q[2]], q[0])
+    # array var assignement
+    array_val = [q[1], q[2]]
+)");
+
+  clang::CachedTokens cached;
+  for (auto &t : tokens) {
+    cached.push_back(t);
+  }
+
+  std::stringstream ss;
+  auto xasm_tc = xacc::getService<qcor::TokenCollector>("pyxasm");
+  xasm_tc->collect(*PP.get(), cached, {"qb"}, ss);
+  std::cout << "heres the test\n";
+  std::cout << ss.str() << "\n";
+  const std::string expectedCodeGen =
+      R"#(apply_X_at_idx::ctrl(parent_kernel, {q[1], q[2]}, q[0]);
+auto array_val = {q[1], q[2]}; 
+)#";
+  EXPECT_EQ(expectedCodeGen, ss.str());
+}
+
 int main(int argc, char **argv) {
   std::string xacc_config_install_dir = std::string(XACC_INSTALL_DIR);
   std::string qcor_root = std::string(QCOR_INSTALL_DIR);
