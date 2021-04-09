@@ -312,6 +312,9 @@ class NISQ : public ::quantum::QuantumRuntime,
 
   void submit(xacc::AcceleratorBuffer *buffer) override {
     // xacc::internal_compiler::execute_pass_manager();
+    if (__print_final_submission) {
+      std::cout << "SUBMIT:\n" << program->toString() << "\n";
+    }
     xacc::internal_compiler::execute(buffer, program);
     clearProgram();
   }
@@ -330,6 +333,9 @@ class NISQ : public ::quantum::QuantumRuntime,
       return;
     }
     
+    if (__print_final_submission) {
+      std::cout << "SUBMIT:\n" << program->toString() << "\n";
+    }
     xacc::internal_compiler::execute(buffers, nBuffers, program);
   }
 
