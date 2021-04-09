@@ -98,6 +98,8 @@ class QuantumKernel {
   // Create the Adjoint of this quantum kernel
   static void adjoint(std::shared_ptr<CompositeInstruction> parent_kernel,
                       Args... args) {
+    auto provider = qcor::__internal__::get_provider();
+
     // instantiate and don't let it call the destructor
     Derived derived(args...);
     derived.disable_destructor = true;
@@ -117,7 +119,6 @@ class QuantumKernel {
           "Unable to create Adjoint for kernels that have Measure operations.");
     }
 
-    auto provider = qcor::__internal__::get_provider();
     for (int i = 0; i < instructions.size(); i++) {
       auto inst = derived.parent_kernel->getInstruction(i);
       // Parametric gates:
@@ -143,6 +144,8 @@ class QuantumKernel {
 
     // add the instructions to the current parent kernel
     parent_kernel->addInstructions(new_instructions);
+
+    quantum::set_current_program(parent_kernel);
 
     // no measures, so no execute
   }
@@ -183,6 +186,15 @@ class QuantumKernel {
     ctrl(parent_kernel, {ctrlIdx}, args...);
   }
 
+  static void ctrl(std::shared_ptr<CompositeInstruction> parent_kernel,
+                   qreg ctrl_qbits, Args... args) {
+    std::vector<qubit> ctrl_qubit_vec;
+    for (int i = 0; i < ctrl_qbits.size(); i++)
+      ctrl_qubit_vec.push_back(ctrl_qbits[i]);
+
+    ctrl(parent_kernel, ctrl_qubit_vec, args...);
+  }
+  
   static void ctrl(std::shared_ptr<CompositeInstruction> parent_kernel,
                    const std::vector<qubit> &ctrl_qbits, Args... args) {
     const auto buffer_name = ctrl_qbits[0].first;
@@ -412,30 +424,32 @@ class KernelSignature {
   }
 };
 
+// We use the following to enable ctrl operations on our single
+// qubit gates, X::ctrl(), Z::ctrl(), H::ctrl(), etc....
 template <typename Derived>
 using OneQubitKernel = QuantumKernel<Derived, qubit>;
 
-template <typename Derived>
-using TwoQubitKernel = QuantumKernel<Derived, qubit, qubit>;
-
-#define ONE_QUBIT_KERNEL_CTRL_ENABLER(CLASSNAME, QRTNAME) \
-class CLASSNAME : public OneQubitKernel<class CLASSNAME> { \
- public: \
-  CLASSNAME(qubit q) : OneQubitKernel<CLASSNAME>(q) {} \
-  CLASSNAME(std::shared_ptr<qcor::CompositeInstruction> _parent_kernel, qubit q) \
-      : OneQubitKernel<CLASSNAME>(_parent_kernel, q) { throw std::runtime_error("you cannot call this.");} \
-  void operator()(qubit q) { \
-    parent_kernel = \
-        qcor::__internal__::create_composite("__tmp_one_qubit_ctrl_enabler"); \
-    quantum::set_current_program(parent_kernel); \
-    if (runtime_env == QrtType::FTQC) { \
-      quantum::set_current_buffer(q.results()); \
-    } \
-    ::quantum::QRTNAME(q); \
-    return; \
-  } \
-  virtual ~CLASSNAME() {} \
-}; 
+#define ONE_QUBIT_KERNEL_CTRL_ENABLER(CLASSNAME, QRTNAME)                 \
+  class CLASSNAME : public OneQubitKernel<class CLASSNAME> {              \
+   public:                                                                \
+    CLASSNAME(qubit q) : OneQubitKernel<CLASSNAME>(q) {}                  \
+    CLASSNAME(std::shared_ptr<qcor::CompositeInstruction> _parent_kernel, \
+              qubit q)                                                    \
+        : OneQubitKernel<CLASSNAME>(_parent_kernel, q) {                  \
+      throw std::runtime_error("you cannot call this.");                  \
+    }                                                                     \
+    void operator()(qubit q) {                                            \
+      parent_kernel = qcor::__internal__::create_composite(               \
+          "__tmp_one_qubit_ctrl_enabler");                                \
+      quantum::set_current_program(parent_kernel);                        \
+      if (runtime_env == QrtType::FTQC) {                                 \
+        quantum::set_current_buffer(q.results());                         \
+      }                                                                   \
+      ::quantum::QRTNAME(q);                                              \
+      return;                                                             \
+    }                                                                     \
+    virtual ~CLASSNAME() {}                                               \
+  };
 
 ONE_QUBIT_KERNEL_CTRL_ENABLER(X, x)
 ONE_QUBIT_KERNEL_CTRL_ENABLER(Y, y)
@@ -445,6 +459,5 @@ ONE_QUBIT_KERNEL_CTRL_ENABLER(T, t)
 ONE_QUBIT_KERNEL_CTRL_ENABLER(Tdg, tdg)
 ONE_QUBIT_KERNEL_CTRL_ENABLER(S, s)
 ONE_QUBIT_KERNEL_CTRL_ENABLER(Sdg, sdg)
-
 
 }  // namespace qcor
