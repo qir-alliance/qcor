@@ -11,6 +11,7 @@ class TestKernelJIT(unittest.TestCase):
         @qjit
         def test_cccx_gate(q : qreg):
             for i in range(q.size()):
+                print('Apply gate at', i)
                 X(q[i])
             # 3 control bits
             X.ctrl([q[1], q[2], q[3]], q[0])

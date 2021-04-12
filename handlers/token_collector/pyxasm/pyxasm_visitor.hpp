@@ -85,7 +85,14 @@ class pyxasm_visitor : public pyxasmBaseVisitor {
     if (context->atom() && !context->atom()->STRING().empty()) {
       // Strings:
       for (auto &strNode : context->atom()->STRING()) {
-        std::cout << "String expression: " << strNode->getText() << "\n";
+        std::string cppStrLiteral = strNode->getText();
+        // Handle Python single-quotes
+        if (cppStrLiteral.front() == '\'' && cppStrLiteral.back() == '\'') {
+          cppStrLiteral.front() = '"';
+          cppStrLiteral.back() = '"';
+        }
+        sub_node_translation << cppStrLiteral;
+        std::cout << "String expression: " << strNode->getText() << " --> " << cppStrLiteral << "\n";
       }
       return 0;
     }
@@ -285,8 +292,39 @@ class pyxasm_visitor : public pyxasmBaseVisitor {
             // A classical call-like expression: i.e. not a kernel call:
             // Just output it *as-is* to the C++ stream.
             // We can hook more sophisticated code-gen here if required.
+            std::cout << "Callable: " << context->getText() << "\n";
             std::stringstream ss;
-            ss << context->getText() << ";\n";
+
+            if (context->trailer()[0]->arglist() &&
+                !context->trailer()[0]->arglist()->argument().empty()) {
+              const auto &argList =
+                  context->trailer()[0]->arglist()->argument();
+              ss << inst_name << "(";
+              for (size_t i = 0; i < argList.size(); ++i) {                
+                // Find rewrite for arguments
+                sub_node_translation.str(std::string());
+                // visit arg sub-node:
+                visitChildren(argList[i]);
+                // Check if there is a rewrite:
+                if (!sub_node_translation.str().empty()) {
+                  const auto arg_new_str = sub_node_translation.str();
+                  std::cout << argList[i]->getText() << " --> " << arg_new_str << "\n";
+                  sub_node_translation.str(std::string());
+                  ss << arg_new_str;
+                }
+                else {
+                  // Use the arg as is:
+                  ss << argList[i]->getText();
+                }
+                                
+                if (i != argList.size() - 1) {
+                  ss << ", ";
+                }
+              }
+              ss << ");\n";
+            } else {
+              ss << context->getText() << ";\n";
+            }
             result.first = ss.str();
           }
         }
