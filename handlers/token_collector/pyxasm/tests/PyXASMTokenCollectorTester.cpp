@@ -92,7 +92,7 @@ TEST(PyXASMTokenCollectorTester, checkPythonList) {
 
   std::stringstream ss;
   auto xasm_tc = xacc::getService<qcor::TokenCollector>("pyxasm");
-  xasm_tc->collect(*PP.get(), cached, {"qb"}, ss);
+  xasm_tc->collect(*PP.get(), cached, {"q"}, ss);
   std::cout << "heres the test\n";
   std::cout << ss.str() << "\n";
   const std::string expectedCodeGen =
@@ -119,12 +119,53 @@ TEST(PyXASMTokenCollectorTester, checkStringLiteral) {
 
   std::stringstream ss;
   auto xasm_tc = xacc::getService<qcor::TokenCollector>("pyxasm");
-  xasm_tc->collect(*PP.get(), cached, {"qb"}, ss);
+  xasm_tc->collect(*PP.get(), cached, {}, ss);
   std::cout << "heres the test\n";
   std::cout << ss.str() << "\n";
   const std::string expectedCodeGen =
       R"#(print("hello", 1, "world");
 print("howdy", 1, "abc");
+)#";
+  EXPECT_EQ(expectedCodeGen, ss.str());
+}
+
+TEST(PyXASMTokenCollectorTester, checkQregMethods) {
+  LexerHelper helper;
+  auto [tokens, PP] = helper.Lex(R"(
+    ctrl_qubits = q.head(q.size()-1)
+    last_qubit = q.tail()
+    Z.ctrl(ctrl_qubits, last_qubit)
+    
+    # inline
+    X.ctrl(q.head(q.size()-1), q.tail())
+
+    # range:
+    # API
+    r = q.extract_range(0, bitPrecision)
+    # Python style
+    slice1 = q[0:3]
+    # step size
+    slice2 = q[0:5:2]
+)");
+
+  clang::CachedTokens cached;
+  for (auto &t : tokens) {
+    cached.push_back(t);
+  }
+
+  std::stringstream ss;
+  auto xasm_tc = xacc::getService<qcor::TokenCollector>("pyxasm");
+  xasm_tc->collect(*PP.get(), cached, {"q"}, ss);
+  std::cout << "heres the test\n";
+  std::cout << ss.str() << "\n";
+  const std::string expectedCodeGen =
+      R"#(auto ctrl_qubits = q.head(q.size()-1); 
+auto last_qubit = q.tail(); 
+Z::ctrl(parent_kernel, ctrl_qubits, last_qubit);
+X::ctrl(parent_kernel, q.head(q.size()-1), q.tail());
+auto r = q.extract_range(0,bitPrecision); 
+auto slice1 = q.extract_range({0, 3}); 
+auto slice2 = q.extract_range({0, 5, 2}); 
 )#";
   EXPECT_EQ(expectedCodeGen, ss.str());
 }
