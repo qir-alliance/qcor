@@ -135,7 +135,9 @@ class pyxasm_visitor : public pyxasmBaseVisitor {
       assert(subscriptTerms.size() == 2 || subscriptTerms.size() == 3);
 
       for (int i = 0; i < subscriptTerms.size(); ++i) {
-        sub_node_translation << subscriptTerms[i];
+        // Need to cast to prevent compiler errors,
+        // e.g. when using q.size() which returns an int.
+        sub_node_translation << "static_cast<size_t>(" << subscriptTerms[i] << ")";
         if (i != subscriptTerms.size() - 1) {
           sub_node_translation << ", ";
         }
@@ -167,28 +169,7 @@ class pyxasm_visitor : public pyxasmBaseVisitor {
       ss << context->atom()->getText() << "::" << methodName
          << "(parent_kernel";
       for (int i = 0; i < arg_list->argument().size(); i++) {
-        // Strategy:
-        // Traverse down the tree to see if the there is a potential translation:
-        // i.e. it will populate sub_node_translation stream.
-        // Otherwise, output the argument *as-is*
-
-        // clear the sub_node_translation  
-        sub_node_translation.str(std::string());
-
-        // visit arg sub-node:
-        visitChildren(arg_list->argument(i));
-
-        // Check if there is a rewrite:
-        if (!sub_node_translation.str().empty()) {
-          const auto arg_new_str = sub_node_translation.str();
-          std::cout << arg_list->argument(i)->getText() << " --> " << arg_new_str << "\n";
-          sub_node_translation.str(std::string());
-          ss << ", " << arg_new_str;
-        }
-        else {
-          // Use the arg as is:
-          ss << ", " << arg_list->argument(i)->getText();
-        }
+        ss << ", " << rewriteFunctionArgument(*(arg_list->argument(i)));
       }
       ss << ");\n";
 
@@ -231,7 +212,7 @@ class pyxasm_visitor : public pyxasmBaseVisitor {
             std::vector<std::string> buffer_names;
             for (int i = 0; i < required_bits; i++) {
               auto bit_expr = context->trailer()[0]->arglist()->argument()[i];
-              auto bit_expr_str = bit_expr->getText();
+              auto bit_expr_str = rewriteFunctionArgument(*bit_expr);
 
               auto found_bracket = bit_expr_str.find_first_of("[");
               if (found_bracket != std::string::npos) {
@@ -555,5 +536,32 @@ class pyxasm_visitor : public pyxasmBaseVisitor {
     } else {
       return in_expr;
     }
+  }
+
+  // A helper to rewrite function argument by traversing the node to see
+  // if there is a potential rewrite.
+  // Use case: inline expressions
+  // e.g. X(q[0:3])
+  // slicing of the qreg 'q' then call the broadcast X op.
+  // i.e., we need to rewrite the arg to q.extract_range({0, 3}).
+  std::string
+  rewriteFunctionArgument(pyxasmParser::ArgumentContext &in_argContext) {
+    // Strategy: try to traverse the argument context to see if there is a
+    // possible rewrite; i.e. it may be another atom_expression that we have a
+    // handler for. Otherwise, use the text as is.
+
+    // clear the sub_node_translation
+    sub_node_translation.str(std::string());
+
+    // visit arg sub-node:
+    visitChildren(&in_argContext);
+
+    // Check if there is a rewrite:
+    if (!sub_node_translation.str().empty()) {
+      // Update RHS
+      return sub_node_translation.str();
+    }
+    // Returns the string as is
+    return in_argContext.getText();
   }
 };

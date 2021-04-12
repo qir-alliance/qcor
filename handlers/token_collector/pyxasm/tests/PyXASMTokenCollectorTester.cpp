@@ -170,6 +170,46 @@ auto slice2 = q.extract_range({0, 5, 2});
   EXPECT_EQ(expectedCodeGen, ss.str());
 }
 
+TEST(PyXASMTokenCollectorTester, checkBroadCastWithSlice) {
+  LexerHelper helper;
+  auto [tokens, PP] = helper.Lex(R"(
+    X(q.head(q.size()-1))
+    X(q[0])
+    X(q)
+    X(q[0:2])
+    X(q[0:5:2])
+    Measure(q.head(q.size()-1))
+    Measure(q[0])
+    Measure(q)
+    Measure(q[0:2])
+    Measure(q[0:5:2])
+)");
+
+  clang::CachedTokens cached;
+  for (auto &t : tokens) {
+    cached.push_back(t);
+  }
+
+  std::stringstream ss;
+  auto xasm_tc = xacc::getService<qcor::TokenCollector>("pyxasm");
+  xasm_tc->collect(*PP.get(), cached, {"q"}, ss);
+  std::cout << "heres the test\n";
+  std::cout << ss.str() << "\n";
+  const std::string expectedCodeGen =
+      R"#(quantum::x(q.head(q.size()-1));
+quantum::x(q[0]);
+quantum::x(q);
+quantum::x(q.extract_range({0, 2}));
+quantum::x(q.extract_range({0, 5, 2}));
+quantum::mz(q.head(q.size()-1));
+quantum::mz(q[0]);
+quantum::mz(q);
+quantum::mz(q.extract_range({0, 2}));
+quantum::mz(q.extract_range({0, 5, 2}));
+)#";
+  EXPECT_EQ(expectedCodeGen, ss.str());
+}
+
 int main(int argc, char **argv) {
   std::string xacc_config_install_dir = std::string(XACC_INSTALL_DIR);
   std::string qcor_root = std::string(QCOR_INSTALL_DIR);
