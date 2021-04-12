@@ -9,16 +9,11 @@ class TestKernelJIT(unittest.TestCase):
         set_qpu('qpp', {'shots':1024})
 
         @qjit
-        def apply_X_at_idx(q : qreg, idx: int):
-            X(q[idx])
-
-        @qjit
         def test_cccx_gate(q : qreg):
             for i in range(q.size()):
                 X(q[i])
             # 3 control bits
-            ctrl_idxs =  [q[1], q[2], q[3]] 
-            apply_X_at_idx.ctrl(ctrl_idxs, q, 0)
+            X.ctrl([q[1], q[2], q[3]], q[0])
             for i in range(q.size()):
                 Measure(q[i])
         
