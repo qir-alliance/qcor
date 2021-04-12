@@ -57,7 +57,8 @@ class pyxasm_visitor : public pyxasmBaseVisitor {
     // Only processes these for sub-expressesions, 
     // e.g. re-entries to this function
     if (is_processing_sub_expr) {
-      if (context->atom() && context->atom()->testlist_comp()) {
+      if (context->atom() && context->atom()->OPEN_BRACK() &&
+          context->atom()->CLOSE_BRACK() && context->atom()->testlist_comp()) {
         // Array type expression:
         std::cout << "Array atom expression: "
                   << context->atom()->testlist_comp()->getText() << "\n";
@@ -77,7 +78,9 @@ class pyxasm_visitor : public pyxasmBaseVisitor {
         return 0;
       }
 
-      if (context->atom() && context->atom()->dictorsetmaker()) {
+      // We don't have a re-write rule for this one (py::dict)
+      if (context->atom() && context->atom()->OPEN_BRACE() &&
+          context->atom()->CLOSE_BRACE() && context->atom()->dictorsetmaker()) {
         // Dict:
         std::cout << "Dict atom expression: "
                   << context->atom()->dictorsetmaker()->getText() << "\n";

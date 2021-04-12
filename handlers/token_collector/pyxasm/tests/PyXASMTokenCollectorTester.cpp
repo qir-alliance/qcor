@@ -229,10 +229,36 @@ TEST(PyXASMTokenCollectorTester, checkQcorOperators) {
   std::cout << ss.str() << "\n";
   const std::string expectedCodeGen =
       R"#(auto exponent_op = X(0)*Y(1)-Y(0)*X(1); 
-quantum::exp(q, theta, exponent_op); 
+quantum::exp(q, theta, exponent_op);
 )#";
   EXPECT_EQ(expectedCodeGen, ss.str());
 }
+
+TEST(PyXASMTokenCollectorTester, checkCommonMath) {
+  LexerHelper helper;
+  auto [tokens, PP] = helper.Lex(R"(
+    out_parity = oneCount - 2 * (oneCount / 2)
+    # Power
+    index = 2**n 
+)");
+
+  clang::CachedTokens cached;
+  for (auto &t : tokens) {
+    cached.push_back(t);
+  }
+
+  std::stringstream ss;
+  auto xasm_tc = xacc::getService<qcor::TokenCollector>("pyxasm");
+  xasm_tc->collect(*PP.get(), cached, {""}, ss);
+  std::cout << "heres the test\n";
+  std::cout << ss.str() << "\n";
+  const std::string expectedCodeGen =
+      R"#(auto out_parity = oneCount-2*(oneCount/2); 
+auto index = std::pow(2, n);
+)#";
+  EXPECT_EQ(expectedCodeGen, ss.str());
+}
+
 
 int main(int argc, char **argv) {
   std::string xacc_config_install_dir = std::string(XACC_INSTALL_DIR);
