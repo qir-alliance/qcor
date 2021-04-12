@@ -13,6 +13,27 @@ void __quantum__rt__tuple_update_reference_count(int8_t *tuple,
                                                  int32_t increment) {
   if (verbose)
     std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
+  if (!tuple) {
+    // Ignored
+    return;
+  }
+
+  auto tuple_header = TupleHeader::getHeader(tuple);
+
+  if (increment > 0) {
+    for (int64_t i = 0; i < increment; ++i) {
+      tuple_header->add_ref();
+    }
+  } else {
+    for (int64_t i = 0; i < (-increment); ++i) {
+      if (tuple_header->release_ref()) {
+        // The tuple has been deallocated
+        if (verbose)
+          std::cout << "Deallocates tuple.\n";
+        return;
+      }
+    }
+  }
 }
 
 void __quantum__rt__tuple_update_alias_count(int8_t *tuple, int32_t increment) {
