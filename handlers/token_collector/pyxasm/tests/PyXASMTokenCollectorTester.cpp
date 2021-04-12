@@ -164,8 +164,8 @@ auto last_qubit = q.tail();
 Z::ctrl(parent_kernel, ctrl_qubits, last_qubit);
 X::ctrl(parent_kernel, q.head(q.size()-1), q.tail());
 auto r = q.extract_range(0,bitPrecision); 
-auto slice1 = q.extract_range({0, 3}); 
-auto slice2 = q.extract_range({0, 5, 2}); 
+auto slice1 = q.extract_range({static_cast<size_t>(0), static_cast<size_t>(3)}); 
+auto slice2 = q.extract_range({static_cast<size_t>(0), static_cast<size_t>(5), static_cast<size_t>(2)}); 
 )#";
   EXPECT_EQ(expectedCodeGen, ss.str());
 }
@@ -199,13 +199,37 @@ TEST(PyXASMTokenCollectorTester, checkBroadCastWithSlice) {
       R"#(quantum::x(q.head(q.size()-1));
 quantum::x(q[0]);
 quantum::x(q);
-quantum::x(q.extract_range({0, 2}));
-quantum::x(q.extract_range({0, 5, 2}));
+quantum::x(q.extract_range({static_cast<size_t>(0), static_cast<size_t>(2)}));
+quantum::x(q.extract_range({static_cast<size_t>(0), static_cast<size_t>(5), static_cast<size_t>(2)}));
 quantum::mz(q.head(q.size()-1));
 quantum::mz(q[0]);
 quantum::mz(q);
-quantum::mz(q.extract_range({0, 2}));
-quantum::mz(q.extract_range({0, 5, 2}));
+quantum::mz(q.extract_range({static_cast<size_t>(0), static_cast<size_t>(2)}));
+quantum::mz(q.extract_range({static_cast<size_t>(0), static_cast<size_t>(5), static_cast<size_t>(2)}));
+)#";
+  EXPECT_EQ(expectedCodeGen, ss.str());
+}
+
+TEST(PyXASMTokenCollectorTester, checkQcorOperators) {
+  LexerHelper helper;
+  auto [tokens, PP] = helper.Lex(R"(
+    exponent_op = X(0) * Y(1) - Y(0) * X(1)
+    exp_i_theta(q, theta, exponent_op)
+)");
+
+  clang::CachedTokens cached;
+  for (auto &t : tokens) {
+    cached.push_back(t);
+  }
+
+  std::stringstream ss;
+  auto xasm_tc = xacc::getService<qcor::TokenCollector>("pyxasm");
+  xasm_tc->collect(*PP.get(), cached, {"q"}, ss);
+  std::cout << "heres the test\n";
+  std::cout << ss.str() << "\n";
+  const std::string expectedCodeGen =
+      R"#(auto exponent_op = X(0)*Y(1)-Y(0)*X(1); 
+quantum::exp(q, theta, exponent_op); 
 )#";
   EXPECT_EQ(expectedCodeGen, ss.str());
 }

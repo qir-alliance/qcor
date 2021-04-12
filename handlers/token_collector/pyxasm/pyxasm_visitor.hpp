@@ -36,6 +36,7 @@ class pyxasm_visitor : public pyxasmBaseVisitor {
   // Var to keep track of sub-node rewrite:
   // e.g., traverse down the AST recursively.
   std::stringstream sub_node_translation;
+  bool is_processing_sub_expr = false;
 
   antlrcpp::Any visitAtom_expr(
       pyxasmParser::Atom_exprContext *context) override {
@@ -53,101 +54,109 @@ class pyxasm_visitor : public pyxasmBaseVisitor {
        '{' (dictorsetmaker)? '}' |
        NAME | NUMBER | STRING+ | '...' | 'None' | 'True' | 'False');
     */
-
-    if (context->atom() && context->atom()->testlist_comp()) {
-      // Array type expression:
-      std::cout << "Array atom expression: "
-                << context->atom()->testlist_comp()->getText() << "\n";
-      // Use braces
-      sub_node_translation << "{";
-      bool firstElProcessed = false;
-      for (auto &testNode : context->atom()->testlist_comp()->test()) {
-        std::cout << "Array elem: " << testNode->getText() << "\n";
-        // Add comma if needed (there is a previous element)
-        if (firstElProcessed) {
-          sub_node_translation << ", ";
+    // Only processes these for sub-expressesions, 
+    // e.g. re-entries to this function
+    if (is_processing_sub_expr) {
+      if (context->atom() && context->atom()->testlist_comp()) {
+        // Array type expression:
+        std::cout << "Array atom expression: "
+                  << context->atom()->testlist_comp()->getText() << "\n";
+        // Use braces
+        sub_node_translation << "{";
+        bool firstElProcessed = false;
+        for (auto &testNode : context->atom()->testlist_comp()->test()) {
+          std::cout << "Array elem: " << testNode->getText() << "\n";
+          // Add comma if needed (there is a previous element)
+          if (firstElProcessed) {
+            sub_node_translation << ", ";
+          }
+          sub_node_translation << testNode->getText();
+          firstElProcessed = true;
         }
-        sub_node_translation << testNode->getText();
-        firstElProcessed = true;
+        sub_node_translation << "}";
+        return 0;
       }
-      sub_node_translation << "}";
-      return 0;
-    }
 
-    if (context->atom() && context->atom()->dictorsetmaker()) {
-      // Dict:
-      std::cout << "Dict atom expression: "
-                << context->atom()->dictorsetmaker()->getText() << "\n";
-      // TODO:
-      return 0;
-    }
+      if (context->atom() && context->atom()->dictorsetmaker()) {
+        // Dict:
+        std::cout << "Dict atom expression: "
+                  << context->atom()->dictorsetmaker()->getText() << "\n";
+        // TODO:
+        return 0;
+      }
 
-    if (context->atom() && !context->atom()->STRING().empty()) {
-      // Strings:
-      for (auto &strNode : context->atom()->STRING()) {
-        std::string cppStrLiteral = strNode->getText();
-        // Handle Python single-quotes
-        if (cppStrLiteral.front() == '\'' && cppStrLiteral.back() == '\'') {
-          cppStrLiteral.front() = '"';
-          cppStrLiteral.back() = '"';
+      if (context->atom() && !context->atom()->STRING().empty()) {
+        // Strings:
+        for (auto &strNode : context->atom()->STRING()) {
+          std::string cppStrLiteral = strNode->getText();
+          // Handle Python single-quotes
+          if (cppStrLiteral.front() == '\'' && cppStrLiteral.back() == '\'') {
+            cppStrLiteral.front() = '"';
+            cppStrLiteral.back() = '"';
+          }
+          sub_node_translation << cppStrLiteral;
+          std::cout << "String expression: " << strNode->getText() << " --> "
+                    << cppStrLiteral << "\n";
         }
-        sub_node_translation << cppStrLiteral;
-        std::cout << "String expression: " << strNode->getText() << " --> " << cppStrLiteral << "\n";
+        return 0;
       }
-      return 0;
-    }
 
-    const auto isSliceOp =
-        [](pyxasmParser::Atom_exprContext *atom_expr_context) -> bool {
-      if (atom_expr_context->trailer().size() == 1) {
-        auto subscriptlist = atom_expr_context->trailer(0)->subscriptlist();
-        if (subscriptlist && subscriptlist->subscript().size() == 1) {
-          auto subscript = subscriptlist->subscript(0);
-          const auto nbTestTerms = subscript->test().size();
-          // Multiple test terms (separated by ':')
-          return (nbTestTerms > 1);
+      const auto isSliceOp =
+          [](pyxasmParser::Atom_exprContext *atom_expr_context) -> bool {
+        if (atom_expr_context->trailer().size() == 1) {
+          auto subscriptlist = atom_expr_context->trailer(0)->subscriptlist();
+          if (subscriptlist && subscriptlist->subscript().size() == 1) {
+            auto subscript = subscriptlist->subscript(0);
+            const auto nbTestTerms = subscript->test().size();
+            // Multiple test terms (separated by ':')
+            return (nbTestTerms > 1);
+          }
         }
-      }
 
-      return false;
-    };
+        return false;
+      };
 
-    // Handle slicing operations (multiple array subscriptions separated by ':')
-    // on a qreg.
-    if (context->atom() &&
-        xacc::container::contains(bufferNames, context->atom()->getText()) &&
-        isSliceOp(context)) {
-      std::cout << "Slice op: " << context->getText() << "\n";
-      sub_node_translation << context->atom()->getText() << ".extract_range({";
-      auto subscripts =
-          context->trailer(0)->subscriptlist()->subscript(0)->test();
-      assert(subscripts.size() > 1);
-      std::vector<std::string> subscriptTerms;
-      for (auto &test : subscripts) {
-        subscriptTerms.emplace_back(test->getText());
-      }
-
-      auto sliceOp =
-          context->trailer(0)->subscriptlist()->subscript(0)->sliceop();
-      if (sliceOp && sliceOp->test()) {
-        subscriptTerms.emplace_back(sliceOp->test()->getText());
-      }
-      assert(subscriptTerms.size() == 2 || subscriptTerms.size() == 3);
-
-      for (int i = 0; i < subscriptTerms.size(); ++i) {
-        // Need to cast to prevent compiler errors,
-        // e.g. when using q.size() which returns an int.
-        sub_node_translation << "static_cast<size_t>(" << subscriptTerms[i] << ")";
-        if (i != subscriptTerms.size() - 1) {
-          sub_node_translation << ", ";
+      // Handle slicing operations (multiple array subscriptions separated by
+      // ':') on a qreg.
+      if (context->atom() &&
+          xacc::container::contains(bufferNames, context->atom()->getText()) &&
+          isSliceOp(context)) {
+        std::cout << "Slice op: " << context->getText() << "\n";
+        sub_node_translation << context->atom()->getText()
+                             << ".extract_range({";
+        auto subscripts =
+            context->trailer(0)->subscriptlist()->subscript(0)->test();
+        assert(subscripts.size() > 1);
+        std::vector<std::string> subscriptTerms;
+        for (auto &test : subscripts) {
+          subscriptTerms.emplace_back(test->getText());
         }
+
+        auto sliceOp =
+            context->trailer(0)->subscriptlist()->subscript(0)->sliceop();
+        if (sliceOp && sliceOp->test()) {
+          subscriptTerms.emplace_back(sliceOp->test()->getText());
+        }
+        assert(subscriptTerms.size() == 2 || subscriptTerms.size() == 3);
+
+        for (int i = 0; i < subscriptTerms.size(); ++i) {
+          // Need to cast to prevent compiler errors,
+          // e.g. when using q.size() which returns an int.
+          sub_node_translation << "static_cast<size_t>(" << subscriptTerms[i]
+                               << ")";
+          if (i != subscriptTerms.size() - 1) {
+            sub_node_translation << ", ";
+          }
+        }
+
+        sub_node_translation << "})";
+
+        // convert the slice op to initializer list:
+        std::cout << "Slice Convert: " << context->getText() << " --> "
+                  << sub_node_translation.str() << "\n";
+        return 0;
       }
 
-      sub_node_translation << "})";
-
-      // convert the slice op to initializer list:
-      std::cout << "Slice Convert: " << context->getText() << " --> "
-                << sub_node_translation.str() << "\n";
       return 0;
     }
 
@@ -334,22 +343,7 @@ class pyxasm_visitor : public pyxasmBaseVisitor {
                   context->trailer()[0]->arglist()->argument();
               ss << inst_name << "(";
               for (size_t i = 0; i < argList.size(); ++i) {                
-                // Find rewrite for arguments
-                sub_node_translation.str(std::string());
-                // visit arg sub-node:
-                visitChildren(argList[i]);
-                // Check if there is a rewrite:
-                if (!sub_node_translation.str().empty()) {
-                  const auto arg_new_str = sub_node_translation.str();
-                  std::cout << argList[i]->getText() << " --> " << arg_new_str << "\n";
-                  sub_node_translation.str(std::string());
-                  ss << arg_new_str;
-                }
-                else {
-                  // Use the arg as is:
-                  ss << argList[i]->getText();
-                }
-                                
+                ss << rewriteFunctionArgument(*(argList[i]));                
                 if (i != argList.size() - 1) {
                   ss << ", ";
                 }
@@ -417,7 +411,7 @@ class pyxasm_visitor : public pyxasmBaseVisitor {
       } else {
         // Strategy: try to traverse the rhs to see if there is a possible rewrite;
         // Otherwise, use the text as is.
-        
+        is_processing_sub_expr = true;
         // clear the sub_node_translation  
         sub_node_translation.str(std::string());
 
@@ -549,7 +543,10 @@ class pyxasm_visitor : public pyxasmBaseVisitor {
     // Strategy: try to traverse the argument context to see if there is a
     // possible rewrite; i.e. it may be another atom_expression that we have a
     // handler for. Otherwise, use the text as is.
-
+    // We need this flag to prevent parsing quantum instructions as sub-expressions.
+    // e.g. QCOR operators (X, Y, Z) in an observable definition shouldn't be 
+    // processed as instructions.
+    is_processing_sub_expr = true;
     // clear the sub_node_translation
     sub_node_translation.str(std::string());
 
