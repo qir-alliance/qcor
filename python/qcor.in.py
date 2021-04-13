@@ -16,6 +16,7 @@ from collections import defaultdict
 List = typing.List
 Tuple = typing.Tuple
 MethodType = types.MethodType
+Callable = typing.Callable
 
 # Static cache of all Python QJIT objects that have been created.
 # There seems to be a bug when a Python interpreter tried to create a new QJIT
@@ -396,6 +397,23 @@ class qjit(object):
                 cpp_arg_str += ',' + \
                     'int& ' + arg
                 continue
+            if str(_type).startswith('typing.Callable'):
+                cpp_type_str = 'KernelSignature<'
+                for i in range(len(_type.__args__) - 1):
+                    # print("input type:", _type.__args__[i])
+                    arg_type = _type.__args__[i]
+                    if str(arg_type) not in self.allowed_type_cpp_map:
+                        print('Error, this quantum kernel arg type is not allowed: ', str(_type))
+                        exit(1)
+                    cpp_type_str += self.allowed_type_cpp_map[str(arg_type)]
+                    cpp_type_str += ','
+                
+                cpp_type_str = cpp_type_str[:-1]
+                cpp_type_str += '>'
+                # print("cpp type", cpp_type_str)
+                cpp_arg_str += ',' + cpp_type_str + ' ' + arg
+                continue
+
             if str(_type) not in self.allowed_type_cpp_map:
                 print('Error, this quantum kernel arg type is not allowed: ', str(_type))
                 exit(1)
@@ -631,7 +649,28 @@ class qjit(object):
         args_dict = {}
         for i, arg_name in enumerate(self.arg_names):
             args_dict[arg_name] = list(args)[i]
-
+            print(arg_name)
+            print(self.type_annotations[arg_name])
+            arg_type_str = str(self.type_annotations[arg_name])
+            if arg_type_str.startswith('typing.Callable'):
+                print("callable:", arg_name)
+                print("arg:", type(args_dict[arg_name]))
+                # the arg must be a qjit
+                if not isinstance(args_dict[arg_name], qjit):
+                    print('Invalid argument type for {}. A quantum kernel (qjit) is expected.'.format(arg_name))
+                    exit(1)
+                
+                callable_qjit = args_dict[arg_name]
+                fn_ptr = hex(self._qjit.get_kernel_function_ptr(callable_qjit.kernel_name()))
+                print("Fn ptr:", fn_ptr)
+                if fn_ptr == 0:
+                    print('Failed to retrieve JIT-compiled function pointer for qjit kernel {}.'.format(callable_qjit.kernel_name()))
+                    exit(1)
+                # Replace the argument (in the dict) with the function pointer
+                # qjit is a pure-Python object, hence cannot be used by native QCOR.
+                args_dict[arg_name] = fn_ptr
+                print(type(args_dict[arg_name]))
+        
         # Invoke the JITed function
         self._qjit.invoke(self.function.__name__, args_dict)
 

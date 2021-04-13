@@ -497,6 +497,18 @@ void QJIT::jit_compile(const std::string &code,
     }
   }
 
+  // Insert dependency kernels as well:
+  std::unordered_map<std::string, std::string> mangled_kernel_dep_map;
+  for (const auto &dep : kernel_dependency) {
+    for (Function &f : *module) {
+      auto name = f.getName().str();
+      if (demangle(name.c_str()).find(dep) != std::string::npos) {
+        mangled_kernel_dep_map[dep] = name;
+        break;
+      }
+    }
+  }
+
   // Find the hetmap args function
   for (Function &f : *module) {
     auto name = f.getName().str();
@@ -536,6 +548,12 @@ void QJIT::jit_compile(const std::string &code,
   auto rawFPtr = symbol.getAddress();
   kernel_name_to_f_ptr.insert({kernel_name, rawFPtr});
 
+  for (const auto &[orig_name, mangled_name] : mangled_kernel_dep_map) {
+    auto symbol = cantFail(jit->lookup(mangled_name));
+    auto rawFPtr = symbol.getAddress();
+    kernel_name_to_f_ptr.insert({orig_name, rawFPtr});
+  }
+
   if (add_het_map_kernel_ctor) {
     // Get the function pointer for the hetmap kernel invocation
     auto hetmap_symbol = cantFail(jit->lookup(hetmap_mangled_name));
@@ -573,5 +591,30 @@ std::shared_ptr<xacc::CompositeInstruction> QJIT::extract_composite_with_hetmap(
                 xacc::HeterogeneousMap &))f_ptr;
   kernel_functor(composite, args);
   return composite;
+}
+
+std::uint64_t QJIT::get_kernel_function_ptr(const std::string &kernelName,
+                                         KernelType subType) const {
+  const auto mapToUse = [&]() {
+    switch (subType) {
+    case KernelType::Regular:
+      return kernel_name_to_f_ptr;
+    case KernelType::HetMapArg:
+      return kernel_name_to_f_ptr_hetmap;
+    case KernelType::HetMapArgWithParent:
+      return kernel_name_to_f_ptr_parent_hetmap;
+    default:
+      __builtin_unreachable();
+    }
+  }();
+
+  const auto iter = mapToUse.find(kernelName);
+  if (iter != mapToUse.cend()) {
+    // std::cout << "Get pointer for '" << kernelName << "': " << std::hex
+    //           << iter->second << "\n";
+    return iter->second;
+  } 
+  
+  return 0;
 }
 }  // namespace qcor

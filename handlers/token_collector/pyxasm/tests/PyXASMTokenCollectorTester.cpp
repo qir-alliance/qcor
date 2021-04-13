@@ -254,7 +254,7 @@ TEST(PyXASMTokenCollectorTester, checkCommonMath) {
   std::cout << ss.str() << "\n";
   const std::string expectedCodeGen =
       R"#(auto out_parity = oneCount-2*(oneCount/2); 
-auto index = std::pow(2, n);
+auto index = std::pow(2, n); 
 )#";
   EXPECT_EQ(expectedCodeGen, ss.str());
 }

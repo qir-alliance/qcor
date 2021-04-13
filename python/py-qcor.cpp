@@ -596,7 +596,13 @@ PYBIND11_MODULE(_pyqcor, m) {
                }
              }
              return visitor.getMat();
-           });
+           })
+      .def(
+          "get_kernel_function_ptr",
+          [](qcor::QJIT &qjit, const std::string &kernel_name) {
+            return qjit.get_kernel_function_ptr(kernel_name);
+          },
+          "");
 
   py::class_<qcor::ObjectiveFunction, std::shared_ptr<qcor::ObjectiveFunction>>(
       m, "ObjectiveFunction", "")

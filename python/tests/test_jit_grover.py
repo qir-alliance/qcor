@@ -22,19 +22,17 @@ class TestKernelJIT(unittest.TestCase):
                 Z.ctrl(q[0: q.size() - 1], q[q.size() - 1])
             
         @qjit
-        def run_grover(q: qreg, iterations: int):
+        def run_grover(q: qreg, oracle_var: Callable[[qreg], None], iterations: int):
             H(q)
             #Iteratively apply the oracle then reflect
             for i in range(iterations):
-                oracle_fn(q)
+                oracle_var(q)
                 reflect_about_uniform(q)
             # Measure all qubits
             Measure(q)
-        
+
         q = qalloc(3)
-        # comp = run_grover.extract_composite(q, 1)
-        # print(comp)
-        run_grover(q, 1)
+        run_grover(q, oracle_fn, 1)
         q.print()
         counts = q.counts()
         print(counts)

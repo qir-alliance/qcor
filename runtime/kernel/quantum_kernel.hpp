@@ -353,6 +353,13 @@ class KernelSignature {
 
  public:
   KernelSignature(callable_function_ptr<Args...> &&f) : function_pointer(f) {}
+  // Ctor from raw void* funtion pointer.
+  KernelSignature(void *f_ptr)
+      : KernelSignature((callable_function_ptr<Args...>)f_ptr) {
+    std::cout << "Contruct KernelSignature from function pointer: " << f_ptr
+              << "\n";
+  }
+
   void operator()(std::shared_ptr<xacc::CompositeInstruction> ir,
                   Args... args) {
     function_pointer(ir, args...);
