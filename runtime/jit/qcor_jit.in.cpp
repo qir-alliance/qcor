@@ -500,12 +500,42 @@ void QJIT::jit_compile(const std::string &code,
   // Insert dependency kernels as well:
   std::unordered_map<std::string, std::string> mangled_kernel_dep_map;
   for (const auto &dep : kernel_dependency) {
+    std::vector<std::string> matches;
     for (Function &f : *module) {
-      auto name = f.getName().str();
-      if (demangle(name.c_str()).find(dep) != std::string::npos) {
-        mangled_kernel_dep_map[dep] = name;
-        break;
+      const auto name = f.getName().str();
+      const auto demangledName = demangle(name.c_str());
+      // We look for the function with the signature:
+      // KernelName(shared_ptr<CompositeInstruction, Args...)
+      // The problem is that there is a class named KernelName as well
+      // which has a constructor with the same signature.
+      // The ctor one will have a demangled name of KernelName::KernelName(...)
+      // hence, we tie break them by the length.
+      // Looks for a call-like symbol
+      const std::string pattern = dep + "(";
+      // Looks for the one that has parent Composite in the arg
+      const std::string subPattern = "CompositeInstruction";
+      if (demangle(name.c_str()).find(pattern) != std::string::npos &&
+          demangle(name.c_str()).find(subPattern) != std::string::npos) {
+        // std::cout << dep << " --> " << name << "\n";
+        // std::cout << "Demangle: " << demangle(name.c_str()) << "\n";
+        matches.emplace_back(name);
       }
+    }
+    if (matches.size() > 0) {
+      // std::cout << "Matches for " << dep << ":\n";
+      // for (const auto &match : matches) {
+      //   std::cout << match << "\n";
+      // }
+
+      const auto chosenMatch =
+          *std::min_element(matches.begin(), matches.end(),
+                            [&](const std::string &s1, const std::string &s2) {
+                              return demangle(s1.c_str()).length() <
+                                     demangle(s2.c_str()).length();
+                            });
+      // std::cout << "Select match: " << chosenMatch << ": "
+      //           << demangle(chosenMatch.c_str()) << "\n";
+      mangled_kernel_dep_map[dep] = chosenMatch;
     }
   }
 

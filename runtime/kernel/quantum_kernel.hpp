@@ -347,6 +347,13 @@ using callable_function_ptr =
     void (*)(std::shared_ptr<xacc::CompositeInstruction>, Args...);
 
 template <typename... Args>
+callable_function_ptr<Args...> callable_function_ptr_from_raw_ptr(void *f_ptr) {
+  void (*kernel_functor)(std::shared_ptr<xacc::CompositeInstruction>, Args...) =
+      (callable_function_ptr<Args...>)f_ptr;
+  return kernel_functor;
+}
+
+template <typename... Args>
 class KernelSignature {
  protected:
   callable_function_ptr<Args...> &function_pointer;
@@ -355,10 +362,7 @@ class KernelSignature {
   KernelSignature(callable_function_ptr<Args...> &&f) : function_pointer(f) {}
   // Ctor from raw void* funtion pointer.
   KernelSignature(void *f_ptr)
-      : KernelSignature((callable_function_ptr<Args...>)f_ptr) {
-    std::cout << "Contruct KernelSignature from function pointer: " << f_ptr
-              << "\n";
-  }
+      : KernelSignature(callable_function_ptr_from_raw_ptr<Args...>(f_ptr)) {}
 
   void operator()(std::shared_ptr<xacc::CompositeInstruction> ir,
                   Args... args) {
