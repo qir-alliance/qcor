@@ -22,7 +22,7 @@ class TestKernelJIT(unittest.TestCase):
                 Z.ctrl(q[0: q.size() - 1], q[q.size() - 1])
             
         @qjit
-        def run_grover(q: qreg, oracle_var: Callable[[qreg], None], iterations: int):
+        def run_grover(q: qreg, oracle_var: KernelSignature(qreg), iterations: int):
             H(q)
             #Iteratively apply the oracle then reflect
             for i in range(iterations):

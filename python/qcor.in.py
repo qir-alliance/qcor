@@ -18,6 +18,13 @@ Tuple = typing.Tuple
 MethodType = types.MethodType
 Callable = typing.Callable
 
+# KernelSignature type annotation:
+# Usage: annotate an function argument as a KernelSignature by:
+# varName: KernelSignature(qreg, ...)
+# Kernel always returns void (None)
+def KernelSignature(*args):
+    return Callable[list(args), None]
+
 # Static cache of all Python QJIT objects that have been created.
 # There seems to be a bug when a Python interpreter tried to create a new QJIT
 # *after* a previous QJIT is destroyed.
@@ -649,12 +656,10 @@ class qjit(object):
         args_dict = {}
         for i, arg_name in enumerate(self.arg_names):
             args_dict[arg_name] = list(args)[i]
-            print(arg_name)
-            print(self.type_annotations[arg_name])
             arg_type_str = str(self.type_annotations[arg_name])
             if arg_type_str.startswith('typing.Callable'):
-                print("callable:", arg_name)
-                print("arg:", type(args_dict[arg_name]))
+                # print("callable:", arg_name)
+                # print("arg:", type(args_dict[arg_name]))
                 # the arg must be a qjit
                 if not isinstance(args_dict[arg_name], qjit):
                     print('Invalid argument type for {}. A quantum kernel (qjit) is expected.'.format(arg_name))
@@ -662,14 +667,12 @@ class qjit(object):
                 
                 callable_qjit = args_dict[arg_name]
                 fn_ptr = hex(self._qjit.get_kernel_function_ptr(callable_qjit.kernel_name()))
-                print("Fn ptr:", fn_ptr)
                 if fn_ptr == 0:
                     print('Failed to retrieve JIT-compiled function pointer for qjit kernel {}.'.format(callable_qjit.kernel_name()))
                     exit(1)
                 # Replace the argument (in the dict) with the function pointer
                 # qjit is a pure-Python object, hence cannot be used by native QCOR.
                 args_dict[arg_name] = fn_ptr
-                print(type(args_dict[arg_name]))
         
         # Invoke the JITed function
         self._qjit.invoke(self.function.__name__, args_dict)
