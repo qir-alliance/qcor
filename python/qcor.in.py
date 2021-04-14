@@ -675,9 +675,9 @@ class qjit(object):
         Execute the decorated quantum kernel. This will directly 
         invoke the corresponding LLVM JITed function pointer. 
         """
-        arg_dict = self.construct_arg_dict(*args)
+        args_dict = self.construct_arg_dict(*args)
         # Invoke the JITed function
-        self._qjit.invoke(self.function.__name__, arg_dict)
+        self._qjit.invoke(self.function.__name__, args_dict)
 
         # Update any *by-ref* arguments: annotated with the custom type: FLOAT_REF, INT_REF, etc.
         # If there are *pass-by-ref* variables:
