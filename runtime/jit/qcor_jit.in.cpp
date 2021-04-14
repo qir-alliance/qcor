@@ -139,6 +139,53 @@ inline std::vector<std::string> split(const std::string &s, char delim) {
   return elems;
 }
 
+// Split argument signature:
+// Handle templated types as well,
+// e.g. "qreg q, KernelSignature<qreg,int,double> call_var"
+// KernelSignature<qreg,int,double> is considered as one term (arg_type)
+// Strategy: using balancing rule to match the '<' and '>' and skipping ',' delimiter.
+inline std::vector<std::string> split_args_signature(const std::string &source) {
+  std::vector<std::string> elems;
+  std::string token;
+  const int N = source.length();
+  // Track a scope block, e.g. b/w '<' and '>' where comma separator is ignored
+  // considered as one token. 
+  std::stack<int> ignored_scopes; 
+  for (int i = 0; i < N; i++) {
+    const auto currentChar = source[i];
+    
+    // See a ',' and the stack is empty (balanced)
+    if (currentChar == ',' && ignored_scopes.empty()) {
+      elems.emplace_back(token);
+      token.clear();
+      continue;
+    }
+
+    // Open scope:
+    // Note: we continue to append these characters to the current token.
+    if (currentChar == '<') {
+      ignored_scopes.push(i);
+    }
+
+    // Close scope
+    if (currentChar == '>') {
+      ignored_scopes.pop();
+    }
+    
+    // Just add the character to the current token.
+    token += currentChar;
+  }
+
+  // last token
+  assert(!token.empty());
+  elems.emplace_back(token);
+
+  // for (const auto &el : elems) {
+  //   std::cout << el << "\n";
+  // }
+  return elems;
+}
+
 void ltrim(std::string &s) {
   s.erase(s.begin(), std::find_if(s.begin(), s.end(),
                                   [](int ch) { return !std::isspace(ch); }));
@@ -185,7 +232,7 @@ const std::pair<std::string, std::string> QJIT::run_syntax_handler(
       args_signature.end());
 
   std::vector<std::string> arg_types, arg_vars, bufferNames;
-  auto args_split = split(args_signature, ',');
+  auto args_split = split_args_signature(args_signature);
   for (auto &arg : args_split) {
     auto arg_var = split(arg, ' ');
     if (arg_var[0] == "qreg") {

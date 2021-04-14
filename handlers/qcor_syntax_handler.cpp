@@ -401,7 +401,7 @@ void QCORSyntaxHandler::GetReplacement(
         arg_ctor_list.emplace_back(new_var_name);
       } else if (program_arg_types[i].rfind("KernelSignature", 0) == 0) {
         // This is a KernelSignature argument.
-        // The one in HetMap is the function pointer represented as an integer.
+        // The one in HetMap is the function pointer represented as a hex string.
         const std::string new_var_name =
             "__temp_kernel_ptr_var__" + std::to_string(var_counter++);
         // Retrieve the function pointer from the HetMap

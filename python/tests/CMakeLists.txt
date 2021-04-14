@@ -67,4 +67,10 @@ add_test (NAME qcor_python_jit_grover
 set_tests_properties(qcor_python_jit_grover
   PROPERTIES ENVIRONMENT "PYTHONPATH=${CMAKE_INSTALL_PREFIX}:$ENV{PYTHONPATH}")
 
-  
+add_test (NAME qcor_python_jit_kernel_signature
+  COMMAND ${Python_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test_jit_kernel_signature.py
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+)
+set_tests_properties(qcor_python_jit_kernel_signature
+  PROPERTIES ENVIRONMENT "PYTHONPATH=${CMAKE_INSTALL_PREFIX}:$ENV{PYTHONPATH}")
+ 

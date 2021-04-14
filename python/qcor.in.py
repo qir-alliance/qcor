@@ -579,9 +579,7 @@ class qjit(object):
         """
         assert len(args) == len(self.arg_names), "Cannot create CompositeInstruction, you did not provided the correct kernel arguments."
         # Create a dictionary for the function arguments
-        args_dict = {}
-        for i, arg_name in enumerate(self.arg_names):
-            args_dict[arg_name] = list(args)[i]
+        args_dict = self.construct_arg_dict(*args)
         return self._qjit.extract_composite(self.function.__name__, args_dict)
 
     def observe(self, observable, *args):
@@ -615,9 +613,7 @@ class qjit(object):
         return self.extract_composite(*args).nInstructions()
     
     def as_unitary_matrix(self, *args):
-        args_dict = {}
-        for i, arg_name in enumerate(self.arg_names):
-            args_dict[arg_name] = list(args)[i]
+        args_dict = self.construct_arg_dict(*args)
         return self._qjit.internal_as_unitary(self.function.__name__, args_dict)
     
     def ctrl(self, *args):
@@ -647,11 +643,9 @@ class qjit(object):
     def qir(self, *args, **kwargs):
         return llvm_ir(*args, **kwargs)
 
-    def __call__(self, *args):
-        """
-        Execute the decorated quantum kernel. This will directly 
-        invoke the corresponding LLVM JITed function pointer. 
-        """
+    # Helper to construct the arg_dict (HetMap)
+    # e.g. perform any additional type conversion if required.
+    def construct_arg_dict(self, *args):
         # Create a dictionary for the function arguments
         args_dict = {}
         for i, arg_name in enumerate(self.arg_names):
@@ -666,16 +660,24 @@ class qjit(object):
                     exit(1)
                 
                 callable_qjit = args_dict[arg_name]
-                fn_ptr = hex(self._qjit.get_kernel_function_ptr(callable_qjit.kernel_name()))
+                fn_ptr = self._qjit.get_kernel_function_ptr(callable_qjit.kernel_name())
                 if fn_ptr == 0:
                     print('Failed to retrieve JIT-compiled function pointer for qjit kernel {}.'.format(callable_qjit.kernel_name()))
                     exit(1)
                 # Replace the argument (in the dict) with the function pointer
                 # qjit is a pure-Python object, hence cannot be used by native QCOR.
-                args_dict[arg_name] = fn_ptr
-        
+                args_dict[arg_name] = hex(fn_ptr)
+            
+        return args_dict
+
+    def __call__(self, *args):
+        """
+        Execute the decorated quantum kernel. This will directly 
+        invoke the corresponding LLVM JITed function pointer. 
+        """
+        arg_dict = self.construct_arg_dict(*args)
         # Invoke the JITed function
-        self._qjit.invoke(self.function.__name__, args_dict)
+        self._qjit.invoke(self.function.__name__, arg_dict)
 
         # Update any *by-ref* arguments: annotated with the custom type: FLOAT_REF, INT_REF, etc.
         # If there are *pass-by-ref* variables:

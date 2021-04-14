@@ -40,7 +40,7 @@ class pyxasm_visitor : public pyxasmBaseVisitor {
 
   antlrcpp::Any visitAtom_expr(
       pyxasmParser::Atom_exprContext *context) override {
-    std::cout << "Atom_exprContext: " << context->getText() << "\n";
+    // std::cout << "Atom_exprContext: " << context->getText() << "\n";
     // Strategy:
     // At the top level, we analyze the trailer to determine the 
     // list of function call arguments.
@@ -60,13 +60,13 @@ class pyxasm_visitor : public pyxasmBaseVisitor {
       if (context->atom() && context->atom()->OPEN_BRACK() &&
           context->atom()->CLOSE_BRACK() && context->atom()->testlist_comp()) {
         // Array type expression:
-        std::cout << "Array atom expression: "
-                  << context->atom()->testlist_comp()->getText() << "\n";
+        // std::cout << "Array atom expression: "
+        //           << context->atom()->testlist_comp()->getText() << "\n";
         // Use braces
         sub_node_translation << "{";
         bool firstElProcessed = false;
         for (auto &testNode : context->atom()->testlist_comp()->test()) {
-          std::cout << "Array elem: " << testNode->getText() << "\n";
+          // std::cout << "Array elem: " << testNode->getText() << "\n";
           // Add comma if needed (there is a previous element)
           if (firstElProcessed) {
             sub_node_translation << ", ";
@@ -82,8 +82,8 @@ class pyxasm_visitor : public pyxasmBaseVisitor {
       if (context->atom() && context->atom()->OPEN_BRACE() &&
           context->atom()->CLOSE_BRACE() && context->atom()->dictorsetmaker()) {
         // Dict:
-        std::cout << "Dict atom expression: "
-                  << context->atom()->dictorsetmaker()->getText() << "\n";
+        // std::cout << "Dict atom expression: "
+        //           << context->atom()->dictorsetmaker()->getText() << "\n";
         // TODO:
         return 0;
       }
@@ -98,8 +98,8 @@ class pyxasm_visitor : public pyxasmBaseVisitor {
             cppStrLiteral.back() = '"';
           }
           sub_node_translation << cppStrLiteral;
-          std::cout << "String expression: " << strNode->getText() << " --> "
-                    << cppStrLiteral << "\n";
+          // std::cout << "String expression: " << strNode->getText() << " --> "
+          //           << cppStrLiteral << "\n";
         }
         return 0;
       }
@@ -124,7 +124,7 @@ class pyxasm_visitor : public pyxasmBaseVisitor {
       if (context->atom() &&
           xacc::container::contains(bufferNames, context->atom()->getText()) &&
           isSliceOp(context)) {
-        std::cout << "Slice op: " << context->getText() << "\n";
+        // std::cout << "Slice op: " << context->getText() << "\n";
         sub_node_translation << context->atom()->getText()
                              << ".extract_range({";
         auto subscripts =
@@ -155,8 +155,8 @@ class pyxasm_visitor : public pyxasmBaseVisitor {
         sub_node_translation << "})";
 
         // convert the slice op to initializer list:
-        std::cout << "Slice Convert: " << context->getText() << " --> "
-                  << sub_node_translation.str() << "\n";
+        // std::cout << "Slice Convert: " << context->getText() << " --> "
+        //           << sub_node_translation.str() << "\n";
         return 0;
       }
 
@@ -337,7 +337,7 @@ class pyxasm_visitor : public pyxasmBaseVisitor {
             // A classical call-like expression: i.e. not a kernel call:
             // Just output it *as-is* to the C++ stream.
             // We can hook more sophisticated code-gen here if required.
-            std::cout << "Callable: " << context->getText() << "\n";
+            // std::cout << "Callable: " << context->getText() << "\n";
             std::stringstream ss;
 
             if (context->trailer()[0]->arglist() &&
