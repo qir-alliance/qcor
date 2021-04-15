@@ -38,5 +38,38 @@ class TestKernelJIT(unittest.TestCase):
             self.assertAlmostEqual((float)(comp.getInstruction(counter).getParameter(0)), i + 1.0)
             counter+=1
 
+    def test_kernel_signature_ctrl_adj(self):
+        set_qpu('qpp', {'shots':1024})
+        
+        @qjit
+        def test_kernel1(q: qreg, call_var1: KernelSignature(qreg, int, float), call_var2: KernelSignature(qubit)):
+            call_var1.adjoint(q, 0, 1.0)
+            call_var1.adjoint(q, 1, 2.0)
+            call_var2.ctrl(q[1], q[0])
+
+        # These kernels are unknown to test_kernel 
+        @qjit
+        def rz_kernel(q: qreg, idx: int, theta: float):
+            Rz(q[idx], theta)
+
+        @qjit
+        def x_kernel(q: qubit):
+            X(q)
+
+        q = qalloc(2)
+        comp = test_kernel1.extract_composite(q, rz_kernel, x_kernel)
+        print(comp)
+        self.assertEqual(comp.nInstructions(), 3)   
+        counter = 0
+        for i in range(2):
+            self.assertEqual(comp.getInstruction(counter).name(), "Rz") 
+            # Minus due to adjoint
+            self.assertAlmostEqual((float)(comp.getInstruction(counter).getParameter(0)), -(i + 1.0))
+            counter+=1
+        self.assertEqual(comp.getInstruction(2).name(), "CNOT")
+        self.assertEqual(comp.getInstruction(2).bits()[0], 1)
+        self.assertEqual(comp.getInstruction(2).bits()[1], 0)
+
+
 if __name__ == '__main__':
   unittest.main()

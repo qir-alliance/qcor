@@ -259,6 +259,33 @@ auto index = std::pow(2, n);
   EXPECT_EQ(expectedCodeGen, ss.str());
 }
 
+TEST(PyXASMTokenCollectorTester, checkKernelSignature) {
+  LexerHelper helper;
+
+  auto [tokens, PP] = helper.Lex(R"(
+    # fake local var creation 
+    # (should be from the function args if compiling full source.)
+    callable = createCallable(a,b,c)
+    callable.ctrl([q[1], q[2]], q[0])
+    callable.adjoint(q)
+)");
+
+  clang::CachedTokens cached;
+  for (auto &t : tokens) {
+    cached.push_back(t);
+  }
+
+  std::stringstream ss;
+  auto xasm_tc = xacc::getService<qcor::TokenCollector>("pyxasm");
+  xasm_tc->collect(*PP.get(), cached, {"q"}, ss);
+  std::cout << "heres the test\n";
+  std::cout << ss.str() << "\n";
+  const std::string code_gen_str = ss.str();
+  // Rewrite to '.'
+  EXPECT_TRUE(code_gen_str.find("callable.ctrl(parent_kernel, {q[1], q[2]}, q[0]);") != std::string::npos);
+  EXPECT_TRUE(code_gen_str.find("callable.adjoint(parent_kernel, q);") != std::string::npos);
+}
+
 
 int main(int argc, char **argv) {
   std::string xacc_config_install_dir = std::string(XACC_INSTALL_DIR);
