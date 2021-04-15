@@ -1,0 +1,2 @@
+#pragma once
+#include "impl/hadamard_test.hpp"
