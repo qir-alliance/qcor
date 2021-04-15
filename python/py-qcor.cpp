@@ -676,7 +676,7 @@ PYBIND11_MODULE(_pyqcor, m) {
   m.def(
       "createOperator",
       [](const std::string &type, const std::string &repr) {
-        auto op = qcor::createOperator(type, repr);
+        return qcor::createOperator(type, repr);
       },
       "");
   m.def(

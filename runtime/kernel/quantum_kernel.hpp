@@ -377,6 +377,8 @@ class KernelSignature {
     for (int instId = 0; instId < ctrlKernel->nInstructions(); ++instId) {
       ir->addInstruction(ctrlKernel->getInstruction(instId)->clone());
     }
+    
+    ::quantum::set_current_program(ir);
   }
 
   void ctrl(std::shared_ptr<xacc::CompositeInstruction> ir, qubit ctrl_qbit,
@@ -427,6 +429,8 @@ class KernelSignature {
 
     // add the instructions to the current parent kernel
     ir->addInstructions(new_instructions);
+    
+    ::quantum::set_current_program(ir);
   }
 };
 

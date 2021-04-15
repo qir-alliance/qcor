@@ -186,6 +186,7 @@ class NISQ : public ::quantum::QuantumRuntime,
            std::shared_ptr<xacc::Observable> Hptr_input) override {
     std::map<std::string, xacc::quantum::Term> terms;
 
+    xacc::ScopeTimer timer("timer", false);
     auto obs_str = Hptr_input->toString();
     auto fermi_to_pauli = xacc::getService<xacc::ObservableTransform>("jw");
     std::shared_ptr<xacc::Observable> Hptr;
@@ -247,11 +248,21 @@ class NISQ : public ::quantum::QuantumRuntime,
               std::make_shared<xacc::quantum::Hadamard>(qid));
           basis_back.emplace_back(
               std::make_shared<xacc::quantum::Hadamard>(qid));
+
+          basis_front.back()->setBufferNames(
+              std::vector<std::string>(1, q_name));
+          basis_back.back()->setBufferNames(
+              std::vector<std::string>(1, q_name));
         } else if (pop == "Y") {
           basis_front.emplace_back(
               std::make_shared<xacc::quantum::Rx>(qid, 1.57079362679));
           basis_back.emplace_back(
               std::make_shared<xacc::quantum::Rx>(qid, -1.57079362679));
+
+          basis_front.back()->setBufferNames(
+              std::vector<std::string>(1, q_name));
+          basis_back.back()->setBufferNames(
+              std::vector<std::string>(1, q_name));
         }
       }
 
@@ -272,6 +283,8 @@ class NISQ : public ::quantum::QuantumRuntime,
         auto c = pairs(0);
         auto t = pairs(1);
         cnot_front.emplace_back(std::make_shared<xacc::quantum::CNOT>(c, t));
+
+        cnot_front.back()->setBufferNames(std::vector<std::string>(2, q_name));
       }
 
       for (int i = qidxs.size() - 2; i >= 0; i--) {
@@ -279,6 +292,7 @@ class NISQ : public ::quantum::QuantumRuntime,
         auto c = pairs(0);
         auto t = pairs(1);
         cnot_back.emplace_back(std::make_shared<xacc::quantum::CNOT>(c, t));
+        cnot_back.back()->setBufferNames(std::vector<std::string>(2, q_name));
       }
       exp_insts.insert(exp_insts.end(),
                        std::make_move_iterator(basis_front.begin()),
@@ -292,9 +306,12 @@ class NISQ : public ::quantum::QuantumRuntime,
       if (std::fabs(std::real(spinInst.coeff())) > 1e-12) {
         exp_insts.emplace_back(std::make_shared<xacc::quantum::Rz>(
             qidxs[qidxs.size() - 1], std::real(spinInst.coeff()) * theta));
+        exp_insts.back()->setBufferNames(std::vector<std::string>(1, q_name));
+
       } else if (std::fabs(std::imag(spinInst.coeff())) > 1e-12) {
         exp_insts.emplace_back(std::make_shared<xacc::quantum::Rz>(
             qidxs[qidxs.size() - 1], std::imag(spinInst.coeff()) * theta));
+        exp_insts.back()->setBufferNames(std::vector<std::string>(1, q_name));
       }
       exp_insts.insert(exp_insts.end(),
                        std::make_move_iterator(cnot_back.begin()),
@@ -303,11 +320,8 @@ class NISQ : public ::quantum::QuantumRuntime,
                        std::make_move_iterator(basis_back.begin()),
                        std::make_move_iterator(basis_back.end()));
     }
-    for (auto &inst : exp_insts) {
-      inst->setBufferNames(
-          std::vector<std::string>(inst->bits().size(), q_name));
-      program->addInstruction(inst);
-    }
+
+    program->addInstructions(std::move(exp_insts), false);
   }
 
   void submit(xacc::AcceleratorBuffer *buffer) override {
