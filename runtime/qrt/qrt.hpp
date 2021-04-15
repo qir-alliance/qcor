@@ -168,6 +168,12 @@ void swap(const qubit &src_idx, const qubit &tgt_idx);
 void cphase(const qubit &src_idx, const qubit &tgt_idx, const double theta);
 void crz(const qubit &src_idx, const qubit &tgt_idx, const double theta);
 
+// Broadcast two registers
+void cnot(qreg src, qreg tgt);
+void cy(qreg src, qreg tgt);
+void cz(qreg src, qreg tgt);
+void ch(qreg src, qreg tgt);
+
 // exponential of i * theta * H, where H is an Observable pointer
 void exp(qreg q, const double theta, xacc::Observable &H);
 void exp(qreg q, const double theta, xacc::Observable *H);

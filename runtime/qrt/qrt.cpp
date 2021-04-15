@@ -303,4 +303,38 @@ void reset(qreg q) {
     reset(q[i]);
   }
 }
+
+void cnot(qreg src, qreg tgt) {
+  assert(src.size() == tgt.size() &&
+         "2-qubit broadcast must be across registers of same size.");
+
+  for (int i = 0; i < src.size(); i++) {
+    cnot(src[i], tgt[i]);
+  }
+}
+
+void cy(qreg src, qreg tgt) {
+  assert(src.size() == tgt.size() &&
+         "2-qubit broadcast must be across registers of same size.");
+
+  for (int i = 0; i < src.size(); i++) {
+    cy(src[i], tgt[i]);
+  }
+}
+void cz(qreg src, qreg tgt) {
+  assert(src.size() == tgt.size() &&
+         "2-qubit broadcast must be across registers of same size.");
+
+  for (int i = 0; i < src.size(); i++) {
+    cz(src[i], tgt[i]);
+  }
+}
+void ch(qreg src, qreg tgt) {
+  assert(src.size() == tgt.size() &&
+         "2-qubit broadcast must be across registers of same size.");
+
+  for (int i = 0; i < src.size(); i++) {
+    ch(src[i], tgt[i]);
+  }
+}
 }  // namespace quantum
