@@ -178,7 +178,15 @@ class pyxasm_visitor : public pyxasmBaseVisitor {
       std::stringstream ss;
       // Remove the first '.' character
       const std::string methodName = context->trailer()[0]->getText().substr(1);
-      ss << context->atom()->getText() << "::" << methodName
+      // If this is a *variable*, then using '.' for control/adjoint.
+      // Otherwise, use '::' (global scope kernel names)
+      const std::string separator =
+          (xacc::container::contains(declared_var_names,
+                                     context->atom()->getText()))
+              ? "."
+              : "::";
+
+      ss << context->atom()->getText() << separator << methodName
          << "(parent_kernel";
       for (int i = 0; i < arg_list->argument().size(); i++) {
         ss << ", " << rewriteFunctionArgument(*(arg_list->argument(i)));
