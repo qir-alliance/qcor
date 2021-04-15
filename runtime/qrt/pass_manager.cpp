@@ -161,8 +161,8 @@ std::string PassStat::toString(bool shortForm) const {
   std::stringstream ss;
   const std::string separator(40, '*');
   ss << separator << "\n";
-  ss << std::string((separator.size() - passName.size()) / 2, ' ') << passName
-     << "\n";
+  ss << std::string((separator.size() - passName.size() - kernelName.size()) / 2, ' ') << passName
+     << " -- " << kernelName << "\n";
   ss << separator << "\n";
   ss << " - Elapsed time: " << wallTimeMs << " [ms]\n";
   ss << " - Number of Gates Before: " << countNumberOfGates(gateCountBefore)

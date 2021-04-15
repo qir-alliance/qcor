@@ -13,6 +13,7 @@ namespace internal {
 struct PassStat {
   // Name of the pass
   std::string passName;
+  std::string kernelName;
   // Count per gate
   std::unordered_map<std::string, int> gateCountBefore;
   std::unordered_map<std::string, int> gateCountAfter;
