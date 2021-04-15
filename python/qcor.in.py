@@ -16,6 +16,14 @@ from collections import defaultdict
 List = typing.List
 Tuple = typing.Tuple
 MethodType = types.MethodType
+Callable = typing.Callable
+
+# KernelSignature type annotation:
+# Usage: annotate an function argument as a KernelSignature by:
+# varName: KernelSignature(qreg, ...)
+# Kernel always returns void (None)
+def KernelSignature(*args):
+    return Callable[list(args), None]
 
 # Static cache of all Python QJIT objects that have been created.
 # There seems to be a bug when a Python interpreter tried to create a new QJIT
@@ -95,13 +103,17 @@ class KernelGraph(object):
         self.kernel_idx_dep_map = {}
         self.kernel_name_list = []
 
-    def addKernelDependency(self, kernelName, depList):
+    def createKernelDependency(self, kernelName, depList):
         self.kernel_name_list.append(kernelName)
         self.kernel_idx_dep_map[self.V] = []
         for dep_ker_name in depList:
             self.kernel_idx_dep_map[self.V].append(
                 self.kernel_name_list.index(dep_ker_name))
         self.V += 1
+
+    def addKernelDependency(self, kernelName, newDep):
+        self.kernel_idx_dep_map[self.kernel_name_list.index(kernelName)].append(
+                self.kernel_name_list.index(newDep))
 
     def addEdge(self, u, v):
         self.graph[u].append(v)
@@ -396,6 +408,23 @@ class qjit(object):
                 cpp_arg_str += ',' + \
                     'int& ' + arg
                 continue
+            if str(_type).startswith('typing.Callable'):
+                cpp_type_str = 'KernelSignature<'
+                for i in range(len(_type.__args__) - 1):
+                    # print("input type:", _type.__args__[i])
+                    arg_type = _type.__args__[i]
+                    if str(arg_type) not in self.allowed_type_cpp_map:
+                        print('Error, this quantum kernel arg type is not allowed: ', str(_type))
+                        exit(1)
+                    cpp_type_str += self.allowed_type_cpp_map[str(arg_type)]
+                    cpp_type_str += ','
+                
+                cpp_type_str = cpp_type_str[:-1]
+                cpp_type_str += '>'
+                # print("cpp type", cpp_type_str)
+                cpp_arg_str += ',' + cpp_type_str + ' ' + arg
+                continue
+
             if str(_type) not in self.allowed_type_cpp_map:
                 print('Error, this quantum kernel arg type is not allowed: ', str(_type))
                 exit(1)
@@ -460,7 +489,7 @@ class qjit(object):
             if re.search(r"\b" + re.escape(kernelCall) + '|' + re.escape(kernelAdjCall) + '|' + re.escape(kernelCtrlCall), self.src):
                 dependency.append(kernelName)
 
-        self.__kernels__graph.addKernelDependency(
+        self.__kernels__graph.createKernelDependency(
             self.function.__name__, dependency)
         self.sorted_kernel_dep = self.__kernels__graph.getSortedDependency(
             self.function.__name__)
@@ -554,9 +583,7 @@ class qjit(object):
         """
         assert len(args) == len(self.arg_names), "Cannot create CompositeInstruction, you did not provided the correct kernel arguments."
         # Create a dictionary for the function arguments
-        args_dict = {}
-        for i, arg_name in enumerate(self.arg_names):
-            args_dict[arg_name] = list(args)[i]
+        args_dict = self.construct_arg_dict(*args)
         return self._qjit.extract_composite(self.function.__name__, args_dict)
 
     def observe(self, observable, *args):
@@ -590,9 +617,7 @@ class qjit(object):
         return self.extract_composite(*args).nInstructions()
     
     def as_unitary_matrix(self, *args):
-        args_dict = {}
-        for i, arg_name in enumerate(self.arg_names):
-            args_dict[arg_name] = list(args)[i]
+        args_dict = self.construct_arg_dict(*args)
         return self._qjit.internal_as_unitary(self.function.__name__, args_dict)
     
     def ctrl(self, *args):
@@ -622,16 +647,60 @@ class qjit(object):
     def qir(self, *args, **kwargs):
         return llvm_ir(*args, **kwargs)
 
+    # Helper to construct the arg_dict (HetMap)
+    # e.g. perform any additional type conversion if required.
+    def construct_arg_dict(self, *args):
+        # Create a dictionary for the function arguments
+        args_dict = {}
+        for i, arg_name in enumerate(self.arg_names):
+            args_dict[arg_name] = list(args)[i]
+            arg_type_str = str(self.type_annotations[arg_name])
+            if arg_type_str.startswith('typing.Callable'):
+                # print("callable:", arg_name)
+                # print("arg:", type(args_dict[arg_name]))
+                # the arg must be a qjit
+                if not isinstance(args_dict[arg_name], qjit):
+                    print('Invalid argument type for {}. A quantum kernel (qjit) is expected.'.format(arg_name))
+                    exit(1)
+                
+                callable_qjit = args_dict[arg_name]
+                
+                # Handle runtime dependency:
+                # The QJIT arg. was not *known* until invocation,
+                # hence, we recompile the this jit kernel taking into account 
+                # the KernelSignature argument.
+                # TODO: perhaps an optimization that we can make is to
+                # skip *eager* compilation for those kernels that have 
+                # KernelSignature arguments.
+                if callable_qjit.kernel_name() not in self.sorted_kernel_dep:
+                    # print('New kernel:', callable_qjit.kernel_name())
+                    # IMPORTANT: we cannot release a QJIT object till shut-down.
+                    QJIT_OBJ_CACHE.append(self._qjit) 
+                    # Create a new QJIT
+                    self._qjit = QJIT()
+                    # Add a kernel dependency
+                    self.__kernels__graph.addKernelDependency(self.function.__name__, callable_qjit.kernel_name())
+                    self.sorted_kernel_dep = self.__kernels__graph.getSortedDependency(self.function.__name__)
+                    # Recompile:
+                    self._qjit.internal_python_jit_compile(self.src, self.sorted_kernel_dep, self.extra_cpp_code, extra_headers)
+                
+                # This should always be successful.
+                fn_ptr = self._qjit.get_kernel_function_ptr(callable_qjit.kernel_name())
+                if fn_ptr == 0:
+                    print('Failed to retrieve JIT-compiled function pointer for qjit kernel {}.'.format(callable_qjit.kernel_name()))
+                    exit(1)
+                # Replace the argument (in the dict) with the function pointer
+                # qjit is a pure-Python object, hence cannot be used by native QCOR.
+                args_dict[arg_name] = hex(fn_ptr)
+            
+        return args_dict
+
     def __call__(self, *args):
         """
         Execute the decorated quantum kernel. This will directly 
         invoke the corresponding LLVM JITed function pointer. 
         """
-        # Create a dictionary for the function arguments
-        args_dict = {}
-        for i, arg_name in enumerate(self.arg_names):
-            args_dict[arg_name] = list(args)[i]
-
+        args_dict = self.construct_arg_dict(*args)
         # Invoke the JITed function
         self._qjit.invoke(self.function.__name__, args_dict)
 

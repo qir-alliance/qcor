@@ -225,80 +225,80 @@ void persistBitstring(xacc::AcceleratorBuffer *buffer) {
   }
 }
 
-void h(qreg &q) {
+void h(qreg q) {
   for (int i = 0; i < q.size(); i++) {
     h(q[i]);
   }
 }
 
-void x(qreg &q) {
+void x(qreg q) {
   for (int i = 0; i < q.size(); i++) {
     x(q[i]);
   }
 }
-void y(qreg &q) {
+void y(qreg q) {
   for (int i = 0; i < q.size(); i++) {
     y(q[i]);
   }
 }
-void z(qreg &q) {
+void z(qreg q) {
   for (int i = 0; i < q.size(); i++) {
     z(q[i]);
   }
 }
-void t(qreg &q) {
+void t(qreg q) {
   for (int i = 0; i < q.size(); i++) {
     t(q[i]);
   }
 }
-void tdg(qreg &q) {
+void tdg(qreg q) {
   for (int i = 0; i < q.size(); i++) {
     tdg(q[i]);
   }
 }
-void s(qreg &q) {
+void s(qreg q) {
   for (int i = 0; i < q.size(); i++) {
     s(q[i]);
   }
 }
-void sdg(qreg &q) {
+void sdg(qreg q) {
   for (int i = 0; i < q.size(); i++) {
     sdg(q[i]);
   }
 }
-void mz(qreg &q) {
+void mz(qreg q) {
   for (int i = 0; i < q.size(); i++) {
     mz(q[i]);
   }
 }
 
-void rx(qreg &q, const double theta) {
+void rx(qreg q, const double theta) {
   for (int i = 0; i < q.size(); i++) {
     rx(q[i], theta);
   }
 }
-void ry(qreg &q, const double theta) {
+void ry(qreg q, const double theta) {
   for (int i = 0; i < q.size(); i++) {
     ry(q[i], theta);
   }
 }
-void rz(qreg &q, const double theta) {
+void rz(qreg q, const double theta) {
   for (int i = 0; i < q.size(); i++) {
     rz(q[i], theta);
   }
 }
 // U1(theta) gate
-void u1(qreg &q, const double theta) {
+void u1(qreg q, const double theta) {
   for (int i = 0; i < q.size(); i++) {
     u1(q[i], theta);
   }
 }
-void u3(qreg &q, const double theta, const double phi, const double lambda) {
+void u3(qreg q, const double theta, const double phi, const double lambda) {
   for (int i = 0; i < q.size(); i++) {
     u3(q[i], theta, phi, lambda);
   }
 }
-void reset(qreg &q) {
+void reset(qreg q) {
   for (int i = 0; i < q.size(); i++) {
     reset(q[i]);
   }

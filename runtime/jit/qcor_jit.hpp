@@ -80,6 +80,14 @@ class QJIT {
     void (*kernel_functor)(Args...) = (void (*)(Args...))f_ptr;
     return kernel_functor;
   }
+
+  // The type of kernel functions: 
+  enum class KernelType { Regular, HetMapArg, HetMapArgWithParent };
+  // Return kernel function pointer (as an integer)
+  // Returns 0 if the kernel doesn't exist.
+  std::uint64_t
+  get_kernel_function_ptr(const std::string &kernelName,
+                       KernelType subType = KernelType::Regular) const;
 };
 
 }  // namespace qcor

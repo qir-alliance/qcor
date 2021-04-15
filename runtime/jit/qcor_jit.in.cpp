@@ -139,6 +139,53 @@ inline std::vector<std::string> split(const std::string &s, char delim) {
   return elems;
 }
 
+// Split argument signature:
+// Handle templated types as well,
+// e.g. "qreg q, KernelSignature<qreg,int,double> call_var"
+// KernelSignature<qreg,int,double> is considered as one term (arg_type)
+// Strategy: using balancing rule to match the '<' and '>' and skipping ',' delimiter.
+inline std::vector<std::string> split_args_signature(const std::string &source) {
+  std::vector<std::string> elems;
+  std::string token;
+  const int N = source.length();
+  // Track a scope block, e.g. b/w '<' and '>' where comma separator is ignored
+  // considered as one token. 
+  std::stack<int> ignored_scopes; 
+  for (int i = 0; i < N; i++) {
+    const auto currentChar = source[i];
+    
+    // See a ',' and the stack is empty (balanced)
+    if (currentChar == ',' && ignored_scopes.empty()) {
+      elems.emplace_back(token);
+      token.clear();
+      continue;
+    }
+
+    // Open scope:
+    // Note: we continue to append these characters to the current token.
+    if (currentChar == '<') {
+      ignored_scopes.push(i);
+    }
+
+    // Close scope
+    if (currentChar == '>') {
+      ignored_scopes.pop();
+    }
+    
+    // Just add the character to the current token.
+    token += currentChar;
+  }
+
+  // last token
+  assert(!token.empty());
+  elems.emplace_back(token);
+
+  // for (const auto &el : elems) {
+  //   std::cout << el << "\n";
+  // }
+  return elems;
+}
+
 void ltrim(std::string &s) {
   s.erase(s.begin(), std::find_if(s.begin(), s.end(),
                                   [](int ch) { return !std::isspace(ch); }));
@@ -185,7 +232,7 @@ const std::pair<std::string, std::string> QJIT::run_syntax_handler(
       args_signature.end());
 
   std::vector<std::string> arg_types, arg_vars, bufferNames;
-  auto args_split = split(args_signature, ',');
+  auto args_split = split_args_signature(args_signature);
   for (auto &arg : args_split) {
     auto arg_var = split(arg, ' ');
     if (arg_var[0] == "qreg") {
@@ -497,6 +544,48 @@ void QJIT::jit_compile(const std::string &code,
     }
   }
 
+  // Insert dependency kernels as well:
+  std::unordered_map<std::string, std::string> mangled_kernel_dep_map;
+  for (const auto &dep : kernel_dependency) {
+    std::vector<std::string> matches;
+    for (Function &f : *module) {
+      const auto name = f.getName().str();
+      const auto demangledName = demangle(name.c_str());
+      // We look for the function with the signature:
+      // KernelName(shared_ptr<CompositeInstruction, Args...)
+      // The problem is that there is a class named KernelName as well
+      // which has a constructor with the same signature.
+      // The ctor one will have a demangled name of KernelName::KernelName(...)
+      // hence, we tie break them by the length.
+      // Looks for a call-like symbol
+      const std::string pattern = dep + "(";
+      // Looks for the one that has parent Composite in the arg
+      const std::string subPattern = "CompositeInstruction";
+      if (demangle(name.c_str()).find(pattern) != std::string::npos &&
+          demangle(name.c_str()).find(subPattern) != std::string::npos) {
+        // std::cout << dep << " --> " << name << "\n";
+        // std::cout << "Demangle: " << demangle(name.c_str()) << "\n";
+        matches.emplace_back(name);
+      }
+    }
+    if (matches.size() > 0) {
+      // std::cout << "Matches for " << dep << ":\n";
+      // for (const auto &match : matches) {
+      //   std::cout << match << "\n";
+      // }
+
+      const auto chosenMatch =
+          *std::min_element(matches.begin(), matches.end(),
+                            [&](const std::string &s1, const std::string &s2) {
+                              return demangle(s1.c_str()).length() <
+                                     demangle(s2.c_str()).length();
+                            });
+      // std::cout << "Select match: " << chosenMatch << ": "
+      //           << demangle(chosenMatch.c_str()) << "\n";
+      mangled_kernel_dep_map[dep] = chosenMatch;
+    }
+  }
+
   // Find the hetmap args function
   for (Function &f : *module) {
     auto name = f.getName().str();
@@ -536,6 +625,12 @@ void QJIT::jit_compile(const std::string &code,
   auto rawFPtr = symbol.getAddress();
   kernel_name_to_f_ptr.insert({kernel_name, rawFPtr});
 
+  for (const auto &[orig_name, mangled_name] : mangled_kernel_dep_map) {
+    auto symbol = cantFail(jit->lookup(mangled_name));
+    auto rawFPtr = symbol.getAddress();
+    kernel_name_to_f_ptr.insert({orig_name, rawFPtr});
+  }
+
   if (add_het_map_kernel_ctor) {
     // Get the function pointer for the hetmap kernel invocation
     auto hetmap_symbol = cantFail(jit->lookup(hetmap_mangled_name));
@@ -573,5 +668,30 @@ std::shared_ptr<xacc::CompositeInstruction> QJIT::extract_composite_with_hetmap(
                 xacc::HeterogeneousMap &))f_ptr;
   kernel_functor(composite, args);
   return composite;
+}
+
+std::uint64_t QJIT::get_kernel_function_ptr(const std::string &kernelName,
+                                         KernelType subType) const {
+  const auto mapToUse = [&]() {
+    switch (subType) {
+    case KernelType::Regular:
+      return kernel_name_to_f_ptr;
+    case KernelType::HetMapArg:
+      return kernel_name_to_f_ptr_hetmap;
+    case KernelType::HetMapArgWithParent:
+      return kernel_name_to_f_ptr_parent_hetmap;
+    default:
+      __builtin_unreachable();
+    }
+  }();
+
+  const auto iter = mapToUse.find(kernelName);
+  if (iter != mapToUse.cend()) {
+    // std::cout << "Get pointer for '" << kernelName << "': " << std::hex
+    //           << iter->second << "\n";
+    return iter->second;
+  } 
+  
+  return 0;
 }
 }  // namespace qcor

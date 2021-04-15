@@ -399,6 +399,25 @@ void QCORSyntaxHandler::GetReplacement(
         // We just pass this copied var to the ctor
         // where it expects a reference type.
         arg_ctor_list.emplace_back(new_var_name);
+      } else if (program_arg_types[i].rfind("KernelSignature", 0) == 0) {
+        // This is a KernelSignature argument.
+        // The one in HetMap is the function pointer represented as a hex string.
+        const std::string new_var_name =
+            "__temp_kernel_ptr_var__" + std::to_string(var_counter++);
+        // Retrieve the function pointer from the HetMap
+        // ref_type_copy_decl_ss << "std::cout << args.getString(\""
+        //                       << program_parameters[i] << "\").c_str() << std::endl;\n";
+        ref_type_copy_decl_ss << "void* " << new_var_name << " = "
+                              << "(void *) strtoull(args.getString(\""
+                              << program_parameters[i] << "\").c_str(), nullptr, 16);\n";
+        // ref_type_copy_decl_ss << "std::cout << " << new_var_name << " << std::endl;\n";
+        // Construct the KernelSignature
+        const std::string kernel_signature_var_name =
+            "__temp_kernel_signature_var__" + std::to_string(var_counter++);
+        ref_type_copy_decl_ss << program_arg_types[i] << " "
+                              << kernel_signature_var_name << "("
+                              << new_var_name << ");\n";
+        arg_ctor_list.emplace_back(kernel_signature_var_name);
       } else {
         // Otherwise, just unpack the arg inline in the ctor call.
         std::stringstream ss;
