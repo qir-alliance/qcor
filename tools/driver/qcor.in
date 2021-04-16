@@ -360,13 +360,13 @@ def main(argv=None):
         # Assume that `qsc` is a valid exe command
         # i.e. need to set the PATH env appropriately.
         base_name = os.path.splitext(filename)[0]
-        ll_file_name = 'QIR/' + base_name + '.ll'
-        bc_file_name = 'QIR/' + base_name + '.bc'
+        # QSharp compiler now generates a bitcode file,
+        # i.e. no need to do llvm-as
+        bc_file_name = base_name + '.bc'
         object_file_name = base_name+'.o'
         extra_args = []
         result = subprocess.run(['qsc', 'build', '--load', qs_qir_gen_dll, '--input', filename, '@CMAKE_INSTALL_PREFIX@/include/qsharp/QirCore.qs', '@CMAKE_INSTALL_PREFIX@/include/qsharp/QirTarget.qs', '--proj', base_name], check=True)
         llvm_bin_path = str(pathlib.Path(compiler).parent)
-        result = subprocess.run([llvm_bin_path+'/llvm-as', ll_file_name, '-o', bc_file_name ], check=True)
         result = subprocess.run([llvm_bin_path+'/llc', '-filetype=obj', bc_file_name ], check=True)
         sys.argv.remove(filename)
         fileType = None
@@ -391,7 +391,6 @@ def main(argv=None):
         
         if not keep_bit_code_files:
             # remove these temp files
-            os.remove(ll_file_name)
             os.remove(bc_file_name)
 
     # If it is a C++ file
