@@ -1,7 +1,8 @@
 #include "qcor.hpp"
+using namespace qcor;
 
 int main() {
-  qcor::qpu_lambda<> ansatz_X0X1(
+  qpu_lambda<> ansatz_X0X1(
       [](qreg q, double x) {
         qpu_lambda_body({
           X(q[0]);
@@ -11,11 +12,11 @@ int main() {
           Measure(q);
         })
       },
-      qcor::qpu_lambda_variables({"q", "x"}, {}));
+      qpu_lambda_variables({"q", "x"}, {}));
 
-  qcor::OptFunction obj(
+  OptFunction obj(
       [&](const std::vector<double> &x, std::vector<double> &) {
-          print("running ", x[0]);
+        print("running ", x[0]);
         auto q = qalloc(2);
         ansatz_X0X1(q, x[0]);
         auto exp = q.exp_val_z();
@@ -25,8 +26,8 @@ int main() {
       1);
 
   auto optimizer = createOptimizer(
-      "nlopt", {{"initial-parameters", std::vector<double>{1.2}}, {"maxeval", 10}});
-  auto [results, opt] = optimizer->optimize(obj);
-
-  print("r = ", results);
+      "nlopt",
+      {{"initial-parameters", std::vector<double>{1.2}}, {"maxeval", 10}});
+  auto [opt_val, opt_params] = optimizer->optimize(obj);
+  print("opt_val = ", opt_val);
 }

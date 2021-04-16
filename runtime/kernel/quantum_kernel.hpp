@@ -574,7 +574,6 @@ class qpu_lambda {
     TupleToTypeArgString co(args_string);
     __internal__::tuple_for_each(capture_vars, co);
     args_string = args_string.substr(0, args_string.length() - 1);
-    // std::cout << "ARGS String: " << args_string << "\n";
 
     std::string capture_preamble = "";
     for (auto [i, capture_name] : qcor::enumerate(capture_var_names)) {
