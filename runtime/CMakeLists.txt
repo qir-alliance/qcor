@@ -16,6 +16,7 @@ add_library(${LIBRARY_NAME} SHARED ${SRC})
 target_include_directories(${LIBRARY_NAME} PUBLIC . qrt 
                             observable 
                             optimizer 
+                            jit
                             kernel 
                             objectives 
                             execution 

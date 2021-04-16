@@ -1,5 +1,6 @@
 #pragma once
 
+#include "qcor_jit.hpp"
 #include "qcor_observable.hpp"
 #include "qcor_utils.hpp"
 #include "qrt.hpp"
@@ -194,7 +195,7 @@ class QuantumKernel {
 
     ctrl(parent_kernel, ctrl_qubit_vec, args...);
   }
-  
+
   static void ctrl(std::shared_ptr<CompositeInstruction> parent_kernel,
                    const std::vector<qubit> &ctrl_qbits, Args... args) {
     const auto buffer_name = ctrl_qbits[0].first;
@@ -377,7 +378,7 @@ class KernelSignature {
     for (int instId = 0; instId < ctrlKernel->nInstructions(); ++instId) {
       ir->addInstruction(ctrlKernel->getInstruction(instId)->clone());
     }
-    
+
     ::quantum::set_current_program(ir);
   }
 
@@ -429,7 +430,7 @@ class KernelSignature {
 
     // add the instructions to the current parent kernel
     ir->addInstructions(new_instructions);
-    
+
     ::quantum::set_current_program(ir);
   }
 };
@@ -469,5 +470,135 @@ ONE_QUBIT_KERNEL_CTRL_ENABLER(T, t)
 ONE_QUBIT_KERNEL_CTRL_ENABLER(Tdg, tdg)
 ONE_QUBIT_KERNEL_CTRL_ENABLER(S, s)
 ONE_QUBIT_KERNEL_CTRL_ENABLER(Sdg, sdg)
+
+// The following is a first pass at enabling qcor
+// quantum lambdas. The goal is to mimic lambda functionality
+// via our QJIT infrastructure. The lambda class takes
+// as input a lambda of desired kernel signature calling
+// a specific macro which expands to return the function body
+// expression as a string, which we use with QJIT jit_compile.
+// The lambda class is templated on the types of any capture variables
+// the programmer would like to specify, and takes a second constructor
+// argument indicating the variable names of all kernel arguments and
+// capture variables. Finally, all capture variables must be passed to the
+// trailing variadic argument for the lambda class constructor. Once
+// instantiated lambda invocation looks just like kernel invocation.
+
+template <typename... Args>
+using GenerateKernelBodyPtr = std::string (*)(Args...);
+
+// This class is used to simplify the syntax of 
+// passing kernel and capture variable names to the qpu_lambda
+class qpu_lambda_variables {
+ protected:
+  std::vector<std::string> kernel_args;
+  std::vector<std::string> capture_args;
+
+ public:
+  qpu_lambda_variables(std::initializer_list<std::string> k)
+      : kernel_args(std::vector<std::string>(k)) {}
+  qpu_lambda_variables(std::initializer_list<std::string> k,
+                       std::initializer_list<std::string> c)
+      : kernel_args(std::vector<std::string>(k)),
+        capture_args(std::vector<std::string>(c)) {}
+  std::vector<std::string> get_kernel_args() { return kernel_args; }
+  std::vector<std::string> get_capture_args() { return capture_args; }
+};
+
+template <typename... Args>
+class qpu_lambda {
+ private:
+  class TupleToTypeArgString {
+   protected:
+    std::string &tmp;
+    std::vector<std::string> var_names;
+    int counter = 0;
+
+    template <class T>
+    std::string type_name() {
+      typedef typename std::remove_reference<T>::type TR;
+      std::unique_ptr<char, void (*)(void *)> own(
+          abi::__cxa_demangle(typeid(TR).name(), nullptr, nullptr, nullptr),
+          std::free);
+      std::string r = own != nullptr ? own.get() : typeid(TR).name();
+      return r;
+    }
+
+   public:
+    TupleToTypeArgString(std::string &t) : tmp(t) {}
+    TupleToTypeArgString(std::string &t, std::vector<std::string> &_var_names)
+        : tmp(t), var_names(_var_names) {}
+    template <typename T>
+    void operator()(T &t) {
+      tmp += type_name<decltype(t)>() + " " +
+             (var_names.empty() ? "arg_" + std::to_string(counter)
+                                : var_names[counter]) +
+             ",";
+      counter++;
+    }
+  };
+
+ protected:
+  void *f;
+  std::tuple<Args...> capture_vars;
+  qpu_lambda_variables variable_names_map;
+
+ public:
+  template <typename LambdaType>
+  qpu_lambda(LambdaType &&ff, qpu_lambda_variables &&variable_names,
+             Args... _capture_vars)
+      : variable_names_map(std::move(variable_names)),
+        capture_vars(std::forward_as_tuple(_capture_vars...)) {
+    f = reinterpret_cast<void *>(+ff);
+  }
+
+  template <typename... FunctionArgs>
+  void operator()(FunctionArgs... args) {
+    auto casted = reinterpret_cast<GenerateKernelBodyPtr<FunctionArgs...>>(f);
+    std::stringstream ss;
+    QJIT qjit;
+    // Map the args to a tuple
+    auto kernel_args_tuple = std::make_tuple(args...);
+
+    // Get the kernel body as a string
+    auto s = casted(args...);
+
+    // Extract the kernel and capture variable names
+    auto kernel_var_names = variable_names_map.get_kernel_args();
+    auto capture_var_names = variable_names_map.get_capture_args();
+
+    // Build up the function argument signature string
+    std::string args_string = "";
+    TupleToTypeArgString to(args_string, kernel_var_names);
+    __internal__::tuple_for_each(kernel_args_tuple, to);
+    TupleToTypeArgString co(args_string);
+    __internal__::tuple_for_each(capture_vars, co);
+    args_string = args_string.substr(0, args_string.length() - 1);
+    // std::cout << "ARGS String: " << args_string << "\n";
+
+    std::string capture_preamble = "";
+    for (auto [i, capture_name] : qcor::enumerate(capture_var_names)) {
+      capture_preamble +=
+          "auto " + capture_name + " = arg_" + std::to_string(i) + ";\n";
+    }
+
+    // Insert the capture preamble code
+    s.insert(1, "\n" + capture_preamble);
+
+    // Create the kernel string for QJIT
+    ss << "__qpu__ void foo(" << args_string << ")\n" << s;
+
+    // Compile
+    qjit.jit_compile(ss.str());
+
+    // Merge the kernel args and the capture vars and execute
+    auto final_args_tuple = std::tuple_cat(kernel_args_tuple, capture_vars);
+    std::apply([&](auto &&...args) { qjit.invoke("foo", args...); },
+               final_args_tuple);
+  }
+};
+
+#define STRINGIZE(A) #A
+#define qpu_lambda_body(EXPR) return std::string(STRINGIZE(EXPR));
 
 }  // namespace qcor

@@ -235,9 +235,9 @@ const std::pair<std::string, std::string> QJIT::run_syntax_handler(
   auto args_split = split_args_signature(args_signature);
   for (auto &arg : args_split) {
     auto arg_var = split(arg, ' ');
-    if (arg_var[0] == "qreg") {
+    if (arg_var[0] == "qreg" || arg_var[0] == "xacc::internal_compiler::qreg") {
       bufferNames.push_back(arg_var[1]);
-    } else if (arg_var[0] == "qubit") {
+    } else if (arg_var[0] == "qubit" || arg_var[0] == "xacc::internal_compiler::qubit") {
       bufferNames.push_back(arg_var[1]);
     }
     arg_types.push_back(arg_var[0]);
@@ -250,7 +250,6 @@ const std::pair<std::string, std::string> QJIT::run_syntax_handler(
       kernel_src.find_first_of("{") + 1,
       kernel_src.find_last_of("}") - kernel_src.find_first_of("{") - 1);
 
-  // std::cout << "QJIT FBODY:\n" << function_body << "\n";
   LexerHelper helper;
   auto [tokens, PP] = helper.Lex(function_body);
   clang::CachedTokens cached;
