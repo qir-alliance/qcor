@@ -16,6 +16,8 @@ def main(argv=None):
     defaultFlags = ['-std=c++17', '-fplugin=@CMAKE_INSTALL_PREFIX@/clang-plugins/libqcor-syntax-handler@CMAKE_SHARED_LIBRARY_SUFFIX@']
 
     extra_headers = '@QCOR_EXTRA_HEADERS@'.replace('"','')
+    qs_qir_gen_dll = '@QIR_GEN_DLL@'
+
     for path in extra_headers.split(';'):
         # non-empty path only
         if path:
@@ -362,7 +364,7 @@ def main(argv=None):
         bc_file_name = 'QIR/' + base_name + '.bc'
         object_file_name = base_name+'.o'
         extra_args = []
-        result = subprocess.run(['qsc', 'build', '--qir', 'QIR', 's', '--input', filename, '@CMAKE_INSTALL_PREFIX@/include/qsharp/QirCore.qs', '@CMAKE_INSTALL_PREFIX@/include/qsharp/QirTarget.qs', '--proj', base_name], check=True)
+        result = subprocess.run(['qsc', 'build', '--load', qs_qir_gen_dll, '--input', filename, '@CMAKE_INSTALL_PREFIX@/include/qsharp/QirCore.qs', '@CMAKE_INSTALL_PREFIX@/include/qsharp/QirTarget.qs', '--proj', base_name], check=True)
         llvm_bin_path = str(pathlib.Path(compiler).parent)
         result = subprocess.run([llvm_bin_path+'/llvm-as', ll_file_name, '-o', bc_file_name ], check=True)
         result = subprocess.run([llvm_bin_path+'/llc', '-filetype=obj', bc_file_name ], check=True)
