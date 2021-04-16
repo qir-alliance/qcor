@@ -573,8 +573,19 @@ class qjit(object):
                     'Error, could not translate vector parameters x into arguments for quantum kernel.')
                 exit(1)
             return ret_dict
+        elif [str(x) for x in self.type_annotations.values()] == ['<class \'_pyqcor.qreg\'>']:
+            if len(x):
+                print('invalid translate args, there is no x float list for this kernel.')
+                exit(1)
+
+            ret_dict = {}
+            for arg_name, _type in self.type_annotations.items():
+                if str(_type) == '<class \'_pyqcor.qreg\'>':
+                    ret_dict[arg_name] = q
+            return ret_dict
+
         else:
-            print('currently cannot translate other arg structures')
+            print('currently cannot translate other arg structures: ', x)
             exit(1)
 
     def extract_composite(self, *args):

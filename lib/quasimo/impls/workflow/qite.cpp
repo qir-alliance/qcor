@@ -1,7 +1,8 @@
 #include "qite.hpp"
+
+#include "qsim_utils.hpp"
 #include "xacc.hpp"
 #include "xacc_service.hpp"
-#include "qsim_utils.hpp"
 
 namespace {
 // Helper to generate all permutation of Pauli observables:
@@ -36,7 +37,7 @@ std::vector<std::string> generatePauliPermutation(int in_nbQubits) {
 
   return opsList;
 };
-} // namespace
+}  // namespace
 
 namespace qcor {
 namespace QuaSiMo {
@@ -51,12 +52,28 @@ bool QiteWorkflow::initialize(const HeterogeneousMap &params) {
     std::cout << "'step-size' is required.\n";
     initializeOk = false;
   }
+
+  if (params.keyExists<std::shared_ptr<xacc::IRTransformation>>(
+          "circuit-optimizer")) {
+    extra_circuit_optimizers.push_back(
+        params.get<std::shared_ptr<xacc::IRTransformation>>(
+            "circuit-optimizer"));
+  } else if (params.keyExists<
+                 std::vector<std::shared_ptr<xacc::IRTransformation>>>(
+                 "circuit-optimizers")) {
+    auto opts =
+        params.get<std::vector<std::shared_ptr<xacc::IRTransformation>>>(
+            "circuit-optimizers");
+    extra_circuit_optimizers.insert(extra_circuit_optimizers.end(),
+                                    opts.begin(), opts.end());
+  }
+
   config_params = params;
   return initializeOk;
 }
 
-QuantumSimulationResult
-QiteWorkflow::execute(const QuantumSimulationModel &model) {
+QuantumSimulationResult QiteWorkflow::execute(
+    const QuantumSimulationModel &model) {
   const auto nbSteps = config_params.get<int>("steps");
   const auto stepSize = config_params.get<double>("step-size");
   auto qite = xacc::getService<xacc::Algorithm>("qite");
@@ -67,15 +84,15 @@ QiteWorkflow::execute(const QuantumSimulationModel &model) {
                     {"steps", nbSteps},
                     {"observable", observable},
                     {"step-size", stepSize}});
-  
+
   // Approximate imaginary-time Hamiltonian
   std::vector<std::shared_ptr<Observable>> approxOps;
   std::vector<double> energyAtStep;
 
   auto constructPropagateCircuit =
-      [](const std::vector<std::shared_ptr<Observable>> &in_Aops,
-         const std::shared_ptr<KernelFunctor> &in_statePrep, double in_stepSize)
-      -> std::shared_ptr<CompositeInstruction> {
+      [this, &acc](const std::vector<std::shared_ptr<Observable>> &in_Aops,
+             const std::shared_ptr<KernelFunctor> &in_statePrep,
+             double in_stepSize) -> std::shared_ptr<CompositeInstruction> {
     auto gateRegistry = xacc::getService<xacc::IRProvider>("quantum");
     auto propagateKernel = gateRegistry->createComposite("statePropCircuit");
 
@@ -93,20 +110,27 @@ QiteWorkflow::execute(const QuantumSimulationModel &model) {
       // i.e. regular evolution which approximates the imaginary time evolution.
       for (const auto &term : aObs->getNonIdentitySubTerms()) {
         auto method = xacc::getService<AnsatzGenerator>("trotter");
-        auto trotterCir = method->create_ansatz(term.get(), {{"dt", 0.5 * in_stepSize}}).circuit;
+        auto trotterCir =
+            method->create_ansatz(term.get(), {{"dt", 0.5 * in_stepSize}})
+                .circuit;
         propagateKernel->addInstructions(trotterCir->getInstructions());
       }
+    }
+
+    for (auto &opt : extra_circuit_optimizers) {
+      opt->apply(propagateKernel, acc, config_params);
     }
 
     // std::cout << "Progagated kernel:\n" << propagateKernel->toString() <<
     // "\n";
     return propagateKernel;
   };
-  
+
   // Cost function (observable) evaluator
-  auto calcCurrentEnergy = [&](){
+  auto calcCurrentEnergy = [&]() {
     // Trotter kernel up to this point
-    auto propagateKernel = constructPropagateCircuit(approxOps, model.user_defined_ansatz, stepSize);
+    auto propagateKernel = constructPropagateCircuit(
+        approxOps, model.user_defined_ansatz, stepSize);
     evaluator = getEvaluator(model.observable, config_params);
     return evaluator->evaluate(propagateKernel);
   };
@@ -114,34 +138,39 @@ QiteWorkflow::execute(const QuantumSimulationModel &model) {
   // Initial energy
   energyAtStep.emplace_back(calcCurrentEnergy());
   const auto pauliOps = generatePauliPermutation(nbQubits);
-  const auto evaluateTomographyAtStep = [&](const std::shared_ptr<CompositeInstruction>& in_kernel) {
-    // Observe the kernels using the various Pauli
-    // operators to calculate S and b.
-    std::vector<double> sigmaExpectation(pauliOps.size());
-    sigmaExpectation[0] = 1.0;
-    for (int i = 1; i < pauliOps.size(); ++i) {
-      std::shared_ptr<Observable> tomoObservable =
-          std::make_shared<xacc::quantum::PauliOperator>();
-      const std::string pauliObsStr = "1.0 " + pauliOps[i];
-      tomoObservable->fromString(pauliObsStr);
-      assert(tomoObservable->getSubTerms().size() == 1);
-      assert(tomoObservable->getNonIdentitySubTerms().size() == 1);
-      auto temp_evaluator = getEvaluator(tomoObservable.get(), config_params);
-      sigmaExpectation[i] = temp_evaluator->evaluate(in_kernel);
-    }
-    return sigmaExpectation;
-  };
+  const auto evaluateTomographyAtStep =
+      [&](const std::shared_ptr<CompositeInstruction> &in_kernel) {
+        // Observe the kernels using the various Pauli
+        // operators to calculate S and b.
+        std::vector<double> sigmaExpectation(pauliOps.size());
+        sigmaExpectation[0] = 1.0;
+        for (int i = 1; i < pauliOps.size(); ++i) {
+          std::shared_ptr<Observable> tomoObservable =
+              std::make_shared<xacc::quantum::PauliOperator>();
+          const std::string pauliObsStr = "1.0 " + pauliOps[i];
+          tomoObservable->fromString(pauliObsStr);
+          assert(tomoObservable->getSubTerms().size() == 1);
+          assert(tomoObservable->getNonIdentitySubTerms().size() == 1);
+          auto temp_evaluator =
+              getEvaluator(tomoObservable.get(), config_params);
+          sigmaExpectation[i] = temp_evaluator->evaluate(in_kernel);
+        }
+        return sigmaExpectation;
+      };
 
   // Main QITE time-stepping loop:
   for (int i = 0; i < nbSteps; ++i) {
     // Propagates the state via Trotter steps:
-    auto kernel = constructPropagateCircuit(approxOps, model.user_defined_ansatz, stepSize);
-    const std::vector<double> sigmaExpectation = evaluateTomographyAtStep(kernel);
+    auto kernel = constructPropagateCircuit(
+        approxOps, model.user_defined_ansatz, stepSize);
+    const std::vector<double> sigmaExpectation =
+        evaluateTomographyAtStep(kernel);
     auto tmp_buffer = qalloc(nbQubits);
     auto normVal = qite->calculate(
         "approximate-ops", xacc::as_shared_ptr(tmp_buffer.results()),
         {{"pauli-ops", pauliOps}, {"pauli-ops-exp-val", sigmaExpectation}});
-    const std::string AopsStr = tmp_buffer.results()->getInformation("Aops-str").as<std::string>();
+    const std::string AopsStr =
+        tmp_buffer.results()->getInformation("Aops-str").as<std::string>();
     auto new_approx_ops = createObservable(AopsStr);
     approxOps.emplace_back(new_approx_ops);
     energyAtStep.emplace_back(calcCurrentEnergy());
@@ -157,5 +186,5 @@ QiteWorkflow::execute(const QuantumSimulationModel &model) {
           {"exp-vals", energyAtStep},
           {"circuit", finalCircuit}};
 }
-} // namespace QuaSiMo
-} // namespace qcor
+}  // namespace QuaSiMo
+}  // namespace qcor

@@ -114,6 +114,9 @@ void persist_var_to_qreq(const std::string &key, T &val, qreg &q) {
   q.results()->addExtraInfo(key, val);
 }
 
+std::shared_ptr<qcor::IRTransformation> createTransformation(
+    const std::string &transform_type);
+    
 // The TranslationFunctor maps vector<double> to a tuple of Args...
 template <typename... Args>
 using TranslationFunctor =

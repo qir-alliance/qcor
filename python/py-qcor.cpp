@@ -14,7 +14,7 @@
 #include "qcor_jit.hpp"
 #ifdef QCOR_BUILD_MLIR_PYTHON_API
 #include "qcor_mlir_api.hpp"
-#endif 
+#endif
 
 #include "qcor_observable.hpp"
 #include "qrt.hpp"
@@ -86,6 +86,7 @@ class KernelArgDictToHeterogeneousMap {
 using PyHeterogeneousMapTypes =
     xacc::Variant<bool, int, double, std::string, std::vector<int>,
                   std::vector<std::pair<int, int>>,
+                  std::shared_ptr<qcor::IRTransformation>,
                   std::shared_ptr<qcor::Optimizer>, std::vector<double>,
                   std::vector<std::vector<double>>>;
 using PyHeterogeneousMap = std::map<std::string, PyHeterogeneousMapTypes>;
@@ -457,7 +458,8 @@ PYBIND11_MODULE(_pyqcor, m) {
       py::arg("name"), py::arg("p") = PyHeterogeneousMap(),
       py::return_value_policy::reference,
       "Return the Optimizer with given name.");
-
+  m.def("set_verbose", &qcor::set_verbose, "");
+  m.def("createTransformation", &qcor::createTransformation, "");
   m.def(
       "set_qpu",
       [](const std::string &name, PyHeterogeneousMap p = {}) {
@@ -513,16 +515,24 @@ PYBIND11_MODULE(_pyqcor, m) {
       .def("size", &xacc::internal_compiler::qreg::size, "")
       .def("print", &xacc::internal_compiler::qreg::print, "")
       .def("counts", &xacc::internal_compiler::qreg::counts, "")
-      .def("extract_range", [](xacc::internal_compiler::qreg& q, std::size_t start, std::size_t end){
-        std::vector<std::size_t> r{start, end};
-        return q.extract_range(r);
-      }, "")
-      // .def("extract_qubits", &xacc::internal_compiler::qreg::extract_qubits, "")
+      .def(
+          "extract_range",
+          [](xacc::internal_compiler::qreg &q, std::size_t start,
+             std::size_t end) {
+            std::vector<std::size_t> r{start, end};
+            return q.extract_range(r);
+          },
+          "")
+      // .def("extract_qubits", &xacc::internal_compiler::qreg::extract_qubits,
+      // "")
       .def("exp_val_z", &xacc::internal_compiler::qreg::exp_val_z, "")
-      .def("results", [](xacc::internal_compiler::qreg& q){
-        auto buffer = q.results_shared();
-        return buffer;
-      }, "")
+      .def(
+          "results",
+          [](xacc::internal_compiler::qreg &q) {
+            auto buffer = q.results_shared();
+            return buffer;
+          },
+          "")
       .def(
           "getInformation",
           [](xacc::internal_compiler::qreg &q, const std::string &key) {
@@ -755,14 +765,14 @@ PYBIND11_MODULE(_pyqcor, m) {
     return qcor::mlir_compile("openqasm", oqasm_src, kernel_name,
                               qcor::OutputType::LLVMMLIR, add_entry_point);
   });
-  
+
   m.def("openqasm_to_llvm_ir",
         [](const std::string &oqasm_src, const std::string &kernel_name,
            bool add_entry_point) {
           return qcor::mlir_compile("openqasm", oqasm_src, kernel_name,
                                     qcor::OutputType::LLVMIR, add_entry_point);
         });
-#endif 
+#endif
 
   // QuaSiMo sub-module bindings:
   {

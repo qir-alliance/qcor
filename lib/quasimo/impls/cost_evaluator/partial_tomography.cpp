@@ -1,4 +1,5 @@
 #include "partial_tomography.hpp"
+
 #include "qsim_utils.hpp"
 #include "xacc.hpp"
 
@@ -10,7 +11,11 @@ double PartialTomoObjFuncEval::evaluate(
       xacc::as_shared_ptr(target_operator), state_prep);
   // Run the pass manager (optimization + placement)
   executePassManager(subKernels);
-  auto tmp_buffer = qalloc(state_prep->nPhysicalBits());
+  // Set qreg size to the bigger of target_operator bits or state prep physical bits
+  auto tmp_buffer =
+      qalloc(target_operator->nBits() > state_prep->nPhysicalBits()
+                 ? target_operator->nBits()
+                 : state_prep->nPhysicalBits());
   xacc::internal_compiler::execute(tmp_buffer.results(), subKernels);
   const double energy = tmp_buffer.weighted_sum(target_operator);
   return energy;
@@ -51,5 +56,5 @@ std::vector<double> PartialTomoObjFuncEval::evaluate(
   assert(result.size() == state_prep_circuits.size());
   return result;
 }
-} // namespace QuaSiMo
-} // namespace qcor
+}  // namespace QuaSiMo
+}  // namespace qcor

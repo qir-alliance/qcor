@@ -16,6 +16,11 @@ void set_backend(const std::string &backend) {
   xacc::internal_compiler::setAccelerator(backend.c_str());
 }
 
+std::shared_ptr<qcor::IRTransformation> createTransformation(
+    const std::string &transform_type) {
+  return __internal__::get_transformation(transform_type);
+}
+
 std::shared_ptr<xacc::CompositeInstruction> compile(const std::string &src) {
   return xacc::getCompiler("xasm")->compile(src)->getComposites()[0];
 }
