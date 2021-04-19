@@ -22,6 +22,12 @@ Array *__quantum__rt__array_slice(Array *array, int32_t dim,
                                   {range_start, range_step, range_end});
 }
 
+Array *__quantum__rt__array_slice_1d(Array *array, int64_t range_start,
+                                     int64_t range_step, int64_t range_end) {
+  return __quantum__rt__array_slice(array, 0, range_start, range_step,
+                                    range_end);
+}
+
 Array *quantum__rt__array_slice(Array *array, int32_t dim, Range range) {
   if (verbose)
     std::cout << "[qir-qrt] Extract array slice (dim = " << dim

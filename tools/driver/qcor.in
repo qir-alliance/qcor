@@ -371,7 +371,7 @@ def main(argv=None):
         sys.argv.remove(filename)
         fileType = None
         filename = None
-        sys.argv.append('QIR/' + base_name+ '.o')     
+        sys.argv.append(base_name+ '.o')     
         for arg in sys.argv[1:]:
             if os.path.isfile(arg) and mimetypes.guess_type(arg)[0] == 'text/x-c++src':
                 # There is a driver C++ file as well.

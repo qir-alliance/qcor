@@ -104,6 +104,9 @@ Array *__quantum__rt__array_slice(Array *array, int32_t dim,
 // this local func.
 Array *quantum__rt__array_slice(Array *array, int32_t dim, Range range);
 
+// 1D-Array slice
+Array *__quantum__rt__array_slice_1d(Array *array, int64_t range_start,
+                                     int64_t range_step, int64_t range_end);
 // Ref. counting
 void __quantum__rt__array_update_alias_count(Array *array, int32_t increment);
 void __quantum__rt__array_update_reference_count(Array *aux, int32_t count);
