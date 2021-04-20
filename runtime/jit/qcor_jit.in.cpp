@@ -143,17 +143,19 @@ inline std::vector<std::string> split(const std::string &s, char delim) {
 // Handle templated types as well,
 // e.g. "qreg q, KernelSignature<qreg,int,double> call_var"
 // KernelSignature<qreg,int,double> is considered as one term (arg_type)
-// Strategy: using balancing rule to match the '<' and '>' and skipping ',' delimiter.
-inline std::vector<std::string> split_args_signature(const std::string &source) {
+// Strategy: using balancing rule to match the '<' and '>' and skipping ','
+// delimiter.
+inline std::vector<std::string> split_args_signature(
+    const std::string &source) {
   std::vector<std::string> elems;
   std::string token;
   const int N = source.length();
   // Track a scope block, e.g. b/w '<' and '>' where comma separator is ignored
-  // considered as one token. 
-  std::stack<int> ignored_scopes; 
+  // considered as one token.
+  std::stack<int> ignored_scopes;
   for (int i = 0; i < N; i++) {
     const auto currentChar = source[i];
-    
+
     // See a ',' and the stack is empty (balanced)
     if (currentChar == ',' && ignored_scopes.empty()) {
       elems.emplace_back(token);
@@ -171,7 +173,7 @@ inline std::vector<std::string> split_args_signature(const std::string &source) 
     if (currentChar == '>') {
       ignored_scopes.pop();
     }
-    
+
     // Just add the character to the current token.
     token += currentChar;
   }
@@ -238,7 +240,8 @@ const std::pair<std::string, std::string> QJIT::run_syntax_handler(
     auto arg_var = split(arg, ' ');
     if (arg_var[0] == "qreg" || arg_var[0] == "xacc::internal_compiler::qreg") {
       bufferNames.push_back(arg_var[1]);
-    } else if (arg_var[0] == "qubit" || arg_var[0] == "xacc::internal_compiler::qubit") {
+    } else if (arg_var[0] == "qubit" ||
+               arg_var[0] == "xacc::internal_compiler::qubit") {
       bufferNames.push_back(arg_var[1]);
     }
     arg_types.push_back(arg_var[0]);
@@ -533,14 +536,26 @@ void QJIT::jit_compile(const std::string &code,
   // and get the first one that has the kernel name
   // in it as a substring. This is the corrent Function and
   // now we have it as a mangled name
-  std::string mangled_name = "", hetmap_mangled_name = "",
-              parent_hetmap_mangled_name = "";
+  std::string mangled_name = "", parent_mangled_name = "",
+              hetmap_mangled_name = "", parent_hetmap_mangled_name = "";
   for (Function &f : *module) {
     auto name = f.getName().str();
     if (demangle(name.c_str()).find(kernel_name) != std::string::npos) {
       // First one we see is the correct kernel call
       mangled_name = name;
       break;
+    }
+  }
+
+  // Find the kernel_name(CompositeInstruction parent, Args...) function
+  for (Function &f : *module) {
+    auto name = f.getName().str();
+    auto demangled = demangle(name.c_str());
+    if (demangled.find(kernel_name) != std::string::npos && 
+        demangled.find(kernel_name+"::"+kernel_name) == std::string::npos && // don't pick the class constructor
+        demangled.find("qcor::QuantumKernel<"+kernel_name) == std::string::npos && // don't pick the QuantumKernel 
+        demangled.find("std::shared_ptr<xacc::CompositeInstruction>") != std::string::npos) {
+      parent_mangled_name = name;
     }
   }
 
@@ -625,6 +640,11 @@ void QJIT::jit_compile(const std::string &code,
   auto rawFPtr = symbol.getAddress();
   kernel_name_to_f_ptr.insert({kernel_name, rawFPtr});
 
+  // Get and store the kernel_name(CompositeInstruction parent, Args...) function
+  auto parent_symbol = cantFail(jit->lookup(parent_mangled_name));
+  auto parent_rawFPtr = parent_symbol.getAddress();
+  kernel_name_to_f_ptr_with_parent.insert({kernel_name, parent_rawFPtr});
+
   for (const auto &[orig_name, mangled_name] : mangled_kernel_dep_map) {
     auto symbol = cantFail(jit->lookup(mangled_name));
     auto rawFPtr = symbol.getAddress();
@@ -671,17 +691,17 @@ std::shared_ptr<xacc::CompositeInstruction> QJIT::extract_composite_with_hetmap(
 }
 
 std::uint64_t QJIT::get_kernel_function_ptr(const std::string &kernelName,
-                                         KernelType subType) const {
+                                            KernelType subType) const {
   const auto mapToUse = [&]() {
     switch (subType) {
-    case KernelType::Regular:
-      return kernel_name_to_f_ptr;
-    case KernelType::HetMapArg:
-      return kernel_name_to_f_ptr_hetmap;
-    case KernelType::HetMapArgWithParent:
-      return kernel_name_to_f_ptr_parent_hetmap;
-    default:
-      __builtin_unreachable();
+      case KernelType::Regular:
+        return kernel_name_to_f_ptr;
+      case KernelType::HetMapArg:
+        return kernel_name_to_f_ptr_hetmap;
+      case KernelType::HetMapArgWithParent:
+        return kernel_name_to_f_ptr_parent_hetmap;
+      default:
+        __builtin_unreachable();
     }
   }();
 
@@ -690,8 +710,8 @@ std::uint64_t QJIT::get_kernel_function_ptr(const std::string &kernelName,
     // std::cout << "Get pointer for '" << kernelName << "': " << std::hex
     //           << iter->second << "\n";
     return iter->second;
-  } 
-  
+  }
+
   return 0;
 }
 }  // namespace qcor

@@ -498,6 +498,27 @@ class _qpu_lambda {
   }
 
   template <typename... FunctionArgs>
+  void eval_with_parent(std::shared_ptr<CompositeInstruction> parent,
+                        FunctionArgs... args) {
+    this->operator()(parent, args...);
+  }
+
+  template <typename... FunctionArgs>
+  void operator()(std::shared_ptr<CompositeInstruction> parent,
+                  FunctionArgs... args) {
+    // Map the function args to a tuple
+    auto kernel_args_tuple = std::make_tuple(args...);
+
+    // Merge the function args and the capture vars and execute
+    auto final_args_tuple = std::tuple_cat(kernel_args_tuple, capture_vars);
+    std::apply(
+        [&](auto &&...args) {
+          qjit.invoke_with_parent("foo", parent, args...);
+        },
+        final_args_tuple);
+  }
+
+  template <typename... FunctionArgs>
   void operator()(FunctionArgs... args) {
     // Map the function args to a tuple
     auto kernel_args_tuple = std::make_tuple(args...);
@@ -506,6 +527,28 @@ class _qpu_lambda {
     auto final_args_tuple = std::tuple_cat(kernel_args_tuple, capture_vars);
     std::apply([&](auto &&...args) { qjit.invoke("foo", args...); },
                final_args_tuple);
+  }
+
+  template <typename... FunctionArgs>
+  double observe(Observable &obs, FunctionArgs... args) {
+    auto tempKernel =
+        qcor::__internal__::create_composite("temp_lambda_observe");
+    this->operator()(tempKernel, args...);
+
+    auto instructions = tempKernel->getInstructions();
+    // Assert that we don't have measurement
+    if (!std::all_of(
+            instructions.cbegin(), instructions.cend(),
+            [](const auto &inst) { return inst->name() != "Measure"; })) {
+      error("Unable to observe kernels that already have Measure operations.");
+    }
+
+    xacc::internal_compiler::execute_pass_manager();
+
+    // Will fail to compile if more than one qreg is passed.
+    std::tuple<FunctionArgs...> tmp(std::forward_as_tuple(args...));
+    auto q = std::get<qreg>(tmp);
+    return qcor::observe(tempKernel, obs, q);
   }
 };
 
@@ -517,11 +560,26 @@ using callable_function_ptr =
 
 template <typename... Args>
 class KernelSignature {
- protected:
+ private:
+  callable_function_ptr<Args...> * readOnly = 0; 
   callable_function_ptr<Args...> &function_pointer;
+  std::function<void(std::shared_ptr<xacc::CompositeInstruction>, Args...)>
+      lambda_func;
 
  public:
+
+  // Here we set function_pointer to null and instead 
+  // only use lambda_func. If we set lambda_func, function_pointer 
+  // will never be used, so we should be good.
+  template <typename... CaptureArgs>
+  KernelSignature(
+      _qpu_lambda<CaptureArgs...> &lambda)
+      : function_pointer(*readOnly),
+        lambda_func([&](std::shared_ptr<xacc::CompositeInstruction> pp,
+                        Args... a) { lambda(pp, a...); }) {}
+
   KernelSignature(callable_function_ptr<Args...> &&f) : function_pointer(f) {}
+
   // Ctor from raw void* funtion pointer.
   // IMPORTANT: since function_pointer is kept as a *reference*,
   // we must keep a reference to the original f_ptr void* as well.
@@ -530,12 +588,18 @@ class KernelSignature {
 
   void operator()(std::shared_ptr<xacc::CompositeInstruction> ir,
                   Args... args) {
+    if (lambda_func) {
+      lambda_func(ir, args...);
+      return;
+    }
+
     function_pointer(ir, args...);
   }
+
   void ctrl(std::shared_ptr<xacc::CompositeInstruction> ir, int ctrl_qbit,
             Args... args) {
     auto tempKernel = qcor::__internal__::create_composite("temp_control");
-    function_pointer(tempKernel, args...);
+    operator()(tempKernel, args...);
 
     auto ctrlKernel = qcor::__internal__::create_ctrl_u();
     ctrlKernel->expand({
@@ -558,7 +622,7 @@ class KernelSignature {
 
   void adjoint(std::shared_ptr<CompositeInstruction> ir, Args... args) {
     auto tempKernel = qcor::__internal__::create_composite("temp_adjoint");
-    function_pointer(tempKernel, args...);
+    operator()(tempKernel, args...);
 
     // get the instructions
     auto instructions = tempKernel->getInstructions();
