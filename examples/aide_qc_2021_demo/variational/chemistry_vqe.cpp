@@ -52,6 +52,8 @@ H   0.0        0.0  .7474)#";
       },
       2);
 
+  optimizer = createOptimizer("skquant");
+
   auto [ground_energy2, opt_params2] = optimizer->optimize(one_qubit_opt_function);
   print("Energy: ", ground_energy2);
 
