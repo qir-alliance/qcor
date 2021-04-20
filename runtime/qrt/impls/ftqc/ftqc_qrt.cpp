@@ -22,6 +22,7 @@ class FTQC : public quantum::QuantumRuntime {
 
   void __begin_mark_segment_as_compute() override { mark_as_compute = true; }
   void __end_mark_segment_as_compute() override { mark_as_compute = false; }
+  bool isComputeSection() override { return mark_as_compute; }
   const std::string name() const override { return "ftqc"; }
   const std::string description() const override { return ""; }
 

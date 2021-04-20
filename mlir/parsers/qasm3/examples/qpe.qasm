@@ -50,7 +50,7 @@ for i in [0:n_counting] {
 }
 
 // Run inverse QFT 
-iqf2 counting;
+iqft counting;
 
 // Now lets measure the counting qubits
 bit c[n_counting];

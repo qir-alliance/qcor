@@ -74,6 +74,9 @@ class NISQ : public ::quantum::QuantumRuntime,
 
   void __begin_mark_segment_as_compute() override { mark_as_compute = true; }
   void __end_mark_segment_as_compute() override { mark_as_compute = false; }
+  bool isComputeSection() override {
+    return mark_as_compute;
+  }
 
   void h(const qubit &qidx) override { one_qubit_inst("H", qidx); }
   void x(const qubit &qidx) override { one_qubit_inst("X", qidx); }

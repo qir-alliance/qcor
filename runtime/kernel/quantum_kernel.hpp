@@ -343,6 +343,174 @@ class QuantumKernel {
   virtual ~QuantumKernel() {}
 };
 
+// We use the following to enable ctrl operations on our single
+// qubit gates, X::ctrl(), Z::ctrl(), H::ctrl(), etc....
+template <typename Derived>
+using OneQubitKernel = QuantumKernel<Derived, qubit>;
+
+#define ONE_QUBIT_KERNEL_CTRL_ENABLER(CLASSNAME, QRTNAME)                 \
+  class CLASSNAME : public OneQubitKernel<class CLASSNAME> {              \
+   public:                                                                \
+    CLASSNAME(qubit q) : OneQubitKernel<CLASSNAME>(q) {}                  \
+    CLASSNAME(std::shared_ptr<qcor::CompositeInstruction> _parent_kernel, \
+              qubit q)                                                    \
+        : OneQubitKernel<CLASSNAME>(_parent_kernel, q) {                  \
+      throw std::runtime_error("you cannot call this.");                  \
+    }                                                                     \
+    void operator()(qubit q) {                                            \
+      parent_kernel = qcor::__internal__::create_composite(               \
+          "__tmp_one_qubit_ctrl_enabler");                                \
+      quantum::set_current_program(parent_kernel);                        \
+      if (runtime_env == QrtType::FTQC) {                                 \
+        quantum::set_current_buffer(q.results());                         \
+      }                                                                   \
+      bool cached_is_compute_section =                                    \
+          ::quantum::qrt_impl->isComputeSection();                        \
+      if (cached_is_compute_section) {                                    \
+        ::quantum::qrt_impl->__end_mark_segment_as_compute();             \
+      }                                                                   \
+      ::quantum::QRTNAME(q);                                              \
+      if (cached_is_compute_section) {                                    \
+        ::quantum::qrt_impl->__begin_mark_segment_as_compute();           \
+      }                                                                   \
+      return;                                                             \
+    }                                                                     \
+    virtual ~CLASSNAME() {}                                               \
+  };
+
+ONE_QUBIT_KERNEL_CTRL_ENABLER(X, x)
+ONE_QUBIT_KERNEL_CTRL_ENABLER(Y, y)
+ONE_QUBIT_KERNEL_CTRL_ENABLER(Z, z)
+ONE_QUBIT_KERNEL_CTRL_ENABLER(H, h)
+ONE_QUBIT_KERNEL_CTRL_ENABLER(T, t)
+ONE_QUBIT_KERNEL_CTRL_ENABLER(Tdg, tdg)
+ONE_QUBIT_KERNEL_CTRL_ENABLER(S, s)
+ONE_QUBIT_KERNEL_CTRL_ENABLER(Sdg, sdg)
+
+// The following is a first pass at enabling qcor
+// quantum lambdas. The goal is to mimic lambda functionality
+// via our QJIT infrastructure. The lambda class takes
+// as input a lambda of desired kernel signature calling
+// a specific macro which expands to return the function body
+// expression as a string, which we use with QJIT jit_compile.
+// The lambda class is templated on the types of any capture variables
+// the programmer would like to specify, and takes a second constructor
+// argument indicating the variable names of all kernel arguments and
+// capture variables. Finally, all capture variables must be passed to the
+// trailing variadic argument for the lambda class constructor. Once
+// instantiated lambda invocation looks just like kernel invocation.
+
+template <typename... CaptureArgs>
+class _qpu_lambda {
+ private:
+  // Private inner class for getting the type
+  // of a capture variable as a string at runtime
+  class TupleToTypeArgString {
+   protected:
+    std::string &tmp;
+    std::vector<std::string> var_names;
+    int counter = 0;
+
+    template <class T>
+    std::string type_name() {
+      typedef typename std::remove_reference<T>::type TR;
+      std::unique_ptr<char, void (*)(void *)> own(
+          abi::__cxa_demangle(typeid(TR).name(), nullptr, nullptr, nullptr),
+          std::free);
+      std::string r = own != nullptr ? own.get() : typeid(TR).name();
+      return r;
+    }
+
+   public:
+    TupleToTypeArgString(std::string &t) : tmp(t) {}
+    TupleToTypeArgString(std::string &t, std::vector<std::string> &_var_names)
+        : tmp(t), var_names(_var_names) {}
+    template <typename T>
+    void operator()(T &t) {
+      tmp += type_name<decltype(t)>() + " " +
+             (var_names.empty() ? "arg_" + std::to_string(counter)
+                                : var_names[counter]) +
+             ",";
+      counter++;
+    }
+  };
+
+  // Kernel lambda source string, has arg structure and body
+  std::string &src_str;
+
+  // Capture variable names
+  std::string &capture_var_names;
+
+  // Capture variables, stored in tuple
+  std::tuple<CaptureArgs &...> capture_vars;
+
+  // Quantum Just-in-Time Compiler :)
+  QJIT qjit;
+
+ public:
+  // Constructor, capture vars should be deduced without
+  // specifying them since we're using C++17
+  _qpu_lambda(std::string &&ff, std::string &&_capture_var_names,
+              CaptureArgs &..._capture_vars)
+      : src_str(ff),
+        capture_var_names(_capture_var_names),
+        capture_vars(std::forward_as_tuple(_capture_vars...)) {
+    // Get the original args list
+    auto first = src_str.find_first_of("(");
+    auto last = src_str.find_first_of(")");
+    auto tt = src_str.substr(first, last - first + 1);
+
+    // Need to append capture vars to this arg signature
+    std::string capture_preamble = "";
+    if (!capture_var_names.empty()) {
+      std::string args_string = "";
+      TupleToTypeArgString co(args_string);
+      __internal__::tuple_for_each(capture_vars, co);
+      args_string = "," + args_string.substr(0, args_string.length() - 1);
+      tt.insert(last - 2, args_string);
+      capture_preamble += "\n";
+      for (auto [i, capture_name] :
+           qcor::enumerate(xacc::split(capture_var_names, ','))) {
+        capture_preamble +=
+            "auto " + capture_name + " = arg_" + std::to_string(i) + ";\n";
+      }
+    }
+
+    // Extract the function body
+    first = src_str.find_first_of("{");
+    last = src_str.find_last_of("}");
+    auto rr = src_str.substr(first, last - first + 1);
+
+    // Reconstruct with new args signature and
+    // existing function body
+    std::stringstream ss;
+    ss << "__qpu__ void foo" << tt << rr;
+
+    // Get as a string, and insert capture
+    // preamble if necessary
+    auto jit_src = ss.str();
+    first = jit_src.find_first_of("{");
+    if (!capture_var_names.empty()) jit_src.insert(first + 1, capture_preamble);
+
+    // std::cout << "JITSRC:\n" << jit_src << "\n";
+    // JIT Compile, storing the function pointers
+    qjit.jit_compile(jit_src);
+  }
+
+  template <typename... FunctionArgs>
+  void operator()(FunctionArgs... args) {
+    // Map the function args to a tuple
+    auto kernel_args_tuple = std::make_tuple(args...);
+
+    // Merge the function args and the capture vars and execute
+    auto final_args_tuple = std::tuple_cat(kernel_args_tuple, capture_vars);
+    std::apply([&](auto &&...args) { qjit.invoke("foo", args...); },
+               final_args_tuple);
+  }
+};
+
+#define qpu_lambda(EXPR, ...) _qpu_lambda(#EXPR, #__VA_ARGS__, ##__VA_ARGS__)
+
 template <typename... Args>
 using callable_function_ptr =
     void (*)(std::shared_ptr<xacc::CompositeInstruction>, Args...);
@@ -434,166 +602,5 @@ class KernelSignature {
     ::quantum::set_current_program(ir);
   }
 };
-
-// We use the following to enable ctrl operations on our single
-// qubit gates, X::ctrl(), Z::ctrl(), H::ctrl(), etc....
-template <typename Derived>
-using OneQubitKernel = QuantumKernel<Derived, qubit>;
-
-#define ONE_QUBIT_KERNEL_CTRL_ENABLER(CLASSNAME, QRTNAME)                 \
-  class CLASSNAME : public OneQubitKernel<class CLASSNAME> {              \
-   public:                                                                \
-    CLASSNAME(qubit q) : OneQubitKernel<CLASSNAME>(q) {}                  \
-    CLASSNAME(std::shared_ptr<qcor::CompositeInstruction> _parent_kernel, \
-              qubit q)                                                    \
-        : OneQubitKernel<CLASSNAME>(_parent_kernel, q) {                  \
-      throw std::runtime_error("you cannot call this.");                  \
-    }                                                                     \
-    void operator()(qubit q) {                                            \
-      parent_kernel = qcor::__internal__::create_composite(               \
-          "__tmp_one_qubit_ctrl_enabler");                                \
-      quantum::set_current_program(parent_kernel);                        \
-      if (runtime_env == QrtType::FTQC) {                                 \
-        quantum::set_current_buffer(q.results());                         \
-      }                                                                   \
-      ::quantum::QRTNAME(q);                                              \
-      return;                                                             \
-    }                                                                     \
-    virtual ~CLASSNAME() {}                                               \
-  };
-
-ONE_QUBIT_KERNEL_CTRL_ENABLER(X, x)
-ONE_QUBIT_KERNEL_CTRL_ENABLER(Y, y)
-ONE_QUBIT_KERNEL_CTRL_ENABLER(Z, z)
-ONE_QUBIT_KERNEL_CTRL_ENABLER(H, h)
-ONE_QUBIT_KERNEL_CTRL_ENABLER(T, t)
-ONE_QUBIT_KERNEL_CTRL_ENABLER(Tdg, tdg)
-ONE_QUBIT_KERNEL_CTRL_ENABLER(S, s)
-ONE_QUBIT_KERNEL_CTRL_ENABLER(Sdg, sdg)
-
-// The following is a first pass at enabling qcor
-// quantum lambdas. The goal is to mimic lambda functionality
-// via our QJIT infrastructure. The lambda class takes
-// as input a lambda of desired kernel signature calling
-// a specific macro which expands to return the function body
-// expression as a string, which we use with QJIT jit_compile.
-// The lambda class is templated on the types of any capture variables
-// the programmer would like to specify, and takes a second constructor
-// argument indicating the variable names of all kernel arguments and
-// capture variables. Finally, all capture variables must be passed to the
-// trailing variadic argument for the lambda class constructor. Once
-// instantiated lambda invocation looks just like kernel invocation.
-
-template <typename... CaptureArgs>
-class _qpu_lambda {
- private:
-
-  // Private inner class for getting the type 
-  // of a capture variable as a string at runtime
-  class TupleToTypeArgString {
-   protected:
-    std::string &tmp;
-    std::vector<std::string> var_names;
-    int counter = 0;
-
-    template <class T>
-    std::string type_name() {
-      typedef typename std::remove_reference<T>::type TR;
-      std::unique_ptr<char, void (*)(void *)> own(
-          abi::__cxa_demangle(typeid(TR).name(), nullptr, nullptr, nullptr),
-          std::free);
-      std::string r = own != nullptr ? own.get() : typeid(TR).name();
-      return r;
-    }
-
-   public:
-    TupleToTypeArgString(std::string &t) : tmp(t) {}
-    TupleToTypeArgString(std::string &t, std::vector<std::string> &_var_names)
-        : tmp(t), var_names(_var_names) {}
-    template <typename T>
-    void operator()(T &t) {
-      tmp += type_name<decltype(t)>() + " " +
-             (var_names.empty() ? "arg_" + std::to_string(counter)
-                                : var_names[counter]) +
-             ",";
-      counter++;
-    }
-  };
-
-  // Kernel lambda source string, has arg structure and body
-  std::string &src_str;
-
-  // Capture variable names
-  std::string &capture_var_names;
-
-  // Capture variables, stored in tuple
-  std::tuple<CaptureArgs &...> capture_vars;
-
-  // Quantum Just-in-Time Compiler :)
-  QJIT qjit;
-
- public:
-  // Constructor, capture vars should be deduced without
-  // specifying them since we're using C++17
-  _qpu_lambda(std::string &&ff, std::string &&_capture_var_names,
-              CaptureArgs &..._capture_vars)
-      : src_str(ff),
-        capture_var_names(_capture_var_names),
-        capture_vars(std::forward_as_tuple(_capture_vars...)) {
-    // Get the original args list
-    auto first = src_str.find_first_of("(");
-    auto last = src_str.find_first_of(")");
-    auto tt = src_str.substr(first, last - first + 1);
-
-    // Need to append capture vars to this arg signature
-    std::string capture_preamble = "";
-    if (!capture_var_names.empty()) {
-      std::string args_string = "";
-      TupleToTypeArgString co(args_string);
-      __internal__::tuple_for_each(capture_vars, co);
-      args_string = "," + args_string.substr(0, args_string.length() - 1);
-      tt.insert(last - 2, args_string);
-      capture_preamble += "\n";
-      for (auto [i, capture_name] :
-           qcor::enumerate(xacc::split(capture_var_names, ','))) {
-        capture_preamble +=
-            "auto " + capture_name + " = arg_" + std::to_string(i) + ";\n";
-      }
-    }
-
-    // Extract the function body
-    first = src_str.find_first_of("{");
-    last = src_str.find_last_of("}");
-    auto rr = src_str.substr(first, last - first + 1);
-
-    // Reconstruct with new args signature and 
-    // existing function body
-    std::stringstream ss;
-    ss << "__qpu__ void foo" << tt << rr;
-
-    // Get as a string, and insert capture 
-    // preamble if necessary
-    auto jit_src = ss.str();
-    first = jit_src.find_first_of("{");
-    if (!capture_var_names.empty()) jit_src.insert(first + 1, capture_preamble);
-
-    // std::cout << "JITSRC:\n" << jit_src << "\n";
-    // JIT Compile, storing the function pointers
-    qjit.jit_compile(jit_src);
-  }
-
-  template <typename... FunctionArgs>
-  void operator()(FunctionArgs... args) {
-    // Map the function args to a tuple
-    auto kernel_args_tuple = std::make_tuple(args...);
-
-    // Merge the function args and the capture vars and execute
-    auto final_args_tuple = std::tuple_cat(kernel_args_tuple, capture_vars);
-    std::apply([&](auto &&...args) { qjit.invoke("foo", args...); },
-               final_args_tuple);
-  }
-};
-
-#define qpu_lambda(EXPR, ...) _qpu_lambda(#EXPR, #__VA_ARGS__, ##__VA_ARGS__)
 
 }  // namespace qcor
