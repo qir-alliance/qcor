@@ -234,6 +234,7 @@ const std::pair<std::string, std::string> QJIT::run_syntax_handler(
   std::vector<std::string> arg_types, arg_vars, bufferNames;
   auto args_split = split_args_signature(args_signature);
   for (auto &arg : args_split) {
+    trim(arg);
     auto arg_var = split(arg, ' ');
     if (arg_var[0] == "qreg" || arg_var[0] == "xacc::internal_compiler::qreg") {
       bufferNames.push_back(arg_var[1]);

@@ -2,26 +2,25 @@
 
 int main(int argc, char** argv) {
   int n = argc;
-  double m = 22;  
-  
-  using namespace qcor;
- 
-  qpu_lambda<int, double> superposition(
-      [](qreg q) {          // Provide the kernel lambda
-        qpu_lambda_body({  // wrap function body in this macro
-          print("n = ", n);
-          print("m = ", m);
-          for (int i = 0; i < n; i++) {
-            H(q[0]);
-          }
-          Measure(q[0]);
-        })
-      },
-      qpu_lambda_variables({"q"},
-                           {"n", "m"}),  // Must provide variable names in order
-      n, m);                             // Must provide the captured variables
+  double m = 22;
+
+  auto a = qpu_lambda([](qreg q) {
+      print("n was captured, and is ", n);
+      print("m was captured, and is ", m);
+      for (int i = 0; i < n; i++) {
+        H(q[0]);
+      }
+      Measure(q[0]);
+  }, n, m);
 
   auto q = qalloc(1);
-  superposition(q);
+  a(q);
   q.print();
+
+  n = 2;
+  m = 33.0;
+  auto r = qalloc(1);
+  print("running again to show capture variables are captured by reference");
+  a(r);
+  r.print();
 }
