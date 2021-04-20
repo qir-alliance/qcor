@@ -1,8 +1,11 @@
 // Create a general grover search algorithm.
 // Let's create that marks 2 states
 // Show figures Init - [Oracle - Amplification for i in iters] - Measure
+// https://www.nature.com/articles/s41467-017-01904-7
 
-// Show off kernel composition, common patterns, functional programming (kernels taking other kernels)
+// Show off kernel composition, common patterns, 
+// functional programming (kernels taking other kernels)
+
 using GroverPhaseOracle = KernelSignature<qreg>;
 
 __qpu__ void amplification(qreg q) {
