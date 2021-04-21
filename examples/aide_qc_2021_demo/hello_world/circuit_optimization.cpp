@@ -9,7 +9,7 @@ __qpu__ void nothing(qreg qbits, const int n, double x) {
   auto q = qbits.head();
   auto r = qbits.tail();
 
-  for (int i = 0; i < 100; i++) {
+  for (int i = 0; i < n; i++) {
     H(q);
   }
 

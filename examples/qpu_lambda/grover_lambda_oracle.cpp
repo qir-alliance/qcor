@@ -12,7 +12,6 @@ using GroverPhaseOracle = KernelSignature<qreg>;
 __qpu__ void amplification(qreg q) {
   // H q X q ctrl-ctrl-...-ctrl-Z H q Xq
   // compute - action - uncompute
-
   compute {
     H(q);
     X(q);

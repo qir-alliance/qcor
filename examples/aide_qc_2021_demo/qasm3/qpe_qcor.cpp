@@ -25,7 +25,7 @@ __qpu__ void qpe(qreg q, QPEOracleSignature oracle) {
   // Create uniform superposition on all 3 qubits
   H(counting_qubits);
 
-  // run ctr-oracle operations
+  // run ctrl-oracle operations
   for (auto i : range(counting_qubits.size())) {
     const int nbCalls = 1 << i;
     for (auto j : range(nbCalls)) {

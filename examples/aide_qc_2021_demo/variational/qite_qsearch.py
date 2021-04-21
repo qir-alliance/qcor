@@ -3,6 +3,7 @@
 
 from qcor import *
 from openfermion.ops import QubitOperator as QOp
+from openfermion.utils import count_qubits
 
 @qjit
 def state_prep(q : qreg):
@@ -12,10 +13,11 @@ qsearch_optimizer = createTransformation("qsearch")
 
 observable = QOp('', 5.907) + QOp('Y0 Y1', -2.1433) + \
                 QOp('X0 X1', -2.1433) + QOp('Z0', .21829) + QOp('Z1', -6.125) 
-n_steps = 5
+n_steps = 3
 step_size = 0.1
+n_qubits = count_qubits(observable)
 
-problemModel = QuaSiMo.ModelFactory.createModel(state_prep, observable, 2)
+problemModel = QuaSiMo.ModelFactory.createModel(state_prep, observable, n_qubits)
 workflow = QuaSiMo.getWorkflow("qite", {"steps": n_steps,
                            "step-size":step_size, "circuit-optimizer": qsearch_optimizer})
 

@@ -18,6 +18,13 @@ __qpu__ void ansatz(qreg q, double theta) {
   action { Rz(q[3], theta); }
 }
 
+__qpu__ void exp_ansatz(qreg q, double theta) {
+  X(q[0]);
+  X(q[2]);
+  auto arg = X(0) * X(1) * X(2) * Y(3);
+  exp_i_theta(q, theta, arg);
+}
+
 __qpu__ void one_qubit_ansatz(qreg qq, double theta, double phi) {
   auto q = qq.head();
   Ry(q, theta);
@@ -25,7 +32,6 @@ __qpu__ void one_qubit_ansatz(qreg qq, double theta, double phi) {
 }
 
 int main() {
-
   std::string h2_geom = R"#(H  0.000000   0.0      0.0
 H   0.0        0.0  .7474)#";
   auto H =
@@ -36,7 +42,7 @@ H   0.0        0.0  .7474)#";
 
   OptFunction opt_function(
       [&](std::vector<double> x) {
-        return ansatz::observe(H, qalloc(4), x[0]);
+        return exp_ansatz::observe(H, qalloc(4), x[0]);
       },
       1);
 
@@ -54,7 +60,8 @@ H   0.0        0.0  .7474)#";
 
   optimizer = createOptimizer("skquant");
 
-  auto [ground_energy2, opt_params2] = optimizer->optimize(one_qubit_opt_function);
+  auto [ground_energy2, opt_params2] =
+      optimizer->optimize(one_qubit_opt_function);
   print("Energy: ", ground_energy2);
 
   return 0;

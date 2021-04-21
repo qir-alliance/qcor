@@ -44,7 +44,7 @@ qaoa_circ.translate = MethodType(qaoa_translate, qjit)
 # Use the standard parameterization scheme: 
 # one theta + one beta per step
 n_params = 2 * n_steps
-obj = createObjectiveFunction(qaoa_circ, H, n_params)
+obj = createObjectiveFunction(qaoa_circ, H, n_params, {'verbose':True, 'gradient-strategy':'central'})
 
 # Run optimization
 optimizer = createOptimizer('nlopt', {'initial-parameters': np.random.rand(n_params)})

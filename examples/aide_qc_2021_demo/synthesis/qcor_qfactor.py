@@ -3,8 +3,8 @@ from qcor import *
 @qjit
 def ccnot(q : qreg):
     # create 111
-    for i in range(q.size()):
-        X(q[i])
+    X(q)
+
     # decompose with qfactor        
     with decompose(q, qfactor) as ccnot:
         ccnot = np.eye(8)
@@ -14,10 +14,10 @@ def ccnot(q : qreg):
         ccnot[7,6] = 1.0
     
     # CCNOT should produce 110 (lsb)
-    for i in range(q.size()):
-        Measure(q[i])
+    Measure(q)
 
 q = qalloc(3)
 ccnot(q)
 counts = q.counts()
 print(counts)
+

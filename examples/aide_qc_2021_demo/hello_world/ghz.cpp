@@ -30,4 +30,17 @@ int main() {
     }
 
     ghz::print_kernel(q);
+
+    auto ghz_lambda = qpu_lambda([](qreg q ) {
+        H(q[0]);
+        for (auto i : range(q.size()-1)) {
+            CX(q[i], q[i+1]);
+        }
+        Measure(q);
+    });
+
+    auto r = qalloc(5);
+    ghz_lambda(r);
+    r.print();
+
 }
