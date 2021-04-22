@@ -400,9 +400,14 @@ void __quantum__rt__finalize() {
     xacc::internal_compiler::execute_pass_manager();
     ::quantum::submit(global_qreg.get());
     auto counts = global_qreg->getMeasurementCounts();
-    std::cout << "Observed Counts:\n";
-    for (auto [bits, count] : counts) {
-      std::cout << bits << " : " << count << "\n";
+    if (!counts.empty()) {
+      std::cout << "Observed Counts:\n";
+      for (auto [bits, count] : counts) {
+        std::cout << bits << " : " << count << "\n";
+      }
+    } else {
+      std::cout << "Result Buffer:\n";
+      global_qreg->print();
     }
   } else if (external_qreg_provided) {
     xacc::internal_compiler::execute_pass_manager();
