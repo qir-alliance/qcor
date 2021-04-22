@@ -19,7 +19,8 @@ int main(int argc, char** argv) {
 
   // Create the model (2 qubits, 0 variational params in above state_prep)
   // and QITE workflow
-  auto problemModel = ModelFactory::createModel(state_prep, &observable, observable.nBits(), 0);
+  auto problemModel =
+      ModelFactory::createModel(state_prep, &observable, observable.nBits(), 0);
   auto workflow =
       getWorkflow("qite", {{"steps", steps},
                            {"step-size", stepSize},

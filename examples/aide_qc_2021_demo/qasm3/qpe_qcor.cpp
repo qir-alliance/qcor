@@ -8,16 +8,16 @@
 // i.e. T|1> = exp(i*pi/4)|1>
 // We use 3 counting bits => totally 4 qubits.
 
-// Our qpe kernel requires oracles with 
+// Our qpe kernel requires oracles with
 // the following signature.
 using QPEOracleSignature = KernelSignature<qubit>;
 
 __qpu__ void qpe(qreg q, QPEOracleSignature oracle) {
   // Extract the counting qubits and the state qubit
-  auto counting_qubits = q.extract_range({0,3});
+  auto counting_qubits = q.extract_range({0, 3});
   // could also do this...
   // auto counting_qubits = q.extract_qubits({0,1,2});
-  auto state_qubit = q[3];
+  auto state_qubit = q[3]; // or q.tail();
 
   // Put it in |1> eigenstate
   X(state_qubit);
@@ -45,6 +45,8 @@ __qpu__ void oracle(qubit q) { T(q); }
 
 int main(int argc, char **argv) {
   auto q = qalloc(4);
+  // could also provide lambda
+  // auto oracle = qpu_lambda([](qubit q) { T(q);});
   qpe(q, oracle);
   q.print();
 }

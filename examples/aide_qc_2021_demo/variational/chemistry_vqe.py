@@ -27,6 +27,7 @@ ground_energy, opt_params = optimizer.optimize(opt_function, 1)
 print("Energy: ", ground_energy)
 
 H = operatorTransform('qubit-tapering', H)
+
 @qjit
 def one_qubit_ansatz(qq:qreg, theta :float, phi:float):
   q = qq.head()

@@ -22,3 +22,7 @@
 * In particular, show that we can integrate BQSKit qsearch as a circuit optimizer
 * Run with verbose on, see circuit reductions
 * Show Python, note that we can use 3rd party libs for Operators
+
+# Python demos
+![dcirc](deuteron_n3_ansatz.png)
+![d2circ](deuteron_n2_ansatz.png)
