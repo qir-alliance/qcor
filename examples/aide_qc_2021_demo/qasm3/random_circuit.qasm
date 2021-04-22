@@ -2,7 +2,7 @@ OPENQASM 3;
 include "stdgates.inc";
 
 const n_qubits = 50;
-const n_layers = 12;
+const n_layers = 4;
 qubit q[n_qubits];
 
 // Run by: mpiexec -n <N> ./a.out -qrt nisq -qpu tnqvm -qpu-config tnqvm.ini 
@@ -23,7 +23,8 @@ for i in [0:n_layers] {
         cx q[j], q[j+1];
     }
 }
-// 4 Ranks
+
+// 4 Ranks, 12 layers
 // real    8m44.685s
 // user    68m45.740s
 // sys     0m14.613s
