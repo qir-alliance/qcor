@@ -23,7 +23,8 @@ public:
   virtual void initialize(const std::string kernel_name) = 0;
   virtual void __begin_mark_segment_as_compute() = 0;
   virtual void __end_mark_segment_as_compute() = 0;
-
+  virtual bool isComputeSection() = 0;
+  
   virtual void h(const qubit &qidx) = 0;
   virtual void x(const qubit &qidx) = 0;
   virtual void y(const qubit &qidx) = 0;

@@ -33,6 +33,7 @@ class QJIT {
 
  protected:
   std::map<std::string, std::uint64_t> kernel_name_to_f_ptr;
+  std::map<std::string, std::uint64_t> kernel_name_to_f_ptr_with_parent;
   std::map<std::string, std::uint64_t> kernel_name_to_f_ptr_hetmap;
   std::map<std::string, std::uint64_t> kernel_name_to_f_ptr_parent_hetmap;
 
@@ -63,6 +64,17 @@ class QJIT {
     kernel_functor(args...);
   }
 
+  template <typename... Args>
+  void invoke_with_parent(const std::string &kernel_name,
+                          std::shared_ptr<xacc::CompositeInstruction> parent,
+                          Args... args) {
+    auto f_ptr = kernel_name_to_f_ptr_with_parent[kernel_name];
+    void (*kernel_functor)(std::shared_ptr<xacc::CompositeInstruction>,
+                           Args...) =
+        (void (*)(std::shared_ptr<xacc::CompositeInstruction>, Args...))f_ptr;
+    kernel_functor(parent, args...);
+  }
+
   int invoke_main(int argc, char **argv) {
     auto f_ptr = kernel_name_to_f_ptr["main"];
     int (*kernel_functor)(int, char **) = (int (*)(int, char **))f_ptr;
@@ -81,13 +93,13 @@ class QJIT {
     return kernel_functor;
   }
 
-  // The type of kernel functions: 
+  // The type of kernel functions:
   enum class KernelType { Regular, HetMapArg, HetMapArgWithParent };
   // Return kernel function pointer (as an integer)
   // Returns 0 if the kernel doesn't exist.
-  std::uint64_t
-  get_kernel_function_ptr(const std::string &kernelName,
-                       KernelType subType = KernelType::Regular) const;
+  std::uint64_t get_kernel_function_ptr(
+      const std::string &kernelName,
+      KernelType subType = KernelType::Regular) const;
 };
 
 }  // namespace qcor

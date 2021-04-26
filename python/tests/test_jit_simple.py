@@ -210,7 +210,27 @@ class TestKernelJIT(unittest.TestCase):
             counter += 1    
         
         self.assertEqual(comp.nInstructions(), counter)
+    
+    def test_multi_qregs(self):
+        set_qpu('qpp', {'shots':1024})
         
+        @qjit 
+        def bell_qubits(q: qubit, r: qubit):
+            H(q)
+            X.ctrl(q, r)
+            Measure(q)
+            Measure(r)
+        
+        q = qalloc(1)
+        r = qalloc(1)
+        bell_qubits(q[0], r[0])
+        q.print()
+        r.print()
+        self.assertEqual(len(q.counts()), 2)
+        self.assertEqual(len(r.counts()), 2)
+        # entangled
+        self.assertEqual(q.counts()["0"], r.counts()["0"])
+        self.assertEqual(q.counts()["1"], r.counts()["1"])
 
 if __name__ == '__main__':
   unittest.main()

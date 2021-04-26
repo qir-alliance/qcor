@@ -58,9 +58,9 @@ namespace {
 // Here we enumerate them as a Variant
 using AllowedKernelArgTypes =
     xacc::Variant<bool, int, double, std::string, xacc::internal_compiler::qreg,
-                  std::vector<double>, std::vector<int>, qcor::PauliOperator,
-                  qcor::FermionOperator, qcor::PairList<int>,
-                  std::vector<qcor::PauliOperator>,
+                  xacc::internal_compiler::qubit, std::vector<double>,
+                  std::vector<int>, qcor::PauliOperator, qcor::FermionOperator,
+                  qcor::PairList<int>, std::vector<qcor::PauliOperator>,
                   std::vector<qcor::FermionOperator>>;
 
 // We will take as input a mapping of arg variable names to the argument itself.
@@ -510,6 +510,7 @@ PYBIND11_MODULE(_pyqcor, m) {
       py::arg("placement_name"), "Set the placement strategy.");
 
   m.def("qalloc", &::qalloc, py::return_value_policy::reference, "");
+  m.def("set_shots", &qcor::set_shots, "");
   py::class_<xacc::internal_compiler::qubit>(m, "qubit", "");
   py::class_<xacc::internal_compiler::qreg>(m, "qreg", "")
       .def("size", &xacc::internal_compiler::qreg::size, "")
@@ -538,6 +539,10 @@ PYBIND11_MODULE(_pyqcor, m) {
           [](xacc::internal_compiler::qreg &q, const std::string &key) {
             return q.results()->getInformation(key);
           },
+          "")
+      .def(
+          "__getitem__",
+          [](xacc::internal_compiler::qreg &q, int index) { return q[index]; },
           "");
   // m.def("createObjectiveFunction", [](const std::string name, ))
   py::class_<qcor::QJIT, std::shared_ptr<qcor::QJIT>>(m, "QJIT", "")

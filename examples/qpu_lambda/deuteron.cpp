@@ -1,26 +1,21 @@
 #include "qcor.hpp"
-using namespace qcor;
 
 int main() {
-  qpu_lambda<> ansatz_X0X1(
-      [](qreg q, double x) {
-        qpu_lambda_body({
-          X(q[0]);
-          Ry(q[1], x);
-          CX(q[1], q[0]);
-          H(q);
-          Measure(q);
-        })
-      },
-      qpu_lambda_variables({"q", "x"}, {}));
+
+  auto ansatz_X0X1 = qpu_lambda([](qreg q, double x) {
+    X(q[0]);
+    Ry(q[1], x);
+    CX(q[1], q[0]);
+    H(q);
+    Measure(q);
+  });
 
   OptFunction obj(
       [&](const std::vector<double> &x, std::vector<double> &) {
-        print("running ", x[0]);
         auto q = qalloc(2);
         ansatz_X0X1(q, x[0]);
         auto exp = q.exp_val_z();
-        print(x[0], exp);
+        print("<X0X1(",x[0],") = ", exp);
         return exp;
       },
       1);
