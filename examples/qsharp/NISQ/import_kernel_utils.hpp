@@ -156,7 +156,11 @@
       }                                                                        \
     }                                                                          \
   };                                                                           \
-  void OPERATION_NAME(qreg q) { class OPERATION_NAME kernel(q); }
+  void OPERATION_NAME(std::shared_ptr<qcor::CompositeInstruction> parent,      \
+                      qreg q) {                                                \
+    class OPERATION_NAME kernel(parent, q);                                    \
+  }                                                                            \
+  void OPERATION_NAME(qreg q) { class OPERATION_NAME kernel(q); }              
 
 // Usage:
 // qcor_import_qsharp_kernel(MyQsharpKernel, double, int);
