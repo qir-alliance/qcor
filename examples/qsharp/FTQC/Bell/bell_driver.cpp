@@ -2,17 +2,20 @@
 #include <vector>
 
 // Include the external QSharp function.
-qcor_include_qsharp(QCOR__TestBell__body, int64_t, int64_t)
-
+// With EntryPoint() annotation, there are 3 functions generated:
+// QCOR__TestBell__body(): raw Q# callable
+// QCOR__TestBell(): EntryPoint type (with result printing), no return
+// QCOR__TestBell__Interop(): InteropFriendly function (type casting to C-type function)
+qcor_include_qsharp(QCOR__TestBell, void, int64_t)
 
 // Compile with:
 // Include both the qsharp source and this driver file 
 // in the command line.
-// $ qcor -qrt ftqc bell.qs bell_driver.cpp
+// -qs-build-exe to activate entry point generation.
+// $ qcor -qrt ftqc -qs-build-exe bell.qs bell_driver.cpp
 // Run with:
 // $ ./a.out
 int main() {
-  auto oneCounts = QCOR__TestBell__body(1024);
-  std::cout << "Result = " << oneCounts << "\n";
+  QCOR__TestBell(1024);
   return 0;
 }

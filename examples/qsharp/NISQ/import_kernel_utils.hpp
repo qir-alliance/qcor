@@ -3,9 +3,9 @@
 // external Q# kernel (compiled to QIR)
 #include "qir-types.hpp"
 
-#define STRINGIZE(arg) STRINGIZE1(arg)
-#define STRINGIZE1(arg) STRINGIZE2(arg)
-#define STRINGIZE2(arg) #arg
+#define _STRINGIZE(arg) _STRINGIZE1(arg)
+#define _STRINGIZE1(arg) _STRINGIZE2(arg)
+#define _STRINGIZE2(arg) #arg
 
 #define CONCATENATE(arg1, arg2) CONCATENATE1(arg1, arg2)
 #define CONCATENATE1(arg1, arg2) CONCATENATE2(arg1, arg2)
@@ -40,7 +40,13 @@
 #define ARGS_LIST_FOR_FUNC_INVOKE(...)                                         \
   FOR_EACH(CONSTRUCT_VAR_NAME_LIST, __VA_ARGS__)
 
-#define qcor_import_qsharp_kernel(OPERATION_NAME, ...)                         \
+#define GET_MACRO(_0, _1, _2, NAME, ...) NAME
+#define qcor_import_qsharp_kernel(...)                                         \
+  GET_MACRO(_0, ##__VA_ARGS__, qcor_import_qsharp_kernel_var,                  \
+            qcor_import_qsharp_kernel_no_var, unknown)                         \
+  (__VA_ARGS__)
+
+#define qcor_import_qsharp_kernel_var(OPERATION_NAME, ...)                     \
   extern "C" void OPERATION_NAME##__body(::Array *, __VA_ARGS__);              \
   class OPERATION_NAME                                                         \
       : public qcor::QuantumKernel<class OPERATION_NAME, qreg, __VA_ARGS__> {  \
@@ -96,6 +102,65 @@
   void OPERATION_NAME(qreg q ARGS_LIST_FOR_FUNC_SIGNATURE(__VA_ARGS__)) {      \
     class OPERATION_NAME kernel(q ARGS_LIST_FOR_FUNC_INVOKE(__VA_ARGS__));     \
   }
+
+#define qcor_import_qsharp_kernel_no_var(OPERATION_NAME)                       \
+  extern "C" void OPERATION_NAME##__body(::Array *);                           \
+  class OPERATION_NAME                                                         \
+      : public qcor::QuantumKernel<class OPERATION_NAME, qreg> {               \
+  private:                                                                     \
+    ::Array *m_qubits = nullptr;                                               \
+    friend class qcor::QuantumKernel<class OPERATION_NAME, qreg>;              \
+                                                                               \
+  protected:                                                                   \
+    void operator()(qreg q) {                                                  \
+      if (!parent_kernel) {                                                    \
+        std::cout << "Create parent kernel\n"; \
+        parent_kernel = qcor::__internal__::create_composite(kernel_name);     \
+      }                                                                        \
+      std::cout << "Parent:\n" << parent_kernel->toString() << "\n";           \
+      quantum::set_current_program(parent_kernel);                             \
+      if (runtime_env == QrtType::FTQC) {                                      \
+        quantum::set_current_buffer(q.results());                              \
+      }                                                                        \
+      /* Convert the qreg to QIR Array of Qubits */                            \
+      if (!m_qubits) {                                                         \
+        m_qubits = new ::Array(q.size());                                      \
+        for (int i = 0; i < q.size(); ++i) {                                   \
+          auto qubit = Qubit::allocate();                                      \
+          int8_t *arrayPtr = (*m_qubits)[i];                                   \
+          auto qubitPtr = reinterpret_cast<Qubit **>(arrayPtr);                \
+          *qubitPtr = qubit;                                                   \
+        }                                                                      \
+      }                                                                        \
+      std::cout << "INVOKE:\n" << parent_kernel->toString() << "\n";           \
+      OPERATION_NAME##__body(m_qubits); /* std::cout << "INVOKE:\n" <<         \
+                            parent_kernel->toString(); */                      \
+    }                                                                          \
+                                                                               \
+  public:                                                                      \
+    inline static const std::string kernel_name = #OPERATION_NAME;             \
+    OPERATION_NAME(qreg q) : QuantumKernel<OPERATION_NAME, qreg>(q) {}         \
+    OPERATION_NAME(std::shared_ptr<qcor::CompositeInstruction> _parent,        \
+                   qreg q)                                                     \
+        : QuantumKernel<OPERATION_NAME, qreg>(_parent, q) {}                   \
+    virtual ~OPERATION_NAME() {                                                \
+      if (disable_destructor) {                                                \
+        return;                                                                \
+      }                                                                        \
+      auto [q] = args_tuple;                                                   \
+      std::cout << "here\n"; \
+      operator()(q);                                                           \
+      xacc::internal_compiler::execute_pass_manager();                         \
+      if (is_callable) {                                                       \
+        quantum::submit(q.results());                                          \
+      }                                                                        \
+    }                                                                          \
+  };                                                                           \
+  void OPERATION_NAME(std::shared_ptr<qcor::CompositeInstruction> parent,      \
+                      qreg q) {                                                \
+    class OPERATION_NAME kernel(parent, q);                                    \
+  }                                                                            \
+  void OPERATION_NAME(qreg q) { class OPERATION_NAME kernel(q); }              
 
 // Usage:
 // qcor_import_qsharp_kernel(MyQsharpKernel, double, int);

@@ -434,12 +434,15 @@ bool __quantum__rt__result_equal(Result *res, Result *comp) {
 Result *__quantum__rt__result_get_one() { return ResultOne; }
 Result *__quantum__rt__result_get_zero() { return ResultZero; }
 
-void __quantum__rt__string_update_reference_count(void *str, int32_t count) {
+void __quantum__rt__result_update_reference_count(Result *, int32_t count) {
   // TODO
   if (verbose) std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
 }
 
-void __quantum__rt__result_update_reference_count(Result *, int32_t count) {
-  // TODO
-  if (verbose) std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
+void __quantum__rt__fail(QirString *str) {
+  throw std::runtime_error(str->m_str);
+}
+
+void __quantum__rt__message(QirString *str) {
+  std::cout << "[QIR Message] " << str->m_str << "\n";
 }

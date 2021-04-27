@@ -4,7 +4,10 @@ namespace QCOR
 // see QirTarget.qs    
 open QCOR.Intrinsic;
 @EntryPoint()
-operation TestBell(count : Int) : Int {
+operation ValidEntryPoint() : Unit { }
+
+@EntryPoint()
+operation TestBell(count : Int) : Unit {
     // Simple bell test
     mutable numOnes = 0;
     mutable agree = 0;
@@ -26,6 +29,5 @@ operation TestBell(count : Int) : Int {
         Reset(q[0]);
         Reset(q[1]);
     }
-    return numOnes;
 }
 }
