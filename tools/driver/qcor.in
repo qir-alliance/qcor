@@ -64,6 +64,10 @@ def main(argv=None):
         parser.add_argument('-pythonpath', metavar='', help='print the correct PYTHONPATH to leverage qcor and xacc python API.')
         parser.add_argument('-keep-llvm-file', metavar='', help='keep intermediate LLVM files.')
         parser.add_argument('-print-final-submission', metavar='', help='print the final quantum circuit for backend submission (ignored in FTQC).')
+        
+        # Q# options to be passed to the Q# QIR generator:
+        parser.add_argument('-qs-build-exe', metavar='', help='Q# QIR generator to emit alias functions for entry points.')
+        parser.add_argument('-qs-runtime', metavar='', help='Specifies the classical capabilites of the QIR runtime. Valid options: BasicQuantumFunctionality, BasicMeasurementFeedback, FullComputation')
 
         args = parser.parse_args(sys.argv)
 
@@ -364,8 +368,29 @@ def main(argv=None):
         # i.e. no need to do llvm-as
         bc_file_name = base_name + '.bc'
         object_file_name = base_name+'.o'
+        # Q# generated bson file
+        bson_file_name = base_name+'.bson'
         extra_args = []
-        result = subprocess.run(['qsc', 'build', '--load', qs_qir_gen_dll, '--input', filename, '@CMAKE_INSTALL_PREFIX@/include/qsharp/QirCore.qs', '@CMAKE_INSTALL_PREFIX@/include/qsharp/QirTarget.qs', '--proj', base_name], check=True)
+        # Parse Q# runtimr option if any:
+        # - BasicQuantumFunctionality: Measurement results cannot be compared for equality.
+        # - BasicMeasurementFeedback: Measurement results can be compared for equality only in if-statement conditional expressions in operations.
+        # The block of an if-statement that depends on a result cannot contain set statements for mutable variables
+        # declared outside the block, or return statements.
+        # FullComputation: No runtime restrictions. Any Q# program can be executed.
+        # Default: FullComputation
+        qs_rt_name = 'FullComputation'
+        if '-qs-runtime' in sys.argv[1:]:
+            sidx = sys.argv.index('-qs-runtime')
+            qs_rt_name = sys.argv[sidx+1]
+            sys.argv.remove(qs_rt_name)
+            sys.argv.remove('-qs-runtime')
+        
+        qs_build_exe = ''
+        if '-qs-build-exe' in sys.argv[1:]:
+            sys.argv.remove('-qs-build-exe')
+            qs_build_exe = '--build-exe'
+
+        result = subprocess.run(['qsc', 'build', '--load', qs_qir_gen_dll, qs_build_exe, "--runtime", qs_rt_name, '--input', filename, '@CMAKE_INSTALL_PREFIX@/include/qsharp/QirCore.qs', '@CMAKE_INSTALL_PREFIX@/include/qsharp/QirTarget.qs', '--proj', base_name], check=True)
         llvm_bin_path = str(pathlib.Path(compiler).parent)
         result = subprocess.run([llvm_bin_path+'/llc', '-filetype=obj', bc_file_name ], check=True)
         sys.argv.remove(filename)
@@ -391,7 +416,11 @@ def main(argv=None):
         
         if not keep_bit_code_files:
             # remove these temp files
-            os.remove(bc_file_name)
+            try:
+                os.remove(bc_file_name)
+                os.remove(bson_file_name)
+            except OSError:
+                pass
 
     # If it is a C++ file
     if fileType != None and 'text/x-c' in fileType:
