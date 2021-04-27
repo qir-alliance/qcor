@@ -31,4 +31,10 @@ int main(int argc, char** argv) {
   const auto energy = result.get<double>("energy");
   auto finalCircuit = result.getPointerLike<CompositeInstruction>("circuit");
   printf("\n%s\nEnergy=%f\n", finalCircuit->toString().c_str(), energy);
+  const auto energyAtStep = result.get<std::vector<double>>("exp-vals");
+  std::cout << "QITE energy: [ ";
+  for (const auto &val : energyAtStep) {
+    std::cout << val << " ";
+  }
+  std::cout << "]\n";
 }
