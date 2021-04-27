@@ -3,6 +3,7 @@ namespace QCOR
 // Using QCOR Intrinsic instruction set
 // see QirTarget.qs    
 open QCOR.Intrinsic;
+@EntryPoint()
 operation TestBell(count : Int) : Int {
     // Simple bell test
     mutable numOnes = 0;
