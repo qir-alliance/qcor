@@ -238,6 +238,15 @@ private:
   qcor::qsharp::IFunctor *m_functor;
 };
 
+// QIR string type (regular string with ref. counting)
+struct QirString {
+  int32_t m_refCount;
+  std::string m_str;
+
+  QirString(std::string &&str) : m_refCount(1), m_str(str) {}
+  QirString(const char *cstr) : m_refCount(1), m_str(cstr) {}
+};
+
 namespace qcor {
 // Helper func.
 std::vector<int64_t> getRangeValues(::Array *in_array, const ::Range &in_range);

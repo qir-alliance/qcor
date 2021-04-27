@@ -124,8 +124,25 @@ int8_t *__quantum__rt__array_get_element_ptr_nonvariadic(Array *array,
 int8_t *__quantum__rt__array_get_element_ptr(Array *array, ...);
 Array *__quantum__rt__array_project(Array *array, int dim, int64_t index);
 
-// String-related API
-void __quantum__rt__string_update_reference_count(void *str, int32_t count);
+// String-related API:
+// Specs: https://github.com/microsoft/qsharp-language/blob/main/Specifications/QIR/Data-Types.md#strings
+void __quantum__rt__string_update_reference_count(QirString *str,
+                                                  int32_t count);
+QirString *__quantum__rt__string_create(char *null_terminated_buffer);
+QirString *__quantum__rt__string_concatenate(QirString *in_head,
+                                             QirString *in_tail);
+bool __quantum__rt__string_equal(QirString *lhs, QirString *rhs);
+QirString *__quantum__rt__int_to_string(int64_t val);
+QirString *__quantum__rt__double_to_string(double val);
+QirString *__quantum__rt__bool_to_string(bool val);
+QirString *__quantum__rt__result_to_string(Result *val);
+QirString *__quantum__rt__pauli_to_string(Pauli pauli);
+QirString *__quantum__rt__qubit_to_string(Qubit *q);
+QirString *__quantum__rt__range_to_string(int64_t range_start,
+                                          int64_t range_step,
+                                          int64_t range_end);
+const char *__quantum__rt__string_get_data(QirString *str);
+int32_t __quantum__rt__string_get_length(QirString *str);
 
 // Tuples:
 TuplePtr __quantum__rt__tuple_create(int64_t size);
@@ -142,6 +159,11 @@ void __quantum__rt__capture_update_reference_count(Callable *clb,
 void __quantum__rt__capture_update_alias_count(Callable *clb, int32_t count);
 void __quantum__rt__callable_memory_management(int32_t index, Callable *clb,
                                                int64_t parameter);
+
+// Classical Runtime: 
+// https://github.com/microsoft/qsharp-language/blob/main/Specifications/QIR/Classical-Runtime.md#classical-runtime
+void __quantum__rt__fail(QirString *str);
+void __quantum__rt__message(QirString *str);
 }
 
 namespace qcor {
