@@ -529,6 +529,11 @@ class _qpu_lambda {
                final_args_tuple);
   }
 
+  template<typename... FunctionArgs>
+  double observe(std::shared_ptr<Observable> obs, FunctionArgs... args) {
+    return observe(*obs.get(), args...);
+  }
+
   template <typename... FunctionArgs>
   double observe(Observable &obs, FunctionArgs... args) {
     auto tempKernel =
