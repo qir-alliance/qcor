@@ -47,5 +47,7 @@ docker run_macosx_mojave_bottles:
   tags: 
     - mojave
   script:
-  - ssh mojave-ci "PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin bash run_bottle_build.sh $AIDEQC_ACCESS_TOKEN $JFROG_API_KEY"
-  
+  - cd mojave && docker run -d -it --name tmp_mojave_ci --device /dev/kvm -p 50922:10022 -v "${PWD}/mac_hdd_ng.img:/image" sickcodes/docker-osx:naked
+  - sleep 240
+  - ssh mojave-ci "PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin bash run_bottle_build.sh $AIDEQC_ACCESS_TOKEN"
+  - docker stop tmp_mojave_ci && docker rm -v tmp_mojave_ci  
