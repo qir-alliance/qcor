@@ -35,7 +35,10 @@ docker run_macosx_catalina_bottles:
   tags: 
     - osx
   script:
-  - ssh catalina-ci "PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin bash run_bottle_build.sh $AIDEQC_ACCESS_TOKEN $JFROG_API_KEY"
+  - cd catalina && docker run -d -it --name tmp_catalina_ci --device /dev/kvm -p 50922:10022 -v "${PWD}/mac_hdd_ng.img:/image" sickcodes/docker-osx:naked
+  - sleep 240
+  - ssh catalina-ci "PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin bash run_bottle_build.sh $AIDEQC_ACCESS_TOKEN"
+  - docker stop tmp_catalina_ci && docker rm -v tmp_catalina_ci
   
 docker run_macosx_mojave_bottles:
   stage: deploy
