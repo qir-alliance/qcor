@@ -35,7 +35,7 @@ docker run_macosx_catalina_bottles:
   tags: 
     - osx
   script:
-  - cd catalina && docker run -d -it --name tmp_catalina_ci --device /dev/kvm -p 50922:10022 -v "${PWD}/mac_hdd_ng.img:/image" sickcodes/docker-osx:naked
+  - docker run -d -it --name tmp_catalina_ci --device /dev/kvm -p 50922:10022 -v "${HOME}/catalina/mac_hdd_ng.img:/image" sickcodes/docker-osx:naked
   - sleep 240
   - ssh catalina-ci "PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin bash run_bottle_build.sh $AIDEQC_ACCESS_TOKEN"
   - docker stop tmp_catalina_ci && docker rm -v tmp_catalina_ci
@@ -47,7 +47,7 @@ docker run_macosx_mojave_bottles:
   tags: 
     - mojave
   script:
-  - cd mojave && docker run -d -it --name tmp_mojave_ci --device /dev/kvm -p 50922:10022 -v "${PWD}/mac_hdd_ng.img:/image" sickcodes/docker-osx:naked
+  - docker run -d -it --name tmp_mojave_ci --device /dev/kvm -p 50922:10022 -v "${HOME}/mojave/mac_hdd_ng.img:/image" sickcodes/docker-osx:naked
   - sleep 240
   - ssh mojave-ci "PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin bash run_bottle_build.sh $AIDEQC_ACCESS_TOKEN"
   - docker stop tmp_mojave_ci && docker rm -v tmp_mojave_ci  
