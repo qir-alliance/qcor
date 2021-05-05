@@ -73,4 +73,11 @@ add_test (NAME qcor_python_jit_kernel_signature
 )
 set_tests_properties(qcor_python_jit_kernel_signature
   PROPERTIES ENVIRONMENT "PYTHONPATH=${CMAKE_INSTALL_PREFIX}:$ENV{PYTHONPATH}")
+
+add_test (NAME qcor_python_compute_action
+  COMMAND ${Python_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test_compute_action.py
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+)
+set_tests_properties(qcor_python_compute_action
+  PROPERTIES ENVIRONMENT "PYTHONPATH=${CMAKE_INSTALL_PREFIX}:$ENV{PYTHONPATH}")
  
