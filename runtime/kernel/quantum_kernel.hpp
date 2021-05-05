@@ -32,9 +32,8 @@ enum class QrtType { NISQ, FTQC };
 // with an appropriate implementation of constructors and destructors.
 // Users can then call for adjoint/ctrl methods like this
 // foo::adjoint(q); foo::ctrl(1, q);
-template <typename Derived, typename... Args>
-class QuantumKernel {
- protected:
+template <typename Derived, typename... Args> class QuantumKernel {
+protected:
   // Tuple holder for variadic kernel arguments
   std::tuple<Args...> args_tuple;
 
@@ -50,7 +49,7 @@ class QuantumKernel {
   // qcor developers, not to be used by clients / programmers
   bool disable_destructor = false;
 
- public:
+public:
   // Flag to indicate we only want to
   // run the pass manager and not execute
   bool optimize_only = false;
@@ -66,8 +65,7 @@ class QuantumKernel {
   QuantumKernel(std::shared_ptr<qcor::CompositeInstruction> _parent_kernel,
                 Args... args)
       : args_tuple(std::forward_as_tuple(args...)),
-        parent_kernel(_parent_kernel),
-        is_callable(false) {
+        parent_kernel(_parent_kernel), is_callable(false) {
     runtime_env = (__qrt_env == "ftqc") ? QrtType::FTQC : QrtType::NISQ;
   }
 
@@ -158,9 +156,24 @@ class QuantumKernel {
     Derived derived(args...);
     derived.disable_destructor = true;
 
+    // Is is in a **compute** segment?
+    // i.e. doing control within the compute block itself.
+    // need to by-pass the compute marking in order for the control gate to
+    // work.
+    const bool cached_is_compute_section =
+        ::quantum::qrt_impl->isComputeSection();
+    if (cached_is_compute_section) {
+      ::quantum::qrt_impl->__end_mark_segment_as_compute();
+    }
+
     // run the operator()(args...) call to get the the functor
     // as a CompositeInstruction (derived.parent_kernel)
+    // No compute markings on these instructions
     derived(args...);
+
+    if (cached_is_compute_section) {
+      ::quantum::qrt_impl->__begin_mark_segment_as_compute();
+    }
 
     // Use the controlled gate module of XACC to transform
     auto tempKernel = qcor::__internal__::create_composite("temp_control");
@@ -172,10 +185,27 @@ class QuantumKernel {
         std::make_pair("control-idx", ctrlIdx),
     });
 
+    // Mark all the *Controlled* instructions as compute segment
+    // if it was in the compute_section.
+    // i.e. we have bypassed the marker previously to make C-U to work,
+    // now we mark all the generated instructions.
+    // e.g.
+    // compute {
+    //  kernel::ctrl(....)
+    //}
+    // We disable compute flag to expand kernel then generate its control
+    // circuit **then** mark compute for all instructions so that
+    // later if we control the top-level kernel (containing this compute/action)
+    // no controlling is needed for these instructions.
+    if (cached_is_compute_section) {
+      for (int instId = 0; instId < ctrlKernel->nInstructions(); ++instId) {
+        ctrlKernel->getInstruction(instId)->attachMetadata(
+            {{"__qcor__compute__segment__", true}});
+      }
+    }
     // std::cout << "HELLO\n" << ctrlKernel->toString() << "\n";
     for (int instId = 0; instId < ctrlKernel->nInstructions(); ++instId) {
-      parent_kernel->addInstruction(
-          ctrlKernel->getInstruction(instId)->clone());
+      parent_kernel->addInstruction(ctrlKernel->getInstruction(instId));
     }
     // Need to reset and point current program to the parent
     quantum::set_current_program(parent_kernel);
@@ -216,9 +246,23 @@ class QuantumKernel {
     Derived derived(args...);
     derived.disable_destructor = true;
 
+    // Is is in a **compute** segment?
+    // i.e. doing control within the compute block itself.
+    // need to by-pass the compute marking in order for the control gate to
+    // work.
+    const bool cached_is_compute_section =
+        ::quantum::qrt_impl->isComputeSection();
+    if (cached_is_compute_section) {
+      ::quantum::qrt_impl->__end_mark_segment_as_compute();
+    }
+
     // run the operator()(args...) call to get the the functor
     // as a CompositeInstruction (derived.parent_kernel)
     derived(args...);
+
+    if (cached_is_compute_section) {
+      ::quantum::qrt_impl->__begin_mark_segment_as_compute();
+    }
 
     // Use the controlled gate module of XACC to transform
     auto tempKernel = qcor::__internal__::create_composite("temp_control");
@@ -229,9 +273,19 @@ class QuantumKernel {
                         {"control-idx", ctrl_bits},
                         {"control-buffer", buffer_name}});
 
+    // Mark all the *Controlled* instructions as compute segment
+    // if it was in the compute_section.
+    // i.e. we have bypassed the marker previously to make C-U to work,
+    // now we mark all the generated instructions.
+    if (cached_is_compute_section) {
+      for (int instId = 0; instId < ctrlKernel->nInstructions(); ++instId) {
+        ctrlKernel->getInstruction(instId)->attachMetadata(
+            {{"__qcor__compute__segment__", true}});
+      }
+    }
+
     for (int instId = 0; instId < ctrlKernel->nInstructions(); ++instId) {
-      parent_kernel->addInstruction(
-          ctrlKernel->getInstruction(instId)->clone());
+      parent_kernel->addInstruction(ctrlKernel->getInstruction(instId));
     }
     // Need to reset and point current program to the parent
     quantum::set_current_program(parent_kernel);
@@ -246,9 +300,24 @@ class QuantumKernel {
     Derived derived(args...);
     derived.disable_destructor = true;
 
+    // Is is in a **compute** segment?
+    // i.e. doing control within the compute block itself.
+    // need to by-pass the compute marking in order for the control gate to
+    // work.
+    const bool cached_is_compute_section =
+        ::quantum::qrt_impl->isComputeSection();
+    if (cached_is_compute_section) {
+      ::quantum::qrt_impl->__end_mark_segment_as_compute();
+    }
+
     // run the operator()(args...) call to get the the functor
     // as a CompositeInstruction (derived.parent_kernel)
+    // No compute markings on these instructions
     derived(args...);
+
+    if (cached_is_compute_section) {
+      ::quantum::qrt_impl->__begin_mark_segment_as_compute();
+    }
 
     // Use the controlled gate module of XACC to transform
     auto tempKernel = qcor::__internal__::create_composite("temp_control");
@@ -259,9 +328,19 @@ class QuantumKernel {
                         {"control-idx", ctrl_bit},
                         {"control-buffer", ctrl_qbit.first}});
 
+    // Mark all the *Controlled* instructions as compute segment
+    // if it was in the compute_section.
+    // i.e. we have bypassed the marker previously to make C-U to work,
+    // now we mark all the generated instructions.
+    if (cached_is_compute_section) {
+      for (int instId = 0; instId < ctrlKernel->nInstructions(); ++instId) {
+        ctrlKernel->getInstruction(instId)->attachMetadata(
+            {{"__qcor__compute__segment__", true}});
+      }
+    }
+
     for (int instId = 0; instId < ctrlKernel->nInstructions(); ++instId) {
-      parent_kernel->addInstruction(
-          ctrlKernel->getInstruction(instId)->clone());
+      parent_kernel->addInstruction(ctrlKernel->getInstruction(instId));
     }
     // Need to reset and point current program to the parent
     quantum::set_current_program(parent_kernel);
@@ -348,34 +427,26 @@ class QuantumKernel {
 template <typename Derived>
 using OneQubitKernel = QuantumKernel<Derived, qubit>;
 
-#define ONE_QUBIT_KERNEL_CTRL_ENABLER(CLASSNAME, QRTNAME)                 \
-  class CLASSNAME : public OneQubitKernel<class CLASSNAME> {              \
-   public:                                                                \
-    CLASSNAME(qubit q) : OneQubitKernel<CLASSNAME>(q) {}                  \
-    CLASSNAME(std::shared_ptr<qcor::CompositeInstruction> _parent_kernel, \
-              qubit q)                                                    \
-        : OneQubitKernel<CLASSNAME>(_parent_kernel, q) {                  \
-      throw std::runtime_error("you cannot call this.");                  \
-    }                                                                     \
-    void operator()(qubit q) {                                            \
-      parent_kernel = qcor::__internal__::create_composite(               \
-          "__tmp_one_qubit_ctrl_enabler");                                \
-      quantum::set_current_program(parent_kernel);                        \
-      if (runtime_env == QrtType::FTQC) {                                 \
-        quantum::set_current_buffer(q.results());                         \
-      }                                                                   \
-      bool cached_is_compute_section =                                    \
-          ::quantum::qrt_impl->isComputeSection();                        \
-      if (cached_is_compute_section) {                                    \
-        ::quantum::qrt_impl->__end_mark_segment_as_compute();             \
-      }                                                                   \
-      ::quantum::QRTNAME(q);                                              \
-      if (cached_is_compute_section) {                                    \
-        ::quantum::qrt_impl->__begin_mark_segment_as_compute();           \
-      }                                                                   \
-      return;                                                             \
-    }                                                                     \
-    virtual ~CLASSNAME() {}                                               \
+#define ONE_QUBIT_KERNEL_CTRL_ENABLER(CLASSNAME, QRTNAME)                      \
+  class CLASSNAME : public OneQubitKernel<class CLASSNAME> {                   \
+  public:                                                                      \
+    CLASSNAME(qubit q) : OneQubitKernel<CLASSNAME>(q) {}                       \
+    CLASSNAME(std::shared_ptr<qcor::CompositeInstruction> _parent_kernel,      \
+              qubit q)                                                         \
+        : OneQubitKernel<CLASSNAME>(_parent_kernel, q) {                       \
+      throw std::runtime_error("you cannot call this.");                       \
+    }                                                                          \
+    void operator()(qubit q) {                                                 \
+      parent_kernel = qcor::__internal__::create_composite(                    \
+          "__tmp_one_qubit_ctrl_enabler");                                     \
+      quantum::set_current_program(parent_kernel);                             \
+      if (runtime_env == QrtType::FTQC) {                                      \
+        quantum::set_current_buffer(q.results());                              \
+      }                                                                        \
+      ::quantum::QRTNAME(q);                                                   \
+      return;                                                                  \
+    }                                                                          \
+    virtual ~CLASSNAME() {}                                                    \
   };
 
 ONE_QUBIT_KERNEL_CTRL_ENABLER(X, x)
@@ -400,19 +471,17 @@ ONE_QUBIT_KERNEL_CTRL_ENABLER(Sdg, sdg)
 // trailing variadic argument for the lambda class constructor. Once
 // instantiated lambda invocation looks just like kernel invocation.
 
-template <typename... CaptureArgs>
-class _qpu_lambda {
- private:
+template <typename... CaptureArgs> class _qpu_lambda {
+private:
   // Private inner class for getting the type
   // of a capture variable as a string at runtime
   class TupleToTypeArgString {
-   protected:
+  protected:
     std::string &tmp;
     std::vector<std::string> var_names;
     int counter = 0;
 
-    template <class T>
-    std::string type_name() {
+    template <class T> std::string type_name() {
       typedef typename std::remove_reference<T>::type TR;
       std::unique_ptr<char, void (*)(void *)> own(
           abi::__cxa_demangle(typeid(TR).name(), nullptr, nullptr, nullptr),
@@ -421,12 +490,11 @@ class _qpu_lambda {
       return r;
     }
 
-   public:
+  public:
     TupleToTypeArgString(std::string &t) : tmp(t) {}
     TupleToTypeArgString(std::string &t, std::vector<std::string> &_var_names)
         : tmp(t), var_names(_var_names) {}
-    template <typename T>
-    void operator()(T &t) {
+    template <typename T> void operator()(T &t) {
       tmp += type_name<decltype(t)>() + " " +
              (var_names.empty() ? "arg_" + std::to_string(counter)
                                 : var_names[counter]) +
@@ -447,13 +515,12 @@ class _qpu_lambda {
   // Quantum Just-in-Time Compiler :)
   QJIT qjit;
 
- public:
+public:
   // Constructor, capture vars should be deduced without
   // specifying them since we're using C++17
   _qpu_lambda(std::string &&ff, std::string &&_capture_var_names,
-              CaptureArgs &..._capture_vars)
-      : src_str(ff),
-        capture_var_names(_capture_var_names),
+              CaptureArgs &... _capture_vars)
+      : src_str(ff), capture_var_names(_capture_var_names),
         capture_vars(std::forward_as_tuple(_capture_vars...)) {
     // Get the original args list
     auto first = src_str.find_first_of("(");
@@ -490,7 +557,8 @@ class _qpu_lambda {
     // preamble if necessary
     auto jit_src = ss.str();
     first = jit_src.find_first_of("{");
-    if (!capture_var_names.empty()) jit_src.insert(first + 1, capture_preamble);
+    if (!capture_var_names.empty())
+      jit_src.insert(first + 1, capture_preamble);
 
     // std::cout << "JITSRC:\n" << jit_src << "\n";
     // JIT Compile, storing the function pointers
@@ -512,20 +580,19 @@ class _qpu_lambda {
     // Merge the function args and the capture vars and execute
     auto final_args_tuple = std::tuple_cat(kernel_args_tuple, capture_vars);
     std::apply(
-        [&](auto &&...args) {
+        [&](auto &&... args) {
           qjit.invoke_with_parent("foo", parent, args...);
         },
         final_args_tuple);
   }
 
-  template <typename... FunctionArgs>
-  void operator()(FunctionArgs... args) {
+  template <typename... FunctionArgs> void operator()(FunctionArgs... args) {
     // Map the function args to a tuple
     auto kernel_args_tuple = std::make_tuple(args...);
 
     // Merge the function args and the capture vars and execute
     auto final_args_tuple = std::tuple_cat(kernel_args_tuple, capture_vars);
-    std::apply([&](auto &&...args) { qjit.invoke("foo", args...); },
+    std::apply([&](auto &&... args) { qjit.invoke("foo", args...); },
                final_args_tuple);
   }
 
@@ -563,22 +630,19 @@ template <typename... Args>
 using callable_function_ptr =
     void (*)(std::shared_ptr<xacc::CompositeInstruction>, Args...);
 
-template <typename... Args>
-class KernelSignature {
- private:
-  callable_function_ptr<Args...> * readOnly = 0; 
+template <typename... Args> class KernelSignature {
+private:
+  callable_function_ptr<Args...> *readOnly = 0;
   callable_function_ptr<Args...> &function_pointer;
   std::function<void(std::shared_ptr<xacc::CompositeInstruction>, Args...)>
       lambda_func;
 
- public:
-
-  // Here we set function_pointer to null and instead 
-  // only use lambda_func. If we set lambda_func, function_pointer 
+public:
+  // Here we set function_pointer to null and instead
+  // only use lambda_func. If we set lambda_func, function_pointer
   // will never be used, so we should be good.
   template <typename... CaptureArgs>
-  KernelSignature(
-      _qpu_lambda<CaptureArgs...> &lambda)
+  KernelSignature(_qpu_lambda<CaptureArgs...> &lambda)
       : function_pointer(*readOnly),
         lambda_func([&](std::shared_ptr<xacc::CompositeInstruction> pp,
                         Args... a) { lambda(pp, a...); }) {}
@@ -672,4 +736,4 @@ class KernelSignature {
   }
 };
 
-}  // namespace qcor
+} // namespace qcor
