@@ -8,6 +8,20 @@
 namespace qcor {
 enum class QrtType { NISQ, FTQC };
 
+// Forward declare
+template <typename... Args> class KernelSignature;
+
+namespace internal {
+// KernelSignature is the base of all kernel-like objects
+// and we use it to implement kernel modifiers & utilities.
+// Make this a utility function so that implicit conversion to KernelSignature
+// occurs automatically.
+template <typename... Args>
+void apply_control(std::shared_ptr<CompositeInstruction> parent_kernel,
+                   const std::vector<qubit> &ctrl_qbits,
+                   KernelSignature<Args...> &kernelCallable, Args... args);
+} // namespace internal
+
 // The QuantumKernel represents the super-class of all qcor
 // quantum kernel functors. Subclasses of this are auto-generated
 // via the Clang Syntax Handler capability. Derived classes
@@ -228,67 +242,10 @@ public:
 
   static void ctrl(std::shared_ptr<CompositeInstruction> parent_kernel,
                    const std::vector<qubit> &ctrl_qbits, Args... args) {
-    const auto buffer_name = ctrl_qbits[0].first;
-
-    for (const auto &qb : ctrl_qbits) {
-      if (qb.first != buffer_name) {
-        // We can only handle control qubits on the same qReg.
-        error("Unable to handle control qubits from different registers");
-      }
-    }
-
-    std::vector<int> ctrl_bits;
-    std::transform(ctrl_qbits.begin(), ctrl_qbits.end(),
-                   std::back_inserter(ctrl_bits),
-                   [](auto qb) { return qb.second; });
-
     // instantiate and don't let it call the destructor
     Derived derived(args...);
-    derived.disable_destructor = true;
-
-    // Is is in a **compute** segment?
-    // i.e. doing control within the compute block itself.
-    // need to by-pass the compute marking in order for the control gate to
-    // work.
-    const bool cached_is_compute_section =
-        ::quantum::qrt_impl->isComputeSection();
-    if (cached_is_compute_section) {
-      ::quantum::qrt_impl->__end_mark_segment_as_compute();
-    }
-
-    // run the operator()(args...) call to get the the functor
-    // as a CompositeInstruction (derived.parent_kernel)
-    derived(args...);
-
-    if (cached_is_compute_section) {
-      ::quantum::qrt_impl->__begin_mark_segment_as_compute();
-    }
-
-    // Use the controlled gate module of XACC to transform
-    auto tempKernel = qcor::__internal__::create_composite("temp_control");
-    tempKernel->addInstruction(derived.parent_kernel);
-
-    auto ctrlKernel = qcor::__internal__::create_ctrl_u();
-    ctrlKernel->expand({{"U", tempKernel},
-                        {"control-idx", ctrl_bits},
-                        {"control-buffer", buffer_name}});
-
-    // Mark all the *Controlled* instructions as compute segment
-    // if it was in the compute_section.
-    // i.e. we have bypassed the marker previously to make C-U to work,
-    // now we mark all the generated instructions.
-    if (cached_is_compute_section) {
-      for (int instId = 0; instId < ctrlKernel->nInstructions(); ++instId) {
-        ctrlKernel->getInstruction(instId)->attachMetadata(
-            {{"__qcor__compute__segment__", true}});
-      }
-    }
-
-    for (int instId = 0; instId < ctrlKernel->nInstructions(); ++instId) {
-      parent_kernel->addInstruction(ctrlKernel->getInstruction(instId));
-    }
-    // Need to reset and point current program to the parent
-    quantum::set_current_program(parent_kernel);
+    KernelSignature<Args...> callable(derived);
+    internal::apply_control(parent_kernel, ctrl_qbits, callable, args...);
   }
 
   // Create the controlled version of this quantum kernel
@@ -649,7 +606,17 @@ public:
 
   KernelSignature(callable_function_ptr<Args...> &&f) : function_pointer(f) {}
 
-  // Ctor from raw void* funtion pointer.
+  template <typename KernelType>
+  KernelSignature(KernelType &kernel)
+      : function_pointer(*readOnly),
+        lambda_func(
+            [&](std::shared_ptr<xacc::CompositeInstruction> pp, Args... a) {
+              kernel.disable_destructor = true;
+              kernel.parent_kernel = pp;
+              kernel(a...);
+            }) {}
+
+  // Ctor from raw void* function pointer.
   // IMPORTANT: since function_pointer is kept as a *reference*,
   // we must keep a reference to the original f_ptr void* as well.
   KernelSignature(void *&f_ptr)
@@ -736,4 +703,68 @@ public:
   }
 };
 
+namespace internal {
+// KernelSignature is the base of all kernel-like objects
+// and we use it to implement kernel modifiers && utilities.
+// Make this a utility function so that implicit conversion to KernelSignature
+// occurs automatically.
+template <typename... Args>
+void apply_control(std::shared_ptr<CompositeInstruction> parent_kernel,
+                   const std::vector<qubit> &ctrl_qbits,
+                   KernelSignature<Args...> &kernelCallable, Args... args) {
+  const auto buffer_name = ctrl_qbits[0].first;
+
+  for (const auto &qb : ctrl_qbits) {
+    if (qb.first != buffer_name) {
+      // We can only handle control qubits on the same qReg.
+      error("Unable to handle control qubits from different registers");
+    }
+  }
+
+  std::vector<int> ctrl_bits;
+  std::transform(ctrl_qbits.begin(), ctrl_qbits.end(),
+                 std::back_inserter(ctrl_bits),
+                 [](auto qb) { return qb.second; });
+
+  // Is is in a **compute** segment?
+  // i.e. doing control within the compute block itself.
+  // need to by-pass the compute marking in order for the control gate to
+  // work.
+  const bool cached_is_compute_section =
+      ::quantum::qrt_impl->isComputeSection();
+  if (cached_is_compute_section) {
+    ::quantum::qrt_impl->__end_mark_segment_as_compute();
+  }
+
+  // Use the controlled gate module of XACC to transform
+  auto tempKernel = qcor::__internal__::create_composite("temp_control");
+  kernelCallable(tempKernel, args...);
+
+  if (cached_is_compute_section) {
+    ::quantum::qrt_impl->__begin_mark_segment_as_compute();
+  }
+
+  auto ctrlKernel = qcor::__internal__::create_ctrl_u();
+  ctrlKernel->expand({{"U", tempKernel},
+                      {"control-idx", ctrl_bits},
+                      {"control-buffer", buffer_name}});
+
+  // Mark all the *Controlled* instructions as compute segment
+  // if it was in the compute_section.
+  // i.e. we have bypassed the marker previously to make C-U to work,
+  // now we mark all the generated instructions.
+  if (cached_is_compute_section) {
+    for (int instId = 0; instId < ctrlKernel->nInstructions(); ++instId) {
+      ctrlKernel->getInstruction(instId)->attachMetadata(
+          {{"__qcor__compute__segment__", true}});
+    }
+  }
+
+  for (int instId = 0; instId < ctrlKernel->nInstructions(); ++instId) {
+    parent_kernel->addInstruction(ctrlKernel->getInstruction(instId));
+  }
+  // Need to reset and point current program to the parent
+  quantum::set_current_program(parent_kernel);
+}
+} // namespace internal
 } // namespace qcor
