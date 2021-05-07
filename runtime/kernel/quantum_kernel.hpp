@@ -92,13 +92,7 @@ public:
     os << derived.parent_kernel->toString() << "\n";
   }
 
-  static void print_kernel(Args... args) {
-    Derived derived(args...);
-    derived.disable_destructor = true;
-    derived(args...);
-    xacc::internal_compiler::execute_pass_manager();
-    std::cout << derived.parent_kernel->toString() << "\n";
-  }
+  static void print_kernel(Args... args) { print_kernel(std::cout, args...); }
 
   // Static method to query how many instructions are in this kernel
   static std::size_t n_instructions(Args... args) {
@@ -548,14 +542,21 @@ public:
 
   KernelSignature(callable_function_ptr<Args...> &&f) : function_pointer(f) {}
 
-  template <typename KernelType>
+  // CTor from a QCOR QuantumKernel instance:
+  template <
+      typename KernelType,
+      std::enable_if_t<
+          std::is_base_of_v<QuantumKernel<KernelType, Args...>, KernelType>,
+          bool> = true>
   KernelSignature(KernelType &kernel)
       : function_pointer(*readOnly),
         lambda_func(
             [&](std::shared_ptr<xacc::CompositeInstruction> pp, Args... a) {
+              // Expand the kernel and append to the *externally-provided*
+              // parent kernel as a KernelSignature one.
               kernel.disable_destructor = true;
-              kernel.parent_kernel = pp;
               kernel(a...);
+              pp->addInstructions(kernel.parent_kernel->getInstructions());
             }) {}
 
   // Ctor from raw void* function pointer.
