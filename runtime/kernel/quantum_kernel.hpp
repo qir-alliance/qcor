@@ -492,7 +492,7 @@ public:
             const std::vector<int> &ctrl_idxs, FunctionArgs... args) {
     std::vector<qubit> ctrl_qubit_vec;
     for (int i = 0; i < ctrl_idxs.size(); i++) {
-      ctrl_qubit_vec.push_back({"q", ctrl_idxs[i], nullptr});
+      ctrl_qubit_vec.push_back({"q", static_cast<size_t>(ctrl_idxs[i]), nullptr});
     }
     ctrl(ir, ctrl_qubit_vec, args...);
   }
@@ -580,7 +580,7 @@ public:
             const std::vector<int> ctrl_idxs, Args... args) {
     std::vector<qubit> ctrl_qubit_vec;
     for (int i = 0; i < ctrl_idxs.size(); i++) {
-      ctrl_qubit_vec.push_back({"q", ctrl_idxs[i], nullptr});
+      ctrl_qubit_vec.push_back({"q", static_cast<size_t>(ctrl_idxs[i]), nullptr});
     }
     ctrl(ir, ctrl_qubit_vec, args...);
   }
