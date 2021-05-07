@@ -176,7 +176,7 @@ public:
   // Single-qubit overload
   static void ctrl(std::shared_ptr<CompositeInstruction> parent_kernel,
                    int ctrlIdx, Args... args) {
-    ctrl(parent_kernel, {ctrlIdx}, args...);
+    ctrl(parent_kernel, std::vector<int>{ctrlIdx}, args...);
   }
 
   static void ctrl(std::shared_ptr<CompositeInstruction> parent_kernel,
@@ -199,7 +199,7 @@ public:
   // Create the controlled version of this quantum kernel
   static void ctrl(std::shared_ptr<CompositeInstruction> parent_kernel,
                    qubit ctrl_qbit, Args... args) {
-    ctrl(parent_kernel, {ctrl_qbit}, args...);
+    ctrl(parent_kernel, std::vector<qubit>{ctrl_qbit}, args...);
   }
 
   static Eigen::MatrixXcd as_unitary_matrix(Args... args) {
@@ -276,6 +276,9 @@ public:
   }
 
   virtual ~QuantumKernel() {}
+
+  template<typename... ArgTypes>
+  friend class KernelSignature;
 };
 
 // We use the following to enable ctrl operations on our single
@@ -500,13 +503,13 @@ public:
   template <typename... FunctionArgs>
   void ctrl(std::shared_ptr<CompositeInstruction> ir, int ctrl_qbit,
             FunctionArgs... args) {
-    ctrl(ir, {ctrl_qbit}, args...);
+    ctrl(ir, std::vector<int>{ctrl_qbit}, args...);
   }
 
   template <typename... FunctionArgs>
   void ctrl(std::shared_ptr<CompositeInstruction> ir, qubit ctrl_qbit,
             FunctionArgs... args) {
-    ctrl(ir, {ctrl_qbit}, args...);
+    ctrl(ir, std::vector<qubit>{ctrl_qbit}, args...);
   }
 
   template <typename... FunctionArgs>
@@ -586,12 +589,12 @@ public:
   }
   void ctrl(std::shared_ptr<xacc::CompositeInstruction> ir, int ctrl_qbit,
             Args... args) {
-    ctrl(ir, {ctrl_qbit}, args...);
+    ctrl(ir, std::vector<int>{ctrl_qbit}, args...);
   }
 
   void ctrl(std::shared_ptr<xacc::CompositeInstruction> ir, qubit ctrl_qbit,
             Args... args) {
-    ctrl(ir, {ctrl_qbit}, args...);
+    ctrl(ir, std::vector<qubit>{ctrl_qbit}, args...);
   }
 
   void ctrl(std::shared_ptr<xacc::CompositeInstruction> ir, qreg ctrl_qbits,
