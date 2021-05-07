@@ -168,7 +168,7 @@ public:
                    const std::vector<int> &ctrlIdx, Args... args) {
     std::vector<qubit> ctrl_qubit_vec;
     for (int i = 0; i < ctrlIdx.size(); i++) {
-      ctrl_qubit_vec.push_back({"q", ctrlIdx[i], nullptr});
+      ctrl_qubit_vec.push_back({"q", static_cast<size_t>(ctrlIdx[i]), nullptr});
     }
     ctrl(parent_kernel, ctrl_qubit_vec, args...);
   }
@@ -477,6 +477,46 @@ public:
     std::tuple<FunctionArgs...> tmp(std::forward_as_tuple(args...));
     auto q = std::get<qreg>(tmp);
     return qcor::observe(tempKernel, obs, q);
+  }
+
+  template <typename... FunctionArgs>
+  void ctrl(std::shared_ptr<CompositeInstruction> ir,
+            const std::vector<qubit> &ctrl_qbits, FunctionArgs... args) {
+    KernelSignature<FunctionArgs...> callable(*this);
+
+    internal::apply_control(ir, ctrl_qbits, callable, args...);
+  }
+
+  template <typename... FunctionArgs>
+  void ctrl(std::shared_ptr<CompositeInstruction> ir,
+            const std::vector<int> &ctrl_idxs, FunctionArgs... args) {
+    std::vector<qubit> ctrl_qubit_vec;
+    for (int i = 0; i < ctrl_idxs.size(); i++) {
+      ctrl_qubit_vec.push_back({"q", ctrl_idxs[i], nullptr});
+    }
+    ctrl(ir, ctrl_qubit_vec, args...);
+  }
+
+  template <typename... FunctionArgs>
+  void ctrl(std::shared_ptr<CompositeInstruction> ir, int ctrl_qbit,
+            FunctionArgs... args) {
+    ctrl(ir, {ctrl_qbit}, args...);
+  }
+
+  template <typename... FunctionArgs>
+  void ctrl(std::shared_ptr<CompositeInstruction> ir, qubit ctrl_qbit,
+            FunctionArgs... args) {
+    ctrl(ir, {ctrl_qbit}, args...);
+  }
+
+  template <typename... FunctionArgs>
+  void ctrl(std::shared_ptr<CompositeInstruction> ir, qreg ctrl_qbits,
+            FunctionArgs... args) {
+    std::vector<qubit> ctrl_qubit_vec;
+    for (int i = 0; i < ctrl_qbits.size(); i++) {
+      ctrl_qubit_vec.push_back(ctrl_qbits[i]);
+    }
+    ctrl(ir, ctrl_qubit_vec, args...);
   }
 };
 
