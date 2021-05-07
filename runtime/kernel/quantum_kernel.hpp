@@ -166,63 +166,11 @@ public:
   // Create the controlled version of this quantum kernel
   static void ctrl(std::shared_ptr<CompositeInstruction> parent_kernel,
                    const std::vector<int> &ctrlIdx, Args... args) {
-    // instantiate and don't let it call the destructor
-    Derived derived(args...);
-    derived.disable_destructor = true;
-
-    // Is is in a **compute** segment?
-    // i.e. doing control within the compute block itself.
-    // need to by-pass the compute marking in order for the control gate to
-    // work.
-    const bool cached_is_compute_section =
-        ::quantum::qrt_impl->isComputeSection();
-    if (cached_is_compute_section) {
-      ::quantum::qrt_impl->__end_mark_segment_as_compute();
+    std::vector<qubit> ctrl_qubit_vec;
+    for (int i = 0; i < ctrlIdx.size(); i++) {
+      ctrl_qubit_vec.push_back({"q", ctrlIdx[i], nullptr});
     }
-
-    // run the operator()(args...) call to get the the functor
-    // as a CompositeInstruction (derived.parent_kernel)
-    // No compute markings on these instructions
-    derived(args...);
-
-    if (cached_is_compute_section) {
-      ::quantum::qrt_impl->__begin_mark_segment_as_compute();
-    }
-
-    // Use the controlled gate module of XACC to transform
-    auto tempKernel = qcor::__internal__::create_composite("temp_control");
-    tempKernel->addInstruction(derived.parent_kernel);
-
-    auto ctrlKernel = qcor::__internal__::create_ctrl_u();
-    ctrlKernel->expand({
-        std::make_pair("U", tempKernel),
-        std::make_pair("control-idx", ctrlIdx),
-    });
-
-    // Mark all the *Controlled* instructions as compute segment
-    // if it was in the compute_section.
-    // i.e. we have bypassed the marker previously to make C-U to work,
-    // now we mark all the generated instructions.
-    // e.g.
-    // compute {
-    //  kernel::ctrl(....)
-    //}
-    // We disable compute flag to expand kernel then generate its control
-    // circuit **then** mark compute for all instructions so that
-    // later if we control the top-level kernel (containing this compute/action)
-    // no controlling is needed for these instructions.
-    if (cached_is_compute_section) {
-      for (int instId = 0; instId < ctrlKernel->nInstructions(); ++instId) {
-        ctrlKernel->getInstruction(instId)->attachMetadata(
-            {{"__qcor__compute__segment__", true}});
-      }
-    }
-    // std::cout << "HELLO\n" << ctrlKernel->toString() << "\n";
-    for (int instId = 0; instId < ctrlKernel->nInstructions(); ++instId) {
-      parent_kernel->addInstruction(ctrlKernel->getInstruction(instId));
-    }
-    // Need to reset and point current program to the parent
-    quantum::set_current_program(parent_kernel);
+    ctrl(parent_kernel, ctrl_qubit_vec, args...);
   }
 
   // Single-qubit overload
@@ -251,56 +199,7 @@ public:
   // Create the controlled version of this quantum kernel
   static void ctrl(std::shared_ptr<CompositeInstruction> parent_kernel,
                    qubit ctrl_qbit, Args... args) {
-    int ctrl_bit = (int)ctrl_qbit.second;
-
-    // instantiate and don't let it call the destructor
-    Derived derived(args...);
-    derived.disable_destructor = true;
-
-    // Is is in a **compute** segment?
-    // i.e. doing control within the compute block itself.
-    // need to by-pass the compute marking in order for the control gate to
-    // work.
-    const bool cached_is_compute_section =
-        ::quantum::qrt_impl->isComputeSection();
-    if (cached_is_compute_section) {
-      ::quantum::qrt_impl->__end_mark_segment_as_compute();
-    }
-
-    // run the operator()(args...) call to get the the functor
-    // as a CompositeInstruction (derived.parent_kernel)
-    // No compute markings on these instructions
-    derived(args...);
-
-    if (cached_is_compute_section) {
-      ::quantum::qrt_impl->__begin_mark_segment_as_compute();
-    }
-
-    // Use the controlled gate module of XACC to transform
-    auto tempKernel = qcor::__internal__::create_composite("temp_control");
-    tempKernel->addInstruction(derived.parent_kernel);
-
-    auto ctrlKernel = qcor::__internal__::create_ctrl_u();
-    ctrlKernel->expand({{"U", tempKernel},
-                        {"control-idx", ctrl_bit},
-                        {"control-buffer", ctrl_qbit.first}});
-
-    // Mark all the *Controlled* instructions as compute segment
-    // if it was in the compute_section.
-    // i.e. we have bypassed the marker previously to make C-U to work,
-    // now we mark all the generated instructions.
-    if (cached_is_compute_section) {
-      for (int instId = 0; instId < ctrlKernel->nInstructions(); ++instId) {
-        ctrlKernel->getInstruction(instId)->attachMetadata(
-            {{"__qcor__compute__segment__", true}});
-      }
-    }
-
-    for (int instId = 0; instId < ctrlKernel->nInstructions(); ++instId) {
-      parent_kernel->addInstruction(ctrlKernel->getInstruction(instId));
-    }
-    // Need to reset and point current program to the parent
-    quantum::set_current_program(parent_kernel);
+    ctrl(parent_kernel, {ctrl_qbit}, args...);
   }
 
   static Eigen::MatrixXcd as_unitary_matrix(Args... args) {
@@ -632,28 +531,36 @@ public:
     function_pointer(ir, args...);
   }
 
+  void ctrl(std::shared_ptr<xacc::CompositeInstruction> ir,
+            const std::vector<qubit> &ctrl_qbits, Args... args) {
+    internal::apply_control(ir, ctrl_qbits, *this, args...);
+  }
+
+  void ctrl(std::shared_ptr<xacc::CompositeInstruction> ir,
+            const std::vector<int> ctrl_idxs, Args... args) {
+    std::vector<qubit> ctrl_qubit_vec;
+    for (int i = 0; i < ctrl_idxs.size(); i++) {
+      ctrl_qubit_vec.push_back({"q", ctrl_idxs[i], nullptr});
+    }
+    ctrl(ir, ctrl_qubit_vec, args...);
+  }
   void ctrl(std::shared_ptr<xacc::CompositeInstruction> ir, int ctrl_qbit,
             Args... args) {
-    auto tempKernel = qcor::__internal__::create_composite("temp_control");
-    operator()(tempKernel, args...);
-
-    auto ctrlKernel = qcor::__internal__::create_ctrl_u();
-    ctrlKernel->expand({
-        std::make_pair("U", tempKernel),
-        std::make_pair("control-idx", ctrl_qbit),
-    });
-
-    for (int instId = 0; instId < ctrlKernel->nInstructions(); ++instId) {
-      ir->addInstruction(ctrlKernel->getInstruction(instId)->clone());
-    }
-
-    ::quantum::set_current_program(ir);
+    ctrl(ir, {ctrl_qbit}, args...);
   }
 
   void ctrl(std::shared_ptr<xacc::CompositeInstruction> ir, qubit ctrl_qbit,
             Args... args) {
-    int ctrl_bit = (int)ctrl_qbit.second;
-    ctrl(ir, ctrl_bit, args...);
+    ctrl(ir, {ctrl_qbit}, args...);
+  }
+
+  void ctrl(std::shared_ptr<xacc::CompositeInstruction> ir, qreg ctrl_qbits,
+            Args... args) {
+    std::vector<qubit> ctrl_qubit_vec;
+    for (int i = 0; i < ctrl_qbits.size(); i++) {
+      ctrl_qubit_vec.push_back(ctrl_qbits[i]);
+    }
+    ctrl(ir, ctrl_qubit_vec, args...);
   }
 
   void adjoint(std::shared_ptr<CompositeInstruction> ir, Args... args) {
