@@ -58,10 +58,10 @@ class QJIT {
   void write_cache();
 
   template <typename... Args>
-  void invoke(const std::string &kernel_name, Args... args) {
+  void invoke(const std::string &kernel_name, Args &&... args) {
     auto f_ptr = kernel_name_to_f_ptr[kernel_name];
     void (*kernel_functor)(Args...) = (void (*)(Args...))f_ptr;
-    kernel_functor(args...);
+    kernel_functor(std::forward<Args>(args)...);
   }
 
   template <typename... Args>

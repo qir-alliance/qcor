@@ -1,3 +1,15 @@
+# Add a QCOR compilation and run test.
+# The test can use qcor_expect macro to check expected results.
+function(add_qcor_compile_and_exe_test test_name relative_source_location)
+  add_test(
+  NAME
+    ${test_name}
+  COMMAND
+    bash -c "${CMAKE_BINARY_DIR}/qcor ${CMAKE_CURRENT_SOURCE_DIR}/${relative_source_location} -o ${test_name}; \
+              ${CMAKE_CURRENT_BINARY_DIR}/${test_name}"
+  )
+endfunction()
+
 add_test(NAME qrt_bell_multi COMMAND ${CMAKE_BINARY_DIR}/qcor -c ${CMAKE_CURRENT_SOURCE_DIR}/bell/bell_multi_qreg.cpp)
 add_test(NAME qrt_add_3_5 COMMAND ${CMAKE_BINARY_DIR}/qcor -v -c ${CMAKE_CURRENT_SOURCE_DIR}/adder/add_3_5.cpp WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/adder)
 add_test(NAME qrt_mixed_language COMMAND ${CMAKE_BINARY_DIR}/qcor -c ${CMAKE_CURRENT_SOURCE_DIR}/simple/mixed_language.cpp)
@@ -29,3 +41,6 @@ add_test(NAME quasimo_verified_qpe COMMAND ${CMAKE_BINARY_DIR}/qcor ${CMAKE_CURR
 add_test(NAME hadamard_ctrl_test COMMAND ${CMAKE_BINARY_DIR}/qcor ${CMAKE_CURRENT_SOURCE_DIR}/ctrl-gates/simple_hadamard_test.cpp)
 add_test(NAME multi_ctrl_test COMMAND ${CMAKE_BINARY_DIR}/qcor ${CMAKE_CURRENT_SOURCE_DIR}/ctrl-gates/multiple_controls.cpp)
 
+add_qcor_compile_and_exe_test(qrt_bell_ctrl bell/bell_control.cpp)
+add_qcor_compile_and_exe_test(qrt_qpu_lambda_simple qpu_lambda/lambda_test.cpp)
+add_qcor_compile_and_exe_test(qrt_qpu_lambda_bell qpu_lambda/lambda_test_bell.cpp)

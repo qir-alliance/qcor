@@ -7,7 +7,7 @@
 #include <random>
 #include <tuple>
 #include <vector>
-
+#include <stdexcept>
 #include "AllGateVisitor.hpp"
 #include "CompositeInstruction.hpp"
 #include "IRProvider.hpp"
@@ -382,4 +382,13 @@ class KernelToUnitaryVisitor : public xacc::quantum::AllGateVisitor {
   size_t m_nbQubit;
 };
 
-}  // namespace qcor
+#define qcor_expect(test_condition)                                            \
+  {                                                                            \
+    if (!(test_condition)) {                                                   \
+      std::stringstream ss;                                                    \
+      ss << __FILE__ << ":" << __LINE__ << ": Assertion failed: '"             \
+         << #test_condition << "'.";                                           \
+      throw std::runtime_error(ss.str());                                      \
+    }                                                                          \
+  }
+} // namespace qcor

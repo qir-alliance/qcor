@@ -1,5 +1,5 @@
 #pragma once
-
+#include <optional>
 #include "qcor_jit.hpp"
 #include "qcor_observable.hpp"
 #include "qcor_utils.hpp"
@@ -348,7 +348,7 @@ private:
     TupleToTypeArgString(std::string &t, std::vector<std::string> &_var_names)
         : tmp(t), var_names(_var_names) {}
     template <typename T> void operator()(T &t) {
-      tmp += type_name<decltype(t)>() + " " +
+      tmp += type_name<decltype(t)>() + "& " +
              (var_names.empty() ? "arg_" + std::to_string(counter)
                                 : var_names[counter]) +
              ",";
@@ -362,8 +362,20 @@ private:
   // Capture variable names
   std::string &capture_var_names;
 
-  // Capture variables, stored in tuple
+  // By-ref capture variables, stored in tuple
   std::tuple<CaptureArgs &...> capture_vars;
+
+  // Optional capture *by-value* variables:
+  // We don't want to make unnecessary copies of capture variables
+  // unless explicitly requested ("[=]").
+  // Also, some types may not be copy-constructable...
+  // Notes:
+  // (1) we must copy at the lambda declaration point (i.e. _qpu_lambda
+  // constructor)
+  // (2) our JIT code chain is constructed using the by-reference convention,
+  // just need to handle by-value (copy) at the top-level (i.e., in this tuple
+  // storage)
+  std::optional<std::tuple<CaptureArgs...>> optional_copy_capture_vars;
 
   // Quantum Just-in-Time Compiler :)
   QJIT qjit;
@@ -380,6 +392,19 @@ public:
     auto last = src_str.find_first_of(")");
     auto tt = src_str.substr(first, last - first + 1);
 
+    // Get the capture type:
+    // By default "[]", pass by reference.
+    // [=]: pass by value
+    // [&]: pass by reference (same as default)
+    const auto first_square_bracket = src_str.find_first_of("[");
+    const auto last_square_bracket = src_str.find_first_of("]");
+    const auto capture_type = src_str.substr(
+        first_square_bracket, last_square_bracket - first_square_bracket + 1);
+    if (!capture_type.empty() && capture_type == "[=]") {
+      // Store capture vars (by-value)
+      optional_copy_capture_vars = std::forward_as_tuple(_capture_vars...);
+    }
+
     // Need to append capture vars to this arg signature
     std::string capture_preamble = "";
     if (!capture_var_names.empty()) {
@@ -387,12 +412,13 @@ public:
       TupleToTypeArgString co(args_string);
       __internal__::tuple_for_each(capture_vars, co);
       args_string = "," + args_string.substr(0, args_string.length() - 1);
-      tt.insert(last - 2, args_string);
+      tt.insert(last - capture_type.size(), args_string);
       capture_preamble += "\n";
       for (auto [i, capture_name] :
            qcor::enumerate(xacc::split(capture_var_names, ','))) {
+        // Preamble must use reference type to prevent copy.
         capture_preamble +=
-            "auto " + capture_name + " = arg_" + std::to_string(i) + ";\n";
+            "auto &" + capture_name + " = arg_" + std::to_string(i) + ";\n";
       }
     }
 
@@ -428,25 +454,45 @@ public:
   void operator()(std::shared_ptr<CompositeInstruction> parent,
                   FunctionArgs... args) {
     // Map the function args to a tuple
-    auto kernel_args_tuple = std::make_tuple(args...);
+    auto kernel_args_tuple = std::forward_as_tuple(args...);
 
-    // Merge the function args and the capture vars and execute
-    auto final_args_tuple = std::tuple_cat(kernel_args_tuple, capture_vars);
-    std::apply(
-        [&](auto &&... args) {
-          qjit.invoke_with_parent("foo", parent, args...);
-        },
-        final_args_tuple);
+    if (!optional_copy_capture_vars.has_value()) {
+      // By-ref:
+      // Merge the function args and the capture vars and execute
+      auto final_args_tuple = std::tuple_cat(kernel_args_tuple, capture_vars);
+      std::apply(
+          [&](auto &&... args) {
+            qjit.invoke_with_parent("foo", parent, args...);
+          },
+          final_args_tuple);
+    } else {
+      // By-value:
+      auto final_args_tuple =
+          std::tuple_cat(kernel_args_tuple, optional_copy_capture_vars.value());
+      std::apply(
+          [&](auto &&... args) {
+            qjit.invoke_with_parent("foo", parent, args...);
+          },
+          final_args_tuple);
+    }
   }
 
   template <typename... FunctionArgs> void operator()(FunctionArgs... args) {
     // Map the function args to a tuple
-    auto kernel_args_tuple = std::make_tuple(args...);
-
-    // Merge the function args and the capture vars and execute
-    auto final_args_tuple = std::tuple_cat(kernel_args_tuple, capture_vars);
-    std::apply([&](auto &&... args) { qjit.invoke("foo", args...); },
-               final_args_tuple);
+    auto kernel_args_tuple = std::forward_as_tuple(args...);
+    if (!optional_copy_capture_vars.has_value()) {
+      // By-ref
+      // Merge the function args and the capture vars and execute
+      auto final_args_tuple = std::tuple_cat(kernel_args_tuple, capture_vars);
+      std::apply([&](auto &&... args) { qjit.invoke("foo", args...); },
+                 final_args_tuple);
+    } else {
+      // By-value
+      auto final_args_tuple =
+          std::tuple_cat(kernel_args_tuple, optional_copy_capture_vars.value());
+      std::apply([&](auto &&... args) { qjit.invoke("foo", args...); },
+                 final_args_tuple);
+    }
   }
 
   template<typename... FunctionArgs>
