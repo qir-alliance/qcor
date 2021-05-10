@@ -244,8 +244,24 @@ const std::pair<std::string, std::string> QJIT::run_syntax_handler(
                arg_var[0] == "xacc::internal_compiler::qubit") {
       bufferNames.push_back(arg_var[1]);
     }
-    arg_types.push_back(arg_var[0]);
-    arg_vars.push_back(arg_var[1]);
+
+    // Handle type templated type:
+    // e.g. qcor::_qpu_lambda<int const>& arg_0
+    // we need to get the last one as arg name.
+    if (arg_var.size() == 2) {
+      arg_types.push_back(arg_var[0]);
+      arg_vars.push_back(arg_var[1]);
+    } else {
+      // More than 2 sub-strings after split...
+      // Reconstruct the full type name after the split.
+      std::string arg_type = arg_var[0];
+      for (int i = 1; i < arg_var.size() - 1; ++i) {
+        arg_type = arg_type + " " + arg_var[i];
+      }
+      arg_types.push_back(arg_type);
+      // Var name is the last
+      arg_vars.push_back(arg_var[arg_var.size() - 1]);
+    }
   }
 
   // second, lex the kernel_src

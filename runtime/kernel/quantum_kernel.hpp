@@ -338,19 +338,31 @@ public:
 
     // Need to append capture vars to this arg signature
     std::string capture_preamble = "";
+    const auto replaceVarName = [](std::string &str, const std::string &from,
+                                   const std::string &to) {
+      size_t start_pos = str.find(from);
+      if (start_pos != std::string::npos) {
+        str.replace(start_pos, from.length(), to);
+      }
+    };
     if (!capture_var_names.empty()) {
       std::string args_string = "";
       TupleToTypeArgString co(args_string);
       __internal__::tuple_for_each(capture_vars, co);
       args_string = "," + args_string.substr(0, args_string.length() - 1);
-      tt.insert(last - capture_type.size(), args_string);
-      capture_preamble += "\n";
+
+      // Replace the generic argument names (tuple foreach)
+      // with the actual capture var name.
+      // We need to do this so that the SyntaxHandler can properly detect if
+      // a capture var is a Kernel-like ==> add the list of in-flight kernels
+      // and add parent_kernel to the invocation.
       for (auto [i, capture_name] :
            qcor::enumerate(xacc::split(capture_var_names, ','))) {
-        // Preamble must use reference type to prevent copy.
-        capture_preamble +=
-            "auto &" + capture_name + " = arg_" + std::to_string(i) + ";\n";
+        const auto old_name = "arg_" + std::to_string(i);
+        replaceVarName(args_string, old_name, capture_name);
       }
+
+      tt.insert(last - capture_type.size(), args_string);
     }
 
     // Extract the function body
