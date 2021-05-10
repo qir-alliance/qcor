@@ -60,15 +60,13 @@ int main() {
   // amplification lambda
   auto amplification_lambda = qpu_lambda([](qreg q) {
     print("hey from amplification_lambda");
-    compute {
-      H(q);
-      X(q);
-    }
-    action {
-      auto ctrl_bits = q.head(q.size() - 1);
-      auto last_qubit = q.tail();
-      Z::ctrl(ctrl_bits, last_qubit);
-    }
+    H(q);
+    X(q);
+    auto ctrl_bits = q.head(q.size() - 1);
+    auto last_qubit = q.tail();
+    Z::ctrl(ctrl_bits, last_qubit);
+    X(q);
+    H(q);
   });
 
   // Capture the grover lambda and iterations directly from the enclosing scope.
@@ -88,4 +86,6 @@ int main() {
   grover_lambda.print_kernel(q_lambda);
   grover_lambda(q_lambda);
   q_lambda.print();
+  // Two bitstrings only.
+  qcor_expect(q_lambda.counts().size() == 2);
 }
