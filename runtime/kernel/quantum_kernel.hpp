@@ -14,12 +14,33 @@ template <typename... Args> class KernelSignature;
 namespace internal {
 // KernelSignature is the base of all kernel-like objects
 // and we use it to implement kernel modifiers & utilities.
-// Make this a utility function so that implicit conversion to KernelSignature
-// occurs automatically.
+// i.e., anything that is KernelSignature-constructible can use these methods.
 template <typename... Args>
 void apply_control(std::shared_ptr<CompositeInstruction> parent_kernel,
                    const std::vector<qubit> &ctrl_qbits,
                    KernelSignature<Args...> &kernelCallable, Args... args);
+
+template <typename... Args>
+void apply_adjoint(std::shared_ptr<CompositeInstruction> parent_kernel,
+                   KernelSignature<Args...> &kernelCallable, Args... args);
+
+template <typename... Args>
+double observe(Observable &obs, KernelSignature<Args...> &kernelCallable,
+               Args... args);
+
+template <typename... Args>
+Eigen::MatrixXcd as_unitary_matrix(KernelSignature<Args...> &kernelCallable,
+                                   Args... args);
+template <typename... Args>
+std::string openqasm(KernelSignature<Args...> &kernelCallable, Args... args);
+
+template <typename... Args>
+void print_kernel(KernelSignature<Args...> &kernelCallable, std::ostream &os,
+                  Args... args);
+
+template <typename... Args>
+std::size_t n_instructions(KernelSignature<Args...> &kernelCallable,
+                           Args... args);
 } // namespace internal
 
 // The QuantumKernel represents the super-class of all qcor
@@ -762,6 +783,132 @@ void apply_control(std::shared_ptr<CompositeInstruction> parent_kernel,
   }
   // Need to reset and point current program to the parent
   quantum::set_current_program(parent_kernel);
+}
+
+template <typename... Args>
+void apply_adjoint(std::shared_ptr<CompositeInstruction> parent_kernel,
+                   KernelSignature<Args...> &kernelCallable, Args... args) {
+  auto tempKernel = qcor::__internal__::create_composite("temp_adjoint");
+  kernelCallable(tempKernel, args...);
+
+  // get the instructions
+  auto instructions = tempKernel->getInstructions();
+  std::shared_ptr<CompositeInstruction> program = tempKernel;
+
+  // Assert that we don't have measurement
+  if (!std::all_of(
+          instructions.cbegin(), instructions.cend(),
+          [](const auto &inst) { return inst->name() != "Measure"; })) {
+    error("Unable to create Adjoint for kernels that have Measure operations.");
+  }
+
+  auto provider = qcor::__internal__::get_provider();
+  for (int i = 0; i < instructions.size(); i++) {
+    auto inst = tempKernel->getInstruction(i);
+    // Parametric gates:
+    if (inst->name() == "Rx" || inst->name() == "Ry" || inst->name() == "Rz" ||
+        inst->name() == "CPHASE" || inst->name() == "U1" ||
+        inst->name() == "CRZ") {
+      inst->setParameter(0, -inst->getParameter(0).template as<double>());
+    }
+    // Handles T and S gates, etc... => T -> Tdg
+    else if (inst->name() == "T") {
+      auto tdg = provider->createInstruction("Tdg", inst->bits());
+      program->replaceInstruction(i, tdg);
+    } else if (inst->name() == "S") {
+      auto sdg = provider->createInstruction("Sdg", inst->bits());
+      program->replaceInstruction(i, sdg);
+    }
+  }
+
+  // We update/replace instructions in the derived.parent_kernel composite,
+  // hence collecting these new instructions and reversing the sequence.
+  auto new_instructions = tempKernel->getInstructions();
+  std::reverse(new_instructions.begin(), new_instructions.end());
+
+  // Are we in a compute section?
+  // Make sure we mark all instructions appropriately.
+  // e.g. we do create new instructions, e.g. Tdg, Sdg, in the above step.
+  if (::quantum::qrt_impl->isComputeSection()) {
+    for (auto &inst : new_instructions) {
+      inst->attachMetadata({{"__qcor__compute__segment__", true}});
+    }
+  }
+
+  // add the instructions to the current parent kernel
+  parent_kernel->addInstructions(new_instructions);
+
+  ::quantum::set_current_program(parent_kernel);
+}
+
+template <typename... Args>
+double observe(Observable &obs, KernelSignature<Args...> &kernelCallable,
+                    Args... args) {
+  auto tempKernel = qcor::__internal__::create_composite("temp_observe");
+  kernelCallable(tempKernel, args...);
+  auto instructions = tempKernel->getInstructions();
+  // Assert that we don't have measurement
+  if (!std::all_of(
+          instructions.cbegin(), instructions.cend(),
+          [](const auto &inst) { return inst->name() != "Measure"; })) {
+    error("Unable to observe kernels that already have Measure operations.");
+  }
+
+  xacc::internal_compiler::execute_pass_manager();
+
+  // Will fail to compile if more than one qreg is passed.
+  std::tuple<Args...> tmp(std::forward_as_tuple(args...));
+  auto q = std::get<qreg>(tmp);
+  return qcor::observe(tempKernel, obs, q);
+}
+
+template <typename... Args>
+Eigen::MatrixXcd as_unitary_matrix(KernelSignature<Args...> &kernelCallable,
+                                   Args... args) {
+  auto tempKernel = qcor::__internal__::create_composite("temp_as_unitary");
+  kernelCallable(tempKernel, args...);
+  auto instructions = tempKernel->getInstructions();
+  // Assert that we don't have measurement
+  if (!std::all_of(
+          instructions.cbegin(), instructions.cend(),
+          [](const auto &inst) { return inst->name() != "Measure"; })) {
+    error("Unable to compute unitary matrix for kernels that already have "
+          "Measure operations.");
+  }
+  qcor::KernelToUnitaryVisitor visitor(tempKernel->nLogicalBits());
+  xacc::InstructionIterator iter(tempKernel);
+  while (iter.hasNext()) {
+    auto inst = iter.next();
+    if (!inst->isComposite() && inst->isEnabled()) {
+      inst->accept(&visitor);
+    }
+  }
+  return visitor.getMat();
+}
+
+template <typename... Args>
+std::string openqasm(KernelSignature<Args...> &kernelCallable, Args... args) {
+  auto tempKernel = qcor::__internal__::create_composite("temp_as_openqasm");
+  kernelCallable(tempKernel, args...);
+  xacc::internal_compiler::execute_pass_manager();
+  return __internal__::translate("staq", tempKernel);
+}
+
+template <typename... Args>
+void print_kernel(KernelSignature<Args...> &kernelCallable, std::ostream &os,
+             Args... args) {
+  auto tempKernel = qcor::__internal__::create_composite("temp_print");
+  kernelCallable(tempKernel, args...);
+  xacc::internal_compiler::execute_pass_manager();
+  os << tempKernel->toString() << "\n";
+}
+
+template <typename... Args>
+std::size_t n_instructions(KernelSignature<Args...> &kernelCallable,
+                           Args... args) {
+  auto tempKernel = qcor::__internal__::create_composite("temp_count_insts");
+  kernelCallable(tempKernel, args...);
+  return tempKernel->nInstructions();
 }
 } // namespace internal
 } // namespace qcor
