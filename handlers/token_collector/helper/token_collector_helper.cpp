@@ -57,6 +57,13 @@ std::string construct_kernel_subtype(
   }
   OS << ">;\n";
 
+  // Declare KernelSignature as a friend as well
+  OS << "friend class qcor::KernelSignature<"<< program_arg_types[0];
+  for (int i = 1; i < program_arg_types.size(); i++) {
+    OS << ", " << program_arg_types[i];
+  }
+  OS << ">;\n";
+
   // declare protected operator()() method
   OS << "protected:\n";
   OS << "void operator()(" << program_arg_types[0] << " "
