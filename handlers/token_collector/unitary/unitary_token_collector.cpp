@@ -50,7 +50,7 @@ namespace qcor {
 void UnitaryTokenCollector::collect(clang::Preprocessor &PP,
                                     clang::CachedTokens &Toks,
                                     std::vector<std::string> bufferNames,
-                                    std::stringstream &ss) {
+                                    std::stringstream &ss, const std::string &kernel_name) {
 
   // First figure out the variable name of the UnitaryMatrix
   // Next, take all the tokens and just add them to the

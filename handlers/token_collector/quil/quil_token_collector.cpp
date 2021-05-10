@@ -43,7 +43,7 @@ namespace qcor {
 
 void QuilTokenCollector::collect(clang::Preprocessor &PP,
                                  clang::CachedTokens &Toks,
-                                 std::stringstream &ss) {
+                                 std::stringstream &ss, const std::string &kernel_name) {
   bool inForLoop = false;
   for (int i = 0; i < Toks.size() - 1; i++) {
 

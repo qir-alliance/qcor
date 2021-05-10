@@ -8,7 +8,7 @@ class StaqTokenCollector : public TokenCollector {
 public:
   void collect(clang::Preprocessor &PP, clang::CachedTokens &Toks,
                std::vector<std::string> bufferNames,
-               std::stringstream &ss) override;
+               std::stringstream &ss, const std::string &kernel_name) override;
   const std::string name() const override { return "staq"; }
   const std::string description() const override { return ""; }
 };
