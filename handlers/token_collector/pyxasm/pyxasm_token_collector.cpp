@@ -45,7 +45,7 @@ namespace qcor {
 void PyXasmTokenCollector::collect(clang::Preprocessor &PP,
                                    clang::CachedTokens &Toks,
                                    std::vector<std::string> bufferNames,
-                                   std::stringstream &ss) {
+                                   std::stringstream &ss, const std::string &kernel_name) {
   // NEW STRATEGY
   // Loop over tokens, get source file info like line number and
   // indentation. Construct vector of lines, and for each line
@@ -105,10 +105,11 @@ void PyXasmTokenCollector::collect(clang::Preprocessor &PP,
     if (::quantum::kernels_in_translation_unit.empty()) {
       return {};
     }
-    const std::string kernel_name =
-        ::quantum::kernels_in_translation_unit.back();
+    const std::string this_kernel_name =
+        kernel_name.empty() ? ::quantum::kernels_in_translation_unit.back()
+                            : kernel_name;
     const auto &[arg_types, arg_names] =
-        ::quantum::kernel_signatures_in_translation_unit[kernel_name];
+        ::quantum::kernel_signatures_in_translation_unit[this_kernel_name];
     return arg_names;
   }();
   // Tracking the Python scopes by the indent of code blocks

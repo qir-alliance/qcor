@@ -36,6 +36,8 @@ __qpu__ void run_grover(qreg q, GroverPhaseOracle oracle,
 }
 
 int main() {
+  set_shots(1024);
+
   const int N = 3;
 
   // Write the oracle as a quantum lambda function
@@ -47,10 +49,43 @@ int main() {
 
   // Allocate some qubits
   auto q = qalloc(N);
-
+  oracle.print_kernel(q);
+  int iterations = 1;
   // Call grover given the oracle and n iterations
-  run_grover(q, oracle, 1);
-
+  run_grover(q, oracle, iterations);
   // print the histogram
   q.print();
+
+  // Grover lambda:
+  // amplification lambda
+  auto amplification_lambda = qpu_lambda([](qreg q) {
+    print("hey from amplification_lambda");
+    H(q);
+    X(q);
+    auto ctrl_bits = q.head(q.size() - 1);
+    auto last_qubit = q.tail();
+    Z::ctrl(ctrl_bits, last_qubit);
+    X(q);
+    H(q);
+  });
+
+  // Capture the grover lambda and iterations directly from the enclosing scope.
+  auto grover_lambda = qpu_lambda([](qreg q) {
+        H(q);
+        for (int i = 0; i < iterations; i++) {
+          oracle(q);
+          amplification_lambda(q);
+        }
+
+        Measure(q);
+      }, oracle, iterations, amplification_lambda);
+
+  auto q_lambda = qalloc(N);
+
+  std::cout << "Lamda result:\n";
+  grover_lambda.print_kernel(q_lambda);
+  grover_lambda(q_lambda);
+  q_lambda.print();
+  // Two bitstrings only.
+  qcor_expect(q_lambda.counts().size() == 2);
 }

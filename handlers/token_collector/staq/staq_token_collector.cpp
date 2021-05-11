@@ -59,7 +59,7 @@ static const std::map<std::string, std::string> gates{
 void StaqTokenCollector::collect(clang::Preprocessor &PP,
                                  clang::CachedTokens &Toks,
                                  std::vector<std::string> bufferNames,
-                                 std::stringstream &ss) {
+                                 std::stringstream &ss, const std::string &kernel_name) {
 
   // I need to know of any allocated buffers.
   std::stringstream sss, xx, put_this_after;

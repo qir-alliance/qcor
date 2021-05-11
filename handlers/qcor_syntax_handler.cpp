@@ -77,6 +77,16 @@ void QCORSyntaxHandler::GetReplacement(
     std::vector<std::string> program_parameters,
     std::vector<std::string> bufferNames, CachedTokens &Toks,
     llvm::raw_string_ostream &OS, bool add_het_map_ctor) {
+  
+  // Add any KernelSignature or qpu_lambda to the list of known kernels.
+  // Note: this GetReplacement overload is called directly from QJIT
+  // vs. the standard SyntaxHandler API.
+  for (int i = 0; i < program_arg_types.size(); ++i) {
+    if (program_arg_types[i].find("KernelSignature") != std::string::npos ||
+        program_arg_types[i].find("qcor::_qpu_lambda") != std::string::npos) {
+      qcor::append_kernel(program_parameters[i], {}, {});
+    }
+  }
   // Get the Diagnostics engine and create a few custom
   // error messgaes
   auto &diagnostics = PP.getDiagnostics();
@@ -152,6 +162,13 @@ void QCORSyntaxHandler::GetReplacement(
   // declare the super-type as a friend
   OS << "friend class qcor::QuantumKernel<class " << kernel_name << ", "
      << program_arg_types[0];
+  for (int i = 1; i < program_arg_types.size(); i++) {
+    OS << ", " << program_arg_types[i];
+  }
+  OS << ">;\n";
+
+  // Declare KernelSignature as a friend as well
+  OS << "friend class qcor::KernelSignature<"<< program_arg_types[0];
   for (int i = 1; i < program_arg_types.size(); i++) {
     OS << ", " << program_arg_types[i];
   }

@@ -19,9 +19,13 @@ namespace qcor {
 void append_kernel(const std::string name,
                    const std::vector<std::string> &program_arg_types,
                    const std::vector<std::string> &program_parameters) {
-  ::quantum::kernels_in_translation_unit.push_back(name);
-  ::quantum::kernel_signatures_in_translation_unit[name] =
-      std::make_pair(program_arg_types, program_parameters);
+  // Just ignored if we have tracked this kernel already.
+  if (!xacc::container::contains(::quantum::kernels_in_translation_unit,
+                                 name)) {
+    ::quantum::kernels_in_translation_unit.push_back(name);
+    ::quantum::kernel_signatures_in_translation_unit[name] =
+        std::make_pair(program_arg_types, program_parameters);
+  }
 }
 
 void set_verbose(bool verbose) { xacc::set_verbose(verbose); }
@@ -79,7 +83,7 @@ std::string run_token_collector(
     if (PP.getSpelling(Toks[i]) == "using") {  //}.is(clang::tok::kw_using)) {
       // Flush the current CachedTokens...
       if (!tmp_cache.empty())
-        token_collector->collect(PP, tmp_cache, bufferNames, code_ss);
+        token_collector->collect(PP, tmp_cache, bufferNames, code_ss, kernel_name);
 
       i += 2;
       std::string lang_name = "";
@@ -105,7 +109,7 @@ std::string run_token_collector(
     if (PP.getSpelling(Toks[i]) == "decompose") {
       // Flush the current CachedTokens...
       if (!tmp_cache.empty())
-        token_collector->collect(PP, tmp_cache, bufferNames, code_ss);
+        token_collector->collect(PP, tmp_cache, bufferNames, code_ss, kernel_name);
 
       auto last_tc = token_collector;
       token_collector = xacc::getService<TokenCollector>("unitary");
@@ -190,7 +194,7 @@ std::string run_token_collector(
       }
 
       if (!tmp_cache.empty())
-        token_collector->collect(PP, tmp_cache, bufferNames, code_ss);
+        token_collector->collect(PP, tmp_cache, bufferNames, code_ss, kernel_name);
 
       code_ss << "}\n";
 
@@ -204,7 +208,7 @@ std::string run_token_collector(
     if (PP.getSpelling(Toks[i]) == "compute") {
       // Flush the current CachedTokens...
       if (!tmp_cache.empty())
-        token_collector->collect(PP, tmp_cache, bufferNames, code_ss);
+        token_collector->collect(PP, tmp_cache, bufferNames, code_ss, kernel_name);
 
       // auto last_tc = token_collector;
       // token_collector = xacc::getService<TokenCollector>("unitary");
@@ -253,7 +257,7 @@ std::string run_token_collector(
 
       std::stringstream tmpss;
       if (!tmp_cache.empty())
-        token_collector->collect(PP, tmp_cache, bufferNames, tmpss);
+        token_collector->collect(PP, tmp_cache, bufferNames, tmpss, internal_kernel_function_name);
 
       auto src_code = __internal__::qcor::construct_kernel_subtype(
           tmpss.str(), internal_kernel_function_name, program_arg_types,
@@ -297,7 +301,7 @@ std::string run_token_collector(
 
       // HANDLE THE TOKENS IN ACTION
       if (!tmp_cache.empty())
-        token_collector->collect(PP, tmp_cache, bufferNames, code_ss);
+        token_collector->collect(PP, tmp_cache, bufferNames, code_ss, kernel_name);
 
       code_ss << "::quantum::qrt_impl->__begin_mark_segment_as_compute();\n";
       code_ss << internal_kernel_function_name << "::adjoint(parent_kernel, "
@@ -316,7 +320,7 @@ std::string run_token_collector(
 
   if (!tmp_cache.empty()) {
     // Flush the current CachedTokens...
-    token_collector->collect(PP, tmp_cache, bufferNames, code_ss);
+    token_collector->collect(PP, tmp_cache, bufferNames, code_ss, kernel_name);
   }
 
   return code_ss.str();
