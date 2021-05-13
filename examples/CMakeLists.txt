@@ -20,7 +20,6 @@ add_test(NAME qrt_qaoa_example COMMAND ${CMAKE_BINARY_DIR}/qcor -c ${CMAKE_CURRE
 add_test(NAME qrt_simple-objective-function COMMAND ${CMAKE_BINARY_DIR}/qcor -c ${CMAKE_CURRENT_SOURCE_DIR}/simple/simple-objective-function.cpp)
 add_test(NAME qrt_qpe_example COMMAND ${CMAKE_BINARY_DIR}/qcor -c ${CMAKE_CURRENT_SOURCE_DIR}/qpe/qpe_example_qrt.cpp)
 add_test(NAME qrt_kernel_include COMMAND ${CMAKE_BINARY_DIR}/qcor -c ${CMAKE_CURRENT_SOURCE_DIR}/simple/multiple_kernels.cpp)
-add_test(NAME qrt_period_finding COMMAND ${CMAKE_BINARY_DIR}/qcor -c ${CMAKE_CURRENT_SOURCE_DIR}/simple/period_finding.cpp)
 add_test(NAME qrt_grover COMMAND ${CMAKE_BINARY_DIR}/qcor -c ${CMAKE_CURRENT_SOURCE_DIR}/grover/grover.cpp)
 add_test(NAME qrt_adapt COMMAND ${CMAKE_BINARY_DIR}/qcor -c ${CMAKE_CURRENT_SOURCE_DIR}/hybrid/adapt_h2.cpp)
 add_test(NAME qrt_ftqc_simple COMMAND ${CMAKE_BINARY_DIR}/qcor -c -qrt ftqc ${CMAKE_CURRENT_SOURCE_DIR}/ftqc_qrt/simple-demo.cpp)
