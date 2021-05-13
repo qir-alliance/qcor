@@ -83,3 +83,34 @@ __qpu__ void add_integer(qreg q, int a) {
   compute { qft_opt_swap(q, 0); }
   action { phase_add_integer(q, a); }
 }
+
+// + a mod N in phase space
+// need an additional ancilla qubit since we don't do allocation
+// inside a kernel.
+// See Fig. 5 of https://arxiv.org/pdf/quant-ph/0205095.pdf
+__qpu__ void phase_add_integer_mod(qreg q, qubit anc, int a, int N) {
+  Reset(anc);
+  phase_add_integer(q, a);
+  phase_add_integer::adjoint(q, N);
+  qft_opt_swap::adjoint(q, 0);
+  X::ctrl(q.tail(), anc);
+  qft_opt_swap(q, 0);
+  phase_add_integer::ctrl(anc, q, N);
+  phase_add_integer::adjoint(q, a);
+  qft_opt_swap::adjoint(q, 0);
+  X(q.tail());
+  X::ctrl(q.tail(), anc);
+  X(q.tail());
+  qft_opt_swap(q, 0);
+  phase_add_integer(q, a);
+}
+
+// Add an integer a mod N to the a qubit register:
+// |q> --> |q + a mod N>
+// TODO: ability to create scratch qubits
+__qpu__ void add_integer_mod(qreg q, qubit anc, int a, int N) {
+  // Bring it to Fourier basis
+  // (IQFT automatically)
+  compute { qft_opt_swap(q, 0); }
+  action { phase_add_integer_mod(q, anc, a, N); }
+}
