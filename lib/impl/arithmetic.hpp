@@ -115,6 +115,95 @@ __qpu__ void phiAdd(qreg q, int a, int startBitIdx, int nbQubits, int inverse) {
   }
 }
 
+// Addition by a number (a) in Fourier Space
+__qpu__ void phi_add(qreg q, int a) {
+  std::vector<double> angles;
+  qcor::util::genAngles(angles, a, q.size());
+  for (int i = 0; i < q.size(); ++i) {
+    U1(q[idx], angles[i]);
+  }
+}
+
+__qpu__ void controlled_phi_add(qreg q, int a, std::vector<qubit> ctrl_qubits) {
+  return phi_add::ctrl(ctrl_qubits, q, a);
+}
+
+__qpu__ void cc_phi_add_modN(qreg q, qubit ctl1, int qubit, qubit aux, int a,
+                             int N) {
+  //ccPhiAdd(q, ctl1, ctl2, a, startBitIdx, nbQubits, inv0);
+  controlled_phi_add(q, a, {ctl1, ctl2});
+  
+  // phiAdd(q, N, startBitIdx, nbQubits, inv1); 
+  // Inverse
+  phi_add::adjoint(q, N);
+  
+  
+  // iqft_range_opt_swap(q, startBitIdx, nbQubits, withSwap);
+  iqft(q);
+  
+  //int lastIdx = startBitIdx + nbQubits - 1;
+  // CX(q[lastIdx], q[aux]);
+  CX(q.tail(), aux);
+  
+  //qft_range_opt_swap(q, startBitIdx, nbQubits, withSwap);
+  qft(q);
+  
+  // cPhiAdd(q, aux, N, startBitIdx, nbQubits, inv0);
+  controlled_phi_add(q, N, {aux});
+
+  //ccPhiAdd(q, ctl1, ctl2, a, startBitIdx, nbQubits, inv1);
+  // Inverse
+  controlled_phi_add::adjoint(q, a, {ctl1, ctl2});
+
+  // iqft_range_opt_swap(q, startBitIdx, nbQubits, withSwap);
+  iqft(q);
+  
+  //X(q[lastIdx]);
+  X(q.tail());
+  //CX(q[lastIdx], q[aux]);
+  CX(q.tail(), aux);
+  // X(q[lastIdx]);
+  X(q.tail());
+
+  // qft_range_opt_swap(q, startBitIdx, nbQubits, withSwap);
+  qft(q);
+
+  // ccPhiAdd(q, ctl1, ctl2, a, startBitIdx, nbQubits, inv0);
+  controlled_phi_add::adjoint(q, a, {ctl1, ctl2});
+}
+
+__qpu__ void cMultModN(qreg q, qubit ctrlIdx, int a, int N, qreg aux_reg) {
+  // QFT on the auxilary:
+  qft(aux_reg);
+  for (int i = 0; i < q.size(); ++i) {
+    int tempA = 0;
+    qcor::util::calcPowMultMod(tempA, i, a, N);
+    qubit auxBit = aux_reg.tail();
+    // Doubly-controlled modular add on the Aux register.
+    cc_phi_add_modN(aux_reg.head(aux_reg.size() - 1), q[i], ctrlIdx, auxBit, tempA, N);
+  }
+
+  iqft(aux_reg);
+  
+  for (int i = 0; i < q.size(); ++i) {
+    Swap::ctrl(ctrlIdx, q[i], aux_reg[i]);
+  }
+
+  qft(aux_reg);
+  
+  int aInv = 0;
+  qcor::util::modinv(aInv, a, N);
+  for (int i = q.size() - 1; i >= 0; --i) {
+    int tempA = 0;
+    qcor::util::calcPowMultMod(tempA, i, aInv, N);
+    int xIdx = startBitIdx + i;
+    int auxBit = auxStartBitIdx + auxNbQubits - 1;
+    cc_phi_add_modN::adjoint(aux_reg.head(aux_reg.size() - 1), q[i], ctrlIdx, auxBit, tempA, N);
+  }
+
+  iqft(aux_reg);
+}
+
 // Controlled add in Fourier Space
 __qpu__ void cPhiAdd(qreg q, int ctrlBit, int a, int startBitIdx, int nbQubits, int inverse) {
   std::vector<double> angles;
