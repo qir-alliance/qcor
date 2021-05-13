@@ -721,11 +721,23 @@ void apply_adjoint(std::shared_ptr<CompositeInstruction> parent_kernel,
     }
     // Handles T and S gates, etc... => T -> Tdg
     else if (inst->name() == "T") {
-      auto tdg = provider->createInstruction("Tdg", inst->bits());
+      // Forward along the buffer name
+      auto tdg = provider->createInstruction(
+          "Tdg", {std::make_pair(inst->getBufferName(0), inst->bits()[0])});
       program->replaceInstruction(i, tdg);
     } else if (inst->name() == "S") {
-      auto sdg = provider->createInstruction("Sdg", inst->bits());
+      auto sdg = provider->createInstruction(
+          "Sdg", {std::make_pair(inst->getBufferName(0), inst->bits()[0])});
       program->replaceInstruction(i, sdg);
+    } else if (inst->name() == "Tdg") {
+      // Forward along the buffer name
+      auto t = provider->createInstruction(
+          "T", {std::make_pair(inst->getBufferName(0), inst->bits()[0])});
+      program->replaceInstruction(i, t);
+    } else if (inst->name() == "Sdg") {
+      auto s = provider->createInstruction(
+          "S", {std::make_pair(inst->getBufferName(0), inst->bits()[0])});
+      program->replaceInstruction(i, s);
     }
   }
 
