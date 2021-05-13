@@ -115,12 +115,17 @@ __qpu__ void phiAdd(qreg q, int a, int startBitIdx, int nbQubits, int inverse) {
   }
 }
 
+// Swap kernel: to be used to generate Controlled-Swap kernel
+__qpu__ void SwapOp(qubit q1, qubit q2) {
+  Swap(q1, q2);
+}
+
 // Addition by a number (a) in Fourier Space
 __qpu__ void phi_add(qreg q, int a) {
   std::vector<double> angles;
   qcor::util::genAngles(angles, a, q.size());
   for (int i = 0; i < q.size(); ++i) {
-    U1(q[idx], angles[i]);
+    U1(q[i], angles[i]);
   }
 }
 
@@ -128,7 +133,7 @@ __qpu__ void controlled_phi_add(qreg q, int a, std::vector<qubit> ctrl_qubits) {
   return phi_add::ctrl(ctrl_qubits, q, a);
 }
 
-__qpu__ void cc_phi_add_modN(qreg q, qubit ctl1, int qubit, qubit aux, int a,
+__qpu__ void cc_phi_add_modN(qreg q, qubit ctl1, qubit ctl2, qubit aux, int a,
                              int N) {
   //ccPhiAdd(q, ctl1, ctl2, a, startBitIdx, nbQubits, inv0);
   controlled_phi_add(q, a, {ctl1, ctl2});
@@ -172,7 +177,7 @@ __qpu__ void cc_phi_add_modN(qreg q, qubit ctl1, int qubit, qubit aux, int a,
   controlled_phi_add::adjoint(q, a, {ctl1, ctl2});
 }
 
-__qpu__ void cMultModN(qreg q, qubit ctrlIdx, int a, int N, qreg aux_reg) {
+__qpu__ void controlled_mult_modN(qreg q, qubit ctrlIdx, int a, int N, qreg aux_reg) {
   // QFT on the auxilary:
   qft(aux_reg);
   for (int i = 0; i < q.size(); ++i) {
@@ -186,7 +191,7 @@ __qpu__ void cMultModN(qreg q, qubit ctrlIdx, int a, int N, qreg aux_reg) {
   iqft(aux_reg);
   
   for (int i = 0; i < q.size(); ++i) {
-    Swap::ctrl(ctrlIdx, q[i], aux_reg[i]);
+    SwapOp::ctrl(ctrlIdx, q[i], aux_reg[i]);
   }
 
   qft(aux_reg);
@@ -196,8 +201,7 @@ __qpu__ void cMultModN(qreg q, qubit ctrlIdx, int a, int N, qreg aux_reg) {
   for (int i = q.size() - 1; i >= 0; --i) {
     int tempA = 0;
     qcor::util::calcPowMultMod(tempA, i, aInv, N);
-    int xIdx = startBitIdx + i;
-    int auxBit = auxStartBitIdx + auxNbQubits - 1;
+    qubit auxBit = aux_reg.tail();
     cc_phi_add_modN::adjoint(aux_reg.head(aux_reg.size() - 1), q[i], ctrlIdx, auxBit, tempA, N);
   }
 
@@ -290,14 +294,11 @@ __qpu__ void ccPhiAddModN_inv(qreg q, int ctl1, int ctl2, int aux,
   ccPhiAdd(q, ctl1, ctl2, a, startBitIdx, nbQubits, inv1);
 }
 
-// Swap kernel: to be used to generate Controlled-Swap kernel
-__qpu__ void SwapOp(qreg q, int idx1, int idx2) {
-  Swap(q[idx1], q[idx2]);
-}
+
 
 // Controlled-Swap
 __qpu__ void cSwap(qreg q, int ctrlIdx, int idx1, int idx2) {
-    SwapOp::ctrl(ctrlIdx, q, idx1, idx2);
+    SwapOp::ctrl(ctrlIdx, q[idx1], q[idx2]);
 }
 
 // Single controlled *modular* multiplication by a (mod N)
