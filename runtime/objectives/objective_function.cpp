@@ -4,7 +4,15 @@
 #include "xacc_internal_compiler.hpp"
 namespace qcor {
 namespace __internal__ {
+
+#ifdef _XACC_MUTEX
+std::mutex qcor_xacc_init_lock;
+#endif
+
 std::shared_ptr<ObjectiveFunction> get_objective(const std::string &type) {
+#ifdef _XACC_MUTEX
+  std::lock_guard<std::mutex> lock(qcor_xacc_init_lock);
+#endif
   if (!xacc::isInitialized())
     xacc::internal_compiler::compiler_InitializeXACC();
   return xacc::getService<ObjectiveFunction>(type);

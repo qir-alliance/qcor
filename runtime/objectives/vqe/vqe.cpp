@@ -14,6 +14,8 @@ using namespace cppmicroservices;
 #include "xacc_plugin.hpp"
 #include "xacc_service.hpp"
 
+#include "Cloneable.hpp"
+
 namespace {
 
 template <typename T>
@@ -29,7 +31,7 @@ std::ostream &operator<<(std::ostream &os, const std::vector<T> &v) {
 }  // namespace
 namespace qcor {
 
-class VQEObjective : public ObjectiveFunction {
+class VQEObjective : public ObjectiveFunction, public xacc::Cloneable<ObjectiveFunction> {
  public:
   std::shared_ptr<xacc::Algorithm> vqe;
   double operator()(xacc::internal_compiler::qreg &qreg,
@@ -146,6 +148,9 @@ class VQEObjective : public ObjectiveFunction {
   int current_iteration = 0;
   const std::string name() const override { return "vqe"; }
   const std::string description() const override { return ""; }
+  std::shared_ptr<ObjectiveFunction> clone() override {
+    return std::make_shared<VQEObjective>();
+  }
 };
 
 }  // namespace qcor

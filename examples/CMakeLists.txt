@@ -76,6 +76,14 @@ add_qcor_compile_and_exe_test(qrt_qpu_lambda_compute_action qpu_lambda/lambda_wi
 add_qcor_compile_and_exe_test(qrt_qpu_arith_adder arithmetic/simple.cpp)
 add_qcor_compile_and_exe_test(qrt_qpu_arith_integer_add arithmetic/integer_add.cpp)
 
+# Multi-threading tests
+add_test(NAME qrt_simple-objective-function-async COMMAND ${CMAKE_BINARY_DIR}/qcor -c ${CMAKE_CURRENT_SOURCE_DIR}/simple/simple-objective-function-async.cpp)
+add_test(NAME qrt_simple-objective-function-threaded COMMAND ${CMAKE_BINARY_DIR}/qcor -c ${CMAKE_CURRENT_SOURCE_DIR}/simple/simple-objective-function-threaded.cpp)
+add_test(NAME qrt_bell-threaded COMMAND ${CMAKE_BINARY_DIR}/qcor -c ${CMAKE_CURRENT_SOURCE_DIR}/simple/bell_threaded.cpp)
+add_qcor_compile_and_exe_test(qrt_qpu_lambda_bell_threaded qpu_lambda/lambda_test_bell_threaded.cpp)
+add_qcor_compile_and_exe_test(qrt_qpu_lambda_deuteron_threaded qpu_lambda/deuteron_threaded.cpp)
+add_qcor_compile_and_exe_test(qrt_qpu_lambda_deuteron_vqe_threaded qpu_lambda/deuteron_vqe_threaded.cpp)
+add_qcor_compile_and_exe_test(qrt_qpu_lambda_deuteron_vqe_objfunc_threaded qpu_lambda/deuteron_vqe_obj_func_threaded.cpp)
 
 if (QCOR_BUILD_QSHARP_TESTS)
   add_subdirectory(qsharp)
