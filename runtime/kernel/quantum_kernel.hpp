@@ -715,7 +715,7 @@ void apply_adjoint(std::shared_ptr<CompositeInstruction> parent_kernel,
     auto inst = tempKernel->getInstruction(i);
     // Parametric gates:
     if (inst->name() == "Rx" || inst->name() == "Ry" || inst->name() == "Rz" ||
-        inst->name() == "CPHASE" || inst->name() == "U1" ||
+        inst->name() == "CPhase" || inst->name() == "U1" ||
         inst->name() == "CRZ") {
       inst->setParameter(0, -inst->getParameter(0).template as<double>());
     }
