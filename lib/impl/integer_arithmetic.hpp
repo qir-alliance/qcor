@@ -22,6 +22,10 @@ void genAngles(std::vector<double> &io_angles, int a, int nbQubits) {
     angle *= M_PI;
   }
 }
+
+inline void calcPowMultMod(int &result, int i, int a, int N) {
+  result = (1 << i) * a % N;
+}
 } // namespace internal
 } // namespace qcor
 
@@ -113,4 +117,24 @@ __qpu__ void add_integer_mod(qreg q, qubit anc, int a, int N) {
   // (IQFT automatically)
   compute { qft_opt_swap(q, 0); }
   action { phase_add_integer_mod(q, anc, a, N); }
+}
+
+// Modular multiply in phase basis:
+// See Fig. 6 of https://arxiv.org/pdf/quant-ph/0205095.pdf  
+// |x>|b> ==> |x> |b + ax mod N>
+// i.e. if b == 0 ==> the result |ax mod N> is stored in b 
+__qpu__ void phase_mul_integer_mod(qreg x, qreg b, qubit anc, int a, int N) {
+  for (int i = 0; i < x.size(); ++i) {
+    // add operand = 2^i * a
+    int operand;
+    qcor::internal::calcPowMultMod(operand, i, a, N);
+    phase_add_integer_mod::ctrl(x[i], b, anc, operand, N);
+  }
+}
+
+__qpu__ void mul_integer_mod(qreg x, qreg b, qubit anc, int a, int N) {
+  // Bring it to Fourier basis
+  // (IQFT automatically)
+  compute { qft_opt_swap(b, 0); }
+  action { phase_mul_integer_mod(x, b, anc, a, N); }
 }
