@@ -649,19 +649,10 @@ template <typename... Args>
 void apply_control(std::shared_ptr<CompositeInstruction> parent_kernel,
                    const std::vector<qubit> &ctrl_qbits,
                    KernelSignature<Args...> &kernelCallable, Args... args) {
-  const auto buffer_name = ctrl_qbits[0].first;
-
+  std::vector<std::pair<std::string, size_t>> ctrl_qubits;
   for (const auto &qb : ctrl_qbits) {
-    if (qb.first != buffer_name) {
-      // We can only handle control qubits on the same qReg.
-      error("Unable to handle control qubits from different registers");
-    }
+    ctrl_qubits.emplace_back(std::make_pair(qb.first, qb.second));
   }
-
-  std::vector<int> ctrl_bits;
-  std::transform(ctrl_qbits.begin(), ctrl_qbits.end(),
-                 std::back_inserter(ctrl_bits),
-                 [](auto qb) { return qb.second; });
 
   // Is is in a **compute** segment?
   // i.e. doing control within the compute block itself.
@@ -682,9 +673,7 @@ void apply_control(std::shared_ptr<CompositeInstruction> parent_kernel,
   }
 
   auto ctrlKernel = qcor::__internal__::create_ctrl_u();
-  ctrlKernel->expand({{"U", tempKernel},
-                      {"control-idx", ctrl_bits},
-                      {"control-buffer", buffer_name}});
+  ctrlKernel->expand({{"U", tempKernel}, {"control-idx", ctrl_qubits}});
 
   // Mark all the *Controlled* instructions as compute segment
   // if it was in the compute_section.
