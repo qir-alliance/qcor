@@ -42,7 +42,12 @@ add_test(NAME hadamard_ctrl_test COMMAND ${CMAKE_BINARY_DIR}/qcor ${CMAKE_CURREN
 add_test(NAME multi_ctrl_test COMMAND ${CMAKE_BINARY_DIR}/qcor ${CMAKE_CURRENT_SOURCE_DIR}/ctrl-gates/multiple_controls.cpp)
 
 add_qcor_compile_and_exe_test(qrt_bell_ctrl bell/bell_control.cpp)
+
+# Lambda tests
 add_qcor_compile_and_exe_test(qrt_qpu_lambda_simple qpu_lambda/lambda_test.cpp)
 add_qcor_compile_and_exe_test(qrt_qpu_lambda_bell qpu_lambda/lambda_test_bell.cpp)
 add_qcor_compile_and_exe_test(qrt_qpu_lambda_grover qpu_lambda/grover_lambda_oracle.cpp)
+
+# Arithmetic tests
 add_qcor_compile_and_exe_test(qrt_qpu_arith_adder arithmetic/simple.cpp)
+add_qcor_compile_and_exe_test(qrt_qpu_arith_integer_add arithmetic/integer_add.cpp)
