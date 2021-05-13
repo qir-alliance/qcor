@@ -23,11 +23,21 @@ __qpu__ void ripple_add(qreg a, qreg b, qubit c_in, qubit c_out) {
   for (auto j : range(a.size() - 1)) {
     majority(a[j], b[j + 1], a[j + 1]);
   }
-  
+
   X::ctrl(a.tail(), c_out);
 
   for (int j = a.size() - 2; j >= 0; --j) {
     unmajority(a[j], b[j + 1], a[j + 1]);
   }
   unmajority(c_in, b[0], a[0]);
+}
+
+// Init a qubit register in an integer value
+__qpu__ void integer_init(qreg a, int val) {
+  Reset(a);
+  for (auto i: range(a.size())) {
+    if (val & (1 << i)) {
+      X(a[i]);
+    }
+  }
 }

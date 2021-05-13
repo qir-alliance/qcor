@@ -1,8 +1,8 @@
 #include <qcor_arithmetic>
 
 __qpu__ void test_adder(qreg a, qreg b, qubit cin, qubit cout) {
-  X(a[0]); // Set input a = 01
-  X(b);    // Set input b = 11
+  integer_init(a, 1); // Set input a = 01
+  integer_init(b, 3); // Set input b = 11
   // Apply the adder
   ripple_add(a, b, cin, cout);
   Measure(b);
