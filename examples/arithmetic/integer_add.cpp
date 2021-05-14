@@ -27,6 +27,16 @@ __qpu__ void test_mul_integer(qreg x, qreg b, qubit anc, int a, int N) {
   Measure(x);
 }
 
+__qpu__ void test_mul_integer_inline(qreg x, qreg anc, int a, int N) {
+  // x = |1> + |3>
+  X(x[0]);
+  H(x[1]);
+  // ==> |a*x> inline (save in x)
+  // anc register is just for scratch pad.
+  mul_integer_mod_in_place(x, anc.head(x.size() + 1), anc[x.size() + 1], a, N);
+  Measure(x);
+}
+
 int main(int argc, char **argv) {
   set_shots(1024);
   auto a = qalloc(3);
@@ -72,5 +82,19 @@ int main(int argc, char **argv) {
   // 10 = 8 + 2
   qcor_expect(b_reg.counts()["01010"] > 400);
   x_reg.print();
+
+  // Test in-place modular multiplication:
+  // |x> ==> |ax mod N> on the same register.
+  // x = |1> + |3>; a = 3
+  // --> |3> + |9>
+  auto x_reg2 = qalloc(4);
+  auto anc_reg2 = qalloc(6);
+  test_mul_integer_inline(x_reg2, anc_reg2, a_val, N_val);
+  x_reg2.print();
+  qcor_expect(x_reg2.counts().size() == 2);
+  // 3
+  qcor_expect(x_reg2.counts()["1100"] > 400);
+  // 9
+  qcor_expect(x_reg2.counts()["1001"] > 400);
   return 0;
 }
