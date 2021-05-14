@@ -85,16 +85,19 @@ int main(int argc, char **argv) {
 
   // Test in-place modular multiplication:
   // |x> ==> |ax mod N> on the same register.
-  // x = |1> + |3>; a = 3
-  // --> |3> + |9>
-  auto x_reg2 = qalloc(4);
-  auto anc_reg2 = qalloc(6);
+  // x = |1> + |3>; a = 2
+  // --> |2> + |6>
+  // Simple test:
+  a_val = 2;
+  N_val = 8;
+  auto x_reg2 = qalloc(3);
+  auto anc_reg2 = qalloc(5);
   test_mul_integer_inline(x_reg2, anc_reg2, a_val, N_val);
   x_reg2.print();
   qcor_expect(x_reg2.counts().size() == 2);
-  // 3
-  qcor_expect(x_reg2.counts()["1100"] > 400);
-  // 9
-  qcor_expect(x_reg2.counts()["1001"] > 400);
+  // 2
+  qcor_expect(x_reg2.counts()["010"] > 400);
+  // 6
+  qcor_expect(x_reg2.counts()["011"] > 400);
   return 0;
 }
