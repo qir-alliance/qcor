@@ -100,6 +100,19 @@ class ScopedSymbolTable {
     return;
   }
 
+  void replace_symbol(std::string key, mlir::Value new_value) {
+    for (auto i = current_scope; i >= 0; i--) {
+      if (scoped_symbol_tables[i].count(key)) {
+        scoped_symbol_tables[i].find(key)->second = new_value;
+        return;
+      }
+    }
+
+    printErrorMessage("Cannot replace value - no variable " + key +
+                      " in scoped symbol table (provided scope = " +
+                      std::to_string(current_scope) + "). Did you allocate it?");
+  }
+  
   std::vector<std::string> get_seen_function_names() {
     std::vector<std::string> fnames;
     for (auto [name, value] : seen_functions) {

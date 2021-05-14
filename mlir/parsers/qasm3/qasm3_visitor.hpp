@@ -201,6 +201,7 @@ class qasm3_visitor : public qasm3::qasm3BaseVisitor {
   void createInstOps_HandleBroadcast(std::string name,
                                      std::vector<mlir::Value> qbit_values,
                                      std::vector<std::string> qbit_names,
+                                     std::vector<std::string> symbol_table_qbit_keys,
                                      std::vector<mlir::Value> param_values,
                                      mlir::Location location,
                                      antlr4::ParserRuleContext* context);

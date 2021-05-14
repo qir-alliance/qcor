@@ -15,6 +15,10 @@ def StringType : OpaqueType<"quantum", "StringType", "opaque string type">;
 def QallocOp : QuantumOp<"qalloc", []> {
     let arguments = (ins AnyI64Attr:$size, StrAttr:$name);
     let results = (outs ArrayType:$qubits);
+
+    let printer = [{  auto op = *this;
+  p << "q.qalloc(" << op.size() << ") { name = " << op.name() << " }";
+  p << " : " << op.qubits().getType(); }];
 }
 
 // Create an array holding Qubit pointers for aliasing purposes,
@@ -27,6 +31,9 @@ def QaliasArrayAllocOp : QuantumOp<"createQubitArray", []> {
 def ExtractQubitOp : QuantumOp<"qextract", []> {
     let arguments = (ins ArrayType:$qreg, AnyInteger:$idx);
     let results = (outs QubitType:$qbit);
+    let printer = [{  auto op = *this;
+  p << "q.extract(" << op.getOperands() << ")";
+  p << " : " << op.qbit().getType(); }];
 }
 
 def GeneralArrayExtractOp : QuantumOp<"array_extract", []> {
@@ -85,26 +92,46 @@ def EndPowURegion : QuantumOp<"end_pow_u_region", []> {
 def InstOp : QuantumOp<"inst", [AttrSizedOperandSegments]> {
     let arguments = (ins StrAttr:$name, Variadic<QubitType>:$qubits, Variadic<F64>:$params);
     let results = (outs Optional<ResultType>:$bit);
+
+    let printer = [{  auto op = *this;
+  p << "q." << op.name() << "(" << op.getOperands() << ") : ";
+  p.printFunctionalType(op.getOperandTypes(), op.getResultTypes()); }];
+}
+
+def ValueSemanticsInstOp : QuantumOp<"value_inst", [AttrSizedOperandSegments]> {
+    let arguments = (ins StrAttr:$name, Variadic<QubitType>:$qubits, Variadic<F64>:$params);
+    let results = (outs Variadic<AnyTypeOf<[ResultType, QubitType]>>:$result);
+
+    let printer = [{  auto op = *this;
+  p << "qvs." << op.name() << "(" << op.getOperands() << ") : " << op.result().getType(); }];
+  
 }
 
 def DeallocOp : QuantumOp<"dealloc", []> {
     let arguments = (ins ArrayType:$qubits);
     let results = (outs);
+    let printer = [{  auto op = *this;
+  p << "q.dealloc(" << op.qubits() << ")"; }];
 }
 
 def QRTInitOp : QuantumOp<"init", []> {
     let arguments = (ins AnyI32:$argc, ArgvType:$argv);
     let results = (outs);
+    let printer = [{  auto op = *this;
+  p << "q.init(" << op.getOperands() << ")"; }];
 }
 
 def QRTFinalizeOp : QuantumOp<"finalize", []> {
     let arguments = (ins);
     let results = (outs);
+    let printer = [{  p << "q.finalize()"; }];
 }
 
 def SetQregOp : QuantumOp<"set_qreg", []> {
     let arguments = (ins QregType:$qreg);
     let results = (outs);
+    let printer = [{  auto op = *this;
+  p << "q.set_qreg(" << op.qreg() << ")"; }];
 }
 
 def PrintOp : QuantumOp<"print", []> {

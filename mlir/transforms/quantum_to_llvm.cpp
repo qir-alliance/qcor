@@ -20,6 +20,8 @@
 #include "lowering/QubitArrayAllocOpLowering.hpp"
 #include "lowering/SetQregOpLowering.hpp"
 #include "lowering/StdAtanOpLowering.hpp"
+#include "lowering/ValueSemanticsInstOpLowering.hpp"
+#include "optimizations/IdentityPairRemovalPass.hpp"
 
 namespace qcor {
 mlir::Type get_quantum_type(std::string type, mlir::MLIRContext *context) {
@@ -45,6 +47,7 @@ struct QuantumLLVMTypeConverter : public LLVMTypeConverter {
       return LLVM::LLVMPointerType::get(get_quantum_type("Array", context));
     }
     std::cout << "ERROR WE DONT KNOW WAHT THIS TYPE IS\n";
+    exit(0);
     return mlir::IntegerType::get(context, 64);
   }
 
@@ -64,6 +67,23 @@ void QuantumToLLVMLoweringPass::runOnOperation() {
   QuantumLLVMTypeConverter typeConverter(&getContext());
 
   OwningRewritePatternList patterns;
+  auto module = getOperation();
+
+  // First, add any Optimization Passes.
+  // We note that some opt passes will free up other optimizations that 
+  // would otherwise be missed on the first pass, so do this a certain 
+  // number of times. 
+  int n_heuristic_passes = 5;
+  for (int i = 0; i < n_heuristic_passes; i++) {
+    patterns.insert<SingleQubitIdentityPairRemovalPattern>(&getContext());
+    patterns.insert<CNOTIdentityPairRemovalPattern>(&getContext());
+    // TODO Pass for zero rotations, and rotation merging
+
+    // TODO Pass to remove unused extract and qalloc/deallocs
+    if (failed(applyPartialConversion(module, target, std::move(patterns))))
+      signalPassFailure();
+  }
+
   patterns.insert<StdAtanOpLowering>(&getContext());
 
   populateStdToLLVMConversionPatterns(typeConverter, patterns);
@@ -78,6 +98,8 @@ void QuantumToLLVMLoweringPass::runOnOperation() {
   patterns.insert<QallocOpLowering>(&getContext(), variables);
   patterns.insert<InstOpLowering>(&getContext(), variables, qubit_extract_map,
                                   function_names);
+  patterns.insert<ValueSemanticsInstOpLowering>(
+      &getContext(), function_names);
   patterns.insert<SetQregOpLowering>(&getContext(), variables);
   patterns.insert<ExtractQubitOpConversion>(&getContext(), typeConverter,
                                             variables, qubit_extract_map);
@@ -99,8 +121,11 @@ void QuantumToLLVMLoweringPass::runOnOperation() {
 
   // We want to completely lower to LLVM, so we use a `FullConversion`. This
   // ensures that only legal operations will remain after the conversion.
-  auto module = getOperation();
   if (failed(applyFullConversion(module, target, std::move(patterns))))
     signalPassFailure();
 }
+
+// std::unique_ptr<mlir::Pass> createQuantumOptPass() {return
+// std::make_unique<IdentityPairRemovalPass>();}
+
 }  // namespace qcor

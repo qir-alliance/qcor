@@ -98,6 +98,8 @@ int main(int argc, char **argv) {
   std::vector<std::string> unique_function_names;
   auto module = loadMLIR(context, unique_function_names);
 
+  module->dump();
+
   // std::cout << "MLIR + Quantum Dialect:\n";
   if (emitAction == Action::DumpMLIR) {
     module->dump();
@@ -124,11 +126,13 @@ int main(int argc, char **argv) {
     return failure(should_propagate_diagnostic);
   });
 
+  // Run quantum optimization pass
+
   // Create the PassManager for lowering to LLVM MLIR and run it
   mlir::PassManager pm(&context);
   applyPassManagerCLOptions(pm);
-  pm.addPass(
-      std::make_unique<qcor::QuantumToLLVMLoweringPass>(unique_function_names));
+  pm.addPass(std::make_unique<qcor::QuantumToLLVMLoweringPass>(
+      pm, unique_function_names));
   auto module_op = (*module).getOperation();
   if (mlir::failed(pm.run(module_op))) {
     std::cout << "Pass Manager Failed\n";

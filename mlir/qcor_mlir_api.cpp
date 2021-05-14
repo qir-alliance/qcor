@@ -63,7 +63,7 @@ const std::string mlir_compile(const std::string &src_language_type,
   // Create the PassManager for lowering to LLVM MLIR and run it
   mlir::PassManager pm(&context);
   pm.addPass(
-      std::make_unique<qcor::QuantumToLLVMLoweringPass>(unique_function_names));
+      std::make_unique<qcor::QuantumToLLVMLoweringPass>(pm, unique_function_names));
   auto module_op = (*module).getOperation();
   if (mlir::failed(pm.run(module_op))) {
     std::cout << "Pass Manager Failed\n";
@@ -152,7 +152,7 @@ int execute(const std::string &src_language_type, const std::string &src,
   // Create the PassManager for lowering to LLVM MLIR and run it
   mlir::PassManager pm(&context);
   pm.addPass(
-      std::make_unique<qcor::QuantumToLLVMLoweringPass>(unique_function_names));
+      std::make_unique<qcor::QuantumToLLVMLoweringPass>(pm, unique_function_names));
   auto module_op = (*module).getOperation();
   if (mlir::failed(pm.run(module_op))) {
     std::cout << "Pass Manager Failed\n";
@@ -247,7 +247,7 @@ int execute(const std::string &src_language_type, const std::string &src,
   // Create the PassManager for lowering to LLVM MLIR and run it
   mlir::PassManager pm(&context);
   pm.addPass(
-      std::make_unique<qcor::QuantumToLLVMLoweringPass>(unique_function_names));
+      std::make_unique<qcor::QuantumToLLVMLoweringPass>(pm, unique_function_names));
   auto module_op = (*module).getOperation();
   if (mlir::failed(pm.run(module_op))) {
     std::cout << "Pass Manager Failed\n";

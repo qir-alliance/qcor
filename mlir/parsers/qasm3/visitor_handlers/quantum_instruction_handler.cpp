@@ -4,8 +4,10 @@ namespace qcor {
 
 void qasm3_visitor::createInstOps_HandleBroadcast(
     std::string name, std::vector<mlir::Value> qbit_values,
-    std::vector<std::string> qreg_names, std::vector<mlir::Value> param_values,
-    mlir::Location location, antlr4::ParserRuleContext* context) {
+    std::vector<std::string> qreg_names,
+    std::vector<std::string> symbol_table_qbit_keys,
+    std::vector<mlir::Value> param_values, mlir::Location location,
+    antlr4::ParserRuleContext* context) {
   auto has_array_type = [this](auto& value_vector) {
     for (auto v : value_vector) {
       if (v.getType() == array_type) {
@@ -140,15 +142,36 @@ void qasm3_visitor::createInstOps_HandleBroadcast(
           "can only broadcast gates with one or two qubit registers");
     }
   } else {
-    builder.create<mlir::quantum::InstOp>(
-        location, mlir::NoneType::get(builder.getContext()), str_attr,
-        llvm::makeArrayRef(qbit_values), llvm::makeArrayRef(param_values));
+    // std::cout << "WE ARE HERE " << name << "\n";
+
+    if (symbol_table_qbit_keys.empty()) {
+      builder.create<mlir::quantum::InstOp>(
+          location, mlir::NoneType::get(builder.getContext()), str_attr,
+          llvm::makeArrayRef(qbit_values), llvm::makeArrayRef(param_values));
+    } else {
+      // std::cout << "SYMBOL TABLE KEYS WAS NOT EMPTY\n";
+      std::vector<mlir::Type> ret_types;
+      for (auto q : qbit_values) {
+        ret_types.push_back(qubit_type);
+      }
+      auto inst = builder.create<mlir::quantum::ValueSemanticsInstOp>(
+          location, llvm::makeArrayRef(ret_types), str_attr,
+          llvm::makeArrayRef(qbit_values), llvm::makeArrayRef(param_values));
+
+      // Replace qbit_values in symbol table with new result qubits
+      auto return_vals = inst.result();
+      int i = 0;
+      for (auto result : return_vals) {
+        symbol_table.replace_symbol(symbol_table_qbit_keys[i], result);
+        i++;
+      }
+    }
   }
 }
 
 antlrcpp::Any qasm3_visitor::visitQuantumGateCall(
     qasm3Parser::QuantumGateCallContext* context) {
-  //           quantumGateCall
+  // quantumGateCall
   //     : quantumGateName ( LPAREN expressionList? RPAREN )?
   //     indexIdentifierList
   //     ;
@@ -221,7 +244,7 @@ antlrcpp::Any qasm3_visitor::visitQuantumGateCall(
     }
   }
 
-  std::vector<std::string> qreg_names;
+  std::vector<std::string> qreg_names, qubit_symbol_table_keys;
   for (auto idx_identifier :
        context->indexIdentifierList()->indexIdentifier()) {
     auto qbit_var_name = idx_identifier->Identifier()->getText();
@@ -270,10 +293,12 @@ antlrcpp::Any qasm3_visitor::visitQuantumGateCall(
       // auto qbit =
       //     get_or_extract_qubit(qbit_var_name, std::stoi(idx_str), location);
       qbit_values.push_back(value);
+      qubit_symbol_table_keys.push_back(qbit_var_name + idx_str);
     } else {
       // this is a qubit
       auto qbit = symbol_table.get_symbol(qbit_var_name);
       qbit_values.push_back(qbit);
+      qubit_symbol_table_keys.push_back(qbit_var_name);
     }
   }
 
@@ -332,7 +357,8 @@ antlrcpp::Any qasm3_visitor::visitQuantumGateCall(
                                  operands);
 
   } else {
-    createInstOps_HandleBroadcast(name, qbit_values, qreg_names, param_values,
+    createInstOps_HandleBroadcast(name, qbit_values, qreg_names,
+                                  qubit_symbol_table_keys, param_values,
                                   location, context);
   }
 
@@ -602,8 +628,8 @@ antlrcpp::Any qasm3_visitor::visitSubroutineCall(
                                  operands);
 
   } else {
-    createInstOps_HandleBroadcast(name, qbit_values, qreg_names, param_values,
-                                  location, context);
+    createInstOps_HandleBroadcast(name, qbit_values, qreg_names, {},
+                                  param_values, location, context);
   }
   return 0;
 }
