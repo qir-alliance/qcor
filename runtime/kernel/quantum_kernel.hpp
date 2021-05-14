@@ -649,19 +649,10 @@ template <typename... Args>
 void apply_control(std::shared_ptr<CompositeInstruction> parent_kernel,
                    const std::vector<qubit> &ctrl_qbits,
                    KernelSignature<Args...> &kernelCallable, Args... args) {
-  const auto buffer_name = ctrl_qbits[0].first;
-
+  std::vector<std::pair<std::string, size_t>> ctrl_qubits;
   for (const auto &qb : ctrl_qbits) {
-    if (qb.first != buffer_name) {
-      // We can only handle control qubits on the same qReg.
-      error("Unable to handle control qubits from different registers");
-    }
+    ctrl_qubits.emplace_back(std::make_pair(qb.first, qb.second));
   }
-
-  std::vector<int> ctrl_bits;
-  std::transform(ctrl_qbits.begin(), ctrl_qbits.end(),
-                 std::back_inserter(ctrl_bits),
-                 [](auto qb) { return qb.second; });
 
   // Is is in a **compute** segment?
   // i.e. doing control within the compute block itself.
@@ -682,9 +673,7 @@ void apply_control(std::shared_ptr<CompositeInstruction> parent_kernel,
   }
 
   auto ctrlKernel = qcor::__internal__::create_ctrl_u();
-  ctrlKernel->expand({{"U", tempKernel},
-                      {"control-idx", ctrl_bits},
-                      {"control-buffer", buffer_name}});
+  ctrlKernel->expand({{"U", tempKernel}, {"control-idx", ctrl_qubits}});
 
   // Mark all the *Controlled* instructions as compute segment
   // if it was in the compute_section.
@@ -726,17 +715,29 @@ void apply_adjoint(std::shared_ptr<CompositeInstruction> parent_kernel,
     auto inst = tempKernel->getInstruction(i);
     // Parametric gates:
     if (inst->name() == "Rx" || inst->name() == "Ry" || inst->name() == "Rz" ||
-        inst->name() == "CPHASE" || inst->name() == "U1" ||
+        inst->name() == "CPhase" || inst->name() == "U1" ||
         inst->name() == "CRZ") {
       inst->setParameter(0, -inst->getParameter(0).template as<double>());
     }
     // Handles T and S gates, etc... => T -> Tdg
     else if (inst->name() == "T") {
-      auto tdg = provider->createInstruction("Tdg", inst->bits());
+      // Forward along the buffer name
+      auto tdg = provider->createInstruction(
+          "Tdg", {std::make_pair(inst->getBufferName(0), inst->bits()[0])});
       program->replaceInstruction(i, tdg);
     } else if (inst->name() == "S") {
-      auto sdg = provider->createInstruction("Sdg", inst->bits());
+      auto sdg = provider->createInstruction(
+          "Sdg", {std::make_pair(inst->getBufferName(0), inst->bits()[0])});
       program->replaceInstruction(i, sdg);
+    } else if (inst->name() == "Tdg") {
+      // Forward along the buffer name
+      auto t = provider->createInstruction(
+          "T", {std::make_pair(inst->getBufferName(0), inst->bits()[0])});
+      program->replaceInstruction(i, t);
+    } else if (inst->name() == "Sdg") {
+      auto s = provider->createInstruction(
+          "S", {std::make_pair(inst->getBufferName(0), inst->bits()[0])});
+      program->replaceInstruction(i, s);
     }
   }
 
