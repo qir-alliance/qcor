@@ -1,2 +1,2 @@
 #pragma once
-#include "impl/arithmetic.hpp"
+#include "impl/integer_arithmetic.hpp"

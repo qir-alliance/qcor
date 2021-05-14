@@ -20,7 +20,6 @@ add_test(NAME qrt_qaoa_example COMMAND ${CMAKE_BINARY_DIR}/qcor -c ${CMAKE_CURRE
 add_test(NAME qrt_simple-objective-function COMMAND ${CMAKE_BINARY_DIR}/qcor -c ${CMAKE_CURRENT_SOURCE_DIR}/simple/simple-objective-function.cpp)
 add_test(NAME qrt_qpe_example COMMAND ${CMAKE_BINARY_DIR}/qcor -c ${CMAKE_CURRENT_SOURCE_DIR}/qpe/qpe_example_qrt.cpp)
 add_test(NAME qrt_kernel_include COMMAND ${CMAKE_BINARY_DIR}/qcor -c ${CMAKE_CURRENT_SOURCE_DIR}/simple/multiple_kernels.cpp)
-add_test(NAME qrt_period_finding COMMAND ${CMAKE_BINARY_DIR}/qcor -c ${CMAKE_CURRENT_SOURCE_DIR}/simple/period_finding.cpp)
 add_test(NAME qrt_grover COMMAND ${CMAKE_BINARY_DIR}/qcor -c ${CMAKE_CURRENT_SOURCE_DIR}/grover/grover.cpp)
 add_test(NAME qrt_adapt COMMAND ${CMAKE_BINARY_DIR}/qcor -c ${CMAKE_CURRENT_SOURCE_DIR}/hybrid/adapt_h2.cpp)
 add_test(NAME qrt_ftqc_simple COMMAND ${CMAKE_BINARY_DIR}/qcor -c -qrt ftqc ${CMAKE_CURRENT_SOURCE_DIR}/ftqc_qrt/simple-demo.cpp)
@@ -42,6 +41,12 @@ add_test(NAME hadamard_ctrl_test COMMAND ${CMAKE_BINARY_DIR}/qcor ${CMAKE_CURREN
 add_test(NAME multi_ctrl_test COMMAND ${CMAKE_BINARY_DIR}/qcor ${CMAKE_CURRENT_SOURCE_DIR}/ctrl-gates/multiple_controls.cpp)
 
 add_qcor_compile_and_exe_test(qrt_bell_ctrl bell/bell_control.cpp)
+
+# Lambda tests
 add_qcor_compile_and_exe_test(qrt_qpu_lambda_simple qpu_lambda/lambda_test.cpp)
 add_qcor_compile_and_exe_test(qrt_qpu_lambda_bell qpu_lambda/lambda_test_bell.cpp)
 add_qcor_compile_and_exe_test(qrt_qpu_lambda_grover qpu_lambda/grover_lambda_oracle.cpp)
+
+# Arithmetic tests
+add_qcor_compile_and_exe_test(qrt_qpu_arith_adder arithmetic/simple.cpp)
+add_qcor_compile_and_exe_test(qrt_qpu_arith_integer_add arithmetic/integer_add.cpp)
