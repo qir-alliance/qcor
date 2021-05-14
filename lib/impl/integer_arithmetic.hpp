@@ -26,6 +26,38 @@ void genAngles(std::vector<double> &io_angles, int a, int nbQubits) {
 inline void calcPowMultMod(int &result, int i, int a, int N) {
   result = (1 << i) * a % N;
 }
+
+// Compute extended greatest common divisor of two integers
+inline std::tuple<int, int, int> egcd(int a, int b) {
+  int m, n, c, q, r;
+  int m1 = 0, m2 = 1, n1 = 1, n2 = 0;
+
+  while (b) {
+    q = a / b, r = a - q * b;
+    m = m2 - q * m1, n = n2 - q * n1;
+    a = b, b = r;
+    m2 = m1, m1 = m, n2 = n1, n1 = n;
+  }
+
+  c = a, m = m2, n = n2;
+
+  // correct the signs
+  if (c < 0) {
+    m = -m;
+    n = -n;
+    c = -c;
+  }
+
+  return std::make_tuple(m, n, c);
+}
+
+// Modular inverse of a mod p
+inline void modinv(int &result, int a, int p) {
+  int x, y;
+  int gcd_ap;
+  std::tie(x, y, gcd_ap) = egcd(p, a);
+  result = (y > 0) ? y : y + p;
+}
 } // namespace internal
 } // namespace qcor
 
@@ -137,4 +169,22 @@ __qpu__ void mul_integer_mod(qreg x, qreg b, qubit anc, int a, int N) {
   // (IQFT automatically)
   compute { qft_opt_swap(b, 0); }
   action { phase_mul_integer_mod(x, b, anc, a, N); }
+}
+
+// Modular multiply in-place:
+// See Fig. 7 (https://arxiv.org/pdf/quant-ph/0205095.pdf)
+// |x>|0> ==> |ax mod N>|0>
+// x and aux_reg must have the same size.
+__qpu__ void mul_integer_mod_in_place(qreg x, qreg aux_reg, qubit anc, int a, int N) {
+  Reset(aux_reg);
+  mul_integer_mod(x, aux_reg, anc, a, N);
+  // Swap the result to x register
+  for (int i = 0; i < x.size(); ++i) {
+    Swap(x[i], aux_reg[i]);
+  }
+
+  int aInv = 0;
+  qcor::internal::modinv(aInv, a, N);
+  // Apply modular multiply of 1/a
+  mul_integer_mod::adjoint(x, aux_reg, anc, aInv, N);
 }
