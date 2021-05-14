@@ -336,6 +336,13 @@ class LLVMJIT {
     llvm::sys::DynamicLibrary::LoadLibraryPermanently(nullptr);
   }
 
+  ~LLVMJIT() {
+    // End the session.
+    if (auto Err = ES.endSession()) {
+      ES.reportError(std::move(Err));
+    }
+  }
+
   static Expected<std::unique_ptr<LLVMJIT>> Create() {
     auto JTMB = JITTargetMachineBuilder::detectHost();
 
