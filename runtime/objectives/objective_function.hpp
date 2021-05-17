@@ -174,25 +174,15 @@ public:
 
   ObjectiveFunctionImpl(
       std::function<void(std::shared_ptr<CompositeInstruction>, KernelArgs...)>
-          &funtor,
+          &functor,
       std::shared_ptr<Observable> obs, xacc::internal_compiler::qreg &qq,
       std::shared_ptr<LocalArgsTranslator> translator,
       std::shared_ptr<ObjectiveFunction> obj_helper, const int dim,
       HeterogeneousMap opts)
       : qreg(qq) {
     std::cout << "Constructed from lambda\n";
-    observable = obs;
-    args_translator = translator;
-    helper = obj_helper;
-    _dim = dim;
-    _function = *this;
-    options = opts;
-    options.insert("observable", observable);
-    helper->update_observable(observable);
-    helper->set_options(options);
-    std::cout << "set lambda_kernel_evaluator\n";
     lambda_kernel_evaluator =
-        [&](std::vector<double> x) -> std::shared_ptr<CompositeInstruction> {
+        [&, functor](std::vector<double> x) -> std::shared_ptr<CompositeInstruction> {
       std::cout << "HOWDY:\n";
       // Create a new CompositeInstruction, and create a tuple
       // from it so we can concatenate with the tuple args
@@ -205,14 +195,19 @@ public:
       // Concatenate the two to make the args list (kernel, args...)
       auto concatenated =
           std::tuple_cat(kernel_composite_tuple, translated_tuple);
-
-      // Call the functor with those arguments
-      // qcor::__internal__::evaluate_function_with_tuple_args(kernel_functor,
-      //                                                       concatenated);
-      std::apply(funtor, concatenated);
+      std::apply(functor, concatenated);
       std::cout << m_kernel->toString() << "\n";
       return m_kernel;
     };
+    observable = obs;
+    args_translator = translator;
+    helper = obj_helper;
+    _dim = dim;
+    _function = *this;
+    options = opts;
+    options.insert("observable", observable);
+    helper->update_observable(observable);
+    helper->set_options(options);
   }
 
   void set_options(HeterogeneousMap &opts) override {
