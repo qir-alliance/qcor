@@ -18,4 +18,5 @@ int main() {
   auto optimizer = createOptimizer("nlopt");
   auto [ground_energy, opt_params] = optimizer->optimize(opt_function);
   print("Energy: ", ground_energy);
+  qcor_expect(std::abs(ground_energy + 1.74886) < 0.1);
 }

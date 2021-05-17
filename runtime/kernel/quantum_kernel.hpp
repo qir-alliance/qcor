@@ -176,7 +176,7 @@ public:
   static double observe(Observable &obs, Args... args) {
     Derived derived(args...);
     KernelSignature<Args...> callable(derived);
-    return internal::observe(callable, args...);
+    return internal::observe(obs, callable, args...);
   }
 
   static double observe(std::shared_ptr<Observable> obs, Args... args) {
@@ -450,7 +450,7 @@ public:
   template <typename... FunctionArgs>
   double observe(Observable &obs, FunctionArgs... args) {
     KernelSignature<FunctionArgs...> callable(*this);
-    return internal::observe(callable, args...);
+    return internal::observe(obs, callable, args...);
   }
 
   template <typename... FunctionArgs>
@@ -637,6 +637,14 @@ public:
 
   std::string openqasm(Args... args) {
     return internal::openqasm(*this, args...);
+  }
+
+  double observe(std::shared_ptr<Observable> obs, Args... args) {
+    return observe(*obs.get(), args...);
+  }
+
+  double observe(Observable &obs, Args... args) {
+    return internal::observe(obs, *this, args...);
   }
 };
 
