@@ -56,4 +56,36 @@ int main(int argc, char** argv) {
   qcor_expect(rb.counts()["0"] > 400);
   qcor_expect(rb.counts()["1"] > 400);
   qcor_expect(rb.counts()["0"] + rb.counts()["1"] == 1024);
+
+  // Test passing an r-val to lambda
+  auto ansatz_X0X1 = qpu_lambda([](qreg q, double x) {
+    print("ansatz: x = ", x);
+    X(q[0]);
+    Ry(q[1], x);
+    CX(q[1], q[0]);
+    H(q);
+    Measure(q);
+  });
+
+  auto qtest = qalloc(2);
+  // Pass an rval...
+  ansatz_X0X1(qtest, 1.2334);
+  auto exp = qtest.exp_val_z();
+  print("<X0X1> = ", exp);
+
+  // Test a loop:
+  const std::vector<double> expectedResults{
+      0.0,       -0.324699, -0.614213, -0.837166, -0.9694,
+      -0.996584, -0.915773, -0.735724, -0.475947, -0.164595,
+      0.164595,  0.475947,  0.735724,  0.915773,  0.996584,
+      0.9694,    0.837166,  0.614213,  0.324699,  0.0};
+
+  const auto angles = linspace(-M_PI, M_PI, 20);
+  for (size_t i = 0; i < angles.size(); ++i) {
+    auto buffer = qalloc(2);
+    ansatz_X0X1(buffer, angles[i]);
+    auto exp = buffer.exp_val_z();
+    print("<X0X1>(", angles[i], ") = ", exp, "; expected:", expectedResults[i]);
+    qcor_expect(std::abs(expectedResults[i] - exp) < 0.1);
+  }
 }
