@@ -320,12 +320,14 @@ class pyxasm_visitor : public pyxasmBaseVisitor {
         // This kernel *callable* is not an intrinsic instruction, just
         // reassemble the call:
         // Check that the *first* argument is a *qreg* in the current context of
-        // *this* kernel.
-        if (!context->trailer().empty() && context->trailer()[0]->arglist() &&
-            !context->trailer()[0]->arglist()->argument().empty() &&
-            xacc::container::contains(
-                bufferNames,
-                context->trailer()[0]->arglist()->argument(0)->getText())) {
+        // *this* kernel or the function name is a kernel in translation unit.
+        if (xacc::container::contains(::quantum::kernels_in_translation_unit,
+                                      inst_name) ||
+            (!context->trailer().empty() && context->trailer()[0]->arglist() &&
+             !context->trailer()[0]->arglist()->argument().empty() &&
+             xacc::container::contains(
+                 bufferNames,
+                 context->trailer()[0]->arglist()->argument(0)->getText()))) {
           std::stringstream ss;
           // Use the kernel call with a parent kernel arg.
           ss << inst_name << "(parent_kernel, ";
