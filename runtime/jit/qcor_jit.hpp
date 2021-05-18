@@ -58,7 +58,7 @@ class QJIT {
   void write_cache();
 
   template <typename... Args>
-  void invoke(const std::string &kernel_name, Args &&... args) {
+  void invoke(const std::string &kernel_name, Args... args) {
     auto f_ptr = kernel_name_to_f_ptr[kernel_name];
     void (*kernel_functor)(Args...) = (void (*)(Args...))f_ptr;
     kernel_functor(std::forward<Args>(args)...);
@@ -67,7 +67,7 @@ class QJIT {
   template <typename... Args>
   void invoke_with_parent(const std::string &kernel_name,
                           std::shared_ptr<xacc::CompositeInstruction> parent,
-                          Args &&... args) {
+                          Args... args) {
     auto f_ptr = kernel_name_to_f_ptr_with_parent[kernel_name];
     void (*kernel_functor)(std::shared_ptr<xacc::CompositeInstruction>,
                            Args...) =
