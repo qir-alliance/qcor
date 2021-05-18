@@ -367,15 +367,18 @@ public:
     // i.e. by-value arguments of these types are incompatible with a by-ref
     // casted function.
     static const std::unordered_map<std::string, std::string>
-        FORWARD_TYPE_CONVERSION_MAP{{"int", "const int&"},
-                                    {"double", "const double&"}};
+        FORWARD_TYPE_CONVERSION_MAP{{"int", "int&"},
+                                    {"double", "double&"}};
     std::vector<std::pair<std::string, std::string>> forward_types;
+    // Replicate by-value by create copies and restore the variables.
+    std::vector<std::string> byval_casted_arg_names;
     for (const auto &[type, name] : arg_type_and_names) {
       // std::cout << type << " --> " << name << "\n";
       if (FORWARD_TYPE_CONVERSION_MAP.find(type) !=
           FORWARD_TYPE_CONVERSION_MAP.end()) {
         auto iter = FORWARD_TYPE_CONVERSION_MAP.find(type);
         forward_types.emplace_back(std::make_pair(iter->second, name));
+        byval_casted_arg_names.emplace_back(name);
       } else {
         forward_types.emplace_back(std::make_pair(type, name));
       }
@@ -465,6 +468,18 @@ public:
     first = jit_src.find_first_of("{");
     if (!capture_var_names.empty())
       jit_src.insert(first + 1, capture_preamble);
+    
+    if (!byval_casted_arg_names.empty()) {
+      std::stringstream cache_string, restore_string;
+      for (const auto& var: byval_casted_arg_names) {
+        cache_string << "auto __" <<  var << "__cached__ = " << var << ";\n";
+        restore_string << var << " = __" <<  var << "__cached__;\n";
+      }
+      const auto begin = jit_src.find_first_of("{");
+      jit_src.insert(begin + 1, cache_string.str());
+      const auto end = jit_src.find_last_of("}");
+      jit_src.insert(end, restore_string.str());
+    }
 
     // std::cout << "JITSRC:\n" << jit_src << "\n";
     // JIT Compile, storing the function pointers
@@ -473,13 +488,13 @@ public:
 
   template <typename... FunctionArgs>
   void eval_with_parent(std::shared_ptr<CompositeInstruction> parent,
-                        FunctionArgs... args) {
-    this->operator()(parent, args...);
+                        FunctionArgs &&... args) {
+    this->operator()(parent, std::forward<FunctionArgs>(args)...);
   }
 
   template <typename... FunctionArgs>
   void operator()(std::shared_ptr<CompositeInstruction> parent,
-                  FunctionArgs... args) {
+                  FunctionArgs &&... args) {
     // Map the function args to a tuple
     auto kernel_args_tuple = std::forward_as_tuple(args...);
 
@@ -507,22 +522,24 @@ public:
     }
   }
 
-  template <typename... FunctionArgs> void operator()(FunctionArgs... args) {
+  template <typename... FunctionArgs> void operator()(FunctionArgs &&... args) {
     // Map the function args to a tuple
     auto kernel_args_tuple = std::forward_as_tuple(args...);
     if (!optional_copy_capture_vars.has_value()) {
       // By-ref
       // Merge the function args and the capture vars and execute
       auto final_args_tuple = std::tuple_cat(kernel_args_tuple, capture_vars);
-      std::apply([&](auto &&... args) { qjit.invoke_forwarding("foo", args...); },
-                 final_args_tuple);
+      std::apply(
+          [&](auto &&... args) { qjit.invoke_forwarding("foo", args...); },
+          final_args_tuple);
     } else if constexpr (std::conjunction_v<
                              std::is_copy_assignable<CaptureArgs>...>) {
       // By-value
       auto final_args_tuple =
           std::tuple_cat(kernel_args_tuple, optional_copy_capture_vars.value());
-      std::apply([&](auto &&... args) { qjit.invoke_forwarding("foo", args...); },
-                 final_args_tuple);
+      std::apply(
+          [&](auto &&... args) { qjit.invoke_forwarding("foo", args...); },
+          final_args_tuple);
     }
   }
 
