@@ -180,10 +180,10 @@ public:
       std::shared_ptr<ObjectiveFunction> obj_helper, const int dim,
       HeterogeneousMap opts)
       : qreg(qq) {
-    std::cout << "Constructed from lambda\n";
+    // std::cout << "Constructed from lambda\n";
     lambda_kernel_evaluator =
         [&, functor](std::vector<double> x) -> std::shared_ptr<CompositeInstruction> {
-      std::cout << "HOWDY:\n";
+      // std::cout << "HOWDY:\n";
       // Create a new CompositeInstruction, and create a tuple
       // from it so we can concatenate with the tuple args
       auto m_kernel = create_new_composite();
@@ -196,7 +196,7 @@ public:
       auto concatenated =
           std::tuple_cat(kernel_composite_tuple, translated_tuple);
       std::apply(functor, concatenated);
-      std::cout << m_kernel->toString() << "\n";
+      // std::cout << m_kernel->toString() << "\n";
       return m_kernel;
     };
     observable = obs;
