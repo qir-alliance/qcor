@@ -1,9 +1,9 @@
 #pragma once
-#include <optional>
 #include "qcor_jit.hpp"
 #include "qcor_observable.hpp"
 #include "qcor_utils.hpp"
 #include "qrt.hpp"
+#include <optional>
 
 namespace qcor {
 enum class QrtType { NISQ, FTQC };
@@ -176,7 +176,7 @@ public:
   static double observe(Observable &obs, Args... args) {
     Derived derived(args...);
     KernelSignature<Args...> callable(derived);
-    return internal::observe(callable, args...);
+    return internal::observe(obs, callable, args...);
   }
 
   static double observe(std::shared_ptr<Observable> obs, Args... args) {
@@ -191,8 +191,7 @@ public:
 
   virtual ~QuantumKernel() {}
 
-  template<typename... ArgTypes>
-  friend class KernelSignature;
+  template <typename... ArgTypes> friend class KernelSignature;
 };
 
 // We use the following to enable ctrl operations on our single
@@ -311,6 +310,92 @@ public:
     auto first = src_str.find_first_of("(");
     auto last = src_str.find_first_of(")");
     auto tt = src_str.substr(first, last - first + 1);
+    // Parse the argument list
+    const auto arg_type_and_names = [](const std::string &arg_string_decl)
+        -> std::vector<std::pair<std::string, std::string>> {
+      // std::cout << "HOWDY:" << arg_string_decl << "\n";
+      std::vector<std::pair<std::string, std::string>> result;
+      const auto args_string =
+          arg_string_decl.substr(1, arg_string_decl.size() - 2);
+      std::stack<char> grouping_chars;
+      std::string type_name;
+      std::string var_name;
+      std::string temp;
+      // std::cout << args_string << "\n";
+      for (int i = 0; i < args_string.size(); ++i) {
+        if (isspace(args_string[i]) && grouping_chars.empty()) {
+          type_name = temp;
+          temp.clear();
+        } else if (args_string[i] == ',') {
+          var_name = temp;
+          if (var_name[0] == '&') {
+            type_name += "&";
+            var_name = var_name.substr(1);
+          }
+          result.emplace_back(std::make_pair(type_name, var_name));
+          type_name.clear();
+          var_name.clear();
+          temp.clear();
+        } else {
+          temp.push_back(args_string[i]);
+        }
+
+        if (args_string[i] == '<') {
+          grouping_chars.push(args_string[i]);
+        }
+        if (args_string[i] == '>') {
+          assert(grouping_chars.top() == '<');
+          grouping_chars.pop();
+        }
+      }
+
+      // Last one:
+      var_name = temp;
+      if (var_name[0] == '&') {
+        type_name += "&";
+        var_name = var_name.substr(1);
+      }
+      result.emplace_back(std::make_pair(type_name, var_name));
+      return result;
+    }(tt);
+
+    // Map simple type to its reference type so that the
+    // we can use consistent type-forwarding
+    // when casting the JIT raw function pointer.
+    // Currently, looks like only these simple types are having problem
+    // with perfect type forwarding.
+    // i.e. by-value arguments of these types are incompatible with a by-ref
+    // casted function.
+    static const std::unordered_map<std::string, std::string>
+        FORWARD_TYPE_CONVERSION_MAP{{"int", "int&"},
+                                    {"double", "double&"}};
+    std::vector<std::pair<std::string, std::string>> forward_types;
+    // Replicate by-value by create copies and restore the variables.
+    std::vector<std::string> byval_casted_arg_names;
+    for (const auto &[type, name] : arg_type_and_names) {
+      // std::cout << type << " --> " << name << "\n";
+      if (FORWARD_TYPE_CONVERSION_MAP.find(type) !=
+          FORWARD_TYPE_CONVERSION_MAP.end()) {
+        auto iter = FORWARD_TYPE_CONVERSION_MAP.find(type);
+        forward_types.emplace_back(std::make_pair(iter->second, name));
+        byval_casted_arg_names.emplace_back(name);
+      } else {
+        forward_types.emplace_back(std::make_pair(type, name));
+      }
+    }
+
+    // std::cout << "After\n";
+    // Construct the new arg signature clause:
+    std::string arg_clause_new;
+    arg_clause_new.push_back('(');
+    for (const auto &[type, name] : forward_types) {
+      arg_clause_new.append(type);
+      arg_clause_new.push_back(' ');
+      arg_clause_new.append(name);
+      arg_clause_new.push_back(',');
+      // std::cout << type << " --> " << name << "\n";
+    }
+    arg_clause_new.pop_back();
 
     // Get the capture type:
     // By default "[]", pass by reference.
@@ -363,17 +448,19 @@ public:
       }
 
       tt.insert(last - capture_type.size(), args_string);
+      arg_clause_new.append(args_string);
     }
 
     // Extract the function body
     first = src_str.find_first_of("{");
     last = src_str.find_last_of("}");
     auto rr = src_str.substr(first, last - first + 1);
-
+    arg_clause_new.push_back(')');
+    // std::cout << "New signature: " << arg_clause_new << "\n";
     // Reconstruct with new args signature and
     // existing function body
     std::stringstream ss;
-    ss << "__qpu__ void foo" << tt << rr;
+    ss << "__qpu__ void foo" << arg_clause_new << rr;
 
     // Get as a string, and insert capture
     // preamble if necessary
@@ -381,6 +468,18 @@ public:
     first = jit_src.find_first_of("{");
     if (!capture_var_names.empty())
       jit_src.insert(first + 1, capture_preamble);
+    
+    if (!byval_casted_arg_names.empty()) {
+      std::stringstream cache_string, restore_string;
+      for (const auto& var: byval_casted_arg_names) {
+        cache_string << "auto __" <<  var << "__cached__ = " << var << ";\n";
+        restore_string << var << " = __" <<  var << "__cached__;\n";
+      }
+      const auto begin = jit_src.find_first_of("{");
+      jit_src.insert(begin + 1, cache_string.str());
+      const auto end = jit_src.find_last_of("}");
+      jit_src.insert(end, restore_string.str());
+    }
 
     // std::cout << "JITSRC:\n" << jit_src << "\n";
     // JIT Compile, storing the function pointers
@@ -389,13 +488,13 @@ public:
 
   template <typename... FunctionArgs>
   void eval_with_parent(std::shared_ptr<CompositeInstruction> parent,
-                        FunctionArgs... args) {
-    this->operator()(parent, args...);
+                        FunctionArgs &&... args) {
+    this->operator()(parent, std::forward<FunctionArgs>(args)...);
   }
 
   template <typename... FunctionArgs>
   void operator()(std::shared_ptr<CompositeInstruction> parent,
-                  FunctionArgs... args) {
+                  FunctionArgs &&... args) {
     // Map the function args to a tuple
     auto kernel_args_tuple = std::forward_as_tuple(args...);
 
@@ -405,44 +504,46 @@ public:
       auto final_args_tuple = std::tuple_cat(kernel_args_tuple, capture_vars);
       std::apply(
           [&](auto &&... args) {
-            qjit.invoke_with_parent("foo", parent, args...);
+            qjit.invoke_with_parent_forwarding("foo", parent, args...);
           },
           final_args_tuple);
     } else if constexpr (std::conjunction_v<
                              std::is_copy_assignable<CaptureArgs>...>) {
-      // constexpr compile-time check to prevent compiler from looking at this code path
-      // if the capture variable is non-copyable, e.g. qpu_lambda.
+      // constexpr compile-time check to prevent compiler from looking at this
+      // code path if the capture variable is non-copyable, e.g. qpu_lambda.
       // By-value:
       auto final_args_tuple =
           std::tuple_cat(kernel_args_tuple, optional_copy_capture_vars.value());
       std::apply(
           [&](auto &&... args) {
-            qjit.invoke_with_parent("foo", parent, args...);
+            qjit.invoke_with_parent_forwarding("foo", parent, args...);
           },
           final_args_tuple);
     }
   }
 
-  template <typename... FunctionArgs> void operator()(FunctionArgs... args) {
+  template <typename... FunctionArgs> void operator()(FunctionArgs &&... args) {
     // Map the function args to a tuple
     auto kernel_args_tuple = std::forward_as_tuple(args...);
     if (!optional_copy_capture_vars.has_value()) {
       // By-ref
       // Merge the function args and the capture vars and execute
       auto final_args_tuple = std::tuple_cat(kernel_args_tuple, capture_vars);
-      std::apply([&](auto &&... args) { qjit.invoke("foo", args...); },
-                 final_args_tuple);
+      std::apply(
+          [&](auto &&... args) { qjit.invoke_forwarding("foo", args...); },
+          final_args_tuple);
     } else if constexpr (std::conjunction_v<
                              std::is_copy_assignable<CaptureArgs>...>) {
       // By-value
       auto final_args_tuple =
           std::tuple_cat(kernel_args_tuple, optional_copy_capture_vars.value());
-      std::apply([&](auto &&... args) { qjit.invoke("foo", args...); },
-                 final_args_tuple);
+      std::apply(
+          [&](auto &&... args) { qjit.invoke_forwarding("foo", args...); },
+          final_args_tuple);
     }
   }
 
-  template<typename... FunctionArgs>
+  template <typename... FunctionArgs>
   double observe(std::shared_ptr<Observable> obs, FunctionArgs... args) {
     return observe(*obs.get(), args...);
   }
@@ -450,7 +551,7 @@ public:
   template <typename... FunctionArgs>
   double observe(Observable &obs, FunctionArgs... args) {
     KernelSignature<FunctionArgs...> callable(*this);
-    return internal::observe(callable, args...);
+    return internal::observe(obs, callable, args...);
   }
 
   template <typename... FunctionArgs>
@@ -465,7 +566,8 @@ public:
             const std::vector<int> &ctrl_idxs, FunctionArgs... args) {
     std::vector<qubit> ctrl_qubit_vec;
     for (int i = 0; i < ctrl_idxs.size(); i++) {
-      ctrl_qubit_vec.push_back({"q", static_cast<size_t>(ctrl_idxs[i]), nullptr});
+      ctrl_qubit_vec.push_back(
+          {"q", static_cast<size_t>(ctrl_idxs[i]), nullptr});
     }
     ctrl(ir, ctrl_qubit_vec, args...);
   }
@@ -505,8 +607,9 @@ public:
     return internal::print_kernel(callable, os, args...);
   }
 
-  template <typename... FunctionArgs>
-  void print_kernel(FunctionArgs... args) { print_kernel(std::cout, args...); }
+  template <typename... FunctionArgs> void print_kernel(FunctionArgs... args) {
+    print_kernel(std::cout, args...);
+  }
 
   template <typename... FunctionArgs>
   std::size_t n_instructions(FunctionArgs... args) {
@@ -594,7 +697,8 @@ public:
             const std::vector<int> ctrl_idxs, Args... args) {
     std::vector<qubit> ctrl_qubit_vec;
     for (int i = 0; i < ctrl_idxs.size(); i++) {
-      ctrl_qubit_vec.push_back({"q", static_cast<size_t>(ctrl_idxs[i]), nullptr});
+      ctrl_qubit_vec.push_back(
+          {"q", static_cast<size_t>(ctrl_idxs[i]), nullptr});
     }
     ctrl(ir, ctrl_qubit_vec, args...);
   }
@@ -637,6 +741,14 @@ public:
 
   std::string openqasm(Args... args) {
     return internal::openqasm(*this, args...);
+  }
+
+  double observe(std::shared_ptr<Observable> obs, Args... args) {
+    return observe(*obs.get(), args...);
+  }
+
+  double observe(Observable &obs, Args... args) {
+    return internal::observe(obs, *this, args...);
   }
 };
 
@@ -763,7 +875,7 @@ void apply_adjoint(std::shared_ptr<CompositeInstruction> parent_kernel,
 
 template <typename... Args>
 double observe(Observable &obs, KernelSignature<Args...> &kernelCallable,
-                    Args... args) {
+               Args... args) {
   auto tempKernel = qcor::__internal__::create_composite("temp_observe");
   kernelCallable(tempKernel, args...);
   auto instructions = tempKernel->getInstructions();
@@ -816,7 +928,7 @@ std::string openqasm(KernelSignature<Args...> &kernelCallable, Args... args) {
 
 template <typename... Args>
 void print_kernel(KernelSignature<Args...> &kernelCallable, std::ostream &os,
-             Args... args) {
+                  Args... args) {
   auto tempKernel = qcor::__internal__::create_composite("temp_print");
   kernelCallable(tempKernel, args...);
   xacc::internal_compiler::execute_pass_manager();

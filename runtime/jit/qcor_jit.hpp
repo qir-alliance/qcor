@@ -58,7 +58,9 @@ class QJIT {
   void write_cache();
 
   template <typename... Args>
-  void invoke(const std::string &kernel_name, Args &&... args) {
+  void invoke(const std::string &kernel_name, Args... args) {
+    // Debug: print the Args... type
+    // std::cout << "QJIT Invoke: " << __PRETTY_FUNCTION__ << "\n";
     auto f_ptr = kernel_name_to_f_ptr[kernel_name];
     void (*kernel_functor)(Args...) = (void (*)(Args...))f_ptr;
     kernel_functor(std::forward<Args>(args)...);
@@ -67,7 +69,31 @@ class QJIT {
   template <typename... Args>
   void invoke_with_parent(const std::string &kernel_name,
                           std::shared_ptr<xacc::CompositeInstruction> parent,
-                          Args &&... args) {
+                          Args... args) {
+    // Debug: print the Args... type
+    // std::cout << "QJIT Invoke with Parent: " << __PRETTY_FUNCTION__ << "\n";
+    auto f_ptr = kernel_name_to_f_ptr_with_parent[kernel_name];
+    void (*kernel_functor)(std::shared_ptr<xacc::CompositeInstruction>,
+                           Args...) =
+        (void (*)(std::shared_ptr<xacc::CompositeInstruction>, Args...))f_ptr;
+    kernel_functor(parent, std::forward<Args>(args)...);
+  }
+
+  // Invoke with type forwarding: Args &&
+  template <typename... Args>
+  void invoke_forwarding(const std::string &kernel_name, Args &&... args) {
+    // std::cout << "QJIT Invoke: " << __PRETTY_FUNCTION__ << "\n";
+    auto f_ptr = kernel_name_to_f_ptr[kernel_name];
+    void (*kernel_functor)(Args...) = (void (*)(Args...))f_ptr;
+    kernel_functor(std::forward<Args>(args)...);
+  }
+
+  // Invoke with type forwarding: Args &&
+  template <typename... Args>
+  void invoke_with_parent_forwarding(
+      const std::string &kernel_name,
+      std::shared_ptr<xacc::CompositeInstruction> parent, Args &&... args) {
+    // std::cout << "QJIT Invoke with Parent: " << __PRETTY_FUNCTION__ << "\n";
     auto f_ptr = kernel_name_to_f_ptr_with_parent[kernel_name];
     void (*kernel_functor)(std::shared_ptr<xacc::CompositeInstruction>,
                            Args...) =
