@@ -63,7 +63,6 @@ LogicalResult ExtractQubitOpConversion::matchAndRewrite(
 
   auto get_qbit_qir_call = rewriter.create<mlir::CallOp>(
       location, symbol_ref, array_qbit_type, operands);
-  // ArrayRef<Value>({vars[qreg_name], adaptor.idx()}));
 
   auto bitcast = rewriter.create<LLVM::BitcastOp>(
       location,
@@ -75,11 +74,6 @@ LogicalResult ExtractQubitOpConversion::matchAndRewrite(
       bitcast.res());
 
   rewriter.replaceOp(op, real_casted_qubit.res());
-  // Remember the variable name for this qubit
-  // vars.insert({qubit_var_name, real_casted_qubit.res()});
-
-  // STORE THAT THIS OP PRODUCES THIS QREG{IDX} VARIABLE NAME
-  // qubit_extract_map.insert({op, qubit_var_name});
 
   return success();
 }

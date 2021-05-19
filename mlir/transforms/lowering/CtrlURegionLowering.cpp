@@ -94,8 +94,14 @@ LogicalResult EndCtrlURegionOpLowering::matchAndRewrite(
     }
   }();
 
-  rewriter.create<mlir::CallOp>(location, qir_get_fn_ptr,
-                                LLVM::LLVMVoidType::get(context), operands);
+  mlir::Value ctrl_bit = operands[0];
+  if (auto q_op = ctrl_bit.getDefiningOp<mlir::quantum::ValueSemanticsInstOp>()) {
+    ctrl_bit = q_op.getOperands()[0];
+  }
+
+  rewriter.create<mlir::CallOp>(
+      location, qir_get_fn_ptr, LLVM::LLVMVoidType::get(context),
+      llvm::makeArrayRef(std::vector<mlir::Value>{ctrl_bit}));
 
   rewriter.eraseOp(op);
 

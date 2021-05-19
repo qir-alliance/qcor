@@ -62,11 +62,17 @@ def ArrayConcatOp : QuantumOp<"qarray_concat", []> {
 def StartCtrlURegion : QuantumOp<"start_ctrl_u_region", []> {
   let arguments = (ins);
   let results = (outs);
+  let printer = [{  
+  p << "q.ctrl_region {";
+  }];
 }
 
 def EndCtrlURegion : QuantumOp<"end_ctrl_u_region", []> {
   let arguments = (ins QubitType:$ctrl_qubit);
   let results = (outs);
+  let printer = [{  auto op = *this;
+  p << "} (ctrl_bit = " << op.ctrl_qubit() << ")";
+  }];
 }
 
 def StartAdjointURegion : QuantumOp<"start_adj_u_region", []> {

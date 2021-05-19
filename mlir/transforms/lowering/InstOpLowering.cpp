@@ -1,4 +1,16 @@
 #include "InstOpLowering.hpp"
+
+#include <iostream>
+
+#include "llvm/ADT/Sequence.h"
+#include "llvm/ADT/StringRef.h"
+#include "llvm/IR/Module.h"
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Support/ErrorOr.h"
+#include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Support/SourceMgr.h"
+#include "llvm/Support/TargetSelect.h"
+#include "llvm/Support/raw_ostream.h"
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Conversion/SCFToStandard/SCFToStandard.h"
 #include "mlir/Conversion/StandardToLLVM/ConvertStandardToLLVM.h"
@@ -11,21 +23,11 @@
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/Verifier.h"
 #include "mlir/InitAllDialects.h"
-#include "llvm/ADT/Sequence.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/IR/Module.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/ErrorOr.h"
-#include "llvm/Support/MemoryBuffer.h"
-#include "llvm/Support/SourceMgr.h"
-#include "llvm/Support/TargetSelect.h"
-#include "llvm/Support/raw_ostream.h"
-#include <iostream>
 namespace qcor {
 // Match and replace all InstOps
-LogicalResult
-InstOpLowering::matchAndRewrite(Operation *op, ArrayRef<Value> operands,
-                                ConversionPatternRewriter &rewriter) const {
+LogicalResult InstOpLowering::matchAndRewrite(
+    Operation *op, ArrayRef<Value> operands,
+    ConversionPatternRewriter &rewriter) const {
   // Local Declarations
   auto loc = op->getLoc();
   ModuleOp parentModule = op->getParentOfType<ModuleOp>();
@@ -102,13 +104,28 @@ InstOpLowering::matchAndRewrite(Operation *op, ArrayRef<Value> operands,
     func_args.push_back(operands[i]);
   }
   for (size_t i = 0; i < n_qbits; i++) {
+    if (inst_name == "mz") {
+      // Handle situation like
+      // %4 = qvs.h(%1) : !quantum.Qubit
+      // %5 = q.mz(%4) : (!quantum.Qubit) -> i1
+      // 6 = index_cast %c0_i64 : i64 to index
+      // store %5, %3[%6] : memref<i1>
+      // %7 = qvs.reset(%4) : !quantum.Qubit
+      // with 2 users of %4
+      if (auto q_op =
+              operands[i]
+                  .getDefiningOp<mlir::quantum::ValueSemanticsInstOp>()) {
+        func_args.push_back(q_op.getOperands()[0]);
+        break;
+      }
+    }
     func_args.push_back(operands[i]);
   }
 
   // once again, return type should be void unless its a measure
   mlir::Type ret_type = LLVM::LLVMVoidType::get(context);
   if (inst_name == "mz") {
-    ret_type = // rewriter.getIntegerType(1);
+    ret_type =  // rewriter.getIntegerType(1);
         LLVM::LLVMPointerType::get(get_quantum_type("Result", context));
   }
 
@@ -132,4 +149,4 @@ InstOpLowering::matchAndRewrite(Operation *op, ArrayRef<Value> operands,
 
   return success();
 }
-} // namespace qcor
+}  // namespace qcor

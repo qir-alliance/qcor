@@ -36,8 +36,6 @@ antlrcpp::Any qasm3_visitor::visitQuantumDeclaration(
       try {
         size = std::stoi(exp_list->expression(0)->getText());
       } catch (...) {
-
-        
         // check if this is a constant expression
         qasm3_expression_generator exp_generator(builder, symbol_table,
                                                  file_name);
@@ -52,7 +50,8 @@ antlrcpp::Any qasm3_visitor::visitQuantumDeclaration(
                 "This variable qubit size must be a constant integer.");
           }
         } else {
-          size = symbol_table.get_global_constant<int64_t>(exp_list->expression(0)->getText());
+          size = symbol_table.get_global_constant<int64_t>(
+              exp_list->expression(0)->getText());
         }
       }
     }
@@ -73,7 +72,7 @@ antlrcpp::Any qasm3_visitor::visitQuantumDeclaration(
       // Need to also store the qubit array for this single qubit
       // so that we can deallocate later.
       symbol_table.add_symbol("__qcor__mlir__single_qubit_register_" + var_name,
-                          allocation);
+                              allocation);
 
       allocation = builder.create<mlir::quantum::ExtractQubitOp>(
           location, qubit_type, allocation, pos);
@@ -127,7 +126,7 @@ antlrcpp::Any qasm3_visitor::visitQuantumGateDefinition(
 
   auto main_block = builder.saveInsertionPoint();
 
-  auto func_type = builder.getFunctionType(func_args, llvm::None);
+  auto func_type = builder.getFunctionType(func_args, func_args);
   auto proto =
       mlir::FuncOp::create(builder.getUnknownLoc(), gate_call_name, func_type);
   mlir::FuncOp function(proto);
@@ -146,11 +145,30 @@ antlrcpp::Any qasm3_visitor::visitQuantumGateDefinition(
 
   auto ret = visitChildren(quantum_block);
 
-  builder.create<mlir::ReturnOp>(builder.getUnknownLoc());
+  // Can I walk the use chain of the block arguments
+  // and get the resultant qubit values taht I can then return
+  // from this custom gate definition
+  std::vector<mlir::Value> result_qubit_vals;
+  for (auto arg : entryBlock.getArguments()) {
+    auto users = arg.getUsers();
+    mlir::Value last_user;
+    if (!users.empty()) {
+      last_user = (*users.begin())->getResult(0);
+      users = last_user.getUsers();
+    }
+    result_qubit_vals.push_back(last_user);
+  }
+
+  std::cout << "GATE " << gate_call_name << " has " << result_qubit_vals.size() << " to return.\n";
+  for (auto v : result_qubit_vals) {
+    v.dump();
+  }
+
+  builder.create<mlir::ReturnOp>(builder.getUnknownLoc(), llvm::makeArrayRef(result_qubit_vals));
 
   m_module.push_back(function);
 
-  builder.restoreInsertionPoint(main_block); 
+  builder.restoreInsertionPoint(main_block);
 
   symbol_table.exit_scope();
 

@@ -22,6 +22,7 @@
 #include "lowering/StdAtanOpLowering.hpp"
 #include "lowering/ValueSemanticsInstOpLowering.hpp"
 #include "optimizations/IdentityPairRemovalPass.hpp"
+#include "optimizations/RemoveUnusedQIRCalls.hpp"
 
 namespace qcor {
 mlir::Type get_quantum_type(std::string type, mlir::MLIRContext *context) {
@@ -84,8 +85,16 @@ void QuantumToLLVMLoweringPass::runOnOperation() {
       signalPassFailure();
   }
 
+  // Clean up...
+  patterns.insert<RemoveUnusedExtractQubitCalls>(&getContext());
+  if (failed(applyPartialConversion(module, target, std::move(patterns))))
+      signalPassFailure();
+  patterns.insert<RemoveUnusedQallocCalls>(&getContext());
+
+  // Lower arctan correctly
   patterns.insert<StdAtanOpLowering>(&getContext());
 
+  // Add Standard to LLVM
   populateStdToLLVMConversionPatterns(typeConverter, patterns);
 
   // Common variables to share across converteres

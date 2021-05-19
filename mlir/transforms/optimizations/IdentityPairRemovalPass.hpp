@@ -79,7 +79,7 @@ class CNOTIdentityPairRemovalPattern
       mlir::PatternRewriter& rewriter) const override {
 
     auto inst_name = op.name();
-    if (inst_name != "cnot") {
+    if (inst_name != "cnot" && inst_name != "cx") {
       return failure();
     }
 
@@ -128,7 +128,7 @@ class CNOTIdentityPairRemovalPattern
       return success();
 
     }
-
+    
     return failure();
   }
 };

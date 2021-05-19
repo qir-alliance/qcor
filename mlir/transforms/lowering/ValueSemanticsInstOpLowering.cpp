@@ -115,9 +115,7 @@ LogicalResult ValueSemanticsInstOpLowering::matchAndRewrite(
     func_args.push_back(operands[i]);
     auto result = results[i];
 
-    if (result.hasOneUse()) {
-      // get the first user of this result
-      auto user = *result.user_begin();
+    for (auto user : result.getUsers()) {
 
       // Want to replace the next use of this result
       // with the given operand[i];
