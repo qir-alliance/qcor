@@ -69,7 +69,28 @@ class TestKernelJIT(unittest.TestCase):
         self.assertEqual(comp.getInstruction(2).name(), "CNOT")
         self.assertEqual(comp.getInstruction(2).bits()[0], 1)
         self.assertEqual(comp.getInstruction(2).bits()[1], 0)
-
+    
+    def test_kernel_signature_substitute(self):
+        @qjit
+        def htest(q : qreg, sp_var : KernelSignature(qreg)):
+            H(q[0])
+            psi = q[1:q.size()]
+            sp_var(psi) 
+        
+        @qjit
+        def sp(q : qreg):
+            X(q)
+        
+        q = qalloc(3)
+        comp = htest.extract_composite(q, sp)
+        print(comp)
+        self.assertEqual(comp.nInstructions(), 3)
+        self.assertEqual(comp.getInstruction(0).name(), "H")
+        self.assertEqual(comp.getInstruction(0).bits()[0], 0)
+        self.assertEqual(comp.getInstruction(1).name(), "X")
+        self.assertEqual(comp.getInstruction(1).bits()[0], 1)
+        self.assertEqual(comp.getInstruction(2).name(), "X")
+        self.assertEqual(comp.getInstruction(2).bits()[0], 2)
 
 if __name__ == '__main__':
   unittest.main()

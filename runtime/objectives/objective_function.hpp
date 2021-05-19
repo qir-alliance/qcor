@@ -130,8 +130,12 @@ class ObjectiveFunctionImpl : public ObjectiveFunction {
   std::shared_ptr<LocalArgsTranslator> args_translator;
   std::shared_ptr<ObjectiveFunction> helper;
   xacc::internal_compiler::qreg qreg;
+  // Kernel evaluator from qpu_lambda
+  std::optional<
+      std::function<std::shared_ptr<CompositeInstruction>(std::vector<double>)>>
+      lambda_kernel_evaluator;
 
- public:
+public:
   ObjectiveFunctionImpl(void *k_ptr, std::shared_ptr<Observable> obs,
                         xacc::internal_compiler::qreg &qq,
                         std::shared_ptr<LocalArgsTranslator> translator,
@@ -159,6 +163,44 @@ class ObjectiveFunctionImpl : public ObjectiveFunction {
     __internal__::ArgsTranslatorAutoGenerator auto_gen;
     args_translator = auto_gen(qreg, std::tuple<KernelArgs...>());
     // args_translator = translator;
+    helper = obj_helper;
+    _dim = dim;
+    _function = *this;
+    options = opts;
+    options.insert("observable", observable);
+    helper->update_observable(observable);
+    helper->set_options(options);
+  }
+
+  ObjectiveFunctionImpl(
+      std::function<void(std::shared_ptr<CompositeInstruction>, KernelArgs...)>
+          &functor,
+      std::shared_ptr<Observable> obs, xacc::internal_compiler::qreg &qq,
+      std::shared_ptr<LocalArgsTranslator> translator,
+      std::shared_ptr<ObjectiveFunction> obj_helper, const int dim,
+      HeterogeneousMap opts)
+      : qreg(qq) {
+    // std::cout << "Constructed from lambda\n";
+    lambda_kernel_evaluator =
+        [&, functor](std::vector<double> x) -> std::shared_ptr<CompositeInstruction> {
+      // std::cout << "HOWDY:\n";
+      // Create a new CompositeInstruction, and create a tuple
+      // from it so we can concatenate with the tuple args
+      auto m_kernel = create_new_composite();
+      auto kernel_composite_tuple = std::make_tuple(m_kernel);
+
+      // Translate x parameters into kernel args (represented as a tuple)
+      auto translated_tuple = (*args_translator)(x);
+
+      // Concatenate the two to make the args list (kernel, args...)
+      auto concatenated =
+          std::tuple_cat(kernel_composite_tuple, translated_tuple);
+      std::apply(functor, concatenated);
+      // std::cout << m_kernel->toString() << "\n";
+      return m_kernel;
+    };
+    observable = obs;
+    args_translator = translator;
     helper = obj_helper;
     _dim = dim;
     _function = *this;
@@ -198,7 +240,9 @@ class ObjectiveFunctionImpl : public ObjectiveFunction {
     // Turn kernel evaluation into a functor that we can use here
     // and share with the helper ObjectiveFunction for gradient evaluation
     std::function<std::shared_ptr<CompositeInstruction>(std::vector<double>)>
-        kernel_evaluator = [&](std::vector<double> x)
+        kernel_evaluator = lambda_kernel_evaluator.has_value()
+                               ? lambda_kernel_evaluator.value()
+                               : [&](std::vector<double> x)
         -> std::shared_ptr<CompositeInstruction> {
       // Create a new CompositeInstruction, and create a tuple
       // from it so we can concatenate with the tuple args
@@ -503,4 +547,61 @@ std::shared_ptr<ObjectiveFunction> createObjectiveFunction(
       options);
 }
 
-}  // namespace qcor
+template <typename... CaptureArgs, typename... Args>
+std::shared_ptr<ObjectiveFunction> createObjectiveFunction(
+    _qpu_lambda<CaptureArgs...> &lambda,
+    std::shared_ptr<ArgsTranslator<Args...>> args_translator,
+    Observable &observable, qreg &q, const int nParams,
+    HeterogeneousMap &&options = {}) {
+  auto helper = qcor::__internal__::get_objective("vqe");
+  std::function<void(std::shared_ptr<CompositeInstruction>, Args...)> kernel_fn =
+      [&lambda](std::shared_ptr<CompositeInstruction> comp, Args... args) -> void {
+        return lambda.eval_with_parent(comp, args...);
+      };
+
+  return std::make_shared<ObjectiveFunctionImpl<Args...>>(
+      kernel_fn, __internal__::qcor_as_shared(&observable), q,
+      args_translator, helper, nParams, options);
+}
+
+// Create ObjFunc from a qpu_lambda w/o a specific args_translater
+// Assume the lambda has a VQE-compatible signature
+template <typename... CaptureArgs>
+std::shared_ptr<ObjectiveFunction>
+createObjectiveFunction(_qpu_lambda<CaptureArgs...> &lambda,
+                        Observable &observable, qreg &q, const int nParams,
+                        HeterogeneousMap &&options = {}) {
+  if (lambda.var_type ==
+      _qpu_lambda<CaptureArgs...>::Variational_Arg_Type::None) {
+    error("qpu_lambda has an incompatible signature. Please provide an "
+          "ArgsTranslator.");
+  }
+  auto helper = qcor::__internal__::get_objective("vqe");
+  std::function<void(std::shared_ptr<CompositeInstruction>, qreg,
+                     std::vector<double>)>
+      kernel_fn = [&lambda](std::shared_ptr<CompositeInstruction> comp, qreg q,
+                            std::vector<double> params) -> void {
+    if (lambda.var_type ==
+        _qpu_lambda<CaptureArgs...>::Variational_Arg_Type::Vec_Double) {
+      return lambda.eval_with_parent(comp, q, params);
+    }
+    if (lambda.var_type ==
+        _qpu_lambda<CaptureArgs...>::Variational_Arg_Type::Double) {
+      if (params.size() != 1) {
+        error("Invalid number of parameters. Expected 1, got " +
+              std::to_string(params.size()));
+      }
+      return lambda.eval_with_parent(comp, q, params[0]);
+    }
+    error("Internal error: invalid qpu lambda type encountered.");
+  };
+
+  auto args_translator =
+      std::make_shared<ArgsTranslator<qreg, std::vector<double>>>(
+          [&](const std::vector<double> x) { return std::make_tuple(q, x); });
+
+  return std::make_shared<ObjectiveFunctionImpl<qreg, std::vector<double>>>(
+      kernel_fn, __internal__::qcor_as_shared(&observable), q, args_translator,
+      helper, nParams, options);
+}
+} // namespace qcor
