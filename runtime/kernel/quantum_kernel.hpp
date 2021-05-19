@@ -300,6 +300,11 @@ private:
   QJIT qjit;
 
 public:
+  // Variational information, i.e. is this lambda compatible with VQE
+  // e.g. single double or single vector double input.
+  enum class Variational_Arg_Type { Double, Vec_Double, None };
+  Variational_Arg_Type var_type = Variational_Arg_Type::None;
+  
   // Constructor, capture vars should be deduced without
   // specifying them since we're using C++17
   _qpu_lambda(std::string &&ff, std::string &&_capture_var_names,
@@ -358,6 +363,31 @@ public:
       result.emplace_back(std::make_pair(type_name, var_name));
       return result;
     }(tt);
+
+
+    // Determine if this lambda has a VQE-compatible type:
+    // QReg then variational params.
+    if (arg_type_and_names.size() == 2) {
+      const auto trim_space = [](std::string &stripString) {
+        while (!stripString.empty() && std::isspace(*stripString.begin())) {
+          stripString.erase(stripString.begin());
+        }
+
+        while (!stripString.empty() && std::isspace(*stripString.rbegin())) {
+          stripString.erase(stripString.length() - 1);
+        }
+      };
+
+      auto type_name = arg_type_and_names[1].first;
+      trim_space(type_name);
+      // Use a relax search to handle using namespace std...
+      // FIXME: this is quite hacky.
+      if (type_name.find("vector<double>") != std::string::npos) {
+        var_type = Variational_Arg_Type::Vec_Double;
+      } else if (type_name == "double") {
+        var_type = Variational_Arg_Type::Double;
+      }
+    }
 
     // Map simple type to its reference type so that the
     // we can use consistent type-forwarding

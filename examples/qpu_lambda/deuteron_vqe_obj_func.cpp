@@ -12,13 +12,24 @@ int main() {
   });
 
   auto q = qalloc(2);
-  auto args_translator = std::make_shared<ArgsTranslator<qreg, double>>(
-      [&](const std::vector<double> x) { return std::make_tuple(q, x[0]); });
-  auto objective = createObjectiveFunction(ansatz, args_translator, H, q, 1);
-
+  auto objective = createObjectiveFunction(ansatz, H, q, 1);
   // Create a qcor Optimizer
   auto optimizer = createOptimizer("nlopt");
 
   // Optimize the above function
   auto [optval, opt_params] = optimizer->optimize(*objective.get());
+  std::cout << "Energy: " << optval << "\n";
+
+  auto ansatz_vec_param = qpu_lambda([](qreg q, std::vector<double> x) {
+    X(q[0]);
+    Ry(q[1], x[0]);
+    CX(q[1], q[0]);
+  });
+
+  auto q1 = qalloc(2);
+  auto objective_vec = createObjectiveFunction(ansatz_vec_param, H, q1, 1);
+
+  // Optimize the above function
+  auto [optval_vec, opt_params_vec] = optimizer->optimize(*objective.get());
+  std::cout << "Energy: " << optval_vec << "\n";
 }
