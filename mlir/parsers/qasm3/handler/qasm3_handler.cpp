@@ -129,7 +129,7 @@ void Qasm3SyntaxHandler::GetReplacement(Preprocessor &PP, Declarator &D,
   std::vector<std::string> unique_f_names{kernel_name};
   mlir::PassManager pm(&context);
   applyPassManagerCLOptions(pm);
-  pm.addPass(std::make_unique<qcor::QuantumToLLVMLoweringPass>(pm, unique_f_names));
+  pm.addPass(std::make_unique<qcor::QuantumToLLVMLoweringPass>(unique_f_names));
   auto module_op = (*module).getOperation();
   if (mlir::failed(pm.run(module_op))) {
     std::cout << "Pass Manager Failed\n";

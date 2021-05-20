@@ -40,14 +40,17 @@ class ScopedSymbolTable {
   std::map<std::string, mlir::Type> global_constant_memref_types;
   std::map<std::string, double> global_constants;
 
- public:
+  // Map Opaque Ptr of value to key in SymbolTable
+  std::map<void*, std::string> replacement_helper;
 
-  template<typename T>
+ public:
+  template <typename T>
   T get_global_constant(const std::string variable_name) {
     if (!global_constants.count(variable_name)) {
-      printErrorMessage("Invalid global constant variable name: " + variable_name);
+      printErrorMessage("Invalid global constant variable name: " +
+                        variable_name);
     }
-    return (T) global_constants[variable_name];
+    return (T)global_constants[variable_name];
   }
   void set_op_builder(mlir::OpBuilder& b) { builder = &b; }
 
@@ -92,7 +95,7 @@ class ScopedSymbolTable {
     // last_created_block = nullptr;
   }
 
-  void set_last_created_block(mlir::Block* b) {last_created_block = b; }
+  void set_last_created_block(mlir::Block* b) { last_created_block = b; }
   mlir::Block* get_last_created_block() { return last_created_block; }
 
   void add_seen_function(const std::string name, mlir::FuncOp function) {
@@ -100,19 +103,8 @@ class ScopedSymbolTable {
     return;
   }
 
-  void replace_symbol(std::string key, mlir::Value new_value) {
-    for (auto i = current_scope; i >= 0; i--) {
-      if (scoped_symbol_tables[i].count(key)) {
-        scoped_symbol_tables[i].find(key)->second = new_value;
-        return;
-      }
-    }
+  void replace_symbol(mlir::Value old_value, mlir::Value new_value);
 
-    printErrorMessage("Cannot replace value - no variable " + key +
-                      " in scoped symbol table (provided scope = " +
-                      std::to_string(current_scope) + "). Did you allocate it?");
-  }
-  
   std::vector<std::string> get_seen_function_names() {
     std::vector<std::string> fnames;
     for (auto [name, value] : seen_functions) {
@@ -263,6 +255,7 @@ class ScopedSymbolTable {
         scoped_symbol_tables[scope][variable_name] = value;
         variable_attributes[variable_name] = var_attributes;
         last_value_added = value;
+        replacement_helper[value.getAsOpaquePointer()] = variable_name;
         return;
       }
     }
@@ -270,6 +263,8 @@ class ScopedSymbolTable {
     scoped_symbol_tables[scope].insert({variable_name, value});
     variable_attributes.insert({variable_name, var_attributes});
     last_value_added = value;
+          
+    replacement_helper.insert({value.getAsOpaquePointer(), variable_name});
   }
 
   // get symbol at the current scope, will search parent scopes

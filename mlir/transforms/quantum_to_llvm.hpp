@@ -18,13 +18,14 @@ struct QuantumToLLVMLoweringPass
   void runOnOperation() final;
 
  private:
-  mlir::PassManager& pm;
+  bool q_optimizations = false;
   std::vector<std::string>& function_names;
 
  public:
-  QuantumToLLVMLoweringPass(mlir::PassManager& p,
-                            std::vector<std::string>& f_names)
-      : pm(p), function_names(f_names) {}
+  QuantumToLLVMLoweringPass(std::vector<std::string>& f_names)
+      : function_names(f_names) {}
+  QuantumToLLVMLoweringPass(bool q_opts, std::vector<std::string>& f_names)
+      : q_optimizations(q_opts), function_names(f_names) {}
 };
 
 // Helper func.
