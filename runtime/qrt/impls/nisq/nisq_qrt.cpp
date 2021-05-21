@@ -248,24 +248,24 @@ class NISQ : public ::quantum::QuantumRuntime,
 
         if (pop == "X") {
           basis_front.emplace_back(
-              std::make_shared<xacc::quantum::Hadamard>(qid));
+              std::make_shared<xacc::quantum::Hadamard>(q[qid].second));
           basis_back.emplace_back(
-              std::make_shared<xacc::quantum::Hadamard>(qid));
+              std::make_shared<xacc::quantum::Hadamard>(q[qid].second));
 
           basis_front.back()->setBufferNames(
-              std::vector<std::string>(1, q_name));
+              std::vector<std::string>(1, q[qid].first));
           basis_back.back()->setBufferNames(
-              std::vector<std::string>(1, q_name));
+              std::vector<std::string>(1, q[qid].first));
         } else if (pop == "Y") {
           basis_front.emplace_back(
-              std::make_shared<xacc::quantum::Rx>(qid, 1.57079362679));
+              std::make_shared<xacc::quantum::Rx>(q[qid].second, 1.57079362679));
           basis_back.emplace_back(
-              std::make_shared<xacc::quantum::Rx>(qid, -1.57079362679));
+              std::make_shared<xacc::quantum::Rx>(q[qid].second, -1.57079362679));
 
           basis_front.back()->setBufferNames(
-              std::vector<std::string>(1, q_name));
+              std::vector<std::string>(1, q[qid].first));
           basis_back.back()->setBufferNames(
-              std::vector<std::string>(1, q_name));
+              std::vector<std::string>(1, q[qid].first));
         }
       }
 
@@ -285,17 +285,17 @@ class NISQ : public ::quantum::QuantumRuntime,
         Eigen::VectorXi pairs = cnot_pairs.col(i);
         auto c = pairs(0);
         auto t = pairs(1);
-        cnot_front.emplace_back(std::make_shared<xacc::quantum::CNOT>(c, t));
+        cnot_front.emplace_back(std::make_shared<xacc::quantum::CNOT>(q[c].second, q[t].second));
 
-        cnot_front.back()->setBufferNames(std::vector<std::string>(2, q_name));
+        cnot_front.back()->setBufferNames(std::vector<std::string>{q[c].first, q[t].first});
       }
 
       for (int i = qidxs.size() - 2; i >= 0; i--) {
         Eigen::VectorXi pairs = cnot_pairs.col(i);
         auto c = pairs(0);
         auto t = pairs(1);
-        cnot_back.emplace_back(std::make_shared<xacc::quantum::CNOT>(c, t));
-        cnot_back.back()->setBufferNames(std::vector<std::string>(2, q_name));
+        cnot_back.emplace_back(std::make_shared<xacc::quantum::CNOT>(q[c].second, q[t].second));
+        cnot_back.back()->setBufferNames(std::vector<std::string>{q[c].first, q[t].first});
       }
       exp_insts.insert(exp_insts.end(),
                        std::make_move_iterator(basis_front.begin()),
@@ -308,13 +308,13 @@ class NISQ : public ::quantum::QuantumRuntime,
       // check that the imag part is not zero and use it
       if (std::fabs(std::real(spinInst.coeff())) > 1e-12) {
         exp_insts.emplace_back(std::make_shared<xacc::quantum::Rz>(
-            qidxs[qidxs.size() - 1], std::real(spinInst.coeff()) * theta));
-        exp_insts.back()->setBufferNames(std::vector<std::string>(1, q_name));
+            q[qidxs[qidxs.size() - 1]].second, std::real(spinInst.coeff()) * theta));
+        exp_insts.back()->setBufferNames(std::vector<std::string>(1, q[qidxs[qidxs.size() - 1]].first));
 
       } else if (std::fabs(std::imag(spinInst.coeff())) > 1e-12) {
         exp_insts.emplace_back(std::make_shared<xacc::quantum::Rz>(
-            qidxs[qidxs.size() - 1], std::imag(spinInst.coeff()) * theta));
-        exp_insts.back()->setBufferNames(std::vector<std::string>(1, q_name));
+            q[qidxs[qidxs.size() - 1]].second, std::imag(spinInst.coeff()) * theta));
+        exp_insts.back()->setBufferNames(std::vector<std::string>(1, q[qidxs[qidxs.size() - 1]].first));
       }
       exp_insts.insert(exp_insts.end(),
                        std::make_move_iterator(cnot_back.begin()),
