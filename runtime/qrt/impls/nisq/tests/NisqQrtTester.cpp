@@ -15,10 +15,27 @@ TEST(NisqQrtTester, checkExpInst) {
   // Get the XACC reference implementation
   auto exp = std::dynamic_pointer_cast<xacc::quantum::Circuit>(
       xacc::getService<xacc::Instruction>("exp_i_theta"));
-  EXPECT_TRUE(exp->expand({{ "pauli", obs_str}}));
+  EXPECT_TRUE(exp->expand({{"pauli", obs_str}}));
   auto evaled = exp->operator()({0.5});
-  std::cout << "HELLO\n" << evaled->toString() << "\n";
-  EXPECT_EQ(evaled->toString(), ::quantum::qrt_impl->get_current_program()->toString());
+  EXPECT_EQ(evaled->nInstructions(),
+            ::quantum::qrt_impl->get_current_program()->nInstructions());
+  for (int i = 0; i < evaled->nInstructions(); ++i) {
+    auto ref_inst = evaled->getInstruction(i);
+    auto qrt_inst =
+        ::quantum::qrt_impl->get_current_program()->getInstruction(i);
+    std::cout << ref_inst->toString() << "\n";
+    std::cout << qrt_inst->toString() << "\n";
+    EXPECT_EQ(ref_inst->name(), qrt_inst->name());
+    EXPECT_EQ(ref_inst->bits(), qrt_inst->bits());
+    if (!ref_inst->getParameters().empty()) {
+      EXPECT_EQ(ref_inst->getParameters().size(),
+                qrt_inst->getParameters().size());
+      for (int j = 0; j < ref_inst->getParameters().size(); ++j) {
+        EXPECT_NEAR(ref_inst->getParameters()[j].as<double>(),
+                    qrt_inst->getParameters()[j].as<double>(), 1e-9);
+      }
+    }
+  }
 }
 
 TEST(NisqQrtTester, checkResetInstSim) {
