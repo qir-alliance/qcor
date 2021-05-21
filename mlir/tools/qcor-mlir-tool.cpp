@@ -95,7 +95,6 @@ int main(int argc, char **argv) {
   llvm::cl::ParseCommandLineOptions(argc, argv,
                                     "qcor quantum assembly compiler\n");
   bool qoptimizations = mlir_quantum_opt;
-  std::cout << "TURN ON OPTIMS: " << qoptimizations << "\n";
   mlir::MLIRContext context;
   context.loadDialect<mlir::quantum::QuantumDialect, mlir::AffineDialect,
                       mlir::scf::SCFDialect, mlir::StandardOpsDialect>();
