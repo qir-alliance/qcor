@@ -132,7 +132,7 @@ int main(int argc, char **argv) {
   mlir::PassManager pm(&context);
   applyPassManagerCLOptions(pm);
   pm.addPass(std::make_unique<qcor::QuantumToLLVMLoweringPass>(
-      qoptimizations, true, unique_function_names));
+      qoptimizations, unique_function_names));
   auto module_op = (*module).getOperation();
   if (mlir::failed(pm.run(module_op))) {
     std::cout << "Pass Manager Failed\n";

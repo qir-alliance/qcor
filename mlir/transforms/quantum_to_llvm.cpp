@@ -71,6 +71,9 @@ void QuantumToLLVMLoweringPass::runOnOperation() {
   auto module = getOperation();
 
   if (q_optimizations) {
+    // TODO Figure out how to rip this out to its on MLIR-level Pass. 
+    // I'm struggling to make that happen...
+    
     // First, add any Optimization Passes.
     // We note that some opt passes will free up other optimizations that
     // would otherwise be missed on the first pass, so do this a certain
