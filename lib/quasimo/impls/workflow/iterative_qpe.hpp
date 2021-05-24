@@ -25,7 +25,7 @@ public:
 
   static std::shared_ptr<CompositeInstruction> constructQpeTrotterCircuit(
       std::shared_ptr<Observable> obs, double trotter_step, size_t nbQubits,
-      double compensatedAncRot = 0, int steps = 1, int k = 1, double omega = 0);
+      double compensatedAncRot = 0, int steps = 1, int k = 1, double omega = 0, bool cau_opt = true);
 
 private:
   std::shared_ptr<CompositeInstruction>
@@ -38,6 +38,8 @@ private:
   // Number of iterations (>=1)
   int num_iters;
   HamOpConverter ham_converter;
+
+  bool cau_opt = true;
 };
 } // namespace QuaSiMo
 } // namespace qcor
