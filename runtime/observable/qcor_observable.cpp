@@ -130,6 +130,7 @@ std::shared_ptr<Observable> _internal_python_createObservable(
 }
 
 namespace __internal__ {
+std::map<std::size_t, std::shared_ptr<Observable>> cached_observables = {};
 
 std::vector<std::shared_ptr<xacc::CompositeInstruction>> observe(
     std::shared_ptr<xacc::Observable> obs,
