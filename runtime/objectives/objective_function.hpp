@@ -2,6 +2,7 @@
 
 #include <functional>
 
+#include "gradient_function.hpp"
 #include "qcor_observable.hpp"
 #include "qcor_utils.hpp"
 #include "quantum_kernel.hpp"
@@ -130,6 +131,7 @@ class ObjectiveFunctionImpl : public ObjectiveFunction {
   std::shared_ptr<LocalArgsTranslator> args_translator;
   std::shared_ptr<ObjectiveFunction> helper;
   xacc::internal_compiler::qreg qreg;
+  std::shared_ptr<GradientFunction> gradiend_method;
   // Kernel evaluator from qpu_lambda
   std::optional<
       std::function<std::shared_ptr<CompositeInstruction>(std::vector<double>)>>
@@ -182,7 +184,8 @@ public:
       : qreg(qq) {
     // std::cout << "Constructed from lambda\n";
     lambda_kernel_evaluator =
-        [&, functor](std::vector<double> x) -> std::shared_ptr<CompositeInstruction> {
+        [&, functor](
+            std::vector<double> x) -> std::shared_ptr<CompositeInstruction> {
       // std::cout << "HOWDY:\n";
       // Create a new CompositeInstruction, and create a tuple
       // from it so we can concatenate with the tuple args
@@ -268,7 +271,17 @@ public:
     // Kernel is set / evaluated... run sub-type operator()
     kernel = kernel_evaluator(x);
     helper->update_kernel(kernel);
-    return (*helper)(qreg, dx);
+
+    auto cost_val = (*helper)(qreg, dx);
+    // If we needs gradients:
+    if (!dx.empty()) {
+      if (dx.size() != x.size()) {
+        error("Dimension mismatched: gradients and parameters vectors have "
+              "different size.");
+      }
+      dx = (*gradiend_method)(x, cost_val);
+    }
+    return cost_val;
   }
 
   // Return the qreg
@@ -603,5 +616,24 @@ createObjectiveFunction(_qpu_lambda<CaptureArgs...> &lambda,
   return std::make_shared<ObjectiveFunctionImpl<qreg, std::vector<double>>>(
       kernel_fn, __internal__::qcor_as_shared(&observable), q, args_translator,
       helper, nParams, options);
+}
+
+// Objective function with gradient options:
+// Generic method: user provides a gradient calculation method.
+template <typename... Args>
+std::shared_ptr<ObjectiveFunction> createObjectiveFunction(
+    void (*quantum_kernel_functor)(std::shared_ptr<CompositeInstruction>,
+                                   Args...),
+    std::shared_ptr<Observable> observable, qreg &q, const int nParams,
+    std::shared_ptr<GradientFunction> gradient_method,
+    HeterogeneousMap &&options = {}) {
+  auto helper = qcor::__internal__::get_objective("vqe");
+  __internal__::ArgsTranslatorAutoGenerator auto_gen;
+  auto args_translator = auto_gen(q, std::tuple<Args...>());
+
+  void *kernel_ptr = reinterpret_cast<void *>(quantum_kernel_functor);
+
+  return std::make_shared<ObjectiveFunctionImpl<Args...>>(
+      kernel_ptr, observable, q, args_translator, helper, nParams, options);
 }
 } // namespace qcor
