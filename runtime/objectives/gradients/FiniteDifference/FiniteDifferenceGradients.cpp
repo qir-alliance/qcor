@@ -124,4 +124,5 @@ public:
   }
   void Stop(BundleContext /*context*/) {}
 };
+CPPMICROSERVICES_EXPORT_BUNDLE_ACTIVATOR(FiniteDiffActivator)
 } // namespace

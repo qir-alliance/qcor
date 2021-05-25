@@ -230,15 +230,6 @@ public:
 
   // Construct the kernel evaluator of this ObjectiveFunctionImpl
   std::function<std::shared_ptr<CompositeInstruction>(std::vector<double>)> get_kernel_evaluator() override {
-    // Define a function pointer type for the quantum kernel
-    void (*kernel_functor)(std::shared_ptr<CompositeInstruction>,
-                           KernelArgs...);
-    // Cast to the function pointer type
-    if (kernel_ptr) {
-      kernel_functor = reinterpret_cast<void (*)(
-          std::shared_ptr<CompositeInstruction>, KernelArgs...)>(kernel_ptr);
-    }
-
     // Turn kernel evaluation into a functor that we can use here
     // and share with the helper ObjectiveFunction for gradient evaluation
     std::function<std::shared_ptr<CompositeInstruction>(std::vector<double>)>
@@ -246,6 +237,14 @@ public:
                                ? lambda_kernel_evaluator.value()
                                : [&](std::vector<double> x)
         -> std::shared_ptr<CompositeInstruction> {
+      // Define a function pointer type for the quantum kernel
+      void (*kernel_functor)(std::shared_ptr<CompositeInstruction>,
+                             KernelArgs...);
+      // Cast to the function pointer type
+      if (kernel_ptr) {
+        kernel_functor = reinterpret_cast<void (*)(
+            std::shared_ptr<CompositeInstruction>, KernelArgs...)>(kernel_ptr);
+      }
       // Create a new CompositeInstruction, and create a tuple
       // from it so we can concatenate with the tuple args
       auto m_kernel = create_new_composite();

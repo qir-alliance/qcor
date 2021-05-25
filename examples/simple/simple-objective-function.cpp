@@ -25,9 +25,8 @@ int main(int argc, char **argv) {
 
   // Create the ObjectiveFunction, here we want to run VQE
   // need to provide ansatz, Operator, and qreg
-  auto objective = createObjectiveFunction(
-      ansatz, H, q, n_variational_params,
-      {{"gradient-strategy", "parameter-shift"}});
+  auto objective = createObjectiveFunction(ansatz, H, q, n_variational_params,
+                                           {{"gradient-strategy", "central"}});
 
   // Create the Optimizer.
   auto optimizer = createOptimizer("nlopt", {{"nlopt-optimizer", "l-bfgs"}});

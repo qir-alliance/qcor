@@ -17,7 +17,6 @@ add_test(NAME qrt_simple-demo COMMAND ${CMAKE_BINARY_DIR}/qcor -c ${CMAKE_CURREN
 add_test(NAME qrt_deuteron_exp_inst COMMAND ${CMAKE_BINARY_DIR}/qcor -c ${CMAKE_CURRENT_SOURCE_DIR}/deuteron/deuteron_exp_inst.cpp)
 add_test(NAME qrt_deuteron_task_initiate COMMAND ${CMAKE_BINARY_DIR}/qcor -c ${CMAKE_CURRENT_SOURCE_DIR}/deuteron/deuteron_task_initiate.cpp)
 add_test(NAME qrt_qaoa_example COMMAND ${CMAKE_BINARY_DIR}/qcor -c ${CMAKE_CURRENT_SOURCE_DIR}/qaoa/qaoa_example.cpp)
-add_test(NAME qrt_simple-objective-function COMMAND ${CMAKE_BINARY_DIR}/qcor -c ${CMAKE_CURRENT_SOURCE_DIR}/simple/simple-objective-function.cpp)
 add_test(NAME qrt_qpe_example COMMAND ${CMAKE_BINARY_DIR}/qcor -c ${CMAKE_CURRENT_SOURCE_DIR}/qpe/qpe_example_qrt.cpp)
 add_test(NAME qrt_kernel_include COMMAND ${CMAKE_BINARY_DIR}/qcor -c ${CMAKE_CURRENT_SOURCE_DIR}/simple/multiple_kernels.cpp)
 add_test(NAME qrt_grover COMMAND ${CMAKE_BINARY_DIR}/qcor -c ${CMAKE_CURRENT_SOURCE_DIR}/grover/grover.cpp)
@@ -40,6 +39,7 @@ add_test(NAME quasimo_verified_qpe COMMAND ${CMAKE_BINARY_DIR}/qcor ${CMAKE_CURR
 add_test(NAME hadamard_ctrl_test COMMAND ${CMAKE_BINARY_DIR}/qcor ${CMAKE_CURRENT_SOURCE_DIR}/ctrl-gates/simple_hadamard_test.cpp)
 add_test(NAME multi_ctrl_test COMMAND ${CMAKE_BINARY_DIR}/qcor ${CMAKE_CURRENT_SOURCE_DIR}/ctrl-gates/multiple_controls.cpp)
 
+add_qcor_compile_and_exe_test(qrt_obj_func_simple simple/simple-objective-function.cpp)
 add_qcor_compile_and_exe_test(qrt_bell_ctrl bell/bell_control.cpp)
 
 # Lambda tests
