@@ -166,6 +166,19 @@ public:
     helper->set_options(options);
   }
 
+  // CTOR: externally provided gradient method:
+  // e.g. custom gradient calculation method for the ansatz kernel.
+  ObjectiveFunctionImpl(void *k_ptr, std::shared_ptr<Observable> obs,
+                        xacc::internal_compiler::qreg &qq,
+                        std::shared_ptr<LocalArgsTranslator> translator,
+                        std::shared_ptr<ObjectiveFunction> obj_helper,
+                        std::shared_ptr<GradientFunction> grad_calc,
+                        const int dim, HeterogeneousMap opts)
+      : ObjectiveFunctionImpl(k_ptr, obs, qq, translator, obj_helper, dim,
+                              opts) {
+    gradiend_method = grad_calc;
+  }
+
   ObjectiveFunctionImpl(void *k_ptr, std::shared_ptr<Observable> obs,
                         std::shared_ptr<ObjectiveFunction> obj_helper,
                         const int dim, HeterogeneousMap opts) {
@@ -700,6 +713,6 @@ std::shared_ptr<ObjectiveFunction> createObjectiveFunction(
   void *kernel_ptr = reinterpret_cast<void *>(quantum_kernel_functor);
 
   return std::make_shared<ObjectiveFunctionImpl<Args...>>(
-      kernel_ptr, observable, q, args_translator, helper, nParams, options);
+      kernel_ptr, observable, q, args_translator, helper, gradient_method, nParams, options);
 }
 } // namespace qcor

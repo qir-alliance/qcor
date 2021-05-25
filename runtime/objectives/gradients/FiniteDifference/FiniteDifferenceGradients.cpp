@@ -43,7 +43,7 @@ namespace qcor {
 class KernelForwardDifferenceGradient : public KernelGradientService {
 protected:
   std::shared_ptr<ObjectiveFunction> m_objFunc;
-  double m_step = 1e-7;
+  double m_step = 1e-3;
 
 public:
   const std::string name() const override { return "forward"; }
@@ -66,7 +66,7 @@ public:
 class KernelBackwardDifferenceGradient : public KernelGradientService {
 protected:
   std::shared_ptr<ObjectiveFunction> m_objFunc;
-  double m_step = 1e-7;
+  double m_step = 1e-3;
 
 public:
   const std::string name() const override { return "backward"; }
@@ -89,7 +89,7 @@ public:
 class KernelCentralDifferenceGradient : public KernelGradientService {
 protected:
   std::shared_ptr<ObjectiveFunction> m_objFunc;
-  double m_step = 1e-7;
+  double m_step = 1e-3;
 
 public:
   const std::string name() const override { return "central"; }
