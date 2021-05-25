@@ -8,6 +8,7 @@ set(LIBRARY_NAME qcor)
 file(GLOB SRC observable/qcor_observable.cpp 
               optimizer/qcor_optimizer.cpp 
               objectives/objective_function.cpp
+              objectives/gradient_function.cpp
               execution/taskInitiate.cpp
               utils/qcor_utils.cpp)
 

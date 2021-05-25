@@ -43,6 +43,8 @@ class ObjectiveFunction : public xacc::OptFunction, public xacc::Identifiable {
     observable = updated_observable;
   }
 
+  std::shared_ptr<Observable> get_observable() { return observable; }
+
   void update_kernel(std::shared_ptr<CompositeInstruction> updated_kernel) {
     kernel = updated_kernel;
   }

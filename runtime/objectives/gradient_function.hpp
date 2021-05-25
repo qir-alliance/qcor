@@ -1,13 +1,15 @@
 #pragma once
+#include "heterogeneous.hpp"
+#include "Identifiable.hpp"
+#include <functional>
 #include <memory>
 #include <vector>
-#include <functional>
-
 namespace xacc {
 class CompositeInstruction;
 class Observable;
-}
+} // namespace xacc
 namespace qcor {
+class ObjectiveFunction;
 // Gradient function type:
 // Input: set of current parameters (std::vector<double>) and the current
 // objective (cost) function value. Output: gradients (std::vector<double>)
@@ -27,18 +29,25 @@ public:
   }
 };
 
-// Evaluate the Forward Difference gradients of a variational kernel.
-class KernelForwardDifferenceGradient : public GradientFunction {
-protected:
-  std::function<std::shared_ptr<xacc::CompositeInstruction>(std::vector<double>)>
-      &m_kernelEval;
-  double m_step;
-  std::shared_ptr<xacc::Observable> m_obs;
+namespace __internal__ {
+std::shared_ptr<GradientFunction>
+get_gradient_method(const std::string &type,
+                    std::shared_ptr<ObjectiveFunction> obj_func,
+                    std::function<std::shared_ptr<xacc::CompositeInstruction>(
+                        std::vector<double>)> &kernel_eval);
+} // namespace __internal__
 
+// Interface for gradient calculation services.
+// Note: we keep the base GradientFunction API as simple as possible (just a
+// thin wrapper around std::function, i.e. C++ lambda) so that users can define
+// it in-place if need be. We also provide a set of registered gradient
+// services implementing this interface.
+class KernelGradientService : public GradientFunction, public xacc::Identifiable {
 public:
-  KernelForwardDifferenceGradient(
-      std::function<std::shared_ptr<xacc::CompositeInstruction>(std::vector<double>)>
-          &kernel_evaluator,
-      std::shared_ptr<xacc::Observable> observable, double step_size = 1.0e-7);
+  virtual void
+  initialize(std::shared_ptr<ObjectiveFunction> obj_func,
+             std::function<std::shared_ptr<xacc::CompositeInstruction>(
+                 std::vector<double>)> &kernel_eval,
+             xacc::HeterogeneousMap &&options = {}) = 0;
 };
 } // namespace qcor
