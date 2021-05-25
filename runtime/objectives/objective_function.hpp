@@ -321,13 +321,31 @@ public:
     kernel = kernel_evaluator(x);
     helper->update_kernel(kernel);
 
+    // Save the input dx:
+    const auto input_dx = dx;
+    
     auto cost_val = (*helper)(qreg, dx);
     // If we needs gradients:
-    if (!dx.empty()) {
+    // the optimizer requires dx (not empty)
+    // and the concrete ObjFunc sub-class doesn't calculate the gradients.
+    if (!dx.empty() && input_dx == dx) {
       if (dx.size() != x.size()) {
         error("Dimension mismatched: gradients and parameters vectors have "
               "different size.");
       }
+
+      if (!gradiend_method) {
+        std::string gradient_method_name =
+            qcor::__internal__::DEFAULT_GRADIENT_METHOD;
+        // Backward compatible:
+        // If the "gradient-strategy" was specified in the option.
+        if (options.stringExists("gradient-strategy")) {
+          gradient_method_name = options.getString("gradient-strategy");
+        }
+        gradiend_method = qcor::__internal__::get_gradient_method(
+            gradient_method_name, xacc::as_shared_ptr(this), options);
+      }
+
       dx = (*gradiend_method)(x, cost_val);
     }
     return cost_val;

@@ -30,9 +30,11 @@ public:
 };
 
 namespace __internal__ {
+const std::string DEFAULT_GRADIENT_METHOD = "central";
 std::shared_ptr<GradientFunction>
 get_gradient_method(const std::string &type,
-                    std::shared_ptr<ObjectiveFunction> obj_func);
+                    std::shared_ptr<ObjectiveFunction> obj_func,
+                    xacc::HeterogeneousMap options = {});
 } // namespace __internal__
 
 // Interface for gradient calculation services.
