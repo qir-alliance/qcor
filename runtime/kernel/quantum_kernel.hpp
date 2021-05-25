@@ -1,15 +1,17 @@
 #pragma once
+#include <optional>
+
 #include "qcor_jit.hpp"
 #include "qcor_observable.hpp"
 #include "qcor_utils.hpp"
 #include "qrt.hpp"
-#include <optional>
 
 namespace qcor {
 enum class QrtType { NISQ, FTQC };
 
 // Forward declare
-template <typename... Args> class KernelSignature;
+template <typename... Args>
+class KernelSignature;
 
 namespace internal {
 // KernelSignature is the base of all kernel-like objects
@@ -41,7 +43,7 @@ void print_kernel(KernelSignature<Args...> &kernelCallable, std::ostream &os,
 template <typename... Args>
 std::size_t n_instructions(KernelSignature<Args...> &kernelCallable,
                            Args... args);
-} // namespace internal
+}  // namespace internal
 
 // The QuantumKernel represents the super-class of all qcor
 // quantum kernel functors. Subclasses of this are auto-generated
@@ -67,8 +69,9 @@ std::size_t n_instructions(KernelSignature<Args...> &kernelCallable,
 // with an appropriate implementation of constructors and destructors.
 // Users can then call for adjoint/ctrl methods like this
 // foo::adjoint(q); foo::ctrl(1, q);
-template <typename Derived, typename... Args> class QuantumKernel {
-protected:
+template <typename Derived, typename... Args>
+class QuantumKernel {
+ protected:
   // Tuple holder for variadic kernel arguments
   std::tuple<Args...> args_tuple;
 
@@ -84,7 +87,7 @@ protected:
   // qcor developers, not to be used by clients / programmers
   bool disable_destructor = false;
 
-public:
+ public:
   // Flag to indicate we only want to
   // run the pass manager and not execute
   bool optimize_only = false;
@@ -100,7 +103,8 @@ public:
   QuantumKernel(std::shared_ptr<qcor::CompositeInstruction> _parent_kernel,
                 Args... args)
       : args_tuple(std::forward_as_tuple(args...)),
-        parent_kernel(_parent_kernel), is_callable(false) {
+        parent_kernel(_parent_kernel),
+        is_callable(false) {
     runtime_env = (__qrt_env == "ftqc") ? QrtType::FTQC : QrtType::NISQ;
   }
 
@@ -191,7 +195,8 @@ public:
 
   virtual ~QuantumKernel() {}
 
-  template <typename... ArgTypes> friend class KernelSignature;
+  template <typename... ArgTypes>
+  friend class KernelSignature;
 };
 
 // We use the following to enable ctrl operations on our single
@@ -199,26 +204,26 @@ public:
 template <typename Derived>
 using OneQubitKernel = QuantumKernel<Derived, qubit>;
 
-#define ONE_QUBIT_KERNEL_CTRL_ENABLER(CLASSNAME, QRTNAME)                      \
-  class CLASSNAME : public OneQubitKernel<class CLASSNAME> {                   \
-  public:                                                                      \
-    CLASSNAME(qubit q) : OneQubitKernel<CLASSNAME>(q) {}                       \
-    CLASSNAME(std::shared_ptr<qcor::CompositeInstruction> _parent_kernel,      \
-              qubit q)                                                         \
-        : OneQubitKernel<CLASSNAME>(_parent_kernel, q) {                       \
-      throw std::runtime_error("you cannot call this.");                       \
-    }                                                                          \
-    void operator()(qubit q) {                                                 \
-      parent_kernel = qcor::__internal__::create_composite(                    \
-          "__tmp_one_qubit_ctrl_enabler");                                     \
-      quantum::set_current_program(parent_kernel);                             \
-      if (runtime_env == QrtType::FTQC) {                                      \
-        quantum::set_current_buffer(q.results());                              \
-      }                                                                        \
-      ::quantum::QRTNAME(q);                                                   \
-      return;                                                                  \
-    }                                                                          \
-    virtual ~CLASSNAME() {}                                                    \
+#define ONE_QUBIT_KERNEL_CTRL_ENABLER(CLASSNAME, QRTNAME)                 \
+  class CLASSNAME : public OneQubitKernel<class CLASSNAME> {              \
+   public:                                                                \
+    CLASSNAME(qubit q) : OneQubitKernel<CLASSNAME>(q) {}                  \
+    CLASSNAME(std::shared_ptr<qcor::CompositeInstruction> _parent_kernel, \
+              qubit q)                                                    \
+        : OneQubitKernel<CLASSNAME>(_parent_kernel, q) {                  \
+      throw std::runtime_error("you cannot call this.");                  \
+    }                                                                     \
+    void operator()(qubit q) {                                            \
+      parent_kernel = qcor::__internal__::create_composite(               \
+          "__tmp_one_qubit_ctrl_enabler");                                \
+      quantum::set_current_program(parent_kernel);                        \
+      if (runtime_env == QrtType::FTQC) {                                 \
+        quantum::set_current_buffer(q.results());                         \
+      }                                                                   \
+      ::quantum::QRTNAME(q);                                              \
+      return;                                                             \
+    }                                                                     \
+    virtual ~CLASSNAME() {}                                               \
   };
 
 ONE_QUBIT_KERNEL_CTRL_ENABLER(X, x)
@@ -243,17 +248,19 @@ ONE_QUBIT_KERNEL_CTRL_ENABLER(Sdg, sdg)
 // trailing variadic argument for the lambda class constructor. Once
 // instantiated lambda invocation looks just like kernel invocation.
 
-template <typename... CaptureArgs> class _qpu_lambda {
-private:
+template <typename... CaptureArgs>
+class _qpu_lambda {
+ private:
   // Private inner class for getting the type
   // of a capture variable as a string at runtime
   class TupleToTypeArgString {
-  protected:
+   protected:
     std::string &tmp;
     std::vector<std::string> var_names;
     int counter = 0;
 
-    template <class T> std::string type_name() {
+    template <class T>
+    std::string type_name() {
       typedef typename std::remove_reference<T>::type TR;
       std::unique_ptr<char, void (*)(void *)> own(
           abi::__cxa_demangle(typeid(TR).name(), nullptr, nullptr, nullptr),
@@ -262,11 +269,12 @@ private:
       return r;
     }
 
-  public:
+   public:
     TupleToTypeArgString(std::string &t) : tmp(t) {}
     TupleToTypeArgString(std::string &t, std::vector<std::string> &_var_names)
         : tmp(t), var_names(_var_names) {}
-    template <typename T> void operator()(T &t) {
+    template <typename T>
+    void operator()(T &t) {
       tmp += type_name<decltype(t)>() + "& " +
              (var_names.empty() ? "arg_" + std::to_string(counter)
                                 : var_names[counter]) +
@@ -299,17 +307,18 @@ private:
   // Quantum Just-in-Time Compiler :)
   QJIT qjit;
 
-public:
+ public:
   // Variational information, i.e. is this lambda compatible with VQE
   // e.g. single double or single vector double input.
   enum class Variational_Arg_Type { Double, Vec_Double, None };
   Variational_Arg_Type var_type = Variational_Arg_Type::None;
-  
+
   // Constructor, capture vars should be deduced without
   // specifying them since we're using C++17
   _qpu_lambda(std::string &&ff, std::string &&_capture_var_names,
-              CaptureArgs &... _capture_vars)
-      : src_str(ff), capture_var_names(_capture_var_names),
+              CaptureArgs &..._capture_vars)
+      : src_str(ff),
+        capture_var_names(_capture_var_names),
         capture_vars(std::forward_as_tuple(_capture_vars...)) {
     // Get the original args list
     auto first = src_str.find_first_of("(");
@@ -364,7 +373,6 @@ public:
       return result;
     }(tt);
 
-
     // Determine if this lambda has a VQE-compatible type:
     // QReg then variational params.
     if (arg_type_and_names.size() == 2) {
@@ -397,8 +405,7 @@ public:
     // i.e. by-value arguments of these types are incompatible with a by-ref
     // casted function.
     static const std::unordered_map<std::string, std::string>
-        FORWARD_TYPE_CONVERSION_MAP{{"int", "int&"},
-                                    {"double", "double&"}};
+        FORWARD_TYPE_CONVERSION_MAP{{"int", "int&"}, {"double", "double&"}};
     std::vector<std::pair<std::string, std::string>> forward_types;
     // Replicate by-value by create copies and restore the variables.
     std::vector<std::string> byval_casted_arg_names;
@@ -446,8 +453,9 @@ public:
         // Store capture vars (by-value)
         optional_copy_capture_vars = std::forward_as_tuple(_capture_vars...);
       } else {
-        error("Capture variable type is non-copyable. Cannot use capture by "
-              "value.");
+        error(
+            "Capture variable type is non-copyable. Cannot use capture by "
+            "value.");
       }
     }
 
@@ -496,14 +504,13 @@ public:
     // preamble if necessary
     auto jit_src = ss.str();
     first = jit_src.find_first_of("{");
-    if (!capture_var_names.empty())
-      jit_src.insert(first + 1, capture_preamble);
-    
+    if (!capture_var_names.empty()) jit_src.insert(first + 1, capture_preamble);
+
     if (!byval_casted_arg_names.empty()) {
       std::stringstream cache_string, restore_string;
-      for (const auto& var: byval_casted_arg_names) {
-        cache_string << "auto __" <<  var << "__cached__ = " << var << ";\n";
-        restore_string << var << " = __" <<  var << "__cached__;\n";
+      for (const auto &var : byval_casted_arg_names) {
+        cache_string << "auto __" << var << "__cached__ = " << var << ";\n";
+        restore_string << var << " = __" << var << "__cached__;\n";
       }
       const auto begin = jit_src.find_first_of("{");
       jit_src.insert(begin + 1, cache_string.str());
@@ -518,13 +525,13 @@ public:
 
   template <typename... FunctionArgs>
   void eval_with_parent(std::shared_ptr<CompositeInstruction> parent,
-                        FunctionArgs &&... args) {
+                        FunctionArgs &&...args) {
     this->operator()(parent, std::forward<FunctionArgs>(args)...);
   }
 
   template <typename... FunctionArgs>
   void operator()(std::shared_ptr<CompositeInstruction> parent,
-                  FunctionArgs &&... args) {
+                  FunctionArgs &&...args) {
     // Map the function args to a tuple
     auto kernel_args_tuple = std::forward_as_tuple(args...);
 
@@ -533,7 +540,7 @@ public:
       // Merge the function args and the capture vars and execute
       auto final_args_tuple = std::tuple_cat(kernel_args_tuple, capture_vars);
       std::apply(
-          [&](auto &&... args) {
+          [&](auto &&...args) {
             qjit.invoke_with_parent_forwarding("foo", parent, args...);
           },
           final_args_tuple);
@@ -545,14 +552,15 @@ public:
       auto final_args_tuple =
           std::tuple_cat(kernel_args_tuple, optional_copy_capture_vars.value());
       std::apply(
-          [&](auto &&... args) {
+          [&](auto &&...args) {
             qjit.invoke_with_parent_forwarding("foo", parent, args...);
           },
           final_args_tuple);
     }
   }
 
-  template <typename... FunctionArgs> void operator()(FunctionArgs &&... args) {
+  template <typename... FunctionArgs>
+  void operator()(FunctionArgs &&...args) {
     // Map the function args to a tuple
     auto kernel_args_tuple = std::forward_as_tuple(args...);
     if (!optional_copy_capture_vars.has_value()) {
@@ -560,7 +568,7 @@ public:
       // Merge the function args and the capture vars and execute
       auto final_args_tuple = std::tuple_cat(kernel_args_tuple, capture_vars);
       std::apply(
-          [&](auto &&... args) { qjit.invoke_forwarding("foo", args...); },
+          [&](auto &&...args) { qjit.invoke_forwarding("foo", args...); },
           final_args_tuple);
     } else if constexpr (std::conjunction_v<
                              std::is_copy_assignable<CaptureArgs>...>) {
@@ -568,7 +576,7 @@ public:
       auto final_args_tuple =
           std::tuple_cat(kernel_args_tuple, optional_copy_capture_vars.value());
       std::apply(
-          [&](auto &&... args) { qjit.invoke_forwarding("foo", args...); },
+          [&](auto &&...args) { qjit.invoke_forwarding("foo", args...); },
           final_args_tuple);
     }
   }
@@ -637,7 +645,8 @@ public:
     return internal::print_kernel(callable, os, args...);
   }
 
-  template <typename... FunctionArgs> void print_kernel(FunctionArgs... args) {
+  template <typename... FunctionArgs>
+  void print_kernel(FunctionArgs... args) {
     print_kernel(std::cout, args...);
   }
 
@@ -666,14 +675,15 @@ template <typename... Args>
 using callable_function_ptr =
     void (*)(std::shared_ptr<xacc::CompositeInstruction>, Args...);
 
-template <typename... Args> class KernelSignature {
-private:
+template <typename... Args>
+class KernelSignature {
+ private:
   callable_function_ptr<Args...> *readOnly = 0;
   callable_function_ptr<Args...> &function_pointer;
   std::function<void(std::shared_ptr<xacc::CompositeInstruction>, Args...)>
       lambda_func;
 
-public:
+ public:
   // Here we set function_pointer to null and instead
   // only use lambda_func. If we set lambda_func, function_pointer
   // will never be used, so we should be good.
@@ -918,10 +928,38 @@ double observe(Observable &obs, KernelSignature<Args...> &kernelCallable,
 
   xacc::internal_compiler::execute_pass_manager();
 
+  // Operator pre-processing, map down to Pauli and cache
+  std::shared_ptr<Observable> observable;
+  auto obs_str = obs.toString();
+  std::hash<std::string> hasher;
+  auto operator_hash = hasher(obs_str);
+  if (__internal__::cached_observables.count(operator_hash)) {
+    observable = __internal__::cached_observables[operator_hash];
+  } else {
+    if (obs_str.find("^") != std::string::npos) {
+      try {
+        observable =
+            operatorTransform("jw", dynamic_cast<FermionOperator &>(obs));
+      } catch (std::exception &ex) {
+        auto fermionObservable = createOperator("fermion", obs_str);
+        observable = operatorTransform("jw", fermionObservable);
+      }
+
+      // observable is PauliOperator, but does not cast down to it
+      // Not sure about the likelihood of this happening, but want to cover all
+      // bases
+    } else if (obs_str.find("X") != std::string::npos ||
+               obs_str.find("Y") != std::string::npos ||
+               obs_str.find("Z") != std::string::npos) {
+      observable = createOperator("pauli", obs_str);
+    }
+    __internal__::cached_observables.insert({operator_hash, observable});
+  }
+
   // Will fail to compile if more than one qreg is passed.
   std::tuple<Args...> tmp(std::forward_as_tuple(args...));
   auto q = std::get<qreg>(tmp);
-  return qcor::observe(tempKernel, obs, q);
+  return qcor::observe(tempKernel, observable, q);
 }
 
 template <typename... Args>
@@ -934,8 +972,9 @@ Eigen::MatrixXcd as_unitary_matrix(KernelSignature<Args...> &kernelCallable,
   if (!std::all_of(
           instructions.cbegin(), instructions.cend(),
           [](const auto &inst) { return inst->name() != "Measure"; })) {
-    error("Unable to compute unitary matrix for kernels that already have "
-          "Measure operations.");
+    error(
+        "Unable to compute unitary matrix for kernels that already have "
+        "Measure operations.");
   }
   qcor::KernelToUnitaryVisitor visitor(tempKernel->nLogicalBits());
   xacc::InstructionIterator iter(tempKernel);
@@ -972,5 +1011,5 @@ std::size_t n_instructions(KernelSignature<Args...> &kernelCallable,
   kernelCallable(tempKernel, args...);
   return tempKernel->nInstructions();
 }
-} // namespace internal
-} // namespace qcor
+}  // namespace internal
+}  // namespace qcor
