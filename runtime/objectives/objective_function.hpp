@@ -64,6 +64,14 @@ class ObjectiveFunction : public xacc::OptFunction, public xacc::Identifiable {
     throw std::bad_function_call();
     return qalloc(1);
   }
+
+  virtual std::function<
+      std::shared_ptr<CompositeInstruction>(std::vector<double>)>
+  get_kernel_evaluator() {
+    // Derive (ObjectiveFunctionImpl) only
+    error("Illegal call to get_kernel_evaluator().");
+    return {};
+  };
 };
 
 namespace __internal__ {
@@ -218,6 +226,45 @@ public:
   void set_options(HeterogeneousMap &opts) override {
     options = opts;
     helper->set_options(opts);
+  }
+
+  // Construct the kernel evaluator of this ObjectiveFunctionImpl
+  std::function<std::shared_ptr<CompositeInstruction>(std::vector<double>)> get_kernel_evaluator() override {
+    // Define a function pointer type for the quantum kernel
+    void (*kernel_functor)(std::shared_ptr<CompositeInstruction>,
+                           KernelArgs...);
+    // Cast to the function pointer type
+    if (kernel_ptr) {
+      kernel_functor = reinterpret_cast<void (*)(
+          std::shared_ptr<CompositeInstruction>, KernelArgs...)>(kernel_ptr);
+    }
+
+    // Turn kernel evaluation into a functor that we can use here
+    // and share with the helper ObjectiveFunction for gradient evaluation
+    std::function<std::shared_ptr<CompositeInstruction>(std::vector<double>)>
+        kernel_evaluator = lambda_kernel_evaluator.has_value()
+                               ? lambda_kernel_evaluator.value()
+                               : [&](std::vector<double> x)
+        -> std::shared_ptr<CompositeInstruction> {
+      // Create a new CompositeInstruction, and create a tuple
+      // from it so we can concatenate with the tuple args
+      auto m_kernel = create_new_composite();
+      auto kernel_composite_tuple = std::make_tuple(m_kernel);
+
+      // Translate x parameters into kernel args (represented as a tuple)
+      auto translated_tuple = (*args_translator)(x);
+
+      // Concatenate the two to make the args list (kernel, args...)
+      auto concatenated =
+          std::tuple_cat(kernel_composite_tuple, translated_tuple);
+
+      // Call the functor with those arguments
+      qcor::__internal__::evaluate_function_with_tuple_args(kernel_functor,
+                                                            concatenated);
+      return m_kernel;
+    };
+
+    return kernel_evaluator;
   }
 
   // This will not be called on this class... It will only be called

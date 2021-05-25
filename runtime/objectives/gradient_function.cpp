@@ -5,14 +5,13 @@
 
 namespace qcor {
 namespace __internal__ {
-std::shared_ptr<GradientFunction> get_gradient_method(
-    const std::string &type, std::shared_ptr<ObjectiveFunction> obj_func,
-    std::function<std::shared_ptr<xacc::CompositeInstruction>(std::vector<double>)>
-        &kernel_eval) {
+std::shared_ptr<GradientFunction>
+get_gradient_method(const std::string &type,
+                    std::shared_ptr<ObjectiveFunction> obj_func) {
   if (!xacc::isInitialized())
     xacc::internal_compiler::compiler_InitializeXACC();
   auto service = xacc::getService<KernelGradientService>(type);
-  service->initialize(obj_func, kernel_eval);
+  service->initialize(obj_func);
   return service;
 }
 } // namespace __internal__

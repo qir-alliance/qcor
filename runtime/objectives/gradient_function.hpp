@@ -1,6 +1,6 @@
 #pragma once
-#include "heterogeneous.hpp"
 #include "Identifiable.hpp"
+#include "heterogeneous.hpp"
 #include <functional>
 #include <memory>
 #include <vector>
@@ -32,9 +32,7 @@ public:
 namespace __internal__ {
 std::shared_ptr<GradientFunction>
 get_gradient_method(const std::string &type,
-                    std::shared_ptr<ObjectiveFunction> obj_func,
-                    std::function<std::shared_ptr<xacc::CompositeInstruction>(
-                        std::vector<double>)> &kernel_eval);
+                    std::shared_ptr<ObjectiveFunction> obj_func);
 } // namespace __internal__
 
 // Interface for gradient calculation services.
@@ -42,12 +40,10 @@ get_gradient_method(const std::string &type,
 // thin wrapper around std::function, i.e. C++ lambda) so that users can define
 // it in-place if need be. We also provide a set of registered gradient
 // services implementing this interface.
-class KernelGradientService : public GradientFunction, public xacc::Identifiable {
+class KernelGradientService : public GradientFunction,
+                              public xacc::Identifiable {
 public:
-  virtual void
-  initialize(std::shared_ptr<ObjectiveFunction> obj_func,
-             std::function<std::shared_ptr<xacc::CompositeInstruction>(
-                 std::vector<double>)> &kernel_eval,
-             xacc::HeterogeneousMap &&options = {}) = 0;
+  virtual void initialize(std::shared_ptr<ObjectiveFunction> obj_func,
+                          xacc::HeterogeneousMap &&options = {}) = 0;
 };
 } // namespace qcor
