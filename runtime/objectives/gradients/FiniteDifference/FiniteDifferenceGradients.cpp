@@ -44,10 +44,27 @@ class KernelForwardDifferenceGradient : public KernelGradientService {
 protected:
   std::shared_ptr<ObjectiveFunction> m_objFunc;
   double m_step = 1e-3;
-
+  std::function<std::shared_ptr<xacc::CompositeInstruction>(
+                 std::vector<double>)> m_kernel_eval;
 public:
   const std::string name() const override { return "forward"; }
   const std::string description() const override { return ""; }
+
+  virtual void
+  initialize(std::function<std::shared_ptr<xacc::CompositeInstruction>(
+                 std::vector<double>)> kernel_eval, xacc::Observable &obs,
+             xacc::HeterogeneousMap &&options = {}) override {
+    if (options.keyExists<double>("step")) {
+      m_step = options.get<double>("step");
+    }
+    m_kernel_eval = kernel_eval;
+    gradient_func = [&](const std::vector<double> &x,
+                        double cost_val) -> std::vector<double> {
+      return run_gradient_strategy(x, cost_val, "forward", m_step,
+                                   xacc::as_shared_ptr(&obs), m_kernel_eval);
+    };
+  }
+
   void initialize(std::shared_ptr<ObjectiveFunction> obj_func,
                   HeterogeneousMap &&options) override {
     m_objFunc = obj_func;
@@ -67,10 +84,28 @@ class KernelBackwardDifferenceGradient : public KernelGradientService {
 protected:
   std::shared_ptr<ObjectiveFunction> m_objFunc;
   double m_step = 1e-3;
+  std::function<std::shared_ptr<xacc::CompositeInstruction>(
+                 std::vector<double>)> m_kernel_eval;
 
 public:
   const std::string name() const override { return "backward"; }
   const std::string description() const override { return ""; }
+
+  virtual void
+  initialize(std::function<std::shared_ptr<xacc::CompositeInstruction>(
+                 std::vector<double>)> kernel_eval, xacc::Observable &obs,
+             xacc::HeterogeneousMap &&options = {}) override {
+    if (options.keyExists<double>("step")) {
+      m_step = options.get<double>("step");
+    }
+    m_kernel_eval = kernel_eval;
+    gradient_func = [&](const std::vector<double> &x,
+                        double cost_val) -> std::vector<double> {
+      return run_gradient_strategy(x, cost_val, "forward", m_step,
+                                   xacc::as_shared_ptr(&obs), m_kernel_eval);
+    };
+  }
+
   void initialize(std::shared_ptr<ObjectiveFunction> obj_func,
                   HeterogeneousMap &&options) override {
     m_objFunc = obj_func;
@@ -90,10 +125,30 @@ class KernelCentralDifferenceGradient : public KernelGradientService {
 protected:
   std::shared_ptr<ObjectiveFunction> m_objFunc;
   double m_step = 1e-3;
+  std::function<std::shared_ptr<xacc::CompositeInstruction>(
+                 std::vector<double>)> m_kernel_eval;
+  std::shared_ptr<xacc::Observable> m_obs;
 
 public:
   const std::string name() const override { return "central"; }
   const std::string description() const override { return ""; }
+  
+  virtual void
+  initialize(std::function<std::shared_ptr<xacc::CompositeInstruction>(
+                 std::vector<double>)> kernel_eval, xacc::Observable &obs,
+             xacc::HeterogeneousMap &&options = {}) override {
+    if (options.keyExists<double>("step")) {
+      m_step = options.get<double>("step");
+    }
+    m_kernel_eval = kernel_eval;
+    m_obs = xacc::as_shared_ptr(&obs);
+    gradient_func = [&](const std::vector<double> &x,
+                        double cost_val) -> std::vector<double> {
+      return run_gradient_strategy(x, cost_val, "forward", m_step, m_obs,
+                                   m_kernel_eval);
+    };
+  }
+
   void initialize(std::shared_ptr<ObjectiveFunction> obj_func,
                   HeterogeneousMap &&options) override {
     m_objFunc = obj_func;

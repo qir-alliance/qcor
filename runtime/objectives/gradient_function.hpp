@@ -35,6 +35,13 @@ std::shared_ptr<GradientFunction>
 get_gradient_method(const std::string &type,
                     std::shared_ptr<ObjectiveFunction> obj_func,
                     xacc::HeterogeneousMap options = {});
+
+std::shared_ptr<GradientFunction>
+get_gradient_method(const std::string &type,
+                    std::function<std::shared_ptr<xacc::CompositeInstruction>(
+                        std::vector<double>)>
+                        kernel_eval,
+                    xacc::Observable &obs);
 } // namespace __internal__
 
 // Interface for gradient calculation services.
@@ -47,5 +54,10 @@ class KernelGradientService : public GradientFunction,
 public:
   virtual void initialize(std::shared_ptr<ObjectiveFunction> obj_func,
                           xacc::HeterogeneousMap &&options = {}) = 0;
+  virtual void
+  initialize(std::function<std::shared_ptr<xacc::CompositeInstruction>(
+                 std::vector<double>)>
+                 kernel_eval,
+             xacc::Observable &obs, xacc::HeterogeneousMap &&options = {}) = 0;
 };
 } // namespace qcor

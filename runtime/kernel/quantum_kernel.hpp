@@ -187,6 +187,24 @@ class QuantumKernel {
     return observe(*obs, args...);
   }
 
+  // Simple autograd support for kernel with simple type: double or
+  // vector<double>. Other signatures must provide a translator...
+  static double autograd(Observable &obs, std::vector<double> &dx, qreg q,
+                         double x) {
+    std::function<std::shared_ptr<xacc::CompositeInstruction>(
+        std::vector<double>)>
+        kernel_eval = [q](std::vector<double> x) {
+          Derived derived(q, x[0]);
+          return derived.parent_kernel;
+        };
+
+    auto gradiend_method = qcor::__internal__::get_gradient_method(
+        qcor::__internal__::DEFAULT_GRADIENT_METHOD, kernel_eval, obs);
+    const double cost_val = observe(obs, q, x);
+    dx = (*gradiend_method)({x}, cost_val);
+    return cost_val;
+  }
+
   static std::string openqasm(Args... args) {
     Derived derived(args...);
     KernelSignature<Args...> callable(derived);
