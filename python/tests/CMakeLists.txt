@@ -88,3 +88,9 @@ add_test (NAME qcor_python_bug_89
 set_tests_properties(qcor_python_bug_89
   PROPERTIES ENVIRONMENT "PYTHONPATH=${CMAKE_INSTALL_PREFIX}:$ENV{PYTHONPATH}")
  
+add_test (NAME qcor_python_kernel_autograd
+  COMMAND ${Python_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test_autograd_opt.py
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+)
+set_tests_properties(qcor_python_kernel_autograd
+  PROPERTIES ENVIRONMENT "PYTHONPATH=${CMAKE_INSTALL_PREFIX}:$ENV{PYTHONPATH}")
