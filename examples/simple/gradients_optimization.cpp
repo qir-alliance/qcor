@@ -16,11 +16,6 @@ int main(int argc, char **argv) {
   auto H = 5.907 - 2.1433 * X(0) * X(1) - 2.1433 * Y(0) * Y(1) + .21829 * Z(0) -
            6.125 * Z(1);
 
-  // Create the ObjectiveFunction, here we want to run VQE
-  // need to provide ansatz, Operator, and qreg
-  auto objective = createObjectiveFunction(ansatz, H, q, n_variational_params,
-                                           {{"gradient-strategy", "central"}});
-
   // Create the Optimizer.
   auto optimizer = createOptimizer("nlopt", {{"nlopt-optimizer", "l-bfgs"}});
   OptFunction opt_function(
@@ -30,7 +25,7 @@ int main(int argc, char **argv) {
         print("<E(", x[0], ") = ", exp);
         return exp;
       },
-      1);
+      n_variational_params);
 
   auto [energy, opt_params] = optimizer->optimize(opt_function);
   print(energy);

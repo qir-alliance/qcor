@@ -144,7 +144,7 @@ public:
     m_obs = xacc::as_shared_ptr(&obs);
     gradient_func = [&](const std::vector<double> &x,
                         double cost_val) -> std::vector<double> {
-      return run_gradient_strategy(x, cost_val, "forward", m_step, m_obs,
+      return run_gradient_strategy(x, cost_val, "central", m_step, m_obs,
                                    m_kernel_eval);
     };
   }

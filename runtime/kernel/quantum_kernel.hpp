@@ -194,14 +194,40 @@ class QuantumKernel {
     std::function<std::shared_ptr<xacc::CompositeInstruction>(
         std::vector<double>)>
         kernel_eval = [q](std::vector<double> x) {
+          auto tempKernel =
+              qcor::__internal__::create_composite("__temp__autograd__");
           Derived derived(q, x[0]);
-          return derived.parent_kernel;
+          derived.disable_destructor = true;
+          derived(q, x[0]);
+          tempKernel->addInstructions(derived.parent_kernel->getInstructions());
+          return tempKernel;
         };
 
     auto gradiend_method = qcor::__internal__::get_gradient_method(
         qcor::__internal__::DEFAULT_GRADIENT_METHOD, kernel_eval, obs);
     const double cost_val = observe(obs, q, x);
     dx = (*gradiend_method)({x}, cost_val);
+    return cost_val;
+  }
+
+  static double autograd(Observable &obs, std::vector<double> &dx, qreg q,
+                         std::vector<double> x) {
+    std::function<std::shared_ptr<xacc::CompositeInstruction>(
+        std::vector<double>)>
+        kernel_eval = [q](std::vector<double> x) {
+          auto tempKernel =
+              qcor::__internal__::create_composite("__temp__autograd__");
+          Derived derived(q, x);
+          derived.disable_destructor = true;
+          derived(q, x);
+          tempKernel->addInstructions(derived.parent_kernel->getInstructions());
+          return tempKernel;
+        };
+
+    auto gradiend_method = qcor::__internal__::get_gradient_method(
+        qcor::__internal__::DEFAULT_GRADIENT_METHOD, kernel_eval, obs);
+    const double cost_val = observe(obs, q, x);
+    dx = (*gradiend_method)(x, cost_val);
     return cost_val;
   }
 
