@@ -1,5 +1,6 @@
 #pragma once
 
+#include <argparse.hpp>
 #include <Eigen/Dense>
 #include <functional>
 #include <future>
@@ -21,7 +22,10 @@ namespace constants {
 static constexpr double pi = 3.141592653589793238;
 }
 
-// Typedefs mapping xacc types to qcor types
+// Expose argparse
+using ArgumentParser = argparse::ArgumentParser;
+
+// Typedefs mapping xacc/Eigen types to qcor types
 using CompositeInstruction = xacc::CompositeInstruction;
 using HeterogeneousMap = xacc::HeterogeneousMap;
 using IRTransformation = xacc::IRTransformation;

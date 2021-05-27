@@ -54,7 +54,8 @@ std::unique_ptr<clang::CodeGenAction> emit_llvm_ir(
   std::vector<std::string> base_includes{
       "-I@XACC_ROOT@/include/xacc", "-I@XACC_ROOT@/include/pybind11/include",
       "-I@CMAKE_INSTALL_PREFIX@/include/qcor",
-      "-I@XACC_ROOT@/include/quantum/gate", "-I@XACC_ROOT@/include/eigen"
+      "-I@XACC_ROOT@/include/quantum/gate", "-I@XACC_ROOT@/include/eigen",
+      "-I@XACC_ROOT@/include/argparse"
       };
   for (auto extra : extra_headers) {
     base_includes.push_back(extra);

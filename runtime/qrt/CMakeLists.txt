@@ -4,9 +4,9 @@ file(GLOB SRC *.cpp)
 
 add_library(${LIBRARY_NAME} SHARED ${SRC})
 
-target_include_directories(${LIBRARY_NAME} PUBLIC . ${CMAKE_BINARY_DIR} ${XACC_ROOT}/include/eigen)
+target_include_directories(${LIBRARY_NAME} PUBLIC . ${CMAKE_BINARY_DIR} ${XACC_ROOT}/include/eigen ${XACC_ROOT}/include/argparse)
 
-target_link_libraries(${LIBRARY_NAME} PUBLIC xacc::xacc xacc::quantum_gate xacc::pauli)
+target_link_libraries(${LIBRARY_NAME} PUBLIC xacc::xacc xacc::quantum_gate xacc::pauli argparse::argparse)
 
 if(APPLE)
   set_target_properties(${LIBRARY_NAME}
