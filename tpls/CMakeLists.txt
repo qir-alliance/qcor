@@ -1,1 +1,1 @@
-add_subdirectory(argparse)
+install(FILES "${CMAKE_SOURCE_DIR}/tpls/argparse/argparse.hpp" DESTINATION include/qcor)

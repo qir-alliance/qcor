@@ -12,7 +12,7 @@ def main(argv=None):
     if '@CMAKE_SYSTEM_NAME@' != 'Darwin':
         baseLibs += ['-lqir-qrt']
         
-    baseIncludes = ['-I', '@XACC_ROOT@/include/xacc', '-I', '@CMAKE_INSTALL_PREFIX@/include/qcor', '-I', '@XACC_ROOT@/include/quantum/gate', '-I', '@XACC_ROOT@/include/eigen', '-I', '@XACC_ROOT@/include/argparse']
+    baseIncludes = ['-I', '@XACC_ROOT@/include/xacc', '-I', '@CMAKE_INSTALL_PREFIX@/include/qcor', '-I', '@XACC_ROOT@/include/quantum/gate', '-I', '@XACC_ROOT@/include/eigen']
     defaultFlags = ['-std=c++17', '-fplugin=@CMAKE_INSTALL_PREFIX@/clang-plugins/libqcor-syntax-handler@CMAKE_SHARED_LIBRARY_SUFFIX@']
 
     extra_headers = '@QCOR_EXTRA_HEADERS@'.replace('"','')

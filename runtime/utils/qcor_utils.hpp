@@ -22,8 +22,36 @@ namespace constants {
 static constexpr double pi = 3.141592653589793238;
 }
 
-// Expose argparse
-using ArgumentParser = argparse::ArgumentParser;
+namespace arg {
+  // Expose ArgumentParser for custom instantiation
+  using ArgumentParser = argparse::ArgumentParser;
+
+  // Default argument parser
+  ArgumentParser &get_parser();
+
+  // Parameter packing
+  // Call add_argument with variadic number of string arguments
+  template <typename... Targs> 
+  argparse::Argument &add_argument(Targs... Fargs) {
+    return get_parser().add_argument(Fargs...);
+  }
+
+  // Getter for options with default values.
+  //  @throws std::logic_error if there is no such option
+  //  @throws std::logic_error if the option has no value
+  //  @throws std::bad_any_cast if the option is not of type T
+  //
+  template <typename T = std::string>
+  T get_argument(std::string_view argument_name) {
+    return get_parser().get<T>(argument_name);
+  }
+    
+  // Main entry point for parsing command-line arguments using this
+  //  ArgumentParser
+  //  @throws std::runtime_error in case of any invalid argument
+  //
+  void parse_args(int argc, const char *const argv[]);
+}
 
 // Typedefs mapping xacc/Eigen types to qcor types
 using CompositeInstruction = xacc::CompositeInstruction;
@@ -395,3 +423,7 @@ class KernelToUnitaryVisitor : public xacc::quantum::AllGateVisitor {
     }                                                                          \
   }
 } // namespace qcor
+
+namespace qcor_arg {
+
+}
