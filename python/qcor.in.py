@@ -605,6 +605,21 @@ class qjit(object):
         """
         program = self.extract_composite(*args)
         return internal_observe(program, observable)
+    
+    def autograd(self, observable, qreg, x_vec):
+        """
+        Return the expectation value and gradients of <observable> with 
+        respect to the state given by this qjit kernel evaluated 
+        at the given arguments. 
+        """
+        def kernel_eval(x):
+            args_dict = self.translate(qreg, x)
+            return self._qjit.extract_composite(self.function.__name__, args_dict)
+        
+        if isinstance(x_vec, float):
+            x_vec = [x_vec]
+
+        return internal_autograd(kernel_eval, observable, x_vec)
 
     def openqasm(self, *args):
         """

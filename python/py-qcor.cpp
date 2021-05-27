@@ -743,6 +743,35 @@ PYBIND11_MODULE(_pyqcor, m) {
         return qcor::observe(kernel, observable, q);
       },
       "");
+  m.def(
+      "internal_autograd",
+      [](py::function &kernel_eval, qcor::PauliOperator &obs,
+         std::vector<double> x) -> std::tuple<double, std::vector<double>> {
+        try {
+          std::function<std::shared_ptr<xacc::CompositeInstruction>(
+              std::vector<double>)>
+              cpp_kernel_eval = [&](std::vector<double> x_vec) {
+                auto ret = kernel_eval(x_vec);
+                auto kernel = ret.cast<std::shared_ptr<CompositeInstruction>>();
+                return kernel;
+              };
+
+          auto gradiend_method = qcor::__internal__::get_gradient_method(
+              qcor::__internal__::DEFAULT_GRADIENT_METHOD, cpp_kernel_eval,
+              obs);
+
+          auto program = cpp_kernel_eval(x);
+          auto q = ::qalloc(
+              std::max((int)obs.nBits(), (int)program->nPhysicalBits()));
+          auto cost_val = qcor::observe(program, obs, q);
+          auto dx = (*gradiend_method)(x, cost_val);
+          return std::make_tuple(cost_val, dx);
+        } catch (std::exception &e) {
+          qcor::error("Invalid kernel evaluator.");
+          return std::make_tuple(0.0, std::vector<double>{});
+        }
+      },
+      "");
 
   m.def("internal_get_all_instructions", []() -> std::vector<py::tuple> {
     auto insts = xacc::getServices<xacc::Instruction>();

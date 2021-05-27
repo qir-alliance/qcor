@@ -1,0 +1,6 @@
+{
+  "bundle.symbolic_name" : "qcor_finite_difference_gradients",
+  "bundle.activator" : true,
+  "bundle.name" : "Finite Difference Gradients for quantum kernels",
+  "bundle.description" : ""
+}

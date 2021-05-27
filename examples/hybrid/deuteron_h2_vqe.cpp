@@ -56,12 +56,14 @@ int main() {
   // start the optimization at
   const auto [energy, params] = vqe.execute(0.0);
   std::cout << "<H>(" << params[0] << ") = " << energy << "\n";
+  qcor_expect(std::abs(energy + 1.74886) < 0.1);
 
   // Now do the same for the vector double ansatz, but
   // also demonstrate the async interface
   VQE vqe_vec(ansatz_vec, H);
   const auto [energy_vec, params_vec] = vqe_vec.execute(std::vector<double>{0.0});
   std::cout << "<H>(" << params_vec[0] << ") = " << energy_vec << "\n";
+  qcor_expect(std::abs(energy_vec + 1.74886) < 0.1);
 
   // Now run with the mixed language kernel,
   // initialize the optimization to x = .55, also
@@ -74,7 +76,8 @@ int main() {
   const auto [energy_oq, params_oq] = vqe_openqasm.execute(optimizer, .55);
 
   std::cout << "<H>(" << params_oq[0] << ") = " << energy_oq << "\n";
-
+  qcor_expect(std::abs(energy_vec + 1.74886) < 0.1);
+  
   // Can query information about the vqe run
   // Here, we get all parameter sets executed and correspnding energies seen
   auto all_params = vqe_openqasm.get_unique_parameters();
