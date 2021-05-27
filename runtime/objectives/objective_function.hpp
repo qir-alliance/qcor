@@ -154,13 +154,13 @@ public:
                         std::shared_ptr<ObjectiveFunction> obj_helper,
                         const int dim, HeterogeneousMap opts)
       : qreg(qq) {
+    options = opts;
     kernel_ptr = k_ptr;
     observable = obs;
     args_translator = translator;
     helper = obj_helper;
     _dim = dim;
     _function = *this;
-    options = opts;
     options.insert("observable", observable);
     helper->update_observable(observable);
     helper->set_options(options);
@@ -183,6 +183,7 @@ public:
                         std::shared_ptr<ObjectiveFunction> obj_helper,
                         const int dim, HeterogeneousMap opts) {
     qreg = ::qalloc(obs->nBits());
+    options = opts;
     kernel_ptr = k_ptr;
     observable = obs;
     __internal__::ArgsTranslatorAutoGenerator auto_gen;
@@ -191,7 +192,6 @@ public:
     helper = obj_helper;
     _dim = dim;
     _function = *this;
-    options = opts;
     options.insert("observable", observable);
     helper->update_observable(observable);
     helper->set_options(options);
@@ -205,6 +205,7 @@ public:
       std::shared_ptr<ObjectiveFunction> obj_helper, const int dim,
       HeterogeneousMap opts)
       : qreg(qq) {
+    options = opts;
     // std::cout << "Constructed from lambda\n";
     lambda_kernel_evaluator =
         [&, functor](
@@ -230,7 +231,6 @@ public:
     helper = obj_helper;
     _dim = dim;
     _function = *this;
-    options = opts;
     options.insert("observable", observable);
     helper->update_observable(observable);
     helper->set_options(options);
