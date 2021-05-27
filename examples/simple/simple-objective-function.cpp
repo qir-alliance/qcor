@@ -39,7 +39,8 @@ int main(int argc, char **argv) {
   // Query results when ready.
   auto results = sync(handle);
   printf("vqe-energy from taskInitiate = %f\n", results.opt_val);
-
+  qcor_expect(std::abs(results.opt_val + 1.74886) < 0.1);
+  
   for (auto &x : linspace(-constants::pi, constants::pi, 20)) {
     std::cout << x << ", " << (*objective)({x}) << "\n";
   }

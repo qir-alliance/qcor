@@ -92,27 +92,27 @@ class VQEObjective : public ObjectiveFunction {
     current_iteration++;
     // qreg.addChild(tmp_child);
 
-    // if (!dx.empty() && options.stringExists("gradient-strategy")) {
-    //   // Compute the gradient
-    //   auto gradient_strategy =
-    //       xacc::getService<xacc::AlgorithmGradientStrategy>(
-    //           options.getString("gradient-strategy"));
+    if (!dx.empty() && options.stringExists("gradient-strategy")) {
+      // Compute the gradient
+      auto gradient_strategy =
+          xacc::getService<xacc::AlgorithmGradientStrategy>(
+              options.getString("gradient-strategy"));
 
-    //   if (gradient_strategy->isNumerical() &&
-    //       observable->getIdentitySubTerm()) {
-    //     gradient_strategy->setFunctionValue(
-    //         val - std::real(observable->getIdentitySubTerm()->coefficient()));
-    //   }
+      if (gradient_strategy->isNumerical() &&
+          observable->getIdentitySubTerm()) {
+        gradient_strategy->setFunctionValue(
+            val - std::real(observable->getIdentitySubTerm()->coefficient()));
+      }
 
-    //   gradient_strategy->initialize(options);
-    //   auto grad_kernels = gradient_strategy->getGradientExecutions(
-    //       kernel, current_iterate_parameters);
+      gradient_strategy->initialize(options);
+      auto grad_kernels = gradient_strategy->getGradientExecutions(
+          kernel, current_iterate_parameters);
 
-    //   auto tmp_grad = qalloc(qreg.size());
-    //   qpu->execute(xacc::as_shared_ptr(tmp_grad.results()), grad_kernels);
-    //   auto tmp_grad_children = tmp_grad.results()->getChildren();
-    //   gradient_strategy->compute(dx, tmp_grad_children);
-    // }
+      auto tmp_grad = qalloc(qreg.size());
+      qpu->execute(xacc::as_shared_ptr(tmp_grad.results()), grad_kernels);
+      auto tmp_grad_children = tmp_grad.results()->getChildren();
+      gradient_strategy->compute(dx, tmp_grad_children);
+    }
     return val;
   }
 

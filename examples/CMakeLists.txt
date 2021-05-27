@@ -41,6 +41,7 @@ add_test(NAME multi_ctrl_test COMMAND ${CMAKE_BINARY_DIR}/qcor ${CMAKE_CURRENT_S
 
 add_qcor_compile_and_exe_test(qrt_obj_func_simple simple/simple-objective-function.cpp)
 add_qcor_compile_and_exe_test(qrt_kernel_autograd_simple simple/gradients_optimization.cpp)
+add_qcor_compile_and_exe_test(qrt_hybrid_vqe_exe hybrid/deuteron_h2_vqe.cpp)
 add_qcor_compile_and_exe_test(qrt_bell_ctrl bell/bell_control.cpp)
 
 # Lambda tests

@@ -25,6 +25,40 @@ class TestQCORKernelAutoGrad(unittest.TestCase):
         print("Energy =", energy)
         print("Opt params =", opt_params)
         self.assertAlmostEqual(energy, -1.74886, places=1)
+    
+    def test_autograd_args_translate(self):
+        set_qpu('qpp')
+        @qjit
+        def ansatz_args_translate(q: qreg, x: List[float], exp_args: List[FermionOperator]):
+            X(q[0])
+            for i, exp_arg in enumerate(exp_args):
+                exp_i_theta(q, x[i], exp_args[i])
+
+        exp_args = [adag(0) * a(1) - adag(1)*a(0), adag(0)*a(2) - adag(2)*a(0)]
+        H = createOperator('5.907 - 2.1433 X0X1 - 2.1433 Y0Y1 + .21829 Z0 - 6.125 Z1 + 9.625 - 9.625 Z2 - 3.91 X1 X2 - 3.91 Y1 Y2')
+        
+        # Custom arg_translator in a Pythonic way
+        def ansatz_translate(self, q: qreg, x: List[float]):
+            ret_dict = {}    
+            ret_dict["q"] = q
+            ret_dict["x"] = x
+            ret_dict["exp_args"] = exp_args
+            return ret_dict
+
+        ansatz_args_translate.translate = MethodType(ansatz_translate, qjit)
+        
+        def objective_function(x):
+          q = qalloc(3)
+          # Autograd a kernel with a custom args translate.
+          return ansatz_args_translate.autograd(H, q, x)
+        
+        optimizer = createOptimizer('nlopt', {'algorithm':'l-bfgs'})
+        (energy, opt_params) = optimizer.optimize(objective_function, 2)
+        print("Energy =", energy)
+        print("Opt params =", opt_params)
+        self.assertAlmostEqual(energy, -2.044, places=1)
+        self.assertAlmostEqual(opt_params[0], 0.7118, places=1)
+        self.assertAlmostEqual(opt_params[1], 0.2739, places=1)
 
 if __name__ == '__main__':
     unittest.main()

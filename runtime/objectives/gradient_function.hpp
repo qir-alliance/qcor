@@ -30,7 +30,7 @@ public:
 };
 
 namespace __internal__ {
-const std::string DEFAULT_GRADIENT_METHOD = "central";
+extern std::string DEFAULT_GRADIENT_METHOD;
 std::shared_ptr<GradientFunction>
 get_gradient_method(const std::string &type,
                     std::shared_ptr<ObjectiveFunction> obj_func,
