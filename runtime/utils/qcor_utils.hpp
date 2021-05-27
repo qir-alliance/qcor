@@ -423,7 +423,3 @@ class KernelToUnitaryVisitor : public xacc::quantum::AllGateVisitor {
     }                                                                          \
   }
 } // namespace qcor
-
-namespace qcor_arg {
-
-}
