@@ -231,6 +231,37 @@ class QuantumKernel {
     return cost_val;
   }
 
+  static double autograd(Observable &obs, std::vector<double> &dx,
+                         std::vector<double> x,
+                         ArgsTranslator<Args...> args_translator) {
+    std::function<std::shared_ptr<xacc::CompositeInstruction>(
+        std::vector<double>)>
+        kernel_eval = [&](std::vector<double> x_vec) {
+          auto eval_lambda = [&](Args... args) {
+            auto tempKernel =
+                qcor::__internal__::create_composite("__temp__autograd__");
+            Derived derived(args...);
+            derived.disable_destructor = true;
+            derived(args...);
+            tempKernel->addInstructions(
+                derived.parent_kernel->getInstructions());
+            return tempKernel;
+          };
+          auto args_tuple = args_translator(x_vec);
+          return std::apply(eval_lambda, args_tuple);
+        };
+
+    auto gradiend_method = qcor::__internal__::get_gradient_method(
+        qcor::__internal__::DEFAULT_GRADIENT_METHOD, kernel_eval, obs);
+
+    auto kernel_observe = [&](Args... args) { return observe(obs, args...); };
+
+    auto args_tuple = args_translator(x);
+    const double cost_val = std::apply(kernel_observe, args_tuple);
+    dx = (*gradiend_method)(x, cost_val);
+    return cost_val;
+  }
+
   static std::string openqasm(Args... args) {
     Derived derived(args...);
     KernelSignature<Args...> callable(derived);
