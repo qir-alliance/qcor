@@ -64,13 +64,13 @@ struct qubit {
   qubit(const std::string &reg_name, size_t idx,
         xacc::AcceleratorBuffer *in_buffer = nullptr)
       : first(reg_name), second(idx), buffer(in_buffer) {
-    // tracker = std::make_shared<AllocTracker>(this);
+    tracker = std::make_shared<AllocTracker>(this);
   }
   qubit() = default;
   // Having this tracker as a shared_ptr so that we can follow the qubit
   // even if it is copied, e.g. via slicing.
   // Default copy and copy assign should just copy this tracker across.
-  // std::shared_ptr<AllocTracker> tracker;
+  std::shared_ptr<AllocTracker> tracker;
 };
 
 class qreg;

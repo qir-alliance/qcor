@@ -173,19 +173,35 @@ void setGlobalQubitManager(AllocEventListener *in_listener) {
 
 // Dummy one:
 struct DummyListener : AllocEventListener {
+  static std::string address_to_string(qubit *qubit) {
+    std::ostringstream address;
+    address << (void const *)qubit;
+    return address.str();
+  }
+
   virtual void onAllocate(qubit *qubit) override {
-    xacc::debug("Allocate: " + qubit->first + "[" +
-                std::to_string(qubit->second) + "]");
+    xacc::debug("Allocate qubit: " + qubit->first + "[" +
+                std::to_string(qubit->second) +
+                "] at: " + address_to_string(qubit));
   }
+
+  // On deallocate: don't try to deref the qubit since it may have been gone.
   virtual void onDealloc(qubit *qubit) override {
-    xacc::debug("Deallocate: " + qubit->first + "[" +
-                std::to_string(qubit->second) + "]");
+    xacc::debug("Deallocate qubit at address: " + address_to_string(qubit));
   }
+
+  // Note: AllocEventListener global instances must
+  // be heap-allocated to be alive until all qubits have been deallocated.
   static AllocEventListener *getInstance() {
-    static DummyListener dummy;
-    return &dummy;
+    if (!g_instance) {
+      g_instance = new DummyListener();
+    }
+    return g_instance;
   }
+  static DummyListener *g_instance;
 };
+
+DummyListener *DummyListener::g_instance = nullptr;
 
 AllocEventListener *getGlobalQubitManager() {
   return global_alloc_tracker ? global_alloc_tracker
