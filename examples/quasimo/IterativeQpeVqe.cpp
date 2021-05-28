@@ -25,16 +25,20 @@ int main(int argc, char **argv) {
       QuaSiMo::ModelFactory::createModel(eigen_state_prep, H, 2, 0);
 
   // Instantiate an IQPE workflow
+  // NOTE: can turn off exp_i_theta compute-action-uncompute with {"cau-opt", false}
   auto workflow =
       QuaSiMo::getWorkflow("iqpe", {{"time-steps", 8}, {"iterations", 8}});
 
   auto result = workflow->execute(problemModel);
   const double phaseValue = result.get<double>("phase");
   const double energy = result.get<double>("energy");
+  auto n_insts = result.get<std::vector<int>>("n-kernel-instructions");
 
   std::cout << "Final phase = " << phaseValue << "\n";
   // Expect: ~ -1.7 (due to limited bit precision)
   std::cout << "Energy = " << energy << "\n";
 
+  print("N Instructions at Iter:");
+  for (auto [i,n] : enumerate(n_insts)) print("iter", i, ":" , n);
   return 0;
 }

@@ -563,7 +563,11 @@ void QJIT::jit_compile(const std::string &code,
               hetmap_mangled_name = "", parent_hetmap_mangled_name = "";
   for (Function &f : *module) {
     auto name = f.getName().str();
-    if (demangle(name.c_str()).find(kernel_name) != std::string::npos) {
+    auto demangled = demangle(name.c_str());
+    // Find first '(' lparen
+    auto first = demangled.find_first_of("(");
+    // We want str[0:first] == kernel_name
+    if (demangled.substr(0, first) == kernel_name) {
       // First one we see is the correct kernel call
       mangled_name = name;
       break;

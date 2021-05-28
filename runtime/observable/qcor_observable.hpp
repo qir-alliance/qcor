@@ -104,6 +104,8 @@ std::vector<std::shared_ptr<CompositeInstruction>> observe(
     std::shared_ptr<Observable> obs,
     std::shared_ptr<CompositeInstruction> program);
 
+extern std::map<std::size_t, std::shared_ptr<Observable>> cached_observables;
+
 }  // namespace __internal__
 
 std::shared_ptr<Observable> _internal_python_createObservable(

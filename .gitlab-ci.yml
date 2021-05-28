@@ -27,6 +27,7 @@ docker run_brew_linux_bottles:
   - docker build --build-arg AIDEQC_ACCESS_TOKEN=$AIDEQC_ACCESS_TOKEN --build-arg JFROG_API_KEY=$JFROG_API_KEY -t qcor/brew-linux . --no-cache
   - docker system prune -f
   - docker rmi -f qcor/brew-linux
+  allow_failure: true
 
 docker run_macosx_catalina_bottles:
   stage: deploy
@@ -39,6 +40,7 @@ docker run_macosx_catalina_bottles:
   - sleep 240
   - ssh catalina-ci "PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin bash run_bottle_build.sh $AIDEQC_ACCESS_TOKEN"
   - docker stop tmp_catalina_ci && docker rm -v tmp_catalina_ci
+  allow_failure: true
   
 docker run_macosx_mojave_bottles:
   stage: deploy
@@ -50,4 +52,5 @@ docker run_macosx_mojave_bottles:
   - docker run -d -it --name tmp_mojave_ci --device /dev/kvm -p 50922:10022 -v "${HOME}/mojave/mac_hdd_ng.img:/image" sickcodes/docker-osx:naked
   - sleep 240
   - ssh mojave-ci "PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin bash run_bottle_build.sh $AIDEQC_ACCESS_TOKEN"
-  - docker stop tmp_mojave_ci && docker rm -v tmp_mojave_ci  
+  - docker stop tmp_mojave_ci && docker rm -v tmp_mojave_ci
+  allow_failure: true

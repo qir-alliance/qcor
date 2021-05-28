@@ -15,13 +15,18 @@ bool IterativeQpeWorkflow::initialize(const HeterogeneousMap &params) {
   if (params.keyExists<int>("iterations")) {
     num_iters = params.get<int>("iterations");
   }
+
+  // defaults to true all the way down, this really 
+  // just gives us a way to turn it off
+  cau_opt = params.get_or_default("cau-opt", true);
+
   return (num_steps >= 1) && (num_iters >= 1);
 }
 
 std::shared_ptr<CompositeInstruction>
 IterativeQpeWorkflow::constructQpeTrotterCircuit(
     std::shared_ptr<Observable> obs, double trotter_step, size_t nbQubits,
-    double compensatedAncRot, int steps, int k, double omega) {
+    double compensatedAncRot, int steps, int k, double omega, bool cau_opt) {
   auto provider = xacc::getIRProvider("quantum");
   auto kernel = provider->createComposite("__TEMP__QPE__LOOP__");
   // Ancilla qubit is the last one in the register.
@@ -38,7 +43,7 @@ IterativeQpeWorkflow::constructQpeTrotterCircuit(
   // TODO: support other methods (e.g. Suzuki)
   auto method = xacc::getService<AnsatzGenerator>("trotter");
   auto trotterCir =
-      method->create_ansatz(obs.get(), {{"dt", trotter_step}}).circuit;
+      method->create_ansatz(obs.get(), {{"dt", trotter_step}, {"cau-opt", cau_opt}}).circuit;
   // std::cout << "Trotter circ:\n" << trotterCir->toString() << "\n";
 
   // Controlled-U
@@ -82,7 +87,7 @@ std::shared_ptr<CompositeInstruction> IterativeQpeWorkflow::constructQpeCircuit(
   auto provider = xacc::getIRProvider("quantum");
   const double trotterStepSize = -2 * M_PI / num_steps;
   auto kernel = constructQpeTrotterCircuit(obs, trotterStepSize, obs->nBits(),
-                                           0.0, num_steps, k, omega);
+                                           0.0, num_steps, k, omega, cau_opt);
   const auto nbQubits = obs->nBits();
 
   // Ancilla qubit is the last one in the register
@@ -133,6 +138,7 @@ IterativeQpeWorkflow::execute(const QuantumSimulationModel &model) {
   // We're using XACC IR construction API here, since using QCOR kernels here
   // seems to be complicated.
   double omega_coef = 0.0;
+  std::vector<int> n_instructions;
   // Iterates over the num_iters
   // k runs from the number of iterations back to 1
   for (int iterIdx = 0; iterIdx < num_iters; ++iterIdx) {
@@ -148,6 +154,15 @@ IterativeQpeWorkflow::execute(const QuantumSimulationModel &model) {
 
     auto iterQpe = constructQpeCircuit(stretchedObs, k, -2 * M_PI * omega_coef);
     kernel->addInstruction(iterQpe);
+    int count = 0;
+    xacc::InstructionIterator iter(kernel);
+    while(iter.hasNext()) {
+      auto next = iter.next();
+      if (next->isEnabled() && !next->isComposite()) {
+        count++;
+      }
+    }
+    n_instructions.push_back(count);
     // Executes the iterative QPE algorithm:
     auto temp_buffer = xacc::qalloc(stretchedObs->nBits() + 1);
     // std::cout << "Kernel: \n" << kernel->toString() << "\n";
@@ -184,7 +199,7 @@ IterativeQpeWorkflow::execute(const QuantumSimulationModel &model) {
     // omega_coef = " << omega_coef << "\n";
   }
 
-  return {{"phase", omega_coef},
+  return {{"phase", omega_coef}, {"n-kernel-instructions", n_instructions},
           {"energy", ham_converter.computeEnergy(omega_coef)}};
 }
 } // namespace QuaSiMo

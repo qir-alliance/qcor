@@ -25,9 +25,8 @@ int main(int argc, char **argv) {
 
   // Create the ObjectiveFunction, here we want to run VQE
   // need to provide ansatz, Operator, and qreg
-  auto objective = createObjectiveFunction(
-      ansatz, H, q, n_variational_params,
-      {{"gradient-strategy", "parameter-shift"}});
+  auto objective = createObjectiveFunction(ansatz, H, q, n_variational_params,
+                                           {{"gradient-strategy", "central"}});
 
   // Create the Optimizer.
   auto optimizer = createOptimizer("nlopt", {{"nlopt-optimizer", "l-bfgs"}});
@@ -40,7 +39,8 @@ int main(int argc, char **argv) {
   // Query results when ready.
   auto results = sync(handle);
   printf("vqe-energy from taskInitiate = %f\n", results.opt_val);
-
+  qcor_expect(std::abs(results.opt_val + 1.74886) < 0.1);
+  
   for (auto &x : linspace(-constants::pi, constants::pi, 20)) {
     std::cout << x << ", " << (*objective)({x}) << "\n";
   }
