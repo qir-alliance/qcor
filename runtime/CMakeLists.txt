@@ -14,7 +14,7 @@ file(GLOB SRC observable/qcor_observable.cpp
 
 add_library(${LIBRARY_NAME} SHARED ${SRC})
 
-target_include_directories(${LIBRARY_NAME} PUBLIC . qrt 
+target_include_directories(${LIBRARY_NAME} PUBLIC . qrt qrt/internal_compiler
                             observable 
                             optimizer 
                             jit
