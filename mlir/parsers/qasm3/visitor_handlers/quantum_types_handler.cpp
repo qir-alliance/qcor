@@ -159,10 +159,10 @@ antlrcpp::Any qasm3_visitor::visitQuantumGateDefinition(
     result_qubit_vals.push_back(last_user);
   }
 
-  std::cout << "GATE " << gate_call_name << " has " << result_qubit_vals.size() << " to return.\n";
-  for (auto v : result_qubit_vals) {
-    v.dump();
-  }
+  // std::cout << "GATE " << gate_call_name << " has " << result_qubit_vals.size() << " to return.\n";
+  // for (auto v : result_qubit_vals) {
+  //   v.dump();
+  // }
 
   builder.create<mlir::ReturnOp>(builder.getUnknownLoc(), llvm::makeArrayRef(result_qubit_vals));
 

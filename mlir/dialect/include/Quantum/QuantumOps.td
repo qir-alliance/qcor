@@ -100,8 +100,7 @@ def InstOp : QuantumOp<"inst", [AttrSizedOperandSegments]> {
     let results = (outs Optional<ResultType>:$bit);
 
     let printer = [{  auto op = *this;
-  p << "q." << op.name() << "(" << op.getOperands() << ") : ";
-  p.printFunctionalType(op.getOperandTypes(), op.getResultTypes()); }];
+  p << "q." << op.name() << "(" << op.getOperands() << ") : " << op.getResultTypes(); }];
 }
 
 def ValueSemanticsInstOp : QuantumOp<"value_inst", [AttrSizedOperandSegments]> {
@@ -109,8 +108,7 @@ def ValueSemanticsInstOp : QuantumOp<"value_inst", [AttrSizedOperandSegments]> {
     let results = (outs Variadic<AnyTypeOf<[ResultType, QubitType]>>:$result);
 
     let printer = [{  auto op = *this;
-  p << "qvs." << op.name() << "(" << op.getOperands() << ") : " << op.result().getType(); }];
-  
+  p << "qvs." << op.name() << "(" << op.getOperands() << ") : " << op.result().getType(); }]; 
 }
 
 def DeallocOp : QuantumOp<"dealloc", []> {
@@ -143,11 +141,15 @@ def SetQregOp : QuantumOp<"set_qreg", []> {
 def PrintOp : QuantumOp<"print", []> {
     let arguments = (ins Variadic<AnyType>:$print_args);
     let results = (outs);
+let printer = [{  auto op = *this;
+  p << "q.print(" << op.getOperands() << ")"; }];
 }
 
 def CreateStringLiteralOp : QuantumOp<"createString", []> {
     let arguments = (ins StrAttr:$text, StrAttr:$varname);
     let results = (outs StringType:$result);
+    let printer = [{  auto op = *this;
+  p << "q.create_string(\"" << op.text() << "\")"; }];
 }
 
 #endif // Quantum_OPS
