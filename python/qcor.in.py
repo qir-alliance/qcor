@@ -83,7 +83,7 @@ cpp_matrix_gen_code = '''#include <pybind11/embed.h>
 #include <pybind11/complex.h>
 namespace py = pybind11;
 // returns 1d data as vector and matrix size (assume square)
-auto __internal__qcor_pyjit_gen_{}_unitary_matrix({}) {{
+auto __internal__qcor_pyjit_{}_gen_{}_unitary_matrix({}) {{
   auto py_src = R"#({})#";
   auto locals = py::dict();
   {}
@@ -309,13 +309,13 @@ class qjit(object):
                         [s for s in analyzer.depends_on])
                     locals_code = '\n'.join(
                         ['locals["{}"] = {};'.format(n, n) for n in arg_var_names])
-                    self.extra_cpp_code = cpp_matrix_gen_code.format(
+                    self.extra_cpp_code = cpp_matrix_gen_code.format(self.kernel_name(),
                         with_decomp_matrix_names[i], arg_struct, code_to_exec, locals_code)
 
                     col_skip = ' '*with_decomp_lines_col_starts[i]
                     new_src = col_skip + 'decompose {\n'
                     new_src += col_skip + ' '*4 + \
-                        'auto [mat_data, mat_size] = __internal__qcor_pyjit_gen_{}_unitary_matrix({});\n'.format(
+                        'auto [mat_data, mat_size] = __internal__qcor_pyjit_{}_gen_{}_unitary_matrix({});\n'.format(self.kernel_name(),
                             with_decomp_matrix_names[i], arg_var_names)
                     new_src += col_skip+' '*4 + \
                         'UnitaryMatrix {} = Eigen::Map<UnitaryMatrix>(mat_data.data(), mat_size, mat_size);\n'.format(
