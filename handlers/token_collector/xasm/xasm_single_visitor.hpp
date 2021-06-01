@@ -212,10 +212,6 @@ class xasm_single_visitor : public xasm::xasm_singleVisitor {
         ss << origText << " ";
       }
     } else {
-      // std::cout << "HOWDY: " << context->getText() << "\n";
-      for (const auto &expr : context->exp()) {
-        std::cout << expr->getText() << "\n";
-      }
       if (context->var_value &&
           context->var_value->getText().find("qalloc") != std::string::npos) {
         // std::cout << "Qalloc encountered\n";
@@ -224,7 +220,7 @@ class xasm_single_visitor : public xasm::xasm_singleVisitor {
           qalloc_ss << c->getText() << " ";
         }
         std::string qalloc_call = qalloc_ss.str();
-        std::cout << qalloc_call << "\n";
+        // std::cout << qalloc_call << "\n";
         const auto close_pos = qalloc_call.find_last_of(")");
         qalloc_call.insert(close_pos, ", quantum::getAncillaQubitAllocator()");
         // std::cout << "After: " << qalloc_call << "\n";

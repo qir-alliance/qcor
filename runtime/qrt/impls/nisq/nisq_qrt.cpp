@@ -22,12 +22,12 @@ class NisqQubitAllocator : public AllocEventListener, public QubitAllocator {
 public:
   static inline const std::string ANC_BUFFER_NAME = "nisq_temp_buffer";
   virtual void onAllocate(qubit *in_qubit) override {
-    std::cout << "Allocate: " << (void *)in_qubit << "\n";
+    // std::cout << "Allocate: " << (void *)in_qubit << "\n";
   }
 
   // On deallocate: don't try to deref the qubit since it may have been gone.
   virtual void onDealloc(qubit *in_qubit) override {
-    std::cout << "Deallocate: " << (void *)in_qubit << "\n";
+    // std::cout << "Deallocate: " << (void *)in_qubit << "\n";
     // If this qubit was allocated from this pool:
     if (xacc::container::contains(m_allocatedQubits, in_qubit)) {
       const auto qIndex = std::find(m_allocatedQubits.begin(),
@@ -44,17 +44,16 @@ public:
   }
 
   virtual qubit allocate() override {
-    std::cout << "Allocate\n";
     if (!m_qubitPool.empty()) {
       auto recycled_qubit = m_qubitPool.back();
       m_qubitPool.pop_back();
       return recycled_qubit;
     }
-
     if (!m_buffer) {
       // This must be the first call.
       assert(m_allocatedQubits.empty());
       m_buffer = xacc::qalloc(1);
+      m_buffer->setName(ANC_BUFFER_NAME);
     }
 
     // Need to allocate new qubit:
@@ -74,6 +73,8 @@ public:
     return g_instance;
   }
   static NisqQubitAllocator *g_instance;
+
+  std::shared_ptr<xacc::AcceleratorBuffer> get_buffer() { return m_buffer; }
 
 private:
   std::vector<qubit> m_qubitPool;
@@ -403,10 +404,19 @@ class NISQ : public ::quantum::QuantumRuntime,
 
   void submit(xacc::AcceleratorBuffer *buffer) override {
     // xacc::internal_compiler::execute_pass_manager();
-    if (__print_final_submission) {
-      std::cout << "SUBMIT:\n" << program->toString() << "\n";
+    auto anc_allocator = NisqQubitAllocator::getInstance();
+    if (anc_allocator->get_buffer() &&
+        anc_allocator->get_buffer()->size() > 0) {
+      std::vector<xacc::AcceleratorBuffer *> buffer_list{
+          buffer, anc_allocator->get_buffer().get()};
+      submit(buffer_list.data(), buffer_list.size());
+    } else {
+      if (__print_final_submission) {
+        std::cout << "SUBMIT:\n" << program->toString() << "\n";
+      }
+      xacc::internal_compiler::execute(buffer, program);
     }
-    xacc::internal_compiler::execute(buffer, program);
+
     clearProgram();
   }
 
@@ -416,6 +426,12 @@ class NISQ : public ::quantum::QuantumRuntime,
     std::set<xacc::AcceleratorBuffer*> ptrs;
     for (int i = 0; i < nBuffers; i++) {
       ptrs.insert(buffers[i]);
+    }
+    // Add the kernel-allocated temporary buffer if necessary:
+    auto anc_allocator = NisqQubitAllocator::getInstance();
+    if (anc_allocator->get_buffer() &&
+        anc_allocator->get_buffer()->size() > 0) {
+      ptrs.insert(anc_allocator->get_buffer().get());
     }
     // If size is 1 here, then we only have 
     // one pointer, like in the case of qubit.results()
