@@ -14,5 +14,16 @@ configure_file(InternalCompilerTester.in.cpp
 add_executable(InternalCompilerTester ${CMAKE_BINARY_DIR}/runtime/tests/InternalCompilerTester.cpp)
 target_include_directories(InternalCompilerTester PRIVATE ${XACC_ROOT}/include/gtest ${CMAKE_SOURCE_DIR}/runtime/qrt/internal_compiler)
 target_link_libraries(InternalCompilerTester PRIVATE xacc qrt ${XACC_TEST_LIBRARIES})
-add_test(NAME QCORInternalCompilerTester COMMAND InternalCompilerTester)
+add_test(NAME qcor_InternalCompilerTester COMMAND InternalCompilerTester)
 target_compile_features(InternalCompilerTester PRIVATE cxx_std_17)
+
+
+add_executable(QuilCompilerQallocTester QuilCompilerQallocTester.cpp)
+add_test(NAME qcor_QuilCompilerQallocTester COMMAND QuilCompilerQallocTester)
+target_include_directories(QuilCompilerQallocTester PRIVATE ${XACC_ROOT}/include/gtest ${CMAKE_SOURCE_DIR}/runtime/qrt/internal_compiler)
+target_link_libraries(QuilCompilerQallocTester ${XACC_TEST_LIBRARIES} qcor qrt ${XACC_TEST_LIBRARIES})
+
+add_executable(XASMCompilerQallocTester XASMCompilerQallocTester.cpp)
+add_test(NAME qcor_XASMCompilerQallocTester COMMAND XASMCompilerQallocTester)
+target_include_directories(XASMCompilerQallocTester PRIVATE ${XACC_ROOT}/include/gtest ${CMAKE_SOURCE_DIR}/runtime/qrt/internal_compiler)
+target_link_libraries(XASMCompilerQallocTester ${XACC_TEST_LIBRARIES} qcor qrt ${XACC_TEST_LIBRARIES})
