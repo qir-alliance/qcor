@@ -7,3 +7,12 @@ add_executable(QCORTester QCORTester.cpp)
 add_test(NAME qcor_QCORTester COMMAND QCORTester)
 target_include_directories(QCORTester PRIVATE ${XACC_ROOT}/include/gtest)
 target_link_libraries(QCORTester ${XACC_TEST_LIBRARIES} qcor)
+
+
+configure_file(InternalCompilerTester.in.cpp
+               ${CMAKE_BINARY_DIR}/runtime/tests/InternalCompilerTester.cpp)
+add_executable(InternalCompilerTester ${CMAKE_BINARY_DIR}/runtime/tests/InternalCompilerTester.cpp)
+target_include_directories(InternalCompilerTester PRIVATE ${XACC_ROOT}/include/gtest ${CMAKE_SOURCE_DIR}/runtime/qrt/internal_compiler)
+target_link_libraries(InternalCompilerTester PRIVATE xacc qrt ${XACC_TEST_LIBRARIES})
+add_test(NAME QCORInternalCompilerTester COMMAND InternalCompilerTester)
+target_compile_features(InternalCompilerTester PRIVATE cxx_std_17)
