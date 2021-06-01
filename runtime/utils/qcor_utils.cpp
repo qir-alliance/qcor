@@ -5,6 +5,19 @@
 #include "xacc_service.hpp"
 
 namespace qcor {
+
+namespace arg {
+  static ArgumentParser _parser;
+  
+  ArgumentParser &get_parser() {
+    return _parser;
+  }
+
+  void parse_args(int argc, const char *const argv[]) {
+    get_parser().parse_args(argc, argv);
+  }
+}
+
 void set_verbose(bool verbose) { xacc::set_verbose(verbose); }
 bool get_verbose() { return xacc::verbose; }
 void set_shots(const int shots) { ::quantum::set_shots(shots); }

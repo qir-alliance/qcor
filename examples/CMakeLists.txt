@@ -14,6 +14,8 @@ add_test(NAME qrt_bell_multi COMMAND ${CMAKE_BINARY_DIR}/qcor -c ${CMAKE_CURRENT
 add_test(NAME qrt_add_3_5 COMMAND ${CMAKE_BINARY_DIR}/qcor -v -c ${CMAKE_CURRENT_SOURCE_DIR}/adder/add_3_5.cpp WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/adder)
 add_test(NAME qrt_mixed_language COMMAND ${CMAKE_BINARY_DIR}/qcor -c ${CMAKE_CURRENT_SOURCE_DIR}/simple/mixed_language.cpp)
 add_test(NAME qrt_simple-demo COMMAND ${CMAKE_BINARY_DIR}/qcor -c ${CMAKE_CURRENT_SOURCE_DIR}/simple/simple-demo.cpp)
+add_test(NAME qrt_simple-explicit-parser COMMAND ${CMAKE_BINARY_DIR}/qcor -c ${CMAKE_CURRENT_SOURCE_DIR}/argparse/simple-explicit-parser.cpp)
+add_test(NAME qrt_simple-implicit-parser COMMAND ${CMAKE_BINARY_DIR}/qcor -c ${CMAKE_CURRENT_SOURCE_DIR}/argparse/simple-implicit-parser.cpp)
 add_test(NAME qrt_deuteron_exp_inst COMMAND ${CMAKE_BINARY_DIR}/qcor -c ${CMAKE_CURRENT_SOURCE_DIR}/deuteron/deuteron_exp_inst.cpp)
 add_test(NAME qrt_deuteron_task_initiate COMMAND ${CMAKE_BINARY_DIR}/qcor -c ${CMAKE_CURRENT_SOURCE_DIR}/deuteron/deuteron_task_initiate.cpp)
 add_test(NAME qrt_qaoa_example COMMAND ${CMAKE_BINARY_DIR}/qcor -c ${CMAKE_CURRENT_SOURCE_DIR}/qaoa/qaoa_example.cpp)
