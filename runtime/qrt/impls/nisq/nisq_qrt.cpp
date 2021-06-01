@@ -21,10 +21,13 @@ namespace {
 class NisqQubitAllocator : public AllocEventListener, public QubitAllocator {
 public:
   static inline const std::string ANC_BUFFER_NAME = "nisq_temp_buffer";
-  virtual void onAllocate(qubit *in_qubit) override {}
+  virtual void onAllocate(qubit *in_qubit) override {
+    std::cout << "Allocate: " << (void *)in_qubit << "\n";
+  }
 
   // On deallocate: don't try to deref the qubit since it may have been gone.
   virtual void onDealloc(qubit *in_qubit) override {
+    std::cout << "Deallocate: " << (void *)in_qubit << "\n";
     // If this qubit was allocated from this pool:
     if (xacc::container::contains(m_allocatedQubits, in_qubit)) {
       const auto qIndex = std::find(m_allocatedQubits.begin(),
@@ -41,6 +44,7 @@ public:
   }
 
   virtual qubit allocate() override {
+    std::cout << "Allocate\n";
     if (!m_qubitPool.empty()) {
       auto recycled_qubit = m_qubitPool.back();
       m_qubitPool.pop_back();
@@ -135,6 +139,11 @@ class NISQ : public ::quantum::QuantumRuntime,
   void initialize(const std::string kernel_name) override {
     provider = xacc::getIRProvider("quantum");
     program = provider->createComposite(kernel_name);
+    setGlobalQubitManager(NisqQubitAllocator::getInstance());
+  }
+
+  QubitAllocator *get_anc_qubit_allocator() {
+    return NisqQubitAllocator::getInstance();
   }
 
   void __begin_mark_segment_as_compute() override { mark_as_compute = true; }

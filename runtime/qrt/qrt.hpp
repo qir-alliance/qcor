@@ -79,6 +79,9 @@ public:
   set_current_program(std::shared_ptr<xacc::CompositeInstruction> p) = 0;
   virtual std::shared_ptr<xacc::CompositeInstruction> get_current_program() = 0;
   virtual void set_current_buffer(xacc::AcceleratorBuffer *buffer) = 0;
+  // Ancilla qubit allocator:
+  // i.e. handle in kernel allocation.
+  virtual QubitAllocator *get_anc_qubit_allocator() { return nullptr; }
 };
 // This represents the public API for the xacc-enabled
 // qcor quantum runtime library. The goal here is to provide
@@ -198,6 +201,9 @@ void set_current_buffer(xacc::AcceleratorBuffer *buffer);
 
 // Persist bit-string result from single-bit measurements (if any)
 void persistBitstring(xacc::AcceleratorBuffer *buffer);
+
+// Get the ancilla qubit allocator:
+QubitAllocator *getAncillaQubitAllocator();
 } // namespace quantum
 
 namespace xacc {

@@ -337,4 +337,8 @@ void ch(qreg src, qreg tgt) {
     ch(src[i], tgt[i]);
   }
 }
+
+QubitAllocator *getAncillaQubitAllocator() {
+  return qrt_impl->get_anc_qubit_allocator();
+}
 }  // namespace quantum
