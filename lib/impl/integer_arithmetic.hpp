@@ -201,7 +201,6 @@ __qpu__ void mul_integer_mod_in_place_impl(qreg x, qreg aux_reg, qubit anc, int 
 
 // |x> ==> |ax mod N> in-place
 __qpu__ void mul_integer_mod_in_place(qreg x, int a, int N) {
-  auto aux_reg = qalloc(x.size() + 1);
   auto anc_reg = qalloc(1);
-  mul_integer_mod_in_place_impl(x, aux_reg, anc_reg[0], a, N);
+  mul_integer_mod_in_place_impl(x, qalloc(x.size() + 1), anc_reg[0], a, N);
 }

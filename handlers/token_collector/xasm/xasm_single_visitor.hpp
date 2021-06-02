@@ -141,6 +141,45 @@ class xasm_single_visitor : public xasm::xasm_singleVisitor {
           if (c->getText() == "(") {
             ss << c->getText() << "parent_kernel, ";
 
+          } else if (c->getText().find("qalloc") != std::string::npos) {
+            // Inline qalloc used in a kernel call:
+            // std::cout << "Qalloc: " << c->getText() << "\n";
+            std::string arg_str = c->getText();
+            const std::string qalloc_name = "qalloc";
+            auto qalloc_pos = arg_str.find(qalloc_name);
+            // Handle multiple temporary qalloc in a kernel call:
+            while (qalloc_pos != std::string::npos) {
+              // Matching '(' ')' to make sure we capture the content of the
+              // qalloc call.
+              std::stack<char> balance_matcher;
+              const auto open_pos =
+                  arg_str.find_first_of("(", qalloc_pos);
+              if (open_pos == std::string::npos) {
+                xacc::error("Invalid Syntax: " + c->getText());
+              }
+              for (int i = open_pos; i < arg_str.size(); ++i) {
+                if (arg_str[i] == '(') {
+                  balance_matcher.push('(');
+                }
+                if (arg_str[i] == ')') {
+                  balance_matcher.pop();
+                }
+
+                if (balance_matcher.empty()) {
+                  arg_str.insert(i, ", quantum::getAncillaQubitAllocator()");
+                  break;
+                }
+              }
+
+              if (!balance_matcher.empty()) {
+                xacc::error("Invalid Syntax: " + c->getText());
+              }
+              
+              // Find the next one if any:
+              qalloc_pos = arg_str.find(qalloc_name, qalloc_pos + qalloc_name.size());
+            }
+            // Append the new arg string
+            ss << arg_str;
           } else {
             ss << c->getText() << " ";
           }
