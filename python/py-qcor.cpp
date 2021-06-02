@@ -524,8 +524,22 @@ PYBIND11_MODULE(_pyqcor, m) {
             return q.extract_range(r);
           },
           "")
-      // .def("extract_qubits", &xacc::internal_compiler::qreg::extract_qubits,
-      // "")
+      .def(
+          "head", [](xacc::internal_compiler::qreg &q) { return q.head(); }, "")
+      .def(
+          "head",
+          [](xacc::internal_compiler::qreg &q, const std::size_t n) {
+            return q.head(n);
+          },
+          "")
+      .def(
+          "tail", [](xacc::internal_compiler::qreg &q) { return q.tail(); }, "")
+      .def(
+          "tail",
+          [](xacc::internal_compiler::qreg &q, const std::size_t n) {
+            return q.tail(n);
+          },
+          "")
       .def("exp_val_z", &xacc::internal_compiler::qreg::exp_val_z, "")
       .def(
           "results",
