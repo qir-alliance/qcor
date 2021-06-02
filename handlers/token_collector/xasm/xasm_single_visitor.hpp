@@ -237,7 +237,8 @@ class xasm_single_visitor : public xasm::xasm_singleVisitor {
               // If "Measure" is not followed by a space or '(',
               // i.e. not having a function call signature,
               // we don't replace.
-              (!isspace(s[pos + search.length()]) ||
+              // Not space **and** not '('
+              (!isspace(s[pos + search.length()]) &&
                (s[pos + search.length()] != '('))) {
             continue;
           }
