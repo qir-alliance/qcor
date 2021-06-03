@@ -143,7 +143,7 @@ public:
       entryPoint = p;
     } else {
       if (p.get() == entryPoint.get()) {
-        std::cout << "Restart FTQC execution\n";
+        // std::cout << "Restart FTQC execution\n";
         instruction_collect_mode = false;
         // Now apply these gates:
         // std::cout << entryPoint->toString() << "\n";
@@ -172,7 +172,7 @@ public:
         // We have executed all pending instructions...
         entryPoint->clear();
       } else {
-        std::cout << "Begin instruction collection\n";
+        // std::cout << "Begin instruction collection\n";
         // Switch to NISQ mode to collect these instructions
         instruction_collector = p;
         instruction_collect_mode = true;

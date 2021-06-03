@@ -28,5 +28,6 @@ int main(int argc, char **argv) {
   int result = 0;
   test_mul_integer_inline(x_reg2, a_val, N_val, result);
   std::cout << "Result = " << result << "\n";
+  qcor_expect(result == 2 || result == 6);
   return 0;
 }
