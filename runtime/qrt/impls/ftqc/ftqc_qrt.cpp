@@ -139,7 +139,45 @@ public:
   // Some getters for the qcor runtime library.
   virtual void
   set_current_program(std::shared_ptr<xacc::CompositeInstruction> p) override {
-    // Nothing to do
+    if (!entryPoint) {
+      entryPoint = p;
+    } else {
+      if (p.get() == entryPoint.get()) {
+        std::cout << "Restart FTQC execution\n";
+        instruction_collect_mode = false;
+        // Now apply these gates:
+        // std::cout << entryPoint->toString() << "\n";
+        for (auto &inst : p->getInstructions()) {
+          std::vector<size_t> mapped_bits;
+          for (int i = 0; i < inst->bits().size(); ++i) {
+            const auto qubitId =
+                std::make_pair(inst->getBufferNames()[i], inst->bits()[i]);
+            if (qubitIdToGlobalIdx.find(qubitId) == qubitIdToGlobalIdx.end()) {
+              qubitIdToGlobalIdx[qubitId] = qubitIdToGlobalIdx.size();
+              std::stringstream logss;
+              logss << "Map " << inst->getBufferNames()[i] << "["
+                    << inst->bits()[i] << "] to global ID "
+                    << qubitIdToGlobalIdx[qubitId];
+              xacc::info(logss.str());
+              qReg->setSize(qubitIdToGlobalIdx.size());
+            }
+            mapped_bits.emplace_back(qubitIdToGlobalIdx[qubitId]);
+          }
+          inst->setBits(mapped_bits);
+          if (__print_final_submission) {
+            std::cout << "Apply gate: " << inst->toString() << "\n";
+          }
+          qpu->apply(qReg, inst);
+        }
+        // We have executed all pending instructions...
+        entryPoint->clear();
+      } else {
+        std::cout << "Begin instruction collection\n";
+        // Switch to NISQ mode to collect these instructions
+        instruction_collector = p;
+        instruction_collect_mode = true;
+      }
+    }
   }
   virtual std::shared_ptr<xacc::CompositeInstruction>
   get_current_program() override {
@@ -207,17 +245,40 @@ private:
     if (mark_as_compute) {
       gateInst->attachMetadata({{"__qcor__compute__segment__", true}});
     }
-    qpu->apply(qReg, gateInst);
+
+    if (!instruction_collect_mode) {
+      if (__print_final_submission) {
+        std::cout << "Apply gate: " << gateInst->toString() << "\n";
+      }
+      qpu->apply(qReg, gateInst);
+    } else {
+      // Note: for instruction collection, we must keep the
+      // buffer names as-is (only map to global reg when executed)
+      std::vector<std::string> buffer_names;
+      std::vector<size_t> bits;
+      for (const auto &qb : qbits) {
+        bits.emplace_back(qb.second);
+        buffer_names.emplace_back(qb.first);
+      }
+      gateInst->setBits(bits);
+      gateInst->setBufferNames(buffer_names);
+      instruction_collector->addInstruction(gateInst);
+    }
   }
 
 private:
   bool mark_as_compute = false;
+  // Are we in a instruction collection mode?
+  // cannot execute the instructions now.
+  bool instruction_collect_mode = false;
+  std::shared_ptr<xacc::CompositeInstruction> instruction_collector;
   std::shared_ptr<xacc::IRProvider> provider;
   std::shared_ptr<xacc::Accelerator> qpu;
   // TODO: eventually, we may want to support an arbitrary number of qubit
   // registers when the FTQC backend can support it.
   std::shared_ptr<xacc::AcceleratorBuffer> qReg;
   std::map<std::pair<std::string, size_t>, size_t> qubitIdToGlobalIdx;
+  std::shared_ptr<xacc::CompositeInstruction> entryPoint;
 };
 } // namespace qcor
 
