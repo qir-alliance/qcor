@@ -241,5 +241,27 @@ void execute_pass_manager(
 
 } // namespace internal_compiler
 } // namespace xacc
+namespace qcor {
+// Ancilla qubit allocator:
+class AncQubitAllocator : public AllocEventListener, public QubitAllocator {
+public:
+  static inline const std::string ANC_BUFFER_NAME = "aux_temp_buffer";
+  virtual void onAllocate(xacc::internal_compiler::qubit *in_qubit) override {
+    // std::cout << "Allocate: " << (void *)in_qubit << "\n";
+  }
 
+  // On deallocate: don't try to deref the qubit since it may have been gone.
+  virtual void onDealloc(xacc::internal_compiler::qubit *in_qubit) override;
+
+  virtual xacc::internal_compiler::qubit allocate() override;
+  std::shared_ptr<xacc::AcceleratorBuffer> get_buffer() { return m_buffer; }
+
+protected:
+  std::vector<xacc::internal_compiler::qubit> m_qubitPool;
+  // Track the list of qubit pointers for those
+  // that was allocated by this Allocator.
+  std::vector<xacc::internal_compiler::qubit *> m_allocatedQubits;
+  std::shared_ptr<xacc::AcceleratorBuffer> m_buffer;
+};
+} // namespace qcor
 #endif

@@ -10,6 +10,17 @@ function(add_qcor_compile_and_exe_test test_name relative_source_location)
   )
 endfunction()
 
+# Compile with FTQC runtime and execute
+function(add_qcor_ftqc_compile_and_exe_test test_name relative_source_location)
+  add_test(
+  NAME
+    ${test_name}
+  COMMAND
+    bash -c "${CMAKE_BINARY_DIR}/qcor -qrt ftqc ${CMAKE_CURRENT_SOURCE_DIR}/${relative_source_location} -o ${test_name}; \
+              ${CMAKE_CURRENT_BINARY_DIR}/${test_name}"
+  )
+endfunction()
+
 add_qcor_compile_and_exe_test(qrt_bell_multi bell/bell_multi_qreg.cpp)
 add_test(NAME qrt_add_3_5 COMMAND ${CMAKE_BINARY_DIR}/qcor -v -c ${CMAKE_CURRENT_SOURCE_DIR}/adder/add_3_5.cpp WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/adder)
 add_qcor_compile_and_exe_test(qrt_mixed_language simple/mixed_language.cpp)
@@ -21,13 +32,15 @@ add_qcor_compile_and_exe_test(qrt_qpe_example qpe/qpe_example_qrt.cpp)
 add_qcor_compile_and_exe_test(qrt_kernel_include simple/multiple_kernels.cpp)
 add_qcor_compile_and_exe_test(qrt_grover grover/grover.cpp)
 add_qcor_compile_and_exe_test(qrt_adapt hybrid/adapt_h2.cpp)
-add_test(NAME qrt_ftqc_simple COMMAND ${CMAKE_BINARY_DIR}/qcor -c -qrt ftqc ${CMAKE_CURRENT_SOURCE_DIR}/ftqc_qrt/simple-demo.cpp)
-add_test(NAME qrt_ftqc_rus COMMAND ${CMAKE_BINARY_DIR}/qcor -c -qrt ftqc ${CMAKE_CURRENT_SOURCE_DIR}/ftqc_qrt/repeat-until-success.cpp)
-add_test(NAME qrt_ftqc_qec COMMAND ${CMAKE_BINARY_DIR}/qcor -c -qrt ftqc ${CMAKE_CURRENT_SOURCE_DIR}/ftqc_qrt/bit-flip-code.cpp)
-add_test(NAME qrt_ftqc_deuteron COMMAND ${CMAKE_BINARY_DIR}/qcor -c -qrt ftqc ${CMAKE_CURRENT_SOURCE_DIR}/ftqc_qrt/deuteron.cpp)
-add_test(NAME qrt_ftqc_bit_flip_qec_std_lib COMMAND ${CMAKE_BINARY_DIR}/qcor -c -qrt ftqc ${CMAKE_CURRENT_SOURCE_DIR}/ftqc_qrt/error_correcting_code.cpp)
-add_test(NAME qrt_ftqc_five_qubit_qec_std_lib COMMAND ${CMAKE_BINARY_DIR}/qcor -c -qrt ftqc ${CMAKE_CURRENT_SOURCE_DIR}/ftqc_qrt/five_qubit_qec_code.cpp)
-add_test(NAME qrt_ftqc_steane_qec_std_lib COMMAND ${CMAKE_BINARY_DIR}/qcor -c -qrt ftqc ${CMAKE_CURRENT_SOURCE_DIR}/ftqc_qrt/steane_qec_code.cpp)
+add_qcor_ftqc_compile_and_exe_test(qrt_ftqc_simple ftqc_qrt/simple-demo.cpp)
+add_qcor_ftqc_compile_and_exe_test(qrt_ftqc_rus ftqc_qrt/repeat-until-success.cpp)
+add_qcor_ftqc_compile_and_exe_test(qrt_ftqc_qec ftqc_qrt/bit-flip-code.cpp)
+add_qcor_ftqc_compile_and_exe_test(qrt_ftqc_deuteron ftqc_qrt/deuteron.cpp)
+add_qcor_ftqc_compile_and_exe_test(qrt_ftqc_bit_flip_qec_std_lib ftqc_qrt/error_correcting_code.cpp)
+add_qcor_ftqc_compile_and_exe_test(qrt_ftqc_five_qubit_qec_std_lib ftqc_qrt/five_qubit_qec_code.cpp)
+add_qcor_ftqc_compile_and_exe_test(qrt_ftqc_steane_qec_std_lib ftqc_qrt/steane_qec_code.cpp)
+add_qcor_ftqc_compile_and_exe_test(qrt_ftqc_qalloc ftqc_qrt/qalloc_ftqc.cpp)
+add_qcor_ftqc_compile_and_exe_test(qrt_ftqc_arithmetic ftqc_qrt/integer_add.cpp)
 add_qcor_compile_and_exe_test(quasimo_vqe quasimo/VqeWithAnsatzCircuit.cpp)
 add_qcor_compile_and_exe_test(quasimo_trotter quasimo/TrotterTdWorkflow.cpp)
 add_qcor_compile_and_exe_test(quasimo_iqpe_vqe quasimo/IterativeQpeVqe.cpp)

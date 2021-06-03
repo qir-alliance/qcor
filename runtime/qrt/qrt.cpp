@@ -342,3 +342,45 @@ QubitAllocator *getAncillaQubitAllocator() {
   return qrt_impl->get_anc_qubit_allocator();
 }
 }  // namespace quantum
+
+namespace qcor {
+void AncQubitAllocator::onDealloc(xacc::internal_compiler::qubit *in_qubit) {
+  // std::cout << "Deallocate: " << (void *)in_qubit << "\n";
+  // If this qubit was allocated from this pool:
+  if (xacc::container::contains(m_allocatedQubits, in_qubit)) {
+    const auto qIndex = std::find(m_allocatedQubits.begin(),
+                                  m_allocatedQubits.end(), in_qubit) -
+                        m_allocatedQubits.begin();
+    // Strategy: create a storage copy of the returned qubit:
+    // i.e. with the same index w.r.t. this global anc. buffer
+    // but store it in the pool vector -> will stay alive
+    // until giving out at the next allocate()
+    qubit archive_qubit(ANC_BUFFER_NAME, qIndex, m_buffer.get());
+    m_allocatedQubits[qIndex] = &archive_qubit;
+    m_qubitPool.emplace_back(archive_qubit);
+  }
+}
+
+xacc::internal_compiler::qubit AncQubitAllocator::allocate() {
+  if (!m_qubitPool.empty()) {
+    auto recycled_qubit = m_qubitPool.back();
+    m_qubitPool.pop_back();
+    return recycled_qubit;
+  }
+  if (!m_buffer) {
+    // This must be the first call.
+    assert(m_allocatedQubits.empty());
+    m_buffer = xacc::qalloc(1);
+    m_buffer->setName(ANC_BUFFER_NAME);
+  }
+
+  // Need to allocate new qubit:
+  // Each new qubit will have an incrementing index.
+  const auto newIdx = m_allocatedQubits.size();
+  qubit new_qubit(ANC_BUFFER_NAME, newIdx, m_buffer.get());
+  // Just track that we allocated this qubit
+  m_allocatedQubits.emplace_back(&new_qubit);
+  m_buffer->setSize(m_allocatedQubits.size());
+  return new_qubit;
+}
+} // namespace qcor

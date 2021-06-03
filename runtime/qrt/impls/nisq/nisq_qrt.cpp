@@ -18,54 +18,8 @@ using namespace cppmicroservices;
 using namespace xacc;
 
 namespace {
-class NisqQubitAllocator : public AllocEventListener, public QubitAllocator {
+class NisqQubitAllocator : public qcor::AncQubitAllocator {
 public:
-  static inline const std::string ANC_BUFFER_NAME = "nisq_temp_buffer";
-  virtual void onAllocate(qubit *in_qubit) override {
-    // std::cout << "Allocate: " << (void *)in_qubit << "\n";
-  }
-
-  // On deallocate: don't try to deref the qubit since it may have been gone.
-  virtual void onDealloc(qubit *in_qubit) override {
-    // std::cout << "Deallocate: " << (void *)in_qubit << "\n";
-    // If this qubit was allocated from this pool:
-    if (xacc::container::contains(m_allocatedQubits, in_qubit)) {
-      const auto qIndex = std::find(m_allocatedQubits.begin(),
-                                    m_allocatedQubits.end(), in_qubit) -
-                          m_allocatedQubits.begin();
-      // Strategy: create a storage copy of the returned qubit:
-      // i.e. with the same index w.r.t. this global anc. buffer
-      // but store it in the pool vector -> will stay alive
-      // until giving out at the next allocate()
-      qubit archive_qubit(ANC_BUFFER_NAME, qIndex, m_buffer.get());
-      m_allocatedQubits[qIndex] = &archive_qubit;
-      m_qubitPool.emplace_back(archive_qubit);
-    }
-  }
-
-  virtual qubit allocate() override {
-    if (!m_qubitPool.empty()) {
-      auto recycled_qubit = m_qubitPool.back();
-      m_qubitPool.pop_back();
-      return recycled_qubit;
-    }
-    if (!m_buffer) {
-      // This must be the first call.
-      assert(m_allocatedQubits.empty());
-      m_buffer = xacc::qalloc(1);
-      m_buffer->setName(ANC_BUFFER_NAME);
-    }
-
-    // Need to allocate new qubit:
-    // Each new qubit will have an incrementing index.
-    const auto newIdx = m_allocatedQubits.size();
-    qubit new_qubit(ANC_BUFFER_NAME, newIdx, m_buffer.get());
-    // Just track that we allocated this qubit
-    m_allocatedQubits.emplace_back(&new_qubit);
-    m_buffer->setSize(m_allocatedQubits.size());
-    return new_qubit;
-  }
-
   static NisqQubitAllocator *getInstance() {
     if (!g_instance) {
       g_instance = new NisqQubitAllocator();
@@ -73,15 +27,6 @@ public:
     return g_instance;
   }
   static NisqQubitAllocator *g_instance;
-
-  std::shared_ptr<xacc::AcceleratorBuffer> get_buffer() { return m_buffer; }
-
-private:
-  std::vector<qubit> m_qubitPool;
-  // Track the list of qubit pointers for those
-  // that was allocated by this Allocator.
-  std::vector<qubit *> m_allocatedQubits;
-  std::shared_ptr<xacc::AcceleratorBuffer> m_buffer;
 };
 
 NisqQubitAllocator *NisqQubitAllocator::g_instance = nullptr;
