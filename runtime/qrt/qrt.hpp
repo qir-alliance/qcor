@@ -81,7 +81,7 @@ public:
   virtual void set_current_buffer(xacc::AcceleratorBuffer *buffer) = 0;
   // Ancilla qubit allocator:
   // i.e. handle in kernel allocation.
-  virtual QubitAllocator *get_anc_qubit_allocator() { return nullptr; }
+  virtual QubitAllocator *get_anc_qubit_allocator() = 0;
 };
 // This represents the public API for the xacc-enabled
 // qcor quantum runtime library. The goal here is to provide
