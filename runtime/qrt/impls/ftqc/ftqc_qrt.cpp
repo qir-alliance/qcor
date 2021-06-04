@@ -121,7 +121,21 @@ public:
   // Submission API: sanity check that we don't call these API's.
   // e.g. catch high-level code gen errors.
   virtual void submit(xacc::AcceleratorBuffer *buffer) override {
-    throw std::runtime_error("FTQC runtime doesn't support submit API.");
+    // Special FTQC submit call to denote an entry kernel has finished.
+    // This allows FTQC to handle multiple kernel calls consecutively
+    // in the classical code.
+    if (buffer == nullptr) {
+      entryPoint.reset();
+      if (instruction_collect_mode && instruction_collector &&
+          instruction_collector->nInstructions() > 0) {
+        // Apply these pending instructions:
+        // Handle sequential calling of kernels (outside CSP scope, i.e., not nested)
+        applyComposite(instruction_collector);
+      }
+      instruction_collect_mode = false;
+      instruction_collector.reset();
+      qReg.reset();
+    }
   }
   virtual void submit(xacc::AcceleratorBuffer **buffers,
                       const int nBuffers) override {
@@ -146,29 +160,7 @@ public:
         // std::cout << "Restart FTQC execution\n";
         instruction_collect_mode = false;
         // Now apply these gates:
-        // std::cout << entryPoint->toString() << "\n";
-        for (auto &inst : p->getInstructions()) {
-          std::vector<size_t> mapped_bits;
-          for (int i = 0; i < inst->bits().size(); ++i) {
-            const auto qubitId =
-                std::make_pair(inst->getBufferNames()[i], inst->bits()[i]);
-            if (qubitIdToGlobalIdx.find(qubitId) == qubitIdToGlobalIdx.end()) {
-              qubitIdToGlobalIdx[qubitId] = qubitIdToGlobalIdx.size();
-              std::stringstream logss;
-              logss << "Map " << inst->getBufferNames()[i] << "["
-                    << inst->bits()[i] << "] to global ID "
-                    << qubitIdToGlobalIdx[qubitId];
-              xacc::info(logss.str());
-              qReg->setSize(qubitIdToGlobalIdx.size());
-            }
-            mapped_bits.emplace_back(qubitIdToGlobalIdx[qubitId]);
-          }
-          inst->setBits(mapped_bits);
-          if (__print_final_submission) {
-            std::cout << "Apply gate: " << inst->toString() << "\n";
-          }
-          qpu->apply(qReg, inst);
-        }
+        applyComposite(p);
         // We have executed all pending instructions...
         entryPoint->clear();
       } else {
@@ -204,15 +196,11 @@ private:
   // execution.
   void applyGate(const std::string &gateName, const std::vector<size_t> &bits,
                  const std::vector<double> &params = {}) {
-    std::vector<xacc::InstructionParameter> instParams;
-    for (const auto &val : params) {
-      instParams.emplace_back(val);
+    std::vector<qubit> qubits;
+    for (const auto& bit: bits) {
+      qubits.emplace_back(qubit("q", bit, qReg.get()));
     }
-    auto gateInst = provider->createInstruction(gateName, bits, instParams);
-    if (mark_as_compute) {
-      gateInst->attachMetadata({{"__qcor__compute__segment__", true}});
-    }
-    qpu->apply(qReg, gateInst);
+    applyGate(gateName, qubits, params);
   }
 
   void applyGate(const std::string &gateName,
@@ -263,6 +251,31 @@ private:
       gateInst->setBits(bits);
       gateInst->setBufferNames(buffer_names);
       instruction_collector->addInstruction(gateInst);
+    }
+  }
+
+  // Apply a batched composite:
+  void applyComposite(std::shared_ptr<xacc::CompositeInstruction> program) {
+    for (auto &inst : program->getInstructions()) {
+      std::vector<size_t> mapped_bits;
+      for (int i = 0; i < inst->bits().size(); ++i) {
+        const auto qubitId =
+            std::make_pair(inst->getBufferNames()[i], inst->bits()[i]);
+        if (qubitIdToGlobalIdx.find(qubitId) == qubitIdToGlobalIdx.end()) {
+          qubitIdToGlobalIdx[qubitId] = qubitIdToGlobalIdx.size();
+          std::stringstream logss;
+          logss << "Map " << inst->getBufferNames()[i] << "[" << inst->bits()[i]
+                << "] to global ID " << qubitIdToGlobalIdx[qubitId];
+          xacc::info(logss.str());
+          qReg->setSize(qubitIdToGlobalIdx.size());
+        }
+        mapped_bits.emplace_back(qubitIdToGlobalIdx[qubitId]);
+      }
+      inst->setBits(mapped_bits);
+      if (__print_final_submission) {
+        std::cout << "Apply gate: " << inst->toString() << "\n";
+      }
+      qpu->apply(qReg, inst);
     }
   }
 
