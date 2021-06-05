@@ -188,6 +188,7 @@ Array *__quantum__rt__qubit_allocate_array(uint64_t size) {
   allocated_qbits += size;
   if (!global_qreg) {
     global_qreg = std::make_shared<xacc::AcceleratorBuffer>(size);
+    global_qreg->setName("q");
     ::quantum::set_current_buffer(global_qreg.get());
   }
   // Update size.

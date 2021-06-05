@@ -141,6 +141,45 @@ class xasm_single_visitor : public xasm::xasm_singleVisitor {
           if (c->getText() == "(") {
             ss << c->getText() << "parent_kernel, ";
 
+          } else if (c->getText().find("qalloc") != std::string::npos) {
+            // Inline qalloc used in a kernel call:
+            // std::cout << "Qalloc: " << c->getText() << "\n";
+            std::string arg_str = c->getText();
+            const std::string qalloc_name = "qalloc";
+            auto qalloc_pos = arg_str.find(qalloc_name);
+            // Handle multiple temporary qalloc in a kernel call:
+            while (qalloc_pos != std::string::npos) {
+              // Matching '(' ')' to make sure we capture the content of the
+              // qalloc call.
+              std::stack<char> balance_matcher;
+              const auto open_pos =
+                  arg_str.find_first_of("(", qalloc_pos);
+              if (open_pos == std::string::npos) {
+                xacc::error("Invalid Syntax: " + c->getText());
+              }
+              for (int i = open_pos; i < arg_str.size(); ++i) {
+                if (arg_str[i] == '(') {
+                  balance_matcher.push('(');
+                }
+                if (arg_str[i] == ')') {
+                  balance_matcher.pop();
+                }
+
+                if (balance_matcher.empty()) {
+                  arg_str.insert(i, ", quantum::getAncillaQubitAllocator()");
+                  break;
+                }
+              }
+
+              if (!balance_matcher.empty()) {
+                xacc::error("Invalid Syntax: " + c->getText());
+              }
+              
+              // Find the next one if any:
+              qalloc_pos = arg_str.find(qalloc_name, qalloc_pos + qalloc_name.size());
+            }
+            // Append the new arg string
+            ss << arg_str;
           } else {
             ss << c->getText() << " ";
           }
@@ -198,7 +237,8 @@ class xasm_single_visitor : public xasm::xasm_singleVisitor {
               // If "Measure" is not followed by a space or '(',
               // i.e. not having a function call signature,
               // we don't replace.
-              (!isspace(s[pos + search.length()]) ||
+              // Not space **and** not '('
+              (!isspace(s[pos + search.length()]) &&
                (s[pos + search.length()] != '('))) {
             continue;
           }
@@ -212,8 +252,23 @@ class xasm_single_visitor : public xasm::xasm_singleVisitor {
         ss << origText << " ";
       }
     } else {
-      for (auto c : context->children) {
-        ss << c->getText() << " ";
+      if (context->var_value &&
+          context->var_value->getText().find("qalloc") != std::string::npos) {
+        // std::cout << "Qalloc encountered\n";
+        std::stringstream qalloc_ss;
+        for (auto c : context->children) {
+          qalloc_ss << c->getText() << " ";
+        }
+        std::string qalloc_call = qalloc_ss.str();
+        // std::cout << qalloc_call << "\n";
+        const auto close_pos = qalloc_call.find_last_of(")");
+        qalloc_call.insert(close_pos, ", quantum::getAncillaQubitAllocator()");
+        // std::cout << "After: " << qalloc_call << "\n";
+        ss << qalloc_call;
+      } else {
+        for (auto c : context->children) {
+          ss << c->getText() << " ";
+        }
       }
     }
 

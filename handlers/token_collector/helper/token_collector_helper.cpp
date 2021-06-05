@@ -194,6 +194,8 @@ std::string construct_kernel_subtype(
   OS << ");\n";
   OS << "quantum::persistBitstring(" << bufferNames[0] << ".results());\n";
   OS << "}\n";
+  // Use a special submit for FTQC to denote that this executable kernel has been completed.
+  OS << "quantum::submit(nullptr);\n";
   OS << "}\n";
   OS << "return;\n";
   OS << "}\n";

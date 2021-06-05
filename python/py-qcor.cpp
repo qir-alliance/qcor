@@ -509,7 +509,9 @@ PYBIND11_MODULE(_pyqcor, m) {
       },
       py::arg("placement_name"), "Set the placement strategy.");
 
-  m.def("qalloc", &::qalloc, py::return_value_policy::reference, "");
+  m.def(
+      "qalloc", [](int size) { return ::qalloc(size); },
+      "Allocate qubit register.");
   m.def("set_shots", &qcor::set_shots, "");
   py::class_<xacc::internal_compiler::qubit>(m, "qubit", "");
   py::class_<xacc::internal_compiler::qreg>(m, "qreg", "")

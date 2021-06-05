@@ -15,13 +15,13 @@ __qpu__ void estimate_term_expectation(qreg q,
   for (int i = 0; i < nSamples; ++i) {
     statePrep(q);
     int parity = 0;
-    ftqc::measure_basis(q, bases, parity);
+    measure_basis(q, bases, parity);
     if (parity == 1) {
       sum = sum - 1.0;
     } else {
       sum = sum + 1.0;
     }
-    ftqc::reset_all(q);
+    reset_all(q);
   }
   out_energy = sum / nSamples;
 }

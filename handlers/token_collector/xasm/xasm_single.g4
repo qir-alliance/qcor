@@ -64,6 +64,7 @@ exp
    | exp '^' exp
    | '(' exp ')'
    | unaryop '(' exp ')'
+   | exp '(' explist? ')'
    | exp '[' exp ']'
    | string
    | real

@@ -10,7 +10,7 @@ using namespace ftqc;
 int main() {
   auto q = qalloc(4);
   // Retrieve "bit-flip" code:
-  auto [stabilizers, encodeFunc, recoverFunc] = getQecCode("bit_flip");
+  auto [stabilizers, encodeFunc, recoverFunc] = getQecCode("bit-flip");
   encodeFunc(q, 0, {1, 2});  
   // If using a perfect simulator, apply a random X error to observe syndrome changes.
   applyError(q, 0);
