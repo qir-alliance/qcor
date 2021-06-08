@@ -161,19 +161,16 @@ void __quantum__rt__capture_update_reference_count(Callable *clb,
 void __quantum__rt__capture_update_alias_count(Callable *clb, int32_t count);
 void __quantum__rt__callable_memory_management(int32_t index, Callable *clb,
                                                int64_t parameter);
-Callable *__quantum__rt__callable_make_adjoint(Callable *clb);
-Callable *__quantum__rt__callable_make_controlled(Callable *clb);
+void __quantum__rt__callable_make_adjoint(Callable *clb);
+void __quantum__rt__callable_make_controlled(Callable *clb);
 // Implementation table: 4x callables of a specific signature
-typedef struct impl_table_t {
-  void (*f[4])(TuplePtr, TuplePtr, TuplePtr);
-} impl_table_t;
-typedef struct mem_management_cb_t {
-  void (*f[2])(TuplePtr, int64_t);
-} mem_management_cb_t;
 // Create callable (from Q#): 
 // See spec: https://github.com/microsoft/qsharp-language/blob/main/Specifications/QIR/Callables.md
-Callable* __quantum__rt__callable_create(impl_table_t* ft, mem_management_cb_t* callbacks, TuplePtr capture);
-// Classical Runtime: 
+Callable *
+__quantum__rt__callable_create(Callable::CallableEntryType *ft,
+                               Callable::CaptureCallbackType *callbacks,
+                               TuplePtr capture);
+// Classical Runtime:
 // https://github.com/microsoft/qsharp-language/blob/main/Specifications/QIR/Classical-Runtime.md#classical-runtime
 void __quantum__rt__fail(QirString *str);
 void __quantum__rt__message(QirString *str);
