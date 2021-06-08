@@ -379,7 +379,7 @@ void __quantum__rt__qubit_release_array(Array *q) {
   // qubit index numbers (unique) are unused
   // => the backend won't apply any further instructions on these.
   for (std::size_t i = 0; i < allocated_arrays.size(); i++) {
-    if (allocated_arrays[i].get() == q) {
+    if (allocated_arrays[i] && allocated_arrays[i].get() == q) {
       auto &array_ptr = allocated_arrays[i];
       auto array_size = array_ptr->size();
       if (verbose && mode == QRT_MODE::FTQC)
@@ -391,7 +391,23 @@ void __quantum__rt__qubit_release_array(Array *q) {
         delete qubitPtr;
       }
       array_ptr->clear();
+      array_ptr.reset();
     }
+  }
+
+  // If all the runtime arrays have been cleared/dealocated, 
+  // clean up the entire global register.
+  // This is to handle **multiple** calls into an FTQC kernels (Q#/OpenQASM3).
+  // At the end of the execution, all registers have been deallocated.
+  if (std::all_of(allocated_arrays.begin(), allocated_arrays.end(),
+                  [](auto &array_ptr) { return array_ptr == nullptr; })) {
+    if (verbose) {
+      std::cout << "Reset global buffer.\n";
+    }
+    allocated_arrays.clear();
+    global_qreg.reset();
+    allocated_qbits = 0;
+    Qubit::reset_counter();
   }
 }
 

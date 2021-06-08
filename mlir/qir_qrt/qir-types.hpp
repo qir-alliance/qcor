@@ -65,16 +65,20 @@ struct Qubit {
   operator int() const { return id; }
   // Allocation function:
   // Note: currently, we don't reclaim deallocated qubits.
-  // TODO: track qubit deallocations for reuse...
+  // until the very end of the quantum execution:
+  // i.e. all qubit array are cleaned-up 
+  // reset_counter() will be called.
   static Qubit *allocate() {
-    static uint64_t counter = 0;
-    Qubit *newQubit = new Qubit(counter);
-    counter++;
+    Qubit *newQubit = new Qubit(q_counter);
+    q_counter++;
     return newQubit;
   }
 
+  static void reset_counter() { q_counter = 0; }
+
 private:
   Qubit(uint64_t idVal) : id(idVal) {}
+  inline static uint64_t q_counter = 0;
 };
 
 using Result = bool;
