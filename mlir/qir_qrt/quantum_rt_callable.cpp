@@ -40,4 +40,14 @@ void __quantum__rt__callable_memory_management(int32_t index, Callable *clb,
   if (verbose)
     std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
 }
+
+Callable *__quantum__rt__callable_make_adjoint(Callable *clb) {
+  std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
+}
+Callable *__quantum__rt__callable_make_controlled(Callable *clb) {
+  std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
+}
+Callable* __quantum__rt__callable_create(impl_table_t* ft, mem_management_cb_t* callbacks, TuplePtr capture) {
+  std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
+}
 }
