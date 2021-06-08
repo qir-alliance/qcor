@@ -22,6 +22,9 @@ std::string qpu_name = "qpp";
 std::string qpu_config = "";
 QRT_MODE mode = QRT_MODE::FTQC;
 std::vector<std::unique_ptr<Array>> allocated_arrays;
+// Map of single-qubit allocations,
+// i.e. arrays of size 1.
+std::unordered_map<uint64_t, Array *> single_qubit_arrays;
 std::stack<std::shared_ptr<xacc::CompositeInstruction>> internal_xacc_ir;
 std::stack<std::shared_ptr<::quantum::QuantumRuntime>> internal_runtimes;
 
@@ -198,6 +201,28 @@ Array *__quantum__rt__qubit_allocate_array(uint64_t size) {
   allocated_arrays.push_back(std::move(new_array));
   return raw_ptr;
 }
+
+Qubit *__quantum__rt__qubit_allocate() {
+  auto qArray = __quantum__rt__qubit_allocate_array(1);
+  int8_t *arrayPtr = (*qArray)[0];
+  Qubit *qubitPtr = *(reinterpret_cast<Qubit **>(arrayPtr));
+  // We track the single-qubit array that holds this qubit.
+  single_qubit_arrays[qubitPtr->id] = qArray;
+  return qubitPtr;
+}
+
+void __quantum__rt__qubit_release(Qubit *q) {
+  if (q == nullptr) {
+    return;
+  }
+  if (single_qubit_arrays.find(q->id) != single_qubit_arrays.end()) {
+    __quantum__rt__qubit_release_array(single_qubit_arrays[q->id]);
+    single_qubit_arrays.erase(q->id);
+  } else {
+    throw "Illegal release of a qubit.";
+  }
+}
+
 
 void __quantum__rt__start_pow_u_region() {
   // Create a new NISQ based runtime so that we can

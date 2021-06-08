@@ -64,6 +64,8 @@ Result *__quantum__rt__result_get_zero();
 // Qubit Alloc/Dealloc API
 Array *__quantum__rt__qubit_allocate_array(uint64_t idx);
 void __quantum__rt__qubit_release_array(Array *q);
+void __quantum__rt__qubit_release(Qubit *q);
+Qubit *__quantum__rt__qubit_allocate();
 
 void __quantum__rt__start_ctrl_u_region();
 void __quantum__rt__end_ctrl_u_region(Qubit *ctrl_qubit);
