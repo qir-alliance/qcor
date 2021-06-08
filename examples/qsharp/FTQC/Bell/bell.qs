@@ -1,7 +1,5 @@
 namespace QCOR 
-{
-// Using QCOR Intrinsic instruction set
-// see QirTarget.qs    
+{   
 open Microsoft.Quantum.Intrinsic;
 @EntryPoint()
 operation TestBell(count : Int) : Int {

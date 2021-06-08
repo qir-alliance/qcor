@@ -50,9 +50,27 @@ void __quantum__qis__h__ctl(Array *ctls, Qubit *q) {
     std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
 }
 void __quantum__qis__r__body(Pauli pauli, double theta, Qubit *q) {
-  // TODO
   if (verbose)
     std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
+  switch (pauli) {
+  case Pauli::Pauli_I:
+    // nothing to do
+    break;
+  case Pauli::Pauli_X: {
+    __quantum__qis__rx(theta, q);
+    break;
+  }
+  case Pauli::Pauli_Y: {
+    __quantum__qis__ry(theta, q);
+    break;
+  }
+  case Pauli::Pauli_Z: {
+    __quantum__qis__rz(theta, q);
+    break;
+  }
+  default:
+    __builtin_unreachable();
+  }
 }
 void __quantum__qis__r__adj(Pauli pauli, double theta, Qubit *q) {
   // TODO
@@ -142,15 +160,15 @@ void __quantum__qis__x__ctladj(Array *ctls, Qubit *q) {
   return __quantum__qis__x__ctl(ctls, q);
 }
 void __quantum__qis__y__body(Qubit *q) {
-  // TODO
   if (verbose)
     std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
   __quantum__qis__y(q);
 }
 void __quantum__qis__y__adj(Qubit *q) {
-  // TODO
   if (verbose)
     std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
+  // Self-adjoint
+  __quantum__qis__y__body(q);
 }
 void __quantum__qis__y__ctl(Array *ctls, Qubit *q) {
   // TODO
@@ -163,15 +181,15 @@ void __quantum__qis__y__ctladj(Array *ctls, Qubit *q) {
     std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
 }
 void __quantum__qis__z__body(Qubit *q) {
-  // TODO
   if (verbose)
     std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
   __quantum__qis__z(q);
 }
 void __quantum__qis__z__adj(Qubit *q) {
-  // TODO
   if (verbose)
     std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
+  // Self-adjoint
+  __quantum__qis__z__body(q);
 }
 void __quantum__qis__z__ctl(Array *ctls, Qubit *q) {
   // TODO
