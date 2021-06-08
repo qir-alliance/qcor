@@ -75,6 +75,12 @@ def generate_qsc_build_command(target_name, src_dir, input_files):
       skip_args = True
 
   # print(qsc_cmd)
+  # remove temp files 
+  try:
+    os.remove(src_dir + '/output.csproj')
+    os.remove(src_dir + '/QscExe.cmd')
+  except:
+    pass
   return qsc_cmd
 
 def main(argv=None):

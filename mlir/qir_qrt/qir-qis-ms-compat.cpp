@@ -203,4 +203,15 @@ double __quantum__qis__intasdouble__body(int32_t intVal) {
 }
 
 void __quantum__qis__reset__body(Qubit *q) { __quantum__qis__reset(q); }
+
+void __quantum__qis__applyifelseintrinsic__body(Result *r,
+                                                Callable *clb_on_zero,
+                                                Callable *clb_on_one) {
+  std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
+}
+void __quantum__qis__applyconditionallyintrinsic__body(
+    Array *rs1, Array *rs2, Callable *clb_on_equal,
+    Callable *clb_on_different) {
+  std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
+}
 }
