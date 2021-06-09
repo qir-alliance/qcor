@@ -401,22 +401,12 @@ def main(argv=None):
     # Get the filename we are compiling or the object file
     filename = ''
     fileType = ''
-    for arg in sys.argv[1:]:
-        if os.path.isfile(arg) and mimetypes.guess_type(arg)[0] is not None:
-            filename = arg
-            fileType = mimetypes.guess_type(filename)[0]
-            if fileType == 'text/x-c++src':
-                break
-        if os.path.isfile(arg) and os.path.splitext(arg)[1] == '.qasm':
-            fileType = 'openqasm'
-            filename = arg
-        
-        if os.path.isfile(arg) and os.path.splitext(arg)[1] == '.qs':
-            fileType = 'qsharp'
-            filename = arg
-            break
-
-    if fileType == 'openqasm':
+    
+    # Define custom compilation routines for OpenQASM and Q#
+    # i.e. use custom tool to lower to LLVM IR -> LLVM assembler
+    # To support mixing multiple file types in one compilation.
+    # Util to compile QASM2/3 (MLIR)
+    def compile_qasm(filename):
         # Convert to MLIR and then to LLVM QIR
         base_name = os.path.splitext(filename)[0]
         ll_file_name = base_name + '.ll'
@@ -441,8 +431,9 @@ def main(argv=None):
             # remove these temp files
             os.remove(ll_file_name)
             os.remove(bc_file_name)
-
-    if fileType == 'qsharp':
+    
+    # Util to compile Q#
+    def compile_qsharp(filename):
         base_name = os.path.splitext(filename)[0]
         # Generate build command:
         build_cmd = generate_qsc_build_command(base_name, os.path.dirname(os.path.abspath(filename)), [filename, '@CMAKE_INSTALL_PREFIX@/include/qsharp/QirTarget.qs'])
@@ -480,23 +471,6 @@ def main(argv=None):
         fileType = None
         filename = None
         sys.argv.append(base_name+ '.o')     
-        for arg in sys.argv[1:]:
-            if os.path.isfile(arg) and mimetypes.guess_type(arg)[0] == 'text/x-c++src':
-                # There is a driver C++ file as well.
-                driver_file_name = arg
-                sys.argv.remove(driver_file_name)
-                cpp_compile_commands = [compiler] + defaultFlags + sHandlerArgs + baseIncludes + ['-c'] +[driver_file_name]
-                cpp_compile_commands += sys.argv[1:]
-                if verbose:
-                    print('[qcor-exec]: ', ' '.join([c for c in cpp_compile_commands]))
-                try:
-                    result = subprocess.run(cpp_compile_commands, check=True)
-                except subprocess.CalledProcessError as e:
-                    print(e.output)
-                    print(e.returncode)
-                base_cpp_name = os.path.splitext(driver_file_name)[0]
-                sys.argv.append(base_cpp_name + '.o')     
-        
         if not keep_bit_code_files:
             # remove these temp files
             try:
@@ -504,6 +478,22 @@ def main(argv=None):
                 os.remove(bson_file_name)
             except OSError:
                 pass
+    
+    for arg in sys.argv[1:]:
+        if os.path.isfile(arg) and mimetypes.guess_type(arg)[0] is not None:
+            filename = arg
+            fileType = mimetypes.guess_type(filename)[0]
+            if fileType == 'text/x-c++src':
+                break
+        if os.path.isfile(arg) and os.path.splitext(arg)[1] == '.qasm':
+            fileType = 'openqasm'
+            filename = arg
+            compile_qasm(filename)
+        
+        if os.path.isfile(arg) and os.path.splitext(arg)[1] == '.qs':
+            fileType = 'qsharp'
+            filename = arg
+            compile_qsharp(filename)
 
     # If it is a C++ file
     if fileType != None and 'text/x-c' in fileType:
