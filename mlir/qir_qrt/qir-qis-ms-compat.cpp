@@ -149,8 +149,15 @@ void __quantum__qis__x__ctl(Array *ctls, Qubit *q) {
     Qubit *ctrl_qubit = *(reinterpret_cast<Qubit **>(arrayPtr));
     __quantum__qis__cnot(ctrl_qubit, q);
   } else {
-    // TODO:
-    std::cout << "Multiple-control is not supported yet.\n";
+    std::vector<Qubit *> ctrl_qubits;
+    for (int i = 0; i < ctls->size(); ++i) {
+      int8_t *arrayPtr = (*ctls)[i];
+      Qubit *ctrl_qubit = *(reinterpret_cast<Qubit **>(arrayPtr));
+      ctrl_qubits.emplace_back(ctrl_qubit);
+    }
+    __quantum__rt__start_ctrl_u_region();
+    __quantum__qis__x__body(q);
+    __quantum__rt__end_multi_ctrl_u_region(ctrl_qubits);
   }
 }
 void __quantum__qis__x__ctladj(Array *ctls, Qubit *q) {

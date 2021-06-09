@@ -69,6 +69,9 @@ Qubit *__quantum__rt__qubit_allocate();
 
 void __quantum__rt__start_ctrl_u_region();
 void __quantum__rt__end_ctrl_u_region(Qubit *ctrl_qubit);
+// Multi-control
+void __quantum__rt__end_multi_ctrl_u_region(
+    const std::vector<Qubit *> &ctrl_qubits);
 void __quantum__rt__start_adj_u_region();
 void __quantum__rt__end_adj_u_region();
 void __quantum__rt__start_pow_u_region();

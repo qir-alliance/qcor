@@ -1,6 +1,41 @@
 #include "qir-qrt.hpp"
 #include <iostream>
 
+namespace {
+// Tuple with a particular structure  
+struct TupleWithControls {
+  Array *controls;
+  TupleWithControls *innerTuple;
+};
+TuplePtr flattenControlArrays(TuplePtr tuple, int depth) {
+  if (depth == 1) {
+    return tuple;
+  }
+
+  const size_t qubitSize = sizeof(Qubit *);
+  // Peel off each layer of control:
+  // Assuming the TupleWithControls structure (specific to Q#)
+  Array *combinedControls = new Array(0, qubitSize);
+  TupleWithControls *current = reinterpret_cast<TupleWithControls *>(tuple);
+  // Remaining arguments
+  TupleHeader *last = nullptr;
+  for (int i = 0; i < depth; i++) {
+    if (i == depth - 1) {
+      last = TupleHeader::getHeader(reinterpret_cast<TuplePtr>(current));
+    }
+    // Get control array
+    Array *controls = current->controls;
+    combinedControls->append(*controls);
+    current = current->innerTuple;
+  }
+
+  TupleHeader *flatTuple = TupleHeader::create(last);
+  Array **arr = reinterpret_cast<Array **>(flatTuple->getTuple());
+  *arr = combinedControls;
+  // std::cout << "Combined controls of size = " << combinedControls->size() << "\n";
+  return flatTuple->getTuple();
+}
+} // namespace
 extern "C" {
 TuplePtr __quantum__rt__tuple_create(int64_t size) {
   if (verbose)
@@ -58,8 +93,8 @@ void Callable::invoke(TuplePtr args, TuplePtr result) {
       m_functionTable[m_functorIdx](m_capture, args, result);
     }
     else {
-      // TODO: flatten the control array.
-      throw "Multi-controlled is not supported yet.";
+      auto flatTuple = flattenControlArrays(args, m_controlledDepth);
+      m_functionTable[m_functorIdx](m_capture, flatTuple, result);
     }
   }
 }

@@ -225,7 +225,9 @@ private:
         logss << "Map " << qb.first << "[" << qb.second << "] to global ID "
               << qubitIdToGlobalIdx[qubitId];
         xacc::info(logss.str());
-        qReg->setSize(qubitIdToGlobalIdx.size());
+        if (qReg->size() < qubitIdToGlobalIdx.size()) {
+          qReg->setSize(qubitIdToGlobalIdx.size());
+        }
       }
       bits.emplace_back(qubitIdToGlobalIdx[qubitId]);
     }
@@ -267,7 +269,9 @@ private:
           logss << "Map " << inst->getBufferNames()[i] << "[" << inst->bits()[i]
                 << "] to global ID " << qubitIdToGlobalIdx[qubitId];
           xacc::info(logss.str());
-          qReg->setSize(qubitIdToGlobalIdx.size());
+          if (qReg->size() < qubitIdToGlobalIdx.size()) {
+            qReg->setSize(qubitIdToGlobalIdx.size());
+          }
         }
         mapped_bits.emplace_back(qubitIdToGlobalIdx[qubitId]);
       }

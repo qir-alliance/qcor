@@ -342,6 +342,10 @@ void __quantum__rt__end_adj_u_region() {
 }
 
 void __quantum__rt__start_ctrl_u_region() {
+  // Cache the current runtime into the stack if not already.
+  if (internal_runtimes.empty()) {
+    internal_runtimes.push(::quantum::qrt_impl);
+  }
   // Create a new NISQ based runtime so that we can
   // queue up instructions and get them as a CompositeInstruction
   auto tmp_runtime = xacc::getService<::quantum::QuantumRuntime>("nisq");
@@ -380,6 +384,43 @@ void __quantum__rt__end_ctrl_u_region(Qubit *ctrl_qbit) {
 
   // std::cout << "Running Ctrl on " << ctrlIdx << ":\n" <<
   // ctrlKernel->toString() << "\n";
+  for (int instId = 0; instId < ctrlKernel->nInstructions(); ++instId) {
+    ::quantum::qrt_impl->general_instruction(
+        ctrlKernel->getInstruction(instId));
+  }
+  return;
+}
+
+void __quantum__rt__end_multi_ctrl_u_region(
+    const std::vector<Qubit *> &ctrl_qubits) {
+  // Get the temp runtime created by start_adj_u_region.
+  auto runtime = internal_runtimes.top();
+  // Get the program we built up
+  auto program = runtime->get_current_program();
+  // Remove the tmp runtime
+  internal_runtimes.pop();
+
+  // Set the quantum runtime to the one before this
+  // temp one we just popped off
+  ::quantum::qrt_impl = internal_runtimes.top();
+
+  std::vector<int> ctrl_bits;
+  for (auto &qb : ctrl_qubits) {
+    ctrl_bits.emplace_back(qb->id);
+  }
+
+  auto ctrlKernel = std::dynamic_pointer_cast<xacc::CompositeInstruction>(
+      xacc::getService<xacc::Instruction>("C-U"));
+  ctrlKernel->expand({
+      std::make_pair("U", program),
+      std::make_pair("control-idx", ctrl_bits),
+  });
+
+  std::cout << "Running Ctrl on ";
+  for (const auto &bit : ctrl_bits) {
+    std::cout << bit << " ";
+  }
+  std::cout << ":\n" << ctrlKernel->toString() << "\n";
   for (int instId = 0; instId < ctrlKernel->nInstructions(); ++instId) {
     ::quantum::qrt_impl->general_instruction(
         ctrlKernel->getInstruction(instId));

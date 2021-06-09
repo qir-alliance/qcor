@@ -184,6 +184,17 @@ struct TupleHeader {
     qcor::internal::AllocationTracker::get().onAllocate(th);
     return th;
   }
+  static TupleHeader *create(TupleHeader *other) {
+    const auto size = other->m_tupleSize;
+    int8_t *buffer = new int8_t[sizeof(TupleHeader) + size];
+    TupleHeader *th = reinterpret_cast<TupleHeader *>(buffer);
+    th->m_tupleSize = size;
+    th->m_refCount = 1;
+    memcpy(th->m_data, other->m_data, size);
+    qcor::internal::AllocationTracker::get().onAllocate(th);
+    return th;
+  }
+
   static TupleHeader *getHeader(TuplePtr tuple) {
     return reinterpret_cast<TupleHeader *>(tuple -
                                            offsetof(TupleHeader, m_data));
@@ -266,13 +277,15 @@ struct Callable {
     if (functorIdx == Callable::AdjointIdx) {
       m_functorIdx ^= Callable::AdjointIdx;
       if (m_functionTable[m_functorIdx] == nullptr) {
-        throw "The Callable doesn't have Adjoint implementation.";
+        printf("The Callable doesn't have Adjoint implementation.");
+        throw;
       }
     }
     if (functorIdx == Callable::ControlledIdx) {
       m_functorIdx |= Callable::ControlledIdx;
-      if (m_functionTable[m_functorIdx]) {
-        throw "The Callable doesn't have Controlled implementation.";
+      if (m_functionTable[m_functorIdx] == nullptr) {
+        printf("The Callable doesn't have Controlled implementation.");
+        throw;
       }
       m_controlledDepth++;
     }

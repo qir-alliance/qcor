@@ -24,7 +24,11 @@ void __quantum__rt__callable_invoke(Callable *clb, TuplePtr args,
 Callable *__quantum__rt__callable_copy(Callable *clb, bool force) {
   if (verbose)
     std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
-  return nullptr;
+  if (clb == nullptr) {
+    return nullptr;
+  }
+  auto clone = new Callable(*clb);
+  return clone;
 }
 void __quantum__rt__capture_update_reference_count(Callable *clb,
                                                    int32_t count) {
