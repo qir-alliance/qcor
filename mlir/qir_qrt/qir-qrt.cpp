@@ -416,11 +416,11 @@ void __quantum__rt__end_multi_ctrl_u_region(
       std::make_pair("control-idx", ctrl_bits),
   });
 
-  std::cout << "Running Ctrl on ";
-  for (const auto &bit : ctrl_bits) {
-    std::cout << bit << " ";
-  }
-  std::cout << ":\n" << ctrlKernel->toString() << "\n";
+  // std::cout << "Running Ctrl on ";
+  // for (const auto &bit : ctrl_bits) {
+  //   std::cout << bit << " ";
+  // }
+  // std::cout << ":\n" << ctrlKernel->toString() << "\n";
   for (int instId = 0; instId < ctrlKernel->nInstructions(); ++instId) {
     ::quantum::qrt_impl->general_instruction(
         ctrlKernel->getInstruction(instId));

@@ -1,8 +1,8 @@
-#include "qir-qrt.hpp"
 #include "qir-qrt-ms-compat.hpp"
+#include "qir-qrt.hpp"
 #include <iostream>
-#include <stdexcept>
 #include <math.h>
+#include <stdexcept>
 
 namespace {
 static std::vector<Pauli> extractPauliIds(Array *paulis) {
@@ -38,17 +38,25 @@ void __quantum__qis__exp__ctladj(Array *ctls, Array *paulis, double angle,
     std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
 }
 void __quantum__qis__h__body(Qubit *q) {
-  // TODO
   if (verbose)
     std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
   // Delegate to __quantum__qis__h
   __quantum__qis__h(q);
 }
 void __quantum__qis__h__ctl(Array *ctls, Qubit *q) {
-  // TODO
   if (verbose)
     std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
+  std::vector<Qubit *> ctrl_qubits;
+  for (int i = 0; i < ctls->size(); ++i) {
+    int8_t *arrayPtr = (*ctls)[i];
+    Qubit *ctrl_qubit = *(reinterpret_cast<Qubit **>(arrayPtr));
+    ctrl_qubits.emplace_back(ctrl_qubit);
+  }
+  __quantum__rt__start_ctrl_u_region();
+  __quantum__qis__h(q);
+  __quantum__rt__end_multi_ctrl_u_region(ctrl_qubits);
 }
+
 void __quantum__qis__r__body(Pauli pauli, double theta, Qubit *q) {
   if (verbose)
     std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
@@ -73,74 +81,131 @@ void __quantum__qis__r__body(Pauli pauli, double theta, Qubit *q) {
   }
 }
 void __quantum__qis__r__adj(Pauli pauli, double theta, Qubit *q) {
-  // TODO
   if (verbose)
     std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
+  __quantum__qis__r__body(pauli, -theta, q);
 }
 void __quantum__qis__r__ctl(Array *ctls, Pauli pauli, double theta, Qubit *q) {
-  // TODO
   if (verbose)
     std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
+  std::vector<Qubit *> ctrl_qubits;
+  for (int i = 0; i < ctls->size(); ++i) {
+    int8_t *arrayPtr = (*ctls)[i];
+    Qubit *ctrl_qubit = *(reinterpret_cast<Qubit **>(arrayPtr));
+    ctrl_qubits.emplace_back(ctrl_qubit);
+  }
+  __quantum__rt__start_ctrl_u_region();
+  __quantum__qis__r__body(pauli, theta, q);
+  __quantum__rt__end_multi_ctrl_u_region(ctrl_qubits);
 }
 void __quantum__qis__r__ctladj(Array *ctls, Pauli pauli, double theta,
                                Qubit *q) {
-  // TODO
   if (verbose)
     std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
+
+  std::vector<Qubit *> ctrl_qubits;
+  for (int i = 0; i < ctls->size(); ++i) {
+    int8_t *arrayPtr = (*ctls)[i];
+    Qubit *ctrl_qubit = *(reinterpret_cast<Qubit **>(arrayPtr));
+    ctrl_qubits.emplace_back(ctrl_qubit);
+  }
+  __quantum__rt__start_ctrl_u_region();
+  __quantum__qis__r__body(pauli, -theta, q);
+  __quantum__rt__end_multi_ctrl_u_region(ctrl_qubits);
 }
 void __quantum__qis__s__body(Qubit *q) {
-  // TODO
   if (verbose)
     std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
   __quantum__qis__s(q);
 }
 void __quantum__qis__s__adj(Qubit *q) {
-  // TODO
   if (verbose)
     std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
+  __quantum__qis__sdg(q);
 }
+
 void __quantum__qis__s__ctl(Array *ctls, Qubit *q) {
-  // TODO
   if (verbose)
     std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
+
+  std::vector<Qubit *> ctrl_qubits;
+  for (int i = 0; i < ctls->size(); ++i) {
+    int8_t *arrayPtr = (*ctls)[i];
+    Qubit *ctrl_qubit = *(reinterpret_cast<Qubit **>(arrayPtr));
+    ctrl_qubits.emplace_back(ctrl_qubit);
+  }
+  __quantum__rt__start_ctrl_u_region();
+  __quantum__qis__s__body(q);
+  __quantum__rt__end_multi_ctrl_u_region(ctrl_qubits);
 }
+
 void __quantum__qis__s__ctladj(Array *ctls, Qubit *q) {
-  // TODO
   if (verbose)
     std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
+
+  std::vector<Qubit *> ctrl_qubits;
+  for (int i = 0; i < ctls->size(); ++i) {
+    int8_t *arrayPtr = (*ctls)[i];
+    Qubit *ctrl_qubit = *(reinterpret_cast<Qubit **>(arrayPtr));
+    ctrl_qubits.emplace_back(ctrl_qubit);
+  }
+  __quantum__rt__start_ctrl_u_region();
+  __quantum__qis__s__adj(q);
+  __quantum__rt__end_multi_ctrl_u_region(ctrl_qubits);
 }
+
 void __quantum__qis__t__body(Qubit *q) {
-  // TODO
   if (verbose)
     std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
   __quantum__qis__t(q);
 }
 void __quantum__qis__t__adj(Qubit *q) {
-  // TODO
   if (verbose)
     std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
+  __quantum__qis__tdg(q);
 }
 void __quantum__qis__t__ctl(Array *ctls, Qubit *q) {
-  // TODO
   if (verbose)
     std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
+
+  std::vector<Qubit *> ctrl_qubits;
+  for (int i = 0; i < ctls->size(); ++i) {
+    int8_t *arrayPtr = (*ctls)[i];
+    Qubit *ctrl_qubit = *(reinterpret_cast<Qubit **>(arrayPtr));
+    ctrl_qubits.emplace_back(ctrl_qubit);
+  }
+  __quantum__rt__start_ctrl_u_region();
+  __quantum__qis__t__body(q);
+  __quantum__rt__end_multi_ctrl_u_region(ctrl_qubits);
 }
 void __quantum__qis__t__ctladj(Array *ctls, Qubit *q) {
-  // TODO
   if (verbose)
     std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
+
+  std::vector<Qubit *> ctrl_qubits;
+  for (int i = 0; i < ctls->size(); ++i) {
+    int8_t *arrayPtr = (*ctls)[i];
+    Qubit *ctrl_qubit = *(reinterpret_cast<Qubit **>(arrayPtr));
+    ctrl_qubits.emplace_back(ctrl_qubit);
+  }
+  __quantum__rt__start_ctrl_u_region();
+  __quantum__qis__t__adj(q);
+  __quantum__rt__end_multi_ctrl_u_region(ctrl_qubits);
 }
+
 void __quantum__qis__x__body(Qubit *q) {
   if (verbose)
     std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
   __quantum__qis__x(q);
 }
+
 void __quantum__qis__x__adj(Qubit *q) {
   if (verbose)
     std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
   // Self-adjoint
   __quantum__qis__x__body(q);
 }
+
 void __quantum__qis__x__ctl(Array *ctls, Qubit *q) {
   if (verbose)
     std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
@@ -160,12 +225,14 @@ void __quantum__qis__x__ctl(Array *ctls, Qubit *q) {
     __quantum__rt__end_multi_ctrl_u_region(ctrl_qubits);
   }
 }
+
 void __quantum__qis__x__ctladj(Array *ctls, Qubit *q) {
   if (verbose)
     std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
   // Self-adjoint
   return __quantum__qis__x__ctl(ctls, q);
 }
+
 void __quantum__qis__y__body(Qubit *q) {
   if (verbose)
     std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
@@ -178,14 +245,24 @@ void __quantum__qis__y__adj(Qubit *q) {
   __quantum__qis__y__body(q);
 }
 void __quantum__qis__y__ctl(Array *ctls, Qubit *q) {
-  // TODO
   if (verbose)
     std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
+
+  std::vector<Qubit *> ctrl_qubits;
+  for (int i = 0; i < ctls->size(); ++i) {
+    int8_t *arrayPtr = (*ctls)[i];
+    Qubit *ctrl_qubit = *(reinterpret_cast<Qubit **>(arrayPtr));
+    ctrl_qubits.emplace_back(ctrl_qubit);
+  }
+  __quantum__rt__start_ctrl_u_region();
+  __quantum__qis__y__body(q);
+  __quantum__rt__end_multi_ctrl_u_region(ctrl_qubits);
 }
 void __quantum__qis__y__ctladj(Array *ctls, Qubit *q) {
-  // TODO
   if (verbose)
     std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
+  // Self-adjoint
+  __quantum__qis__y__ctl(ctls, q);
 }
 void __quantum__qis__z__body(Qubit *q) {
   if (verbose)
@@ -199,35 +276,41 @@ void __quantum__qis__z__adj(Qubit *q) {
   __quantum__qis__z__body(q);
 }
 void __quantum__qis__z__ctl(Array *ctls, Qubit *q) {
-  // TODO
   if (verbose)
     std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
+
+  std::vector<Qubit *> ctrl_qubits;
+  for (int i = 0; i < ctls->size(); ++i) {
+    int8_t *arrayPtr = (*ctls)[i];
+    Qubit *ctrl_qubit = *(reinterpret_cast<Qubit **>(arrayPtr));
+    ctrl_qubits.emplace_back(ctrl_qubit);
+  }
+  __quantum__rt__start_ctrl_u_region();
+  __quantum__qis__z__body(q);
+  __quantum__rt__end_multi_ctrl_u_region(ctrl_qubits);
 }
 void __quantum__qis__z__ctladj(Array *ctls, Qubit *q) {
-  // TODO
   if (verbose)
     std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
+  // Self-adjoint
+  __quantum__qis__z__ctl(ctls, q);
 }
 void __quantum__qis__rx__body(double theta, Qubit *q) {
-  // TODO
   if (verbose)
     std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
   __quantum__qis__rx(theta, q);
 }
 void __quantum__qis__ry__body(double theta, Qubit *q) {
-  // TODO
   if (verbose)
     std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
   __quantum__qis__ry(theta, q);
 }
 void __quantum__qis__rz__body(double theta, Qubit *q) {
-  // TODO
   if (verbose)
     std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
   __quantum__qis__rz(theta, q);
 }
 void __quantum__qis__cnot__body(Qubit *src, Qubit *tgt) {
-  // TODO
   if (verbose)
     std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
   __quantum__qis__cnot(src, tgt);
@@ -288,7 +371,6 @@ Result *__quantum__qis__measure__body(Array *bases, Array *qubits) {
 }
 
 double __quantum__qis__intasdouble__body(int32_t intVal) {
-  // TODO
   if (verbose)
     std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
   return static_cast<double>(intVal);
