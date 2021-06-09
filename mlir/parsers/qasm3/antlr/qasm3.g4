@@ -477,6 +477,11 @@ returnStatement : 'return' statement;
 
 subroutineBlock
     : LBRACE statement* returnStatement? RBRACE
+    // Begin QCOR Extension
+    // Allow a special 'extern' keyword in place of the subroutine definition 
+    // to denote a declaration of an externally-provided quantum subroutine.
+    | EXTERN
+    // End QCOR Extension
     ;
 
 // if have subroutine w/ out args, is ambiguous; may get matched as identifier
@@ -572,6 +577,10 @@ EQUALS : '=' ;
 ARROW : '->' ;
 
 MINUS : '-' ;
+
+// Begin QCOR Extension
+EXTERN : 'extern' ; 
+// End QCOR Extension
 
 Constant : ( 'pi' | 'π' | 'tau' | '𝜏' | 'euler' | 'ℇ' );
 
