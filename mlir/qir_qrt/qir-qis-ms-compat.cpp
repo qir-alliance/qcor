@@ -3,6 +3,7 @@
 #include <iostream>
 #include <math.h>
 #include <stdexcept>
+#include "qrt.hpp"
 
 namespace {
 static std::vector<Pauli> extractPauliIds(Array *paulis) {
@@ -61,9 +62,18 @@ void __quantum__qis__r__body(Pauli pauli, double theta, Qubit *q) {
   if (verbose)
     std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
   switch (pauli) {
-  case Pauli::Pauli_I:
-    // nothing to do
+  case Pauli::Pauli_I: {
+    // Q# use rotation aroung I to cancel global phase
+    // due to Rz and U1 differences.
+    // Since Q# doesn't have native CPhase gate, we need to handle
+    // this properly in order for phase estimation to work.
+    // Rotation(theta) aroung I is defined as:
+    // diag(exp(-i*theta/2), exp(-i*theta/2)) == Phase(-theta)*Rz(theta)
+    __quantum__qis__rz(theta, q);
+    std::size_t qcopy = q->id;
+    ::quantum::u1({"q", qcopy}, -theta);
     break;
+  }
   case Pauli::Pauli_X: {
     __quantum__qis__rx(theta, q);
     break;
