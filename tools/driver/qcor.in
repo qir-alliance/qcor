@@ -44,7 +44,7 @@ def generate_qsc_build_command(target_name, src_dir, input_files):
   tree.write(src_dir + '/output.csproj')
   # Delete the temp_directory:
   shutil.rmtree(temp_dir)
-  os.system('dotnet build ' + src_dir + '/output.csproj')
+  os.system('dotnet build --nologo --verbosity quiet ' + src_dir + '/output.csproj')
   qsc_cmd = open(src_dir + '/QscExe.cmd', 'r').read()
   qsc_cmd = qsc_cmd.replace('\r', '').replace('\n', '')
   # Add the build verb:
