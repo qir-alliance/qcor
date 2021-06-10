@@ -85,20 +85,24 @@ void __quantum__qis__r__adj(Pauli pauli, double theta, Qubit *q) {
     std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
   __quantum__qis__r__body(pauli, -theta, q);
 }
-void __quantum__qis__r__ctl(Array *ctls, Pauli pauli, double theta, Qubit *q) {
+
+void __quantum__qis__r__ctl(Array *ctls, bool pauli_raw[2], double theta, Qubit *q) {
   if (verbose)
     std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
+  
   std::vector<Qubit *> ctrl_qubits;
   for (int i = 0; i < ctls->size(); ++i) {
     int8_t *arrayPtr = (*ctls)[i];
     Qubit *ctrl_qubit = *(reinterpret_cast<Qubit **>(arrayPtr));
     ctrl_qubits.emplace_back(ctrl_qubit);
   }
+  Pauli pauli = static_cast<Pauli>(*pauli_raw);
   __quantum__rt__start_ctrl_u_region();
   __quantum__qis__r__body(pauli, theta, q);
   __quantum__rt__end_multi_ctrl_u_region(ctrl_qubits);
 }
-void __quantum__qis__r__ctladj(Array *ctls, Pauli pauli, double theta,
+
+void __quantum__qis__r__ctladj(Array *ctls, bool pauli_raw[2], double theta,
                                Qubit *q) {
   if (verbose)
     std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
@@ -109,6 +113,7 @@ void __quantum__qis__r__ctladj(Array *ctls, Pauli pauli, double theta,
     Qubit *ctrl_qubit = *(reinterpret_cast<Qubit **>(arrayPtr));
     ctrl_qubits.emplace_back(ctrl_qubit);
   }
+  Pauli pauli = static_cast<Pauli>(*pauli_raw);
   __quantum__rt__start_ctrl_u_region();
   __quantum__qis__r__body(pauli, -theta, q);
   __quantum__rt__end_multi_ctrl_u_region(ctrl_qubits);
