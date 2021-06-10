@@ -17,11 +17,16 @@ void __quantum__qis__h__ctl(Array *ctls, Qubit *q);
 
 void __quantum__qis__r__body(Pauli pauli, double theta, Qubit *q);
 void __quantum__qis__r__adj(Pauli pauli, double theta, Qubit *q);
-// Use bool array to get the i2 Pauli from LLVM:
-// To prevent any potential padding issues for these function signatures.
-void __quantum__qis__r__ctl(Array *ctls, bool pauli[2], double theta, Qubit *q);
-void __quantum__qis__r__ctladj(Array *ctls, bool pauli[2], double theta,
-                               Qubit *q);
+
+// The *wrapped* controlled arguments of rotation...
+struct RotationCtrlArgs {
+  Pauli pauli;
+  double theta;
+  Qubit *q;
+};
+void __quantum__qis__r__ctl(Array *ctls, RotationCtrlArgs *args);
+void __quantum__qis__r__ctladj(Array *ctls, RotationCtrlArgs *args);
+
 void __quantum__qis__s__body(Qubit *q);
 void __quantum__qis__s__adj(Qubit *q);
 void __quantum__qis__s__ctl(Array *ctls, Qubit *q);
