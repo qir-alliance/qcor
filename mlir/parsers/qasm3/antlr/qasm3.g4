@@ -480,7 +480,7 @@ subroutineBlock
     // Begin QCOR Extension
     // Allow a special 'extern' keyword in place of the subroutine definition 
     // to denote a declaration of an externally-provided quantum subroutine.
-    | EXTERN
+    | EXTERN SEMICOLON
     // End QCOR Extension
     ;
 

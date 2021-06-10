@@ -1732,6 +1732,7 @@ public:
     StatementContext* statement(size_t i);
     ReturnStatementContext *returnStatement();
     antlr4::tree::TerminalNode *EXTERN();
+    antlr4::tree::TerminalNode *SEMICOLON();
 
     virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
     virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
