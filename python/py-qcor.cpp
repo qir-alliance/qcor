@@ -61,7 +61,7 @@ using AllowedKernelArgTypes =
                   xacc::internal_compiler::qubit, std::vector<double>,
                   std::vector<int>, qcor::PauliOperator, qcor::FermionOperator,
                   qcor::PairList<int>, std::vector<qcor::PauliOperator>,
-                  std::vector<qcor::FermionOperator>>;
+                  std::vector<qcor::FermionOperator>, std::vector<std::string>>;
 
 // We will take as input a mapping of arg variable names to the argument itself.
 using KernelArgDict = std::map<std::string, AllowedKernelArgTypes>;
