@@ -64,9 +64,14 @@ Result *__quantum__rt__result_get_zero();
 // Qubit Alloc/Dealloc API
 Array *__quantum__rt__qubit_allocate_array(uint64_t idx);
 void __quantum__rt__qubit_release_array(Array *q);
+void __quantum__rt__qubit_release(Qubit *q);
+Qubit *__quantum__rt__qubit_allocate();
 
 void __quantum__rt__start_ctrl_u_region();
 void __quantum__rt__end_ctrl_u_region(Qubit *ctrl_qubit);
+// Multi-control
+void __quantum__rt__end_multi_ctrl_u_region(
+    const std::vector<Qubit *> &ctrl_qubits);
 void __quantum__rt__start_adj_u_region();
 void __quantum__rt__end_adj_u_region();
 void __quantum__rt__start_pow_u_region();
@@ -159,8 +164,16 @@ void __quantum__rt__capture_update_reference_count(Callable *clb,
 void __quantum__rt__capture_update_alias_count(Callable *clb, int32_t count);
 void __quantum__rt__callable_memory_management(int32_t index, Callable *clb,
                                                int64_t parameter);
-
-// Classical Runtime: 
+void __quantum__rt__callable_make_adjoint(Callable *clb);
+void __quantum__rt__callable_make_controlled(Callable *clb);
+// Implementation table: 4x callables of a specific signature
+// Create callable (from Q#): 
+// See spec: https://github.com/microsoft/qsharp-language/blob/main/Specifications/QIR/Callables.md
+Callable *
+__quantum__rt__callable_create(Callable::CallableEntryType *ft,
+                               Callable::CaptureCallbackType *callbacks,
+                               TuplePtr capture);
+// Classical Runtime:
 // https://github.com/microsoft/qsharp-language/blob/main/Specifications/QIR/Classical-Runtime.md#classical-runtime
 void __quantum__rt__fail(QirString *str);
 void __quantum__rt__message(QirString *str);

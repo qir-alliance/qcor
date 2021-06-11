@@ -6,7 +6,7 @@
 #include <stdexcept>
 #include <unordered_map>
 #include <vector>
-
+#include <cstring>
 // Defines implementations of QIR Opaque types
 
 namespace qcor {
@@ -65,16 +65,20 @@ struct Qubit {
   operator int() const { return id; }
   // Allocation function:
   // Note: currently, we don't reclaim deallocated qubits.
-  // TODO: track qubit deallocations for reuse...
+  // until the very end of the quantum execution:
+  // i.e. all qubit array are cleaned-up 
+  // reset_counter() will be called.
   static Qubit *allocate() {
-    static uint64_t counter = 0;
-    Qubit *newQubit = new Qubit(counter);
-    counter++;
+    Qubit *newQubit = new Qubit(q_counter);
+    q_counter++;
     return newQubit;
   }
 
+  static void reset_counter() { q_counter = 0; }
+
 private:
   Qubit(uint64_t idVal) : id(idVal) {}
+  inline static uint64_t q_counter = 0;
 };
 
 using Result = bool;
@@ -180,6 +184,17 @@ struct TupleHeader {
     qcor::internal::AllocationTracker::get().onAllocate(th);
     return th;
   }
+  static TupleHeader *create(TupleHeader *other) {
+    const auto size = other->m_tupleSize;
+    int8_t *buffer = new int8_t[sizeof(TupleHeader) + size];
+    TupleHeader *th = reinterpret_cast<TupleHeader *>(buffer);
+    th->m_tupleSize = size;
+    th->m_refCount = 1;
+    memcpy(th->m_data, other->m_data, size);
+    qcor::internal::AllocationTracker::get().onAllocate(th);
+    return th;
+  }
+
   static TupleHeader *getHeader(TuplePtr tuple) {
     return reinterpret_cast<TupleHeader *>(tuple -
                                            offsetof(TupleHeader, m_data));
@@ -231,11 +246,58 @@ class IFunctor;
 
 // QIR Callable implementation.
 struct Callable {
+  // Typedef's and constants
+  typedef void (*CallableEntryType)(TuplePtr, TuplePtr, TuplePtr);
+  typedef void (*CaptureCallbackType)(TuplePtr, int32_t);
+  static int constexpr AdjointIdx = 1;
+  static int constexpr ControlledIdx = 1 << 1;
+  static int constexpr TableSize = 4;
+  static int constexpr CaptureCallbacksTableSize = 2;
+  // =======================================================
+
   void invoke(TuplePtr args, TuplePtr result);
+  // Constructor from C++ functor
   Callable(qcor::qsharp::IFunctor *in_functor) : m_functor(in_functor) {}
+  Callable(CallableEntryType *ftEntries, CaptureCallbackType *captureCallbacks,
+           TuplePtr capture) {
+    memcpy(m_functionTable, ftEntries, sizeof(m_functionTable));
+    if (m_functionTable[0] == nullptr) {
+      throw "Base functor must be defined.";
+    }
+    if (captureCallbacks != nullptr) {
+      memcpy(m_captureCallbacks, captureCallbacks,
+             sizeof(this->m_captureCallbacks));
+    }
+    m_capture = capture;
+  }
+
+  // Add arbitrary nested layer of control/adjoint
+  // A + A = I; A + C = C + A = CA; C + C = C; CA + A = C; CA + C = CA
+  void applyFunctor(int functorIdx) {
+    if (functorIdx == Callable::AdjointIdx) {
+      m_functorIdx ^= Callable::AdjointIdx;
+      if (m_functionTable[m_functorIdx] == nullptr) {
+        printf("The Callable doesn't have Adjoint implementation.");
+        throw;
+      }
+    }
+    if (functorIdx == Callable::ControlledIdx) {
+      m_functorIdx |= Callable::ControlledIdx;
+      if (m_functionTable[m_functorIdx] == nullptr) {
+        printf("The Callable doesn't have Controlled implementation.");
+        throw;
+      }
+      m_controlledDepth++;
+    }
+  }
 
 private:
-  qcor::qsharp::IFunctor *m_functor;
+  qcor::qsharp::IFunctor *m_functor = nullptr;
+  CallableEntryType m_functionTable[TableSize] = {nullptr, nullptr, nullptr, nullptr};
+  CaptureCallbackType m_captureCallbacks[CaptureCallbacksTableSize] = {nullptr, nullptr};
+  TuplePtr m_capture = nullptr;
+  int m_functorIdx = 0;
+  int m_controlledDepth = 0;
 };
 
 // QIR string type (regular string with ref. counting)

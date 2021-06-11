@@ -14,11 +14,19 @@ void __quantum__qis__exp__ctladj(Array *ctls, Array *paulis, double angle,
                                  Array *qubits);
 void __quantum__qis__h__body(Qubit *q);
 void __quantum__qis__h__ctl(Array *ctls, Qubit *q);
+
 void __quantum__qis__r__body(Pauli pauli, double theta, Qubit *q);
 void __quantum__qis__r__adj(Pauli pauli, double theta, Qubit *q);
-void __quantum__qis__r__ctl(Array *ctls, Pauli pauli, double theta, Qubit *q);
-void __quantum__qis__r__ctladj(Array *ctls, Pauli pauli, double theta,
-                               Qubit *q);
+
+// The *wrapped* controlled arguments of rotation...
+struct RotationCtrlArgs {
+  Pauli pauli;
+  double theta;
+  Qubit *q;
+};
+void __quantum__qis__r__ctl(Array *ctls, RotationCtrlArgs *args);
+void __quantum__qis__r__ctladj(Array *ctls, RotationCtrlArgs *args);
+
 void __quantum__qis__s__body(Qubit *q);
 void __quantum__qis__s__adj(Qubit *q);
 void __quantum__qis__s__ctl(Array *ctls, Qubit *q);
@@ -46,4 +54,10 @@ void __quantum__qis__cnot__body(Qubit *src, Qubit *tgt);
 void __quantum__qis__reset__body(Qubit *q);
 Result *__quantum__qis__measure__body(Array *bases, Array *qubits);
 double __quantum__qis__intasdouble__body(int32_t intVal);
+// Quantum QIS conditional functions/operations implementation
+void __quantum__qis__applyifelseintrinsic__body(Result *r,
+                                                Callable *clb_on_zero,
+                                                Callable *clb_on_one);
+void __quantum__qis__applyconditionallyintrinsic__body(
+    Array *rs1, Array *rs2, Callable *clb_on_equal, Callable *clb_on_different);
 }

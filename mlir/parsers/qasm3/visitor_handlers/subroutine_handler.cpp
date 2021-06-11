@@ -120,6 +120,17 @@ antlrcpp::Any qasm3_visitor::visitSubroutineDefinition(
     mlir::FuncOp function2(proto);
     function = function2;
   }
+  // Handle "extern" subroutine declaration:
+  if (context->subroutineBlock()->EXTERN()) {
+    std::cout << "Handle extern subroutine: " << subroutine_name << "\n";
+    builder.setInsertionPointToStart(&m_module.getRegion().getBlocks().front());
+    builder.create<mlir::FuncOp>(get_location(builder, file_name, context),
+                                 subroutine_name,
+                                 function.getType().cast<mlir::FunctionType>());
+    builder.restoreInsertionPoint(main_block);
+    symbol_table.add_seen_function(subroutine_name, function);
+    return 0;
+  }
 
   auto& entryBlock = *function.addEntryBlock();
   builder.setInsertionPointToStart(&entryBlock);

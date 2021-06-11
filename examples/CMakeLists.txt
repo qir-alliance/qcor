@@ -70,3 +70,8 @@ add_qcor_compile_and_exe_test(qrt_qpu_lambda_hadamard_test ctrl-gates/hadamard_t
 # Arithmetic tests
 add_qcor_compile_and_exe_test(qrt_qpu_arith_adder arithmetic/simple.cpp)
 add_qcor_compile_and_exe_test(qrt_qpu_arith_integer_add arithmetic/integer_add.cpp)
+
+
+if (QCOR_BUILD_QSHARP_TESTS)
+  add_subdirectory(qsharp)
+endif()

@@ -1,6 +1,88 @@
 #!/usr/bin/env python3
 import argparse, sys, os, glob, subprocess, mimetypes, re, pathlib
 
+# Helper to generate Q# build config by running the SDK
+# Input: the source file directory where the build
+# csproj will be saved to.
+def generate_qsc_build_command(target_name, src_dir, input_files):
+  import os, tempfile, shutil
+  temp_dir = tempfile.mkdtemp()
+  # print(temp_dir)
+  os.system('dotnet new console -lang Q# -o ' + temp_dir + ' -n test')
+
+  import xml.etree.ElementTree as ET
+  # Parse the SDK generated Project file
+  tree = ET.parse(temp_dir + '/test.csproj')
+
+  # get root element
+  root = tree.getroot()
+  # run this target:
+  root.attrib['DefaultTargets'] = 'PrepareQSharpCompile'
+  propertyGroup = root.find('PropertyGroup')
+  # enable QIR generation
+  qir_gen = ET.Element('QirGeneration')
+  qir_gen.text = 'true'
+  propertyGroup.append(qir_gen)
+
+  # Add a target to query the actual Build Command
+  # to get the most accurate QSC executable:
+  # <Target Name="PrintBuildCommand" BeforeTargets="PrepareQSharpCompile" >
+  #   <WriteLinesToFile File="QscExe.cmd" Overwrite="true" Lines="$(QscExe)" />
+  # </Target>
+
+  export_qsc_cmd = ET.Element('WriteLinesToFile')
+  export_qsc_cmd.attrib['File'] = 'QscExe.cmd'
+  export_qsc_cmd.attrib['Overwrite'] = 'true'
+  export_qsc_cmd.attrib['Lines'] = '$(QscExe)'
+
+  export_qsc_cmd_target = ET.Element('Target')
+  export_qsc_cmd_target.attrib['Name'] = 'PrintBuildCommand'
+  export_qsc_cmd_target.attrib['BeforeTargets'] = 'PrepareQSharpCompile'
+  export_qsc_cmd_target.append(export_qsc_cmd)
+
+  root.append(export_qsc_cmd_target)
+  tree.write(src_dir + '/output.csproj')
+  # Delete the temp_directory:
+  shutil.rmtree(temp_dir)
+  os.system('dotnet build --nologo --verbosity quiet ' + src_dir + '/output.csproj')
+  qsc_cmd = open(src_dir + '/QscExe.cmd', 'r').read()
+  qsc_cmd = qsc_cmd.replace('\r', '').replace('\n', '')
+  # Add the build verb:
+  qsc_cmd += " build "
+  # response file:
+  qsc_rsp = open(src_dir + '/obj/qsharp/config/qsc.rsp', 'r').read()
+  # parse arguments in the file
+  import shlex
+  split_args = shlex.split(qsc_rsp)
+  skip_args = False
+  for arg in split_args:
+    if skip_args and arg.startswith('--'):
+      skip_args = False
+    if (arg not in ['--input', '--output']) and not skip_args:
+      if arg.startswith('AssemblyName:'):
+        qsc_cmd += (' AssemblyName:' + target_name)
+      else:
+        qsc_cmd += (' ' + arg + ' ')
+    elif arg == '--input':
+      qsc_cmd += ' --input'
+      for input_file in input_files:
+        qsc_cmd += (' ' + os.path.abspath(input_file))
+      # Flag to ignore original file:
+      skip_args = True
+    elif arg == '--output':
+      qsc_cmd += ' --output ' + src_dir
+      # Flag to ignore original option:
+      skip_args = True
+
+  # print(qsc_cmd)
+  # remove temp files 
+  try:
+    os.remove(src_dir + '/output.csproj')
+    os.remove(src_dir + '/QscExe.cmd')
+  except:
+    pass
+  return qsc_cmd
+
 def main(argv=None):
     compiler = '@CLANG_EXECUTABLE@'
     verbose=False
@@ -319,22 +401,12 @@ def main(argv=None):
     # Get the filename we are compiling or the object file
     filename = ''
     fileType = ''
-    for arg in sys.argv[1:]:
-        if os.path.isfile(arg) and mimetypes.guess_type(arg)[0] is not None:
-            filename = arg
-            fileType = mimetypes.guess_type(filename)[0]
-            if fileType == 'text/x-c++src':
-                break
-        if os.path.isfile(arg) and os.path.splitext(arg)[1] == '.qasm':
-            fileType = 'openqasm'
-            filename = arg
-        
-        if os.path.isfile(arg) and os.path.splitext(arg)[1] == '.qs':
-            fileType = 'qsharp'
-            filename = arg
-            break
-
-    if fileType == 'openqasm':
+    
+    # Define custom compilation routines for OpenQASM and Q#
+    # i.e. use custom tool to lower to LLVM IR -> LLVM assembler
+    # To support mixing multiple file types in one compilation.
+    # Util to compile QASM2/3 (MLIR)
+    def compile_qasm(filename):
         # Convert to MLIR and then to LLVM QIR
         base_name = os.path.splitext(filename)[0]
         ll_file_name = base_name + '.ll'
@@ -359,11 +431,12 @@ def main(argv=None):
             # remove these temp files
             os.remove(ll_file_name)
             os.remove(bc_file_name)
-
-    if fileType == 'qsharp':
-        # Assume that `qsc` is a valid exe command
-        # i.e. need to set the PATH env appropriately.
+    
+    # Util to compile Q#
+    def compile_qsharp(filename):
         base_name = os.path.splitext(filename)[0]
+        # Generate build command:
+        build_cmd = generate_qsc_build_command(base_name, os.path.dirname(os.path.abspath(filename)), [filename, '@CMAKE_INSTALL_PREFIX@/include/qsharp/QirTarget.qs'])
         # QSharp compiler now generates a bitcode file,
         # i.e. no need to do llvm-as
         bc_file_name = base_name + '.bc'
@@ -390,30 +463,14 @@ def main(argv=None):
             sys.argv.remove('-qs-build-exe')
             qs_build_exe = '--build-exe'
 
-        result = subprocess.run(['qsc', 'build', '--load', qs_qir_gen_dll, qs_build_exe, "--runtime", qs_rt_name, '--input', filename, '@CMAKE_INSTALL_PREFIX@/include/qsharp/QirCore.qs', '@CMAKE_INSTALL_PREFIX@/include/qsharp/QirTarget.qs', '--proj', base_name], check=True)
+        # Execute qsc build command:
+        os.system(build_cmd)
         llvm_bin_path = str(pathlib.Path(compiler).parent)
         result = subprocess.run([llvm_bin_path+'/llc', '-filetype=obj', bc_file_name ], check=True)
         sys.argv.remove(filename)
         fileType = None
         filename = None
         sys.argv.append(base_name+ '.o')     
-        for arg in sys.argv[1:]:
-            if os.path.isfile(arg) and mimetypes.guess_type(arg)[0] == 'text/x-c++src':
-                # There is a driver C++ file as well.
-                driver_file_name = arg
-                sys.argv.remove(driver_file_name)
-                cpp_compile_commands = [compiler] + defaultFlags + sHandlerArgs + baseIncludes + ['-c'] +[driver_file_name]
-                cpp_compile_commands += sys.argv[1:]
-                if verbose:
-                    print('[qcor-exec]: ', ' '.join([c for c in cpp_compile_commands]))
-                try:
-                    result = subprocess.run(cpp_compile_commands, check=True)
-                except subprocess.CalledProcessError as e:
-                    print(e.output)
-                    print(e.returncode)
-                base_cpp_name = os.path.splitext(driver_file_name)[0]
-                sys.argv.append(base_cpp_name + '.o')     
-        
         if not keep_bit_code_files:
             # remove these temp files
             try:
@@ -421,6 +478,22 @@ def main(argv=None):
                 os.remove(bson_file_name)
             except OSError:
                 pass
+    
+    for arg in sys.argv[1:]:
+        if os.path.isfile(arg) and mimetypes.guess_type(arg)[0] is not None:
+            filename = arg
+            fileType = mimetypes.guess_type(filename)[0]
+            if fileType == 'text/x-c++src':
+                break
+        if os.path.isfile(arg) and os.path.splitext(arg)[1] == '.qasm':
+            fileType = 'openqasm'
+            filename = arg
+            compile_qasm(filename)
+        
+        if os.path.isfile(arg) and os.path.splitext(arg)[1] == '.qs':
+            fileType = 'qsharp'
+            filename = arg
+            compile_qsharp(filename)
 
     # If it is a C++ file
     if fileType != None and 'text/x-c' in fileType:
