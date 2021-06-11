@@ -2,6 +2,7 @@
 
 #include <limits>
 #include <qalloc>
+#include <regex>
 
 #include "clang/Basic/TokenKinds.h"
 #include "clang/Lex/Token.h"
@@ -83,7 +84,8 @@ std::string run_token_collector(
     if (PP.getSpelling(Toks[i]) == "using") {  //}.is(clang::tok::kw_using)) {
       // Flush the current CachedTokens...
       if (!tmp_cache.empty())
-        token_collector->collect(PP, tmp_cache, bufferNames, code_ss, kernel_name);
+        token_collector->collect(PP, tmp_cache, bufferNames, code_ss,
+                                 kernel_name);
 
       i += 2;
       std::string lang_name = "";
@@ -109,7 +111,8 @@ std::string run_token_collector(
     if (PP.getSpelling(Toks[i]) == "decompose") {
       // Flush the current CachedTokens...
       if (!tmp_cache.empty())
-        token_collector->collect(PP, tmp_cache, bufferNames, code_ss, kernel_name);
+        token_collector->collect(PP, tmp_cache, bufferNames, code_ss,
+                                 kernel_name);
 
       auto last_tc = token_collector;
       token_collector = xacc::getService<TokenCollector>("unitary");
@@ -194,7 +197,8 @@ std::string run_token_collector(
       }
 
       if (!tmp_cache.empty())
-        token_collector->collect(PP, tmp_cache, bufferNames, code_ss, kernel_name);
+        token_collector->collect(PP, tmp_cache, bufferNames, code_ss,
+                                 kernel_name);
 
       code_ss << "}\n";
 
@@ -208,7 +212,8 @@ std::string run_token_collector(
     if (PP.getSpelling(Toks[i]) == "compute") {
       // Flush the current CachedTokens...
       if (!tmp_cache.empty())
-        token_collector->collect(PP, tmp_cache, bufferNames, code_ss, kernel_name);
+        token_collector->collect(PP, tmp_cache, bufferNames, code_ss,
+                                 kernel_name);
 
       // auto last_tc = token_collector;
       // token_collector = xacc::getService<TokenCollector>("unitary");
@@ -257,16 +262,55 @@ std::string run_token_collector(
 
       std::stringstream tmpss;
       if (!tmp_cache.empty())
-        token_collector->collect(PP, tmp_cache, bufferNames, tmpss, internal_kernel_function_name);
+        token_collector->collect(PP, tmp_cache, bufferNames, tmpss,
+                                 internal_kernel_function_name);
+
+      // Need to handle compute-action capture variables...
+      // Strategy: add function<void(Args...)> type to beginning of arg_types.
+      // After kernel code is generated, replace tmpss.str() with
+      // std::get<0>(args_tuple)(args...). 
+
+      std::string functor_type = "std::function<void(" + program_arg_types[0];
+      for (int i = 1; i < program_arg_types.size(); i++)
+        functor_type += ", " + program_arg_types[i];
+      functor_type += ")>";
+      std::vector<std::string> mutable_arg_types = program_arg_types,
+                               mutable_parameters = program_parameters;
+      mutable_arg_types.insert(mutable_arg_types.begin(), functor_type);
+      mutable_parameters.insert(mutable_parameters.begin(),
+                                "__" + kernel_name + "__compute_functor");
 
       auto src_code = __internal__::qcor::construct_kernel_subtype(
-          tmpss.str(), internal_kernel_function_name, program_arg_types,
-          program_parameters, bufferNames);
+          tmpss.str(), internal_kernel_function_name, mutable_arg_types,
+          mutable_parameters, bufferNames);
+
+      std::string replace_csp_code =
+          "std::get<0>(args_tuple)(" + program_parameters[0];
+      for (int i = 1; i < program_parameters.size(); i++)
+        replace_csp_code += ", " + program_parameters[i];
+      replace_csp_code += ");\n";
+
+      // Replace the operator()(...) contents with a call 
+      // to the provided functor
+      auto find_index = src_code.find(tmpss.str());
+      src_code.replace(find_index, tmpss.str().length(), replace_csp_code);
       src_to_prepend = src_code;
 
+      // Construct the compute context functor
+      std::string functor_code =
+          "const auto __" + kernel_name + "__compute_functor = [&](" +
+          program_arg_types[0] + " " + program_parameters[0];
+      for (int i = 1; i < program_parameters.size(); i++)
+        functor_code +=
+            ", " + program_arg_types[i] + " " + program_parameters[i];
+      functor_code += ") {\n" + tmpss.str() + "\n};\n";
+
+      code_ss << functor_code;
       code_ss << "::quantum::qrt_impl->__begin_mark_segment_as_compute();\n";
       code_ss << internal_kernel_function_name << "(parent_kernel, "
+              << "__" + kernel_name + "__compute_functor, "
               << program_parameters[0];
+
       for (int i = 1; i < program_parameters.size(); i++) {
         code_ss << ", " << program_parameters[i];
       }
@@ -301,10 +345,12 @@ std::string run_token_collector(
 
       // HANDLE THE TOKENS IN ACTION
       if (!tmp_cache.empty())
-        token_collector->collect(PP, tmp_cache, bufferNames, code_ss, kernel_name);
+        token_collector->collect(PP, tmp_cache, bufferNames, code_ss,
+                                 kernel_name);
 
       code_ss << "::quantum::qrt_impl->__begin_mark_segment_as_compute();\n";
       code_ss << internal_kernel_function_name << "::adjoint(parent_kernel, "
+              << "__" + kernel_name + "__compute_functor, "
               << program_parameters[0];
       for (int i = 1; i < program_parameters.size(); i++) {
         code_ss << ", " << program_parameters[i];
