@@ -193,6 +193,16 @@ void QCORSyntaxHandler::GetReplacement(
   // We only support one buffer in FTQC mode atm.
   OS << "quantum::set_current_buffer(" << bufferNames[0] << ".results());\n";
   OS << "}\n";
+  // Set the parent_kernel of this kernel to any KernelSignature
+  // (even nested in container) so that even w/o parent_kernel added by the 
+  // token collector, the KernelSignature will still be referring to the correct parent_kernel.
+  // i.e. we can track KernelSignature coming from complex data container such as std::vector
+  // rather than relying on the list of kernels in translation unit.
+  OS << "init_kernel_signature_args(parent_kernel, " << program_parameters[0];
+  for (int i = 1; i < program_arg_types.size(); i++) {
+    OS << ", " << program_parameters[i];
+  }
+  OS << ");\n";
   OS << new_src << "\n";
   OS << "}\n";
 

@@ -738,7 +738,7 @@ class qjit(object):
                 need_recompile = False
                 for clb in callable_qjit_list:
                     if clb.kernel_name() not in self.sorted_kernel_dep:
-                        print('New kernel:', clb.kernel_name())
+                        # print('New kernel:', clb.kernel_name())
                         # Add a kernel dependency
                         self.__kernels__graph.addKernelDependency(self.function.__name__, clb.kernel_name())
                         self.sorted_kernel_dep = self.__kernels__graph.getSortedDependency(self.function.__name__)
@@ -754,7 +754,7 @@ class qjit(object):
                     if not isinstance(clb, qjit):
                         print('Invalid argument type for {}. A list of quantum kernels (qjit) is expected.'.format(arg_name))
                         exit(1)
-                    print("Kernel name:", clb.kernel_name())
+                    # print("Kernel name:", clb.kernel_name())
                     # This should always be successful.
                     fn_ptr = self._qjit.get_kernel_function_ptr(clb.kernel_name())
                     if fn_ptr == 0:
