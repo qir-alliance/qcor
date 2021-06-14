@@ -75,6 +75,7 @@ std::string run_token_collector(
   // Loop through and partition Toks into language sets
   // for each language set, run the appropriate TokenCollector
   std::stringstream code_ss;
+  int compute_counter = 0;
 
   std::string tc_name = "xasm";
   auto token_collector = xacc::getService<TokenCollector>("xasm");
@@ -255,10 +256,10 @@ std::string run_token_collector(
       // HANDLE THE TOKENS in tmp_cache
       // Take them, pass them to qcor syntax handler, to get back
       // new class source code (like we do in jit),
+      auto counter_str = std::to_string(compute_counter);
       std::stringstream dd;
-      // FIXME WHAT IF MULTIPLE IN KERNEL
       std::string internal_kernel_function_name =
-          "__internal__compute_context_" + kernel_name;
+          "__internal__compute_context_" + kernel_name + "_" + counter_str;
 
       std::stringstream tmpss;
       if (!tmp_cache.empty())
@@ -268,37 +269,42 @@ std::string run_token_collector(
       // Need to handle compute-action capture variables...
       // Strategy: add function<void(Args...)> type to beginning of arg_types.
       // After kernel code is generated, replace tmpss.str() with
-      // std::get<0>(args_tuple)(args...). 
+      // std::get<0>(args_tuple)(args...).
 
-      std::string functor_type = "std::function<void(" + program_arg_types[0];
+      std::string functor_type =
+          "std::function<void(std::shared_ptr<CompositeInstruction>, " +
+          program_arg_types[0];
       for (int i = 1; i < program_arg_types.size(); i++)
         functor_type += ", " + program_arg_types[i];
       functor_type += ")>";
       std::vector<std::string> mutable_arg_types = program_arg_types,
                                mutable_parameters = program_parameters;
       mutable_arg_types.insert(mutable_arg_types.begin(), functor_type);
-      mutable_parameters.insert(mutable_parameters.begin(),
-                                "__" + kernel_name + "__compute_functor");
+      mutable_parameters.insert(
+          mutable_parameters.begin(),
+          "__" + kernel_name + "_" + counter_str + "__compute_functor");
 
       auto src_code = __internal__::qcor::construct_kernel_subtype(
           tmpss.str(), internal_kernel_function_name, mutable_arg_types,
           mutable_parameters, bufferNames);
 
       std::string replace_csp_code =
-          "std::get<0>(args_tuple)(" + program_parameters[0];
+          "std::get<0>(args_tuple)(parent_kernel," + program_parameters[0];
       for (int i = 1; i < program_parameters.size(); i++)
         replace_csp_code += ", " + program_parameters[i];
       replace_csp_code += ");\n";
 
-      // Replace the operator()(...) contents with a call 
+      // Replace the operator()(...) contents with a call
       // to the provided functor
       auto find_index = src_code.find(tmpss.str());
       src_code.replace(find_index, tmpss.str().length(), replace_csp_code);
-      src_to_prepend = src_code;
+      src_to_prepend += src_code;
 
       // Construct the compute context functor
       std::string functor_code =
-          "const auto __" + kernel_name + "__compute_functor = [&](" +
+          "const auto __" + kernel_name + "_" + counter_str +
+          "__compute_functor = [&](std::shared_ptr<CompositeInstruction> "
+          "parent_kernel, " +
           program_arg_types[0] + " " + program_parameters[0];
       for (int i = 1; i < program_parameters.size(); i++)
         functor_code +=
@@ -308,7 +314,7 @@ std::string run_token_collector(
       code_ss << functor_code;
       code_ss << "::quantum::qrt_impl->__begin_mark_segment_as_compute();\n";
       code_ss << internal_kernel_function_name << "(parent_kernel, "
-              << "__" + kernel_name + "__compute_functor, "
+              << "__" + kernel_name + "_" + counter_str + "__compute_functor, "
               << program_parameters[0];
 
       for (int i = 1; i < program_parameters.size(); i++) {
@@ -350,7 +356,7 @@ std::string run_token_collector(
 
       code_ss << "::quantum::qrt_impl->__begin_mark_segment_as_compute();\n";
       code_ss << internal_kernel_function_name << "::adjoint(parent_kernel, "
-              << "__" + kernel_name + "__compute_functor, "
+              << "__" + kernel_name + "_" + counter_str + "__compute_functor, "
               << program_parameters[0];
       for (int i = 1; i < program_parameters.size(); i++) {
         code_ss << ", " << program_parameters[i];
@@ -358,6 +364,7 @@ std::string run_token_collector(
       code_ss << ");\n";
       code_ss << "::quantum::qrt_impl->__end_mark_segment_as_compute();\n";
       tmp_cache.clear();
+      compute_counter++;
       continue;
     }
 
