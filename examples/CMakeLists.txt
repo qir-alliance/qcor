@@ -36,6 +36,9 @@ add_qcor_compile_and_exe_test(compute_action_uncompute0 compute_action_uncompute
 add_qcor_compile_and_exe_test(compute_action_uncompute1 compute_action_uncompute/multiple_in_kernel.cpp)
 add_qcor_compile_and_exe_test(compute_action_uncompute2 compute_action_uncompute/cau_capture_vars.cpp)
 
+add_qcor_compile_and_exe_test(qrt_simple-explicit-parser argparse/simple-explicit-parser.cpp)
+add_qcor_compile_and_exe_test(qrt_simple-implicit-parser argparse/simple-implicit-parser.cpp)
+
 add_qcor_ftqc_compile_and_exe_test(qrt_ftqc_simple ftqc_qrt/simple-demo.cpp)
 add_qcor_ftqc_compile_and_exe_test(qrt_ftqc_rus ftqc_qrt/repeat-until-success.cpp)
 add_qcor_ftqc_compile_and_exe_test(qrt_ftqc_qec ftqc_qrt/bit-flip-code.cpp)

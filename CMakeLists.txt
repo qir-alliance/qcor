@@ -56,6 +56,7 @@ configure_file("${CMAKE_SOURCE_DIR}/cmake/qcor_config.hpp.in"
                "${CMAKE_BINARY_DIR}/qcor_config.hpp")
 install (FILES ${CMAKE_BINARY_DIR}/qcor_config.hpp DESTINATION include/qcor)
 
+add_subdirectory(tpls)
 add_subdirectory(handlers)
 add_subdirectory(runtime)
 add_subdirectory(tools)
