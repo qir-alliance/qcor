@@ -1,6 +1,6 @@
-__qpu__ void test(qreg q, double x, int& j) {
+__qpu__ void test(qreg q, double x) {
   std::vector<int> b{10, 20, 30};
-
+  int j = 10;
   compute {
     int i = j;
     std::vector<int> bits = b;
@@ -16,7 +16,5 @@ __qpu__ void test(qreg q, double x, int& j) {
 
 int main() {
   auto q = qalloc(2);
-  int n = 10;
-  test::print_kernel(q, 2.2, n);
-  print(n);
+  test::print_kernel(q, 2.2);
 }
