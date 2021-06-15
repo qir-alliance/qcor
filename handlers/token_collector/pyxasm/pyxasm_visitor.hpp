@@ -383,6 +383,8 @@ class pyxasm_visitor : public pyxasmBaseVisitor {
     // C++: for (auto [idx, var] : enumerate(listvar))
     auto iter_container = context->testlist()->test()[0]->getText();
     std::string counter_expr = context->exprlist()->expr()[0]->getText();
+    // Add the for loop variable to the tracking list as well.
+    new_var = counter_expr;
     if (context->exprlist()->expr().size() > 1) {
       counter_expr = "[" + counter_expr;
       for (int i = 1; i < context->exprlist()->expr().size(); i++) {

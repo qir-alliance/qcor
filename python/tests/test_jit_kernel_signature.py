@@ -92,5 +92,45 @@ class TestKernelJIT(unittest.TestCase):
         self.assertEqual(comp.getInstruction(2).name(), "X")
         self.assertEqual(comp.getInstruction(2).bits()[0], 2)
 
+    def test_list_kernel_signature(self):
+        set_qpu('qpp', {'shots':1024})
+        @qjit
+        def kernel_take_list(q: qreg, kernels_to_calls: List[KernelSignature(qubit)]):
+            for f in kernels_to_calls:
+                f(q[0])
+        
+        @qjit
+        def kernel_take_list_ctrl(q: qreg, kernels_to_calls: List[KernelSignature(qubit)]):
+            for f in kernels_to_calls:
+                f.ctrl(q[1], q[0])
+
+        @qjit
+        def x_gate_kernel(q: qubit):
+            X(q)
+
+        @qjit
+        def y_gate_kernel(q: qubit):
+            Y(q)
+
+        @qjit
+        def z_gate_kernel(q: qubit):
+            Z(q)
+
+        q = qalloc(1)
+        comp = kernel_take_list.extract_composite(q, [x_gate_kernel, y_gate_kernel, z_gate_kernel])
+        print(comp)
+        self.assertEqual(comp.nInstructions(), 3)
+        self.assertEqual(comp.getInstruction(0).name(), "X")
+        self.assertEqual(comp.getInstruction(1).name(), "Y")
+        self.assertEqual(comp.getInstruction(2).name(), "Z")
+
+        q2 = qalloc(2)
+        comp1 = kernel_take_list_ctrl.extract_composite(q2, [x_gate_kernel, y_gate_kernel, z_gate_kernel])
+        print(comp1)
+        self.assertEqual(comp1.nInstructions(), 3)
+        self.assertEqual(comp1.getInstruction(0).name(), "CNOT")
+        self.assertEqual(comp1.getInstruction(1).name(), "CY")
+        self.assertEqual(comp1.getInstruction(2).name(), "CZ")
+
 if __name__ == '__main__':
   unittest.main()
