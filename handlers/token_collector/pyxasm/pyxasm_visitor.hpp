@@ -501,6 +501,14 @@ class pyxasm_visitor : public pyxasmBaseVisitor {
     return visitChildren(ctx);
   }
 
+  virtual antlrcpp::Any
+  visitWhile_stmt(pyxasmParser::While_stmtContext *ctx) override {
+    std::stringstream ss;
+    ss << "while (" << ctx->test()->getText() << ") {\n";
+    result.first = ss.str();
+    return 0;
+  }
+
  private:
   // Replaces common Python constants, e.g. 'math.pi' or 'numpy.pi'.
   // Note: the library names have been resolved to their original names.
