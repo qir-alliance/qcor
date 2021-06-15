@@ -757,6 +757,7 @@ class KernelSignature {
   callable_function_ptr<Args...> &function_pointer;
   std::function<void(std::shared_ptr<xacc::CompositeInstruction>, Args...)>
       lambda_func;
+  std::shared_ptr<xacc::CompositeInstruction> parent_kernel;
 
  public:
   // Here we set function_pointer to null and instead
@@ -801,6 +802,14 @@ class KernelSignature {
     }
 
     function_pointer(ir, args...);
+  }
+
+  void operator()(Args... args) {
+    operator()(parent_kernel, args...);
+  }
+
+  void set_parent_kernel(std::shared_ptr<xacc::CompositeInstruction> ir) {
+    parent_kernel = ir;
   }
 
   void ctrl(std::shared_ptr<xacc::CompositeInstruction> ir,
@@ -866,6 +875,61 @@ class KernelSignature {
     return internal::observe(obs, *this, args...);
   }
 };
+
+// Templated helper to attach parent_kernel to any
+// KernelSignature arguments even nested in a std::vector<KernelSignature>
+// The reason is that the Token Collector relies on a list of kernel names
+// in the translation unit to attach parent_kernel to the operator() call.
+// For KernelSignature provided in a container, tracking these at the
+// TokenCollector level is error-prone (e.g. need to track any array accesses).
+// Hence, we iterate over all kernel arguments and attach the parent_kernel
+// to any KernelSignature argument at the top of each kernel's operator() call
+// in a type-safe manner.
+
+// Last arg
+inline void init_kernel_signature_args_impl(
+    std::shared_ptr<xacc::CompositeInstruction> ir) {}
+template <typename T, typename... ArgsType>
+void init_kernel_signature_args_impl(
+    std::shared_ptr<xacc::CompositeInstruction> ir, T &t, ArgsType &... Args);
+
+// Main function: to be added by the token collector at the beginning
+// of each kernel operator().
+template <typename... T>
+void init_kernel_signature_args(std::shared_ptr<xacc::CompositeInstruction> ir,
+                                T &... multi_inputs) {
+  init_kernel_signature_args_impl(ir, multi_inputs...);
+}
+
+// Base case: generic type T,
+// just ignore, proceed to the next arg.
+template <typename T, typename... ArgsType>
+void init_kernel_signature_args_impl(
+    std::shared_ptr<xacc::CompositeInstruction> ir, T &t, ArgsType &... Args) {
+  init_kernel_signature_args(ir, Args...);
+}
+
+// Special case: this is a vector:
+// iterate over all elements.
+template <typename T, typename... ArgsType>
+void init_kernel_signature_args_impl(
+    std::shared_ptr<xacc::CompositeInstruction> ir, std::vector<T> &vec_arg,
+    ArgsType... Args) {
+  for (auto &el : vec_arg) {
+    // Iterate the vector elements.
+    init_kernel_signature_args_impl(ir, el);
+  }
+  // Proceed with the rest.
+  init_kernel_signature_args(ir, Args...);
+}
+
+// Handle KernelSignature arg => set the parent kernel.
+template <typename... ArgsType>
+void init_kernel_signature_args_impl(
+    std::shared_ptr<xacc::CompositeInstruction> ir,
+    KernelSignature<ArgsType...> &kernel_signature) {
+  kernel_signature.set_parent_kernel(ir);
+}
 
 namespace internal {
 // KernelSignature is the base of all kernel-like objects
