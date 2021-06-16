@@ -78,19 +78,6 @@ class NISQ : public ::quantum::QuantumRuntime,
   }
 
  public:
-   // AJM DEBUGGING
-  // virtual ~NISQ() override {
-  //   std::cout << "DESTROYING NISQ\n";
-  //   if (program) std::cout << program->name();
-    
-  //   std::cout << ", " << program.use_count() << "\n";
-    
-  // }
-
-  // NISQ() = default;
-  // NISQ(const NISQ& n) : program(n.program), provider(n.provider), mark_as_compute(n.mark_as_compute)  {
-
-  // }
 
   std::shared_ptr<::quantum::QuantumRuntime> clone() override {
     return std::make_shared<NISQ>();

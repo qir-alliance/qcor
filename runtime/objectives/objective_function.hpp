@@ -360,6 +360,7 @@ public:
 
       dx = (*gradiend_method)(x, cost_val);
     }
+    kernel->clear();
     return cost_val;
   }
 

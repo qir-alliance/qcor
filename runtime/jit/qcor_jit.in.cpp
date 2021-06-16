@@ -510,7 +510,7 @@ void QJIT::jit_compile(const std::string &code,
   // Add dependency before JIT compile:
   new_code = dependencyCode + new_code;
 
-  std::cout << "New code:\n" << new_code << "\n";
+  // std::cout << "New code:\n" << new_code << "\n";
   // Hash the new code
   std::hash<std::string> hasher;
   auto hash = hasher(new_code);
@@ -524,7 +524,6 @@ void QJIT::jit_compile(const std::string &code,
     auto module_bitcode_file_name = cached_kernel_codes[hash];
     std::string full_path = qjit_cache_path + "/" + module_bitcode_file_name;
 
-    std::cout << "REUSING QJIT CACHED MODULE\n";
     // Load the bitcode file as Module
     SMDiagnostic error;
     auto ctx = std::make_unique<LLVMContext>();
@@ -672,7 +671,6 @@ void QJIT::jit_compile(const std::string &code,
   // Get and store the kernel_name(CompositeInstruction parent, Args...) function
   auto parent_symbol = cantFail(jit->lookup(parent_mangled_name));
   auto parent_rawFPtr = parent_symbol.getAddress();
-  std::cout << "INSERTING " << kernel_name << ", " << parent_mangled_name << "\n";
   kernel_name_to_f_ptr_with_parent.insert({kernel_name, parent_rawFPtr});
 
   for (const auto &[orig_name, mangled_name] : mangled_kernel_dep_map) {

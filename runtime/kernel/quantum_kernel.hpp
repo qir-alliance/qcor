@@ -266,7 +266,7 @@ class QuantumKernel {
   static std::string openqasm(Args... args) {
     Derived derived(args...);
     KernelSignature<Args...> callable(derived);
-    return internal::openqasm(callable, args...);
+    return internal::openqasm<Args...>(callable, args...);
   }
 
   virtual ~QuantumKernel() {}
@@ -665,14 +665,14 @@ class _qpu_lambda {
   template <typename... FunctionArgs>
   double observe(Observable &obs, FunctionArgs... args) {
     KernelSignature<FunctionArgs...> callable(*this);
-    return internal::observe(obs, callable, args...);
+    return internal::observe<FunctionArgs...>(obs, callable, args...);
   }
 
   template <typename... FunctionArgs>
   void ctrl(std::shared_ptr<CompositeInstruction> ir,
             const std::vector<qubit> &ctrl_qbits, FunctionArgs... args) {
     KernelSignature<FunctionArgs...> callable(*this);
-    internal::apply_control(ir, ctrl_qbits, callable, args...);
+    internal::apply_control<FunctionArgs...>(ir, ctrl_qbits, callable, args...);
   }
 
   template <typename... FunctionArgs>
@@ -712,7 +712,7 @@ class _qpu_lambda {
   void adjoint(std::shared_ptr<CompositeInstruction> parent_kernel,
                FunctionArgs... args) {
     KernelSignature<FunctionArgs...> callable(*this);
-    return internal::apply_adjoint(parent_kernel, callable, args...);
+    return internal::apply_adjoint<FunctionArgs...>(parent_kernel, callable, args...);
   }
 
   template <typename... FunctionArgs>
@@ -729,19 +729,19 @@ class _qpu_lambda {
   template <typename... FunctionArgs>
   std::size_t n_instructions(FunctionArgs... args) {
     KernelSignature<FunctionArgs...> callable(*this);
-    return internal::n_instructions(callable, args...);
+    return internal::n_instructions<FunctionArgs...>(callable, args...);
   }
 
   template <typename... FunctionArgs>
   Eigen::MatrixXcd as_unitary_matrix(FunctionArgs... args) {
     KernelSignature<FunctionArgs...> callable(*this);
-    return internal::as_unitary_matrix(callable, args...);
+    return internal::as_unitary_matrix<FunctionArgs...>(callable, args...);
   }
 
   template <typename... FunctionArgs>
   std::string openqasm(FunctionArgs... args) {
     KernelSignature<FunctionArgs...> callable(*this);
-    return internal::openqasm(callable, args...);
+    return internal::openqasm<FunctionArgs...>(callable, args...);
   }
 };
 
@@ -813,7 +813,7 @@ class KernelSignature {
 
   void ctrl(std::shared_ptr<xacc::CompositeInstruction> ir,
             const std::vector<qubit> &ctrl_qbits, Args... args) {
-    internal::apply_control(ir, ctrl_qbits, *this, args...);
+    internal::apply_control<Args...>(ir, ctrl_qbits, *this, args...);
   }
 
   void ctrl(std::shared_ptr<xacc::CompositeInstruction> ir,
