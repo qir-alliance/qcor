@@ -457,7 +457,17 @@ class pyxasm_visitor : public pyxasmBaseVisitor {
         return 0;
       }
     } else {
-      return visitChildren(ctx);
+      // Visit child node:
+      auto child_result = visitChildren(ctx);
+      const auto translated_src = sub_node_translation.str();
+      sub_node_translation.str(std::string());
+      // If no child nodes, perform the codegen (result.first is not set)
+      // but just appending the incremental translation collector;
+      // return the collected C++ statement.
+      if (result.first.empty() && !translated_src.empty()) {
+        result.first = translated_src + ";\n";
+      }
+      return child_result;
     }
   }
 
@@ -506,6 +516,31 @@ class pyxasm_visitor : public pyxasmBaseVisitor {
     std::stringstream ss;
     ss << "while (" << ctx->test()->getText() << ") {\n";
     result.first = ss.str();
+    return 0;
+  }
+
+  virtual antlrcpp::Any visitTestlist_star_expr(
+      pyxasmParser::Testlist_star_exprContext *context) override {
+    // std::cout << "Testlist_star_exprContext:" << context->getText() << "\n";
+    const auto var_name = context->getText();
+    if (xacc::container::contains(declared_var_names, var_name)) {
+      sub_node_translation << var_name << " ";
+      return 0;
+    }
+    return visitChildren(context);
+  }
+
+  virtual antlrcpp::Any
+  visitAugassign(pyxasmParser::AugassignContext *context) override {
+    // std::cout << "Augassign:" << context->getText() << "\n";
+    sub_node_translation << context->getText() << " ";
+    return 0;
+  }
+
+  virtual antlrcpp::Any
+  visitTestlist(pyxasmParser::TestlistContext *context) override {
+    // std::cout << "visitTestlist:" << context->getText() << "\n";
+    sub_node_translation << context->getText() << " ";
     return 0;
   }
 

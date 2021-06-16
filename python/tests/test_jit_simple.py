@@ -231,6 +231,35 @@ class TestKernelJIT(unittest.TestCase):
         # entangled
         self.assertEqual(q.counts()["0"], r.counts()["0"])
         self.assertEqual(q.counts()["1"], r.counts()["1"])
+    
+    def test_while_loop(self):
+        @qjit 
+        def while_loop_kernel(q: qubit, x: int, exp_inv: int):
+            rev = 0
+            while x:
+                rev <<= 1
+                rev += x & 1
+                x >>= 1
+
+            if rev == exp_inv:
+                print("Success")
+                X(q)
+
+        # Reference: pure python to check
+        def reverse_bit(num):
+            result = 0
+            while num:
+                result = (result << 1) + (num & 1)
+                num >>= 1
+            return result
+        
+        q = qalloc(1)
+        test_val = 123
+        expected = reverse_bit(test_val)
+        comp0 = while_loop_kernel.extract_composite(q[0], test_val, expected)    
+        print("Comp:", comp0)
+        # Has X applied.
+        self.assertEqual(comp0.nInstructions(), 1) 
 
 if __name__ == '__main__':
   unittest.main()
