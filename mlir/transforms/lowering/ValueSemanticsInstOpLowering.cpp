@@ -1,4 +1,4 @@
-#include "InstOpLowering.hpp"
+#include "ValueSemanticsInstOpLowering.hpp"
 
 #include <iostream>
 
@@ -25,16 +25,18 @@
 #include "mlir/InitAllDialects.h"
 namespace qcor {
 // Match and replace all InstOps
-LogicalResult InstOpLowering::matchAndRewrite(
+LogicalResult ValueSemanticsInstOpLowering::matchAndRewrite(
     Operation *op, ArrayRef<Value> operands,
     ConversionPatternRewriter &rewriter) const {
+  // Main goal is to convert value semantics to memory semantics...
+
   // Local Declarations
   auto loc = op->getLoc();
   ModuleOp parentModule = op->getParentOfType<ModuleOp>();
   auto context = parentModule->getContext();
 
   // Now get Instruction name and its quantum runtime function name
-  auto instOp = cast<mlir::quantum::InstOp>(op);
+  auto instOp = cast<mlir::quantum::ValueSemanticsInstOp>(op);
   auto inst_name = instOp.name().str();
   inst_name = (inst_map.count(inst_name) ? inst_map[inst_name] : inst_name);
 
@@ -103,23 +105,22 @@ LogicalResult InstOpLowering::matchAndRewrite(
   for (size_t i = n_qbits; i < operands.size(); i++) {
     func_args.push_back(operands[i]);
   }
+
+  // Add the qubits, but also perform
+  // the conversion from value to memory semantics
+  // Find the first use of the Qubit result and
+  // replace it with the qubit operand.
+  auto results = instOp.result();
   for (size_t i = 0; i < n_qbits; i++) {
-    if (inst_name == "mz") {
-      // Handle situation like
-      // %4 = qvs.h(%1) : !quantum.Qubit
-      // %5 = q.mz(%4) : (!quantum.Qubit) -> i1
-      // 6 = index_cast %c0_i64 : i64 to index
-      // store %5, %3[%6] : memref<i1>
-      // %7 = qvs.reset(%4) : !quantum.Qubit
-      // with 2 users of %4
-      if (auto q_op =
-              operands[i]
-                  .getDefiningOp<mlir::quantum::ValueSemanticsInstOp>()) {
-        func_args.push_back(q_op.getOperands()[0]);
-        break;
-      }
-    }
     func_args.push_back(operands[i]);
+    auto result = results[i];
+
+    for (auto user : result.getUsers()) {
+
+      // Want to replace the next use of this result
+      // with the given operand[i];
+      user->replaceUsesOfWith(result, operands[i]);
+    }
   }
 
   // once again, return type should be void unless its a measure

@@ -20,3 +20,5 @@ bool isOpaqueTypeWithName(mlir::Type type, std::string dialect,
 
 #define GET_OP_CLASSES
 #include "Quantum/QuantumOps.cpp.inc"
+
+

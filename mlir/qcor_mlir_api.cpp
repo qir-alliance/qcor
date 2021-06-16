@@ -62,8 +62,8 @@ const std::string mlir_compile(const std::string &src_language_type,
 
   // Create the PassManager for lowering to LLVM MLIR and run it
   mlir::PassManager pm(&context);
-  pm.addPass(
-      std::make_unique<qcor::QuantumToLLVMLoweringPass>(unique_function_names));
+  pm.addPass(std::make_unique<qcor::QuantumToLLVMLoweringPass>(
+      true, unique_function_names));
   auto module_op = (*module).getOperation();
   if (mlir::failed(pm.run(module_op))) {
     std::cout << "Pass Manager Failed\n";
@@ -151,8 +151,8 @@ int execute(const std::string &src_language_type, const std::string &src,
 
   // Create the PassManager for lowering to LLVM MLIR and run it
   mlir::PassManager pm(&context);
-  pm.addPass(
-      std::make_unique<qcor::QuantumToLLVMLoweringPass>(unique_function_names));
+  pm.addPass(std::make_unique<qcor::QuantumToLLVMLoweringPass>(
+      true, unique_function_names));
   auto module_op = (*module).getOperation();
   if (mlir::failed(pm.run(module_op))) {
     std::cout << "Pass Manager Failed\n";
@@ -183,9 +183,12 @@ int execute(const std::string &src_language_type, const std::string &src,
       std::vector<std::string>{
           std::string(QCOR_INSTALL_DIR) + std::string("/lib/libqir-qrt") +
               std::string(QCOR_LIB_SUFFIX),
-          "/usr/local/aideqc/llvm/lib/libLLVMAnalysis.so",
-          "/usr/local/aideqc/llvm/lib/libLLVMInstrumentation.so",
-          "/usr/local/aideqc/llvm/lib/libLLVMX86CodeGen.so"});
+          std::string(LLVM_ROOT) + std::string("/lib/libLLVMAnalysis") +
+              std::string(QCOR_LIB_SUFFIX),
+          std::string(LLVM_ROOT) + std::string("/lib/libLLVMInstrumentation") +
+              std::string(QCOR_LIB_SUFFIX),
+          std::string(LLVM_ROOT) + std::string("/lib/libLLVMX86CodeGen") +
+              std::string(QCOR_LIB_SUFFIX)});
 
   std::vector<std::string> argv;
   std::vector<char *> cstrs;
@@ -198,8 +201,8 @@ int execute(const std::string &src_language_type, const std::string &src,
 }
 
 int execute(const std::string &src_language_type, const std::string &src,
-            const std::string &kernel_name, 
-            std::vector<std::unique_ptr<llvm::Module>>& extra, int opt_level) {
+            const std::string &kernel_name,
+            std::vector<std::unique_ptr<llvm::Module>> &extra, int opt_level) {
   mlir::registerAsmPrinterCLOptions();
   mlir::registerMLIRContextCLOptions();
 
@@ -246,8 +249,8 @@ int execute(const std::string &src_language_type, const std::string &src,
 
   // Create the PassManager for lowering to LLVM MLIR and run it
   mlir::PassManager pm(&context);
-  pm.addPass(
-      std::make_unique<qcor::QuantumToLLVMLoweringPass>(unique_function_names));
+  pm.addPass(std::make_unique<qcor::QuantumToLLVMLoweringPass>(
+      true, unique_function_names));
   auto module_op = (*module).getOperation();
   if (mlir::failed(pm.run(module_op))) {
     std::cout << "Pass Manager Failed\n";
@@ -279,11 +282,10 @@ int execute(const std::string &src_language_type, const std::string &src,
   // Compile the LLVM module, this is basically
   // just building up the LLVM JIT engine and
   // loading all seen function pointers
-  jit.jit_compile(
-      std::move(llvmModule),
-      std::vector<std::string>{
-          std::string(QCOR_INSTALL_DIR) + std::string("/lib/libqir-qrt") +
-              std::string(QCOR_LIB_SUFFIX)});
+  jit.jit_compile(std::move(llvmModule),
+                  std::vector<std::string>{std::string(QCOR_INSTALL_DIR) +
+                                           std::string("/lib/libqir-qrt") +
+                                           std::string(QCOR_LIB_SUFFIX)});
 
   std::vector<std::string> argv;
   std::vector<char *> cstrs;

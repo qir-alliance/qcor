@@ -34,6 +34,14 @@ double hadamard_test(StatePrep state_prep, Unitary unitary,
   auto q = qalloc(n_state_qubits + 1);
   __quantum_hadamard_test(q, state_prep, unitary);
   // Compute <psi|U|psi>
+  // First make sure we have counts, 
+  // if not, grab exp-val-z key in buffer
+  auto counts = q.counts();
+  if (counts.empty()) {
+    return q.results()->getExpectationValueZ();
+  }
+ 
+  // We have counts, so use that
   double count1 = (double)q.counts().find("1")->second;
   double count2 = (double)q.counts().find("0")->second;
   return std::fabs((count1 - count2) / (count1 + count2));

@@ -418,6 +418,10 @@ def main(argv=None):
             extra_args.append('-no-entrypoint')
         result = subprocess.run(['@CMAKE_INSTALL_PREFIX@/bin/qcor-mlir-tool', filename] + extra_args, check=True)
         llvm_bin_path = str(pathlib.Path(compiler).parent)
+        if verbose:
+            print('[qcor-exec]: ', '@CMAKE_INSTALL_PREFIX@/bin/qcor-mlir-tool {}'.format(filename) )
+            print('[qcor-exec]: ', '{}'.format(' '.join([llvm_bin_path+'/llvm-as', ll_file_name, '-o', bc_file_name ])) )
+            print('[qcor-exec]: ', '{}'.format(' '.join([llvm_bin_path+'/llc', '-filetype=obj', bc_file_name ])) )
         result = subprocess.run([llvm_bin_path+'/llvm-as', ll_file_name, '-o', bc_file_name ], check=True)
         result = subprocess.run([llvm_bin_path+'/llc', '-filetype=obj', bc_file_name ], check=True)
         if '-no-entrypoint' in extra_args:

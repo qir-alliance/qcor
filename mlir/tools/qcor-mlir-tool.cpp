@@ -30,6 +30,10 @@ static cl::opt<std::string> inputFilename(cl::Positional,
 cl::opt<bool> noEntryPoint("no-entrypoint",
                            cl::desc("Do not add main() to compiled output."));
 
+cl::opt<bool> mlir_quantum_opt(
+    "q-optimize",
+    cl::desc("Turn on MLIR-level quantum instruction optimizations."));
+
 namespace {
 enum Action { None, DumpMLIR, DumpMLIRLLVM, DumpLLVMIR };
 }
@@ -90,19 +94,13 @@ int main(int argc, char **argv) {
 
   llvm::cl::ParseCommandLineOptions(argc, argv,
                                     "qcor quantum assembly compiler\n");
-
+  bool qoptimizations = mlir_quantum_opt;
   mlir::MLIRContext context;
   context.loadDialect<mlir::quantum::QuantumDialect, mlir::AffineDialect,
                       mlir::scf::SCFDialect, mlir::StandardOpsDialect>();
 
   std::vector<std::string> unique_function_names;
   auto module = loadMLIR(context, unique_function_names);
-
-  // std::cout << "MLIR + Quantum Dialect:\n";
-  if (emitAction == Action::DumpMLIR) {
-    module->dump();
-    return 0;
-  }
 
   DiagnosticEngine &engine = context.getDiagEngine();
 
@@ -124,11 +122,16 @@ int main(int argc, char **argv) {
     return failure(should_propagate_diagnostic);
   });
 
+  if (emitAction == Action::DumpMLIR) {
+    module->dump();
+    return 0;
+  }
+
   // Create the PassManager for lowering to LLVM MLIR and run it
   mlir::PassManager pm(&context);
   applyPassManagerCLOptions(pm);
-  pm.addPass(
-      std::make_unique<qcor::QuantumToLLVMLoweringPass>(unique_function_names));
+  pm.addPass(std::make_unique<qcor::QuantumToLLVMLoweringPass>(
+      qoptimizations, unique_function_names));
   auto module_op = (*module).getOperation();
   if (mlir::failed(pm.run(module_op))) {
     std::cout << "Pass Manager Failed\n";
