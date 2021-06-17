@@ -24,6 +24,39 @@ public:
     std::vector<mlir::quantum::ValueSemanticsInstOp> ops_list;
     std::vector<std::vector<double>> op_params;
     auto current_op = op;
+
+    // Helper to retrieve VSOp constant params:
+    const auto retrieveConstantGateParams =
+        [](mlir::quantum::ValueSemanticsInstOp &vs_op) -> std::vector<double> {
+      if (vs_op.getNumOperands() > 1) {
+        // Parameterized gate:
+        std::vector<double> current_op_params;
+        for (size_t i = 1; i < vs_op.getNumOperands(); ++i) {
+          auto param = vs_op.getOperand(i);
+          assert(param.getType().isa<mlir::FloatType>());
+          auto def_op = param.getDefiningOp();
+          if (def_op) {
+            if (auto const_def_op =
+                    dyn_cast_or_null<mlir::ConstantFloatOp>(def_op)) {
+              llvm::APFloat param_const_val = const_def_op.getValue();
+              const double param_val = param_const_val.convertToDouble();
+              current_op_params.emplace_back(param_val);
+              std::cout << "Get constant param: " << param_val << "\n";
+            } else {
+              std::cout << "Get non-constant param. Stop.\n";
+              return {};
+            }
+          } else {
+            std::cout << "Cannot locate the defining op. Stop.\n";
+            return {};
+          }
+        }
+        return current_op_params;
+      } else {
+        return {};
+      }
+    };
+
     for (;;) {
       // Break inside:
       if (current_op.qubits().size() > 1) {
@@ -31,34 +64,14 @@ public:
       }
       auto return_value = *current_op.result().begin();
       if (return_value.hasOneUse()) {
-        if (current_op.getNumOperands() > 1) {
-          // Parameterized gate:
-          std::vector<double> current_op_params;
-          for (size_t i = 1; i < current_op.getNumOperands(); ++i) {
-            auto param = current_op.getOperand(i);
-            assert(param.getType().isa<mlir::FloatType>());
-            auto def_op = param.getDefiningOp();
-            if (def_op) {
-              if (auto const_def_op =
-                      dyn_cast_or_null<mlir::ConstantFloatOp>(def_op)) {
-                llvm::APFloat param_const_val = const_def_op.getValue();
-                const double param_val = param_const_val.convertToDouble();
-                current_op_params.emplace_back(param_val);
-                std::cout << "Get constant param: " << param_val << "\n";
-              } else {
-                std::cout << "Get non-constant param. Stop.\n";
-                break;
-              }
-            } else {
-              std::cout << "Get non-constant param. Stop.\n";
-              break;
-            }
-          }
-          op_params.emplace_back(current_op_params);
-        } else {
-          op_params.emplace_back(std::vector<double>{});
+        const auto const_op_params = retrieveConstantGateParams(current_op);
+        // Params are not constant:
+        if (const_op_params.size() < current_op.getNumOperands() - 1) {
+          break;
         }
+
         ops_list.emplace_back(current_op);
+        op_params.emplace_back(const_op_params);
         // get that one user
         auto user = *return_value.user_begin();
         if (auto next_inst =
@@ -68,11 +81,26 @@ public:
           break;
         }
       } else {
+        if (current_op.qubits().size() == 1) {
+          const auto const_op_params = retrieveConstantGateParams(current_op);
+          // Params are not constant:
+          if (const_op_params.size() < current_op.getNumOperands() - 1) {
+            break;
+          }
+
+          ops_list.emplace_back(current_op);
+          op_params.emplace_back(const_op_params);
+        }
         break;
       }
     }
 
     std::cout << "Find sequence of: " << ops_list.size() << "\n";
+    for (auto &op : ops_list) {
+      std::cout << op.name().str() << " ";
+    }
+    std::cout << "\n";
+    assert(ops_list.size() == op_params.size());
     constexpr int MIN_SEQ_LENGTH = 2;
     if (ops_list.size() > MIN_SEQ_LENGTH) {
       // Should try to optimize:
