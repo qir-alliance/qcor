@@ -58,6 +58,10 @@ public:
           mlir::Value second_angle = (next_inst.name().str()[0] == 'r')
                                          ? next_inst.getOperand(1)
                                          : pi_val;
+          // Must set insertion point so that the Add op
+          // is placed **after** the second instruction,
+          // e.g. to be after the second theta angle definition.
+          rewriter.setInsertionPointAfter(next_inst);
           auto add_op = rewriter.create<mlir::AddFOp>(op.getLoc(), first_angle,
                                                       second_angle);
           assert(add_op.result().getType().isa<mlir::FloatType>());
