@@ -24,6 +24,7 @@
 #include "optimizations/IdentityPairRemovalPass.hpp"
 #include "optimizations/RemoveUnusedQIRCalls.hpp"
 #include "optimizations/RotationMergingPass.hpp"
+#include "optimizations/SingleQubitGateMergingPass.hpp"
 
 namespace qcor {
 mlir::Type get_quantum_type(std::string type, mlir::MLIRContext *context) {
@@ -84,6 +85,8 @@ void QuantumToLLVMLoweringPass::runOnOperation() {
       patterns.insert<SingleQubitIdentityPairRemovalPattern>(&getContext());
       patterns.insert<CNOTIdentityPairRemovalPattern>(&getContext());
       patterns.insert<RotationMergingPattern>(&getContext());
+      patterns.insert<SingleQubitGateMergingPattern>(&getContext());
+      
       // TODO Pass for zero rotations, and rotation merging
 
       if (failed(applyPartialConversion(module, target, std::move(patterns))))
