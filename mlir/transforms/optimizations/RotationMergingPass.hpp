@@ -45,77 +45,52 @@ public:
               dyn_cast_or_null<mlir::quantum::ValueSemanticsInstOp>(user)) {
         // check that we can merge these two gates
         if (should_combine(next_inst.name().str(), inst_name.str())) {
-          std::cout << "Combine " << next_inst.name().str() << " and " << inst_name.str() << "\n";
+          std::cout << "Combine " << next_inst.name().str() << " and "
+                    << inst_name.str() << "\n";
           // Determine which of the two is the rotation gate:
           // we can combine rx with x (which is rx(pi)) as well
-          if (inst_name.str()[0] == 'r') {
-            // Merge to the first instruction
-            // Replace all uses of second with its input.
-            auto first_angle = op.getOperand(1);
-            assert(first_angle.getType().isa<mlir::FloatType>());
-            if (next_inst.name().str()[0] == 'r') {
-              // Merge two rotations
-              // TODO: this is currently not working...
-              auto second_angle = next_inst.getOperand(1);
-              assert(second_angle.getType().isa<mlir::FloatType>());
-              auto add_op = rewriter.create<mlir::AddFOp>(
-                  next_inst.getLoc(), *(first_angle.getDefiningOp()->result_begin()),
-                  *(second_angle.getDefiningOp()->result_begin()));
-              // next_inst.getOperand(1).replaceAllUsesWith(add_op.result());
-              next_inst.setOperand(1, add_op.result());
+          mlir::Value pi_val = rewriter.create<mlir::ConstantOp>(
+              op.getLoc(), mlir::FloatAttr::get(rewriter.getF64Type(), M_PI));
 
-              std::cout << "AFTER MERGE ANGLE:\n";
-              auto parentModule = op->getParentOfType<mlir::ModuleOp>();
-              parentModule->dump();
+          // Angle = theta (if is a rotation gate); or PI (Pauli gate)
+          mlir::Value first_angle =
+              (inst_name.str()[0] == 'r') ? op.getOperand(1) : pi_val;
+          mlir::Value second_angle = (next_inst.name().str()[0] == 'r')
+                                         ? next_inst.getOperand(1)
+                                         : pi_val;
+          auto add_op = rewriter.create<mlir::AddFOp>(op.getLoc(), first_angle,
+                                                      second_angle);
+          assert(add_op.result().getType().isa<mlir::FloatType>());
+          // Create a new instruction:
+          // Return type: qubit
+          std::vector<mlir::Type> ret_types{op.getOperand(0).getType()};
+          const std::string result_inst_name = (inst_name.str()[0] == 'r')
+                                                   ? inst_name.str()
+                                                   : next_inst.name().str();
+          assert(result_inst_name[0] == 'r');
+          auto new_inst = rewriter.create<mlir::quantum::ValueSemanticsInstOp>(
+              op.getLoc(), llvm::makeArrayRef(ret_types), result_inst_name,
+              llvm::makeArrayRef(op.getOperand(0)),
+              llvm::makeArrayRef({add_op.result()}));
 
-              // Input -> Output mapping (this instruction is to be removed)
-              // Note: we keep the second rotation in the pair
-              (*op.result_begin()).replaceAllUsesWith(op.getOperand(0));
-              rewriter.eraseOp(op);
+          std::cout << "AFTER MERGE ANGLE:\n";
+          auto parentModule = op->getParentOfType<mlir::ModuleOp>();
+          parentModule->dump();
 
-              std::cout << "AFTER REMOVE:\n";
-              parentModule->dump();
-            } else {
-              // Merge theta with PI:
-              mlir::Value pi_val = rewriter.create<mlir::ConstantOp>(
-                  op.getLoc(),
-                  mlir::FloatAttr::get(rewriter.getF64Type(), M_PI));
-              // std::cout << "Define op:\n";
-              // op.getOperand(1).getDefiningOp()->dump();
-              auto add_op = rewriter.create<mlir::AddFOp>(
-                  op.getLoc(), pi_val,
-                  *(op.getOperand(1).getDefiningOp()->result_begin()));
-              assert(add_op.result().getType().isa<mlir::FloatType>());
-              // op.getOperand(1).replaceAllUsesWith(add_op.result());
-              op.setOperand(1, add_op.result());
-              std::cout << "AFTER MERGE ANGLE:\n";
-              auto parentModule = op->getParentOfType<mlir::ModuleOp>();
-              parentModule->dump();
+          // Input -> Output mapping (this instruction is to be removed)
+          (*next_inst.result_begin())
+              .replaceAllUsesWith(*new_inst.result_begin());
+          // Erase both original instructions:
+          rewriter.eraseOp(op);
+          rewriter.eraseOp(next_inst);
+          std::cout << "AFTER REMOVE:\n";
+          parentModule->dump();
 
-              // Input -> Output mapping (this instruction is to be removed)
-              (*next_inst.result_begin())
-                  .replaceAllUsesWith(next_inst.getOperand(0));
-              rewriter.eraseOp(next_inst);
-
-              std::cout << "AFTER REMOVE:\n";
-              parentModule->dump();
-            }
-
-            return success();
-          }
-          else {
-            // TODO:
-            // Merge first (x,y,z) to second rotation
-            // Pass input of op => next op
-            (*op.result_begin()).replaceAllUsesWith(op.getOperand(0));
-            rewriter.eraseOp(op);
-          }
-          
+          // Done
           return success();
         }
       }
     }
-
     return failure();
   }
 };
