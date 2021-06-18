@@ -45,8 +45,8 @@ public:
               dyn_cast_or_null<mlir::quantum::ValueSemanticsInstOp>(user)) {
         // check that we can merge these two gates
         if (should_combine(next_inst.name().str(), inst_name.str())) {
-          std::cout << "Combine " << next_inst.name().str() << " and "
-                    << inst_name.str() << "\n";
+          // std::cout << "Combine " << next_inst.name().str() << " and "
+          //           << inst_name.str() << "\n";
           // Determine which of the two is the rotation gate:
           // we can combine rx with x (which is rx(pi)) as well
           mlir::Value pi_val = rewriter.create<mlir::ConstantOp>(
@@ -62,9 +62,31 @@ public:
           // is placed **after** the second instruction,
           // e.g. to be after the second theta angle definition.
           rewriter.setInsertionPointAfter(next_inst);
-          auto add_op = rewriter.create<mlir::AddFOp>(op.getLoc(), first_angle,
-                                                      second_angle);
-          assert(add_op.result().getType().isa<mlir::FloatType>());
+          // Try retrieve the angle if possible (constant).
+          // So that we compute the total angle here as well.
+          // This will make sure that all compile-time constants are propagated
+          // b/w MLIR passes.
+          const auto tryGetConstAngle =
+              [](mlir::Value theta_var) -> std::optional<double> {
+            if (!theta_var.getType().isa<mlir::FloatType>()) {
+              return std::nullopt;
+            }
+            // Find the defining op:
+            auto def_op = theta_var.getDefiningOp();
+            if (def_op) {
+              // Try cast:
+              if (auto const_def_op =
+                      dyn_cast_or_null<mlir::ConstantFloatOp>(def_op)) {
+                llvm::APFloat theta_var_const_cal = const_def_op.getValue();
+                return theta_var_const_cal.convertToDouble();
+              }
+            }
+            return std::nullopt;
+          };
+
+          const auto first_angle_const = tryGetConstAngle(first_angle);
+          const auto second_angle_const = tryGetConstAngle(first_angle);
+
           // Create a new instruction:
           // Return type: qubit
           std::vector<mlir::Type> ret_types{op.getOperand(0).getType()};
@@ -72,23 +94,44 @@ public:
                                                    ? inst_name.str()
                                                    : next_inst.name().str();
           assert(result_inst_name[0] == 'r');
-          auto new_inst = rewriter.create<mlir::quantum::ValueSemanticsInstOp>(
-              op.getLoc(), llvm::makeArrayRef(ret_types), result_inst_name,
-              llvm::makeArrayRef(op.getOperand(0)),
-              llvm::makeArrayRef({add_op.result()}));
+          if (first_angle_const.has_value() && second_angle_const.has_value()) {
+            // both angles are constant: pre-compute the total angle:
+            const double totalAngle =
+                first_angle_const.value() + second_angle_const.value();
+            mlir::Value totalAngleVal = rewriter.create<mlir::ConstantOp>(
+                op.getLoc(),
+                mlir::FloatAttr::get(rewriter.getF64Type(), totalAngle));
+            auto new_inst =
+                rewriter.create<mlir::quantum::ValueSemanticsInstOp>(
+                    op.getLoc(), llvm::makeArrayRef(ret_types),
+                    result_inst_name, llvm::makeArrayRef(op.getOperand(0)),
+                    llvm::makeArrayRef({totalAngleVal}));
+            // Input -> Output mapping (this instruction is to be removed)
+            (*next_inst.result_begin())
+                .replaceAllUsesWith(*new_inst.result_begin());
+          } else {
+            // Need to create an AddFOp
+            auto add_op = rewriter.create<mlir::AddFOp>(
+                op.getLoc(), first_angle, second_angle);
+            assert(add_op.result().getType().isa<mlir::FloatType>());
 
-          std::cout << "AFTER MERGE ANGLE:\n";
-          auto parentModule = op->getParentOfType<mlir::ModuleOp>();
-          parentModule->dump();
+            auto new_inst =
+                rewriter.create<mlir::quantum::ValueSemanticsInstOp>(
+                    op.getLoc(), llvm::makeArrayRef(ret_types),
+                    result_inst_name, llvm::makeArrayRef(op.getOperand(0)),
+                    llvm::makeArrayRef({add_op.result()}));
+            // Input -> Output mapping (this instruction is to be removed)
+            (*next_inst.result_begin())
+                .replaceAllUsesWith(*new_inst.result_begin());
+          }
 
-          // Input -> Output mapping (this instruction is to be removed)
-          (*next_inst.result_begin())
-              .replaceAllUsesWith(*new_inst.result_begin());
           // Erase both original instructions:
           rewriter.eraseOp(op);
           rewriter.eraseOp(next_inst);
-          std::cout << "AFTER REMOVE:\n";
-          parentModule->dump();
+
+          // std::cout << "AFTER RotationMergingPattern:\n";
+          // auto parentModule = op->getParentOfType<mlir::ModuleOp>();
+          // parentModule->dump();
 
           // Done
           return success();

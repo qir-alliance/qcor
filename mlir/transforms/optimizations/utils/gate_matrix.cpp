@@ -325,11 +325,11 @@ std::vector<pauli_decomp_t>
 decompose_gate_sequence(const std::vector<qop_t> &op_list) {
   Eigen::Matrix2cd totalU = Eigen::MatrixXcd::Identity(2, 2);
   for (const auto &op : op_list) {
-    std::cout << "Gate: " << op.first << ": " << op.second.size() << "\n";
+    // std::cout << "Gate: " << op.first << ": " << op.second.size() << "\n";
     totalU = getGateMat(op) * totalU;
   }
 
-  std::cout << "Total U = " << totalU << "\n";
+  // std::cout << "Total U = " << totalU << "\n";
   auto [a, bHalf, cHalf, dHalf] = singleQubitGateDecompose(totalU);
 
   // Validate U = exp(j*a) Rz(b) Ry(c) Rz(d).

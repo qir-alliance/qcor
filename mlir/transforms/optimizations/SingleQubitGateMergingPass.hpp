@@ -42,13 +42,13 @@ public:
               llvm::APFloat param_const_val = const_def_op.getValue();
               const double param_val = param_const_val.convertToDouble();
               current_op_params.emplace_back(param_val);
-              std::cout << "Get constant param: " << param_val << "\n";
+              // std::cout << "Get constant param: " << param_val << "\n";
             } else {
-              std::cout << "Get non-constant param. Stop.\n";
+              // std::cout << "Get non-constant param. Stop.\n";
               return {};
             }
           } else {
-            std::cout << "Cannot locate the defining op. Stop.\n";
+            // std::cout << "Cannot locate the defining op. Stop.\n";
             return {};
           }
         }
@@ -108,7 +108,7 @@ public:
       const auto simplified_seq = qcor::utils::decompose_gate_sequence(ops);
 
       if (simplified_seq.size() < ops_list.size()) {
-        std::cout << "Find simpler gate sequence\n";
+        // std::cout << "Find simpler gate sequence\n";
         rewriter.setInsertionPointAfter(ops_list.back());
         std::vector<mlir::quantum::ValueSemanticsInstOp> new_ops;
         for (const auto &[pauli_inst, theta] : simplified_seq) {
@@ -134,9 +134,9 @@ public:
         for (auto &op_to_delete : ops_list) {
           rewriter.eraseOp(op_to_delete);
         }
-        std::cout << "AFTER MERGE gates:\n";
-        auto parentModule = op->getParentOfType<mlir::ModuleOp>();
-        parentModule->dump();
+        // std::cout << "AFTER MERGE gates:\n";
+        // auto parentModule = op->getParentOfType<mlir::ModuleOp>();
+        // parentModule->dump();
         return success();
       }
     }
