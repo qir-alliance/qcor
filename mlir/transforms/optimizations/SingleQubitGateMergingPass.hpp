@@ -6,6 +6,7 @@
 #include "mlir/Target/LLVMIR.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/Passes.h"
+#include "utils/gate_matrix.hpp"
 
 namespace qcor {
 // Try to merge a sequence of single-qubit ops:
@@ -95,16 +96,49 @@ public:
       }
     }
 
-    std::cout << "Find sequence of: " << ops_list.size() << "\n";
-    for (auto &op : ops_list) {
-      std::cout << op.name().str() << " ";
-    }
-    std::cout << "\n";
     assert(ops_list.size() == op_params.size());
     constexpr int MIN_SEQ_LENGTH = 2;
     if (ops_list.size() > MIN_SEQ_LENGTH) {
       // Should try to optimize:
-      // TODO:
+      std::vector<qcor::utils::qop_t> ops;
+      for (size_t i = 0; i < ops_list.size(); ++i) {
+        ops.emplace_back(
+            std::make_pair(ops_list[i].name().str(), op_params[i]));
+      }
+      const auto simplified_seq = qcor::utils::decompose_gate_sequence(ops);
+
+      if (simplified_seq.size() < ops_list.size()) {
+        std::cout << "Find simpler gate sequence\n";
+        rewriter.setInsertionPointAfter(ops_list.back());
+        std::vector<mlir::quantum::ValueSemanticsInstOp> new_ops;
+        for (const auto &[pauli_inst, theta] : simplified_seq) {
+          mlir::Value theta_val = rewriter.create<mlir::ConstantOp>(
+              op.getLoc(), mlir::FloatAttr::get(rewriter.getF64Type(), theta));
+          std::vector<mlir::Type> ret_types{op.getOperand(0).getType()};
+          auto new_inst = rewriter.create<mlir::quantum::ValueSemanticsInstOp>(
+              op.getLoc(), llvm::makeArrayRef(ret_types), pauli_inst,
+              llvm::makeArrayRef(new_ops.empty()
+                                     ? op.getOperand(0)
+                                     : *(new_ops.back().result_begin())),
+              llvm::makeArrayRef({theta_val}));
+          new_ops.emplace_back(new_inst);
+        }
+
+        // Input -> Output mapping (this instruction is to be removed)
+        auto last_inst_orig = ops_list.back();
+        auto last_inst_new = new_ops.back();
+        (*last_inst_orig.result_begin())
+            .replaceAllUsesWith(*last_inst_new.result_begin());
+
+        // Erase original instructions:
+        for (auto &op_to_delete : ops_list) {
+          rewriter.eraseOp(op_to_delete);
+        }
+        std::cout << "AFTER MERGE gates:\n";
+        auto parentModule = op->getParentOfType<mlir::ModuleOp>();
+        parentModule->dump();
+        return success();
+      }
     }
 
     return failure();
