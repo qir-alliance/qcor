@@ -6,6 +6,8 @@ RUN wget https://packages.microsoft.com/config/ubuntu/18.04/packages-microsoft-p
     apt-get update && apt-get install -y apt-transport-https && apt-get update && apt-get install -y dotnet-sdk-3.1
 
 # Install Q# SDK
+# Add QDK-alpha source
+RUN dotnet nuget add source "https://pkgs.dev.azure.com/ms-quantum-public/Microsoft Quantum (public)/_packaging/alpha/nuget/v3/index.json" -n qdk-alpha
 RUN dotnet new -i Microsoft.Quantum.ProjectTemplates
 
 # XACC and QCOR

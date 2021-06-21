@@ -4,7 +4,7 @@ OPENQASM 3;
 const n_counting = 3;
 
 // Declare external quantum subroutine:
-def QCOR__IQFT__Interop qubit[n_counting]:qq extern;
+def QCOR__IQFT__body qubit[n_counting]:qq extern;
 
 // For this example, the oracle is the T gate 
 // on the provided qubit
@@ -36,7 +36,7 @@ for i in [0:n_counting] {
 }
 
 // Run inverse QFT 
-QCOR__IQFT__Interop counting;
+QCOR__IQFT__body counting;
 
 // Now lets measure the counting qubits
 bit c[n_counting];
