@@ -4,11 +4,15 @@ import argparse, sys, os, glob, subprocess, mimetypes, re, pathlib
 # Helper to generate Q# build config by running the SDK
 # Input: the source file directory where the build
 # csproj will be saved to.
-def generate_qsc_build_command(target_name, src_dir, input_files, qdk_ver):
+def generate_qsc_build_command(target_name, src_dir, input_files, qdk_ver, build_exe):
   import os, tempfile, shutil
   temp_dir = tempfile.mkdtemp()
   # print(temp_dir)
-  os.system('dotnet new classlib -lang Q# -o ' + temp_dir + ' -n test')
+  # Build console/classlib depending on build_exe flag
+  if (build_exe):
+    os.system('dotnet new console -lang Q# -o ' + temp_dir + ' -n test')
+  else:
+    os.system('dotnet new classlib -lang Q# -o ' + temp_dir + ' -n test')
 
   import xml.etree.ElementTree as ET
   # Parse the SDK generated Project file
@@ -447,8 +451,17 @@ def main(argv=None):
             sys.argv.remove(qdk_version)
             sys.argv.remove('-qdk-version')
 
+        # Should we handle entry-point operations
+        # and generate Interop entry point QIR.
+        # Note: This is mainly to handle the transition period with alpha-release of Q# SDK.
+        # (the official release will complain if we don't build exe)
+        qs_build_exe = False
+        if '-qs-build-exe' in sys.argv[1:]:
+            sys.argv.remove('-qs-build-exe')
+            qs_build_exe = True
+
         # Generate build command:
-        build_cmd = generate_qsc_build_command(base_name, os.path.dirname(os.path.abspath(filename)), [filename], qdk_version)
+        build_cmd = generate_qsc_build_command(base_name, os.path.dirname(os.path.abspath(filename)), [filename], qdk_version, qs_build_exe)
         # QSharp compiler now generates a bitcode file,
         # i.e. no need to do llvm-as
         bc_file_name = base_name + '.bc'
@@ -469,11 +482,6 @@ def main(argv=None):
             qs_rt_name = sys.argv[sidx+1]
             sys.argv.remove(qs_rt_name)
             sys.argv.remove('-qs-runtime')
-        
-        qs_build_exe = ''
-        if '-qs-build-exe' in sys.argv[1:]:
-            sys.argv.remove('-qs-build-exe')
-            qs_build_exe = '--build-exe'
 
         # Execute qsc build command:
         os.system(build_cmd)
