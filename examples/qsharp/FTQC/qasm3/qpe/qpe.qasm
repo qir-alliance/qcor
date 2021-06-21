@@ -3,7 +3,7 @@ OPENQASM 3;
 
 const n_counting = 3;
 
-// Declare external quantum subroutine:
+// Declare external quantum subroutine (Q#)
 def QCOR__IQFT__body qubit[n_counting]:qq extern;
 
 // For this example, the oracle is the T gate 
@@ -36,6 +36,7 @@ for i in [0:n_counting] {
 }
 
 // Run inverse QFT 
+// This Kernel is from Q#
 QCOR__IQFT__body counting;
 
 // Now lets measure the counting qubits
@@ -44,4 +45,4 @@ measure counting -> c;
 
 // Backend is QPP which is lsb, 
 // so return should be 100
-print(c);
+print("Final Bitstring:", c);
