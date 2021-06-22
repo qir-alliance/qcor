@@ -4,12 +4,15 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace llvm {
 class Module;
 }
+namespace qcor {
+  class CompositeInstruction;
+}
 namespace xacc {
-class CompositeInstruction;
 class HeterogeneousMap;
 }  // namespace xacc
 
@@ -68,14 +71,14 @@ class QJIT {
 
   template <typename... Args>
   void invoke_with_parent(const std::string &kernel_name,
-                          std::shared_ptr<xacc::CompositeInstruction> parent,
+                          std::shared_ptr<qcor::CompositeInstruction> parent,
                           Args... args) {
     // Debug: print the Args... type
     // std::cout << "QJIT Invoke with Parent: " << __PRETTY_FUNCTION__ << "\n";
     auto f_ptr = kernel_name_to_f_ptr_with_parent[kernel_name];
-    void (*kernel_functor)(std::shared_ptr<xacc::CompositeInstruction>,
+    void (*kernel_functor)(std::shared_ptr<qcor::CompositeInstruction>,
                            Args...) =
-        (void (*)(std::shared_ptr<xacc::CompositeInstruction>, Args...))f_ptr;
+        (void (*)(std::shared_ptr<qcor::CompositeInstruction>, Args...))f_ptr;
     kernel_functor(parent, std::forward<Args>(args)...);
   }
 
@@ -92,12 +95,12 @@ class QJIT {
   template <typename... Args>
   void invoke_with_parent_forwarding(
       const std::string &kernel_name,
-      std::shared_ptr<xacc::CompositeInstruction> parent, Args &&... args) {
+      std::shared_ptr<qcor::CompositeInstruction> parent, Args &&... args) {
     // std::cout << "QJIT Invoke with Parent: " << __PRETTY_FUNCTION__ << "\n";
     auto f_ptr = kernel_name_to_f_ptr_with_parent[kernel_name];
-    void (*kernel_functor)(std::shared_ptr<xacc::CompositeInstruction>,
+    void (*kernel_functor)(std::shared_ptr<qcor::CompositeInstruction>,
                            Args...) =
-        (void (*)(std::shared_ptr<xacc::CompositeInstruction>, Args...))f_ptr;
+        (void (*)(std::shared_ptr<qcor::CompositeInstruction>, Args...))f_ptr;
     kernel_functor(parent, std::forward<Args>(args)...);
   }
 
@@ -109,7 +112,7 @@ class QJIT {
 
   void invoke_with_hetmap(const std::string &kernel_name,
                           xacc::HeterogeneousMap &args);
-  std::shared_ptr<xacc::CompositeInstruction> extract_composite_with_hetmap(
+  std::shared_ptr<qcor::CompositeInstruction> extract_composite_with_hetmap(
       const std::string name, xacc::HeterogeneousMap &m);
 
   template <typename... Args>

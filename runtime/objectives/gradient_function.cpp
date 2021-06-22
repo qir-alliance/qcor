@@ -2,7 +2,7 @@
 #include "xacc.hpp"
 #include "xacc_service.hpp"
 #include "qcor_utils.hpp"
-
+#include "xacc_internal_compiler.hpp"
 namespace qcor {
 namespace __internal__ {
 std::string DEFAULT_GRADIENT_METHOD = "central";
@@ -20,10 +20,10 @@ get_gradient_method(const std::string &type,
 
 std::shared_ptr<GradientFunction>
 get_gradient_method(const std::string &type,
-                    std::function<std::shared_ptr<xacc::CompositeInstruction>(
+                    std::function<std::shared_ptr<CompositeInstruction>(
                         std::vector<double>)>
                         kernel_eval,
-                    xacc::Observable &obs) {
+                    Operator &obs) {
   if (!xacc::isInitialized())
     xacc::internal_compiler::compiler_InitializeXACC();
   auto service = xacc::getService<KernelGradientService>(type);

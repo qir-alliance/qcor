@@ -1,5 +1,6 @@
 #pragma once
 #include <optional>
+#include <stack>
 
 #include "qcor_jit.hpp"
 #include "qcor_observable.hpp"
@@ -27,12 +28,12 @@ void apply_adjoint(std::shared_ptr<CompositeInstruction> parent_kernel,
                    KernelSignature<Args...> &kernelCallable, Args... args);
 
 template <typename... Args>
-double observe(Observable &obs, KernelSignature<Args...> &kernelCallable,
+double observe(Operator &obs, KernelSignature<Args...> &kernelCallable,
                Args... args);
 
 template <typename... Args>
-Eigen::MatrixXcd as_unitary_matrix(KernelSignature<Args...> &kernelCallable,
-                                   Args... args);
+UnitaryMatrix as_unitary_matrix(KernelSignature<Args...> &kernelCallable,
+                                Args... args);
 template <typename... Args>
 std::string openqasm(KernelSignature<Args...> &kernelCallable, Args... args);
 
@@ -112,7 +113,7 @@ class QuantumKernel {
   static void print_kernel(std::ostream &os, Args... args) {
     Derived derived(args...);
     KernelSignature<Args...> callable(derived);
-    return internal::print_kernel<Args...>(callable, os, args...);
+    return internal::print_kernel(callable, os, args...);
   }
 
   static void print_kernel(Args... args) { print_kernel(std::cout, args...); }
@@ -121,7 +122,7 @@ class QuantumKernel {
   static std::size_t n_instructions(Args... args) {
     Derived derived(args...);
     KernelSignature<Args...> callable(derived);
-    return internal::n_instructions<Args...>(callable, args...);
+    return internal::n_instructions(callable, args...);
   }
 
   // Create the Adjoint of this quantum kernel
@@ -129,7 +130,7 @@ class QuantumKernel {
                       Args... args) {
     Derived derived(args...);
     KernelSignature<Args...> callable(derived);
-    return internal::apply_adjoint<Args...>(parent_kernel, callable, args...);
+    return internal::apply_adjoint(parent_kernel, callable, args...);
   }
 
   // Create the controlled version of this quantum kernel
@@ -162,8 +163,7 @@ class QuantumKernel {
     // instantiate and don't let it call the destructor
     Derived derived(args...);
     KernelSignature<Args...> callable(derived);
-    internal::apply_control<Args...>(parent_kernel, ctrl_qbits, callable,
-                                     args...);
+    internal::apply_control(parent_kernel, ctrl_qbits, callable, args...);
   }
 
   // Create the controlled version of this quantum kernel
@@ -172,101 +172,102 @@ class QuantumKernel {
     ctrl(parent_kernel, std::vector<qubit>{ctrl_qbit}, args...);
   }
 
-  static Eigen::MatrixXcd as_unitary_matrix(Args... args) {
+  static UnitaryMatrix as_unitary_matrix(Args... args) {
     Derived derived(args...);
     KernelSignature<Args...> callable(derived);
-    return internal::as_unitary_matrix<Args...>(callable, args...);
+    return internal::as_unitary_matrix(callable, args...);
   }
 
-  static double observe(Observable &obs, Args... args) {
+  static double observe(Operator &obs, Args... args) {
     Derived derived(args...);
     KernelSignature<Args...> callable(derived);
-    return internal::observe<Args...>(obs, callable, args...);
+    return internal::observe(obs, callable, args...);
   }
 
-  static double observe(std::shared_ptr<Observable> obs, Args... args) {
+  static double observe(std::shared_ptr<Operator> obs, Args... args) {
     return observe(*obs, args...);
   }
 
   // Simple autograd support for kernel with simple type: double or
   // vector<double>. Other signatures must provide a translator...
-  static double autograd(Observable &obs, std::vector<double> &dx, qreg q,
-                         double x) {
-    std::function<std::shared_ptr<xacc::CompositeInstruction>(
-        std::vector<double>)>
-        kernel_eval = [q](std::vector<double> x) {
-          auto tempKernel =
-              qcor::__internal__::create_composite("__temp__autograd__");
-          Derived derived(q, x[0]);
-          derived.disable_destructor = true;
-          derived(q, x[0]);
-          tempKernel->addInstructions(derived.parent_kernel->getInstructions());
-          return tempKernel;
-        };
+  // static double autograd(Operator &obs, std::vector<double> &dx, qreg q,
+  //                        double x) {
+  //   std::function<std::shared_ptr<CompositeInstruction>(
+  //       std::vector<double>)>
+  //       kernel_eval = [q](std::vector<double> x) {
+  //         auto tempKernel =
+  //             qcor::__internal__::create_composite("__temp__autograd__");
+  //         Derived derived(q, x[0]);
+  //         derived.disable_destructor = true;
+  //         derived(q, x[0]);
+  //         tempKernel->addInstructions(derived.parent_kernel->getInstructions());
+  //         return tempKernel;
+  //       };
 
-    auto gradiend_method = qcor::__internal__::get_gradient_method(
-        qcor::__internal__::DEFAULT_GRADIENT_METHOD, kernel_eval, obs);
-    const double cost_val = observe(obs, q, x);
-    dx = (*gradiend_method)({x}, cost_val);
-    return cost_val;
-  }
+  //   auto gradiend_method = qcor::__internal__::get_gradient_method(
+  //       qcor::__internal__::DEFAULT_GRADIENT_METHOD, kernel_eval, obs);
+  //   const double cost_val = observe(obs, q, x);
+  //   dx = (*gradiend_method)({x}, cost_val);
+  //   return cost_val;
+  // }
 
-  static double autograd(Observable &obs, std::vector<double> &dx, qreg q,
-                         std::vector<double> x) {
-    std::function<std::shared_ptr<xacc::CompositeInstruction>(
-        std::vector<double>)>
-        kernel_eval = [q](std::vector<double> x) {
-          auto tempKernel =
-              qcor::__internal__::create_composite("__temp__autograd__");
-          Derived derived(q, x);
-          derived.disable_destructor = true;
-          derived(q, x);
-          tempKernel->addInstructions(derived.parent_kernel->getInstructions());
-          return tempKernel;
-        };
+  // static double autograd(Operator &obs, std::vector<double> &dx, qreg q,
+  //                        std::vector<double> x) {
+  //   std::function<std::shared_ptr<CompositeInstruction>(
+  //       std::vector<double>)>
+  //       kernel_eval = [q](std::vector<double> x) {
+  //         auto tempKernel =
+  //             qcor::__internal__::create_composite("__temp__autograd__");
+  //         Derived derived(q, x);
+  //         derived.disable_destructor = true;
+  //         derived(q, x);
+  //         tempKernel->addInstructions(derived.parent_kernel->getInstructions());
+  //         return tempKernel;
+  //       };
 
-    auto gradiend_method = qcor::__internal__::get_gradient_method(
-        qcor::__internal__::DEFAULT_GRADIENT_METHOD, kernel_eval, obs);
-    const double cost_val = observe(obs, q, x);
-    dx = (*gradiend_method)(x, cost_val);
-    return cost_val;
-  }
+  //   auto gradiend_method = qcor::__internal__::get_gradient_method(
+  //       qcor::__internal__::DEFAULT_GRADIENT_METHOD, kernel_eval, obs);
+  //   const double cost_val = observe(obs, q, x);
+  //   dx = (*gradiend_method)(x, cost_val);
+  //   return cost_val;
+  // }
 
-  static double autograd(Observable &obs, std::vector<double> &dx,
-                         std::vector<double> x,
-                         ArgsTranslator<Args...> args_translator) {
-    std::function<std::shared_ptr<xacc::CompositeInstruction>(
-        std::vector<double>)>
-        kernel_eval = [&](std::vector<double> x_vec) {
-          auto eval_lambda = [&](Args... args) {
-            auto tempKernel =
-                qcor::__internal__::create_composite("__temp__autograd__");
-            Derived derived(args...);
-            derived.disable_destructor = true;
-            derived(args...);
-            tempKernel->addInstructions(
-                derived.parent_kernel->getInstructions());
-            return tempKernel;
-          };
-          auto args_tuple = args_translator(x_vec);
-          return std::apply(eval_lambda, args_tuple);
-        };
+  // static double autograd(Operator &obs, std::vector<double> &dx,
+  //                        std::vector<double> x,
+  //                        ArgsTranslator<Args...> args_translator) {
+  //   std::function<std::shared_ptr<CompositeInstruction>(
+  //       std::vector<double>)>
+  //       kernel_eval = [&](std::vector<double> x_vec) {
+  //         auto eval_lambda = [&](Args... args) {
+  //           auto tempKernel =
+  //               qcor::__internal__::create_composite("__temp__autograd__");
+  //           Derived derived(args...);
+  //           derived.disable_destructor = true;
+  //           derived(args...);
+  //           tempKernel->addInstructions(
+  //               derived.parent_kernel->getInstructions());
+  //           return tempKernel;
+  //         };
+  //         auto args_tuple = args_translator(x_vec);
+  //         return std::apply(eval_lambda, args_tuple);
+  //       };
 
-    auto gradiend_method = qcor::__internal__::get_gradient_method(
-        qcor::__internal__::DEFAULT_GRADIENT_METHOD, kernel_eval, obs);
+  //   auto gradiend_method = qcor::__internal__::get_gradient_method(
+  //       qcor::__internal__::DEFAULT_GRADIENT_METHOD, kernel_eval, obs);
 
-    auto kernel_observe = [&](Args... args) { return observe(obs, args...); };
+  //   auto kernel_observe = [&](Args... args) { return observe(obs, args...);
+  //   };
 
-    auto args_tuple = args_translator(x);
-    const double cost_val = std::apply(kernel_observe, args_tuple);
-    dx = (*gradiend_method)(x, cost_val);
-    return cost_val;
-  }
+  //   auto args_tuple = args_translator(x);
+  //   const double cost_val = std::apply(kernel_observe, args_tuple);
+  //   dx = (*gradiend_method)(x, cost_val);
+  //   return cost_val;
+  // }
 
   static std::string openqasm(Args... args) {
     Derived derived(args...);
     KernelSignature<Args...> callable(derived);
-    return internal::openqasm<Args...>(callable, args...);
+    return internal::openqasm(callable, args...);
   }
 
   virtual ~QuantumKernel() {}
@@ -434,7 +435,7 @@ class _qpu_lambda {
           grouping_chars.push(args_string[i]);
         }
         if (args_string[i] == '>') {
-          assert(grouping_chars.top() == '<');
+          // assert(grouping_chars.top() == '<');
           grouping_chars.pop();
         }
       }
@@ -556,7 +557,7 @@ class _qpu_lambda {
       // a capture var is a Kernel-like ==> add the list of in-flight kernels
       // and add parent_kernel to the invocation.
       for (auto [i, capture_name] :
-           qcor::enumerate(xacc::split(capture_var_names, ','))) {
+           qcor::enumerate(qcor::split(capture_var_names, ','))) {
         const auto old_name = "arg_" + std::to_string(i);
         replaceVarName(args_string, old_name, capture_name);
       }
@@ -594,7 +595,7 @@ class _qpu_lambda {
       jit_src.insert(end, restore_string.str());
     }
 
-    // std::cout << "JITSRC:\n" << jit_src << "\n";
+    std::cout << "JITSRC:\n" << jit_src << "\n";
     // JIT Compile, storing the function pointers
     qjit.jit_compile(jit_src);
   }
@@ -610,6 +611,7 @@ class _qpu_lambda {
                   FunctionArgs &&...args) {
     // Map the function args to a tuple
     auto kernel_args_tuple = std::forward_as_tuple(args...);
+
     if (!optional_copy_capture_vars.has_value()) {
       // By-ref:
       // Merge the function args and the capture vars and execute
@@ -619,7 +621,6 @@ class _qpu_lambda {
             qjit.invoke_with_parent_forwarding("foo", parent, args...);
           },
           final_args_tuple);
-
     } else if constexpr (std::conjunction_v<
                              std::is_copy_assignable<CaptureArgs>...>) {
       // constexpr compile-time check to prevent compiler from looking at this
@@ -658,21 +659,21 @@ class _qpu_lambda {
   }
 
   template <typename... FunctionArgs>
-  double observe(std::shared_ptr<Observable> obs, FunctionArgs... args) {
+  double observe(std::shared_ptr<Operator> obs, FunctionArgs... args) {
     return observe(*obs.get(), args...);
   }
 
   template <typename... FunctionArgs>
-  double observe(Observable &obs, FunctionArgs... args) {
+  double observe(Operator &obs, FunctionArgs... args) {
     KernelSignature<FunctionArgs...> callable(*this);
-    return internal::observe<FunctionArgs...>(obs, callable, args...);
+    return internal::observe(obs, callable, args...);
   }
 
   template <typename... FunctionArgs>
   void ctrl(std::shared_ptr<CompositeInstruction> ir,
             const std::vector<qubit> &ctrl_qbits, FunctionArgs... args) {
     KernelSignature<FunctionArgs...> callable(*this);
-    internal::apply_control<FunctionArgs...>(ir, ctrl_qbits, callable, args...);
+    internal::apply_control(ir, ctrl_qbits, callable, args...);
   }
 
   template <typename... FunctionArgs>
@@ -712,13 +713,13 @@ class _qpu_lambda {
   void adjoint(std::shared_ptr<CompositeInstruction> parent_kernel,
                FunctionArgs... args) {
     KernelSignature<FunctionArgs...> callable(*this);
-    return internal::apply_adjoint<FunctionArgs...>(parent_kernel, callable, args...);
+    return internal::apply_adjoint(parent_kernel, callable, args...);
   }
 
   template <typename... FunctionArgs>
   void print_kernel(std::ostream &os, FunctionArgs... args) {
     KernelSignature<FunctionArgs...> callable(*this);
-    return internal::print_kernel<FunctionArgs...>(callable, os, args...);
+    return internal::print_kernel(callable, os, args...);
   }
 
   template <typename... FunctionArgs>
@@ -729,36 +730,36 @@ class _qpu_lambda {
   template <typename... FunctionArgs>
   std::size_t n_instructions(FunctionArgs... args) {
     KernelSignature<FunctionArgs...> callable(*this);
-    return internal::n_instructions<FunctionArgs...>(callable, args...);
+    return internal::n_instructions(callable, args...);
   }
 
   template <typename... FunctionArgs>
-  Eigen::MatrixXcd as_unitary_matrix(FunctionArgs... args) {
+  UnitaryMatrix as_unitary_matrix(FunctionArgs... args) {
     KernelSignature<FunctionArgs...> callable(*this);
-    return internal::as_unitary_matrix<FunctionArgs...>(callable, args...);
+    return internal::as_unitary_matrix(callable, args...);
   }
 
   template <typename... FunctionArgs>
   std::string openqasm(FunctionArgs... args) {
     KernelSignature<FunctionArgs...> callable(*this);
-    return internal::openqasm<FunctionArgs...>(callable, args...);
+    return internal::openqasm(callable, args...);
   }
 };
 
 #define qpu_lambda(EXPR, ...) _qpu_lambda(#EXPR, #__VA_ARGS__, ##__VA_ARGS__)
 
 template <typename... Args>
-using callable_function_ptr =
-    void (*)(std::shared_ptr<xacc::CompositeInstruction>, Args...);
+using callable_function_ptr = void (*)(std::shared_ptr<CompositeInstruction>,
+                                       Args...);
 
 template <typename... Args>
 class KernelSignature {
  private:
   callable_function_ptr<Args...> *readOnly = 0;
   callable_function_ptr<Args...> &function_pointer;
-  std::function<void(std::shared_ptr<xacc::CompositeInstruction>, Args...)>
+  std::function<void(std::shared_ptr<CompositeInstruction>, Args...)>
       lambda_func;
-  std::shared_ptr<xacc::CompositeInstruction> parent_kernel;
+  std::shared_ptr<CompositeInstruction> parent_kernel;
 
  public:
   // Here we set function_pointer to null and instead
@@ -767,8 +768,9 @@ class KernelSignature {
   template <typename... CaptureArgs>
   KernelSignature(_qpu_lambda<CaptureArgs...> &lambda)
       : function_pointer(*readOnly),
-        lambda_func([&](std::shared_ptr<xacc::CompositeInstruction> pp,
-                        Args... a) { lambda(pp, a...); }) {}
+        lambda_func([&](std::shared_ptr<CompositeInstruction> pp, Args... a) {
+          lambda(pp, a...);
+        }) {}
 
   KernelSignature(callable_function_ptr<Args...> &&f) : function_pointer(f) {}
 
@@ -780,14 +782,13 @@ class KernelSignature {
           bool> = true>
   KernelSignature(KernelType &kernel)
       : function_pointer(*readOnly),
-        lambda_func(
-            [&](std::shared_ptr<xacc::CompositeInstruction> pp, Args... a) {
-              // Expand the kernel and append to the *externally-provided*
-              // parent kernel as a KernelSignature one.
-              kernel.disable_destructor = true;
-              kernel(a...);
-              pp->addInstructions(kernel.parent_kernel->getInstructions());
-            }) {}
+        lambda_func([&](std::shared_ptr<CompositeInstruction> pp, Args... a) {
+          // Expand the kernel and append to the *externally-provided*
+          // parent kernel as a KernelSignature one.
+          kernel.disable_destructor = true;
+          kernel(a...);
+          pp->addInstructions(kernel.parent_kernel->getInstructions());
+        }) {}
 
   // Ctor from raw void* function pointer.
   // IMPORTANT: since function_pointer is kept as a *reference*,
@@ -795,8 +796,7 @@ class KernelSignature {
   KernelSignature(void *&f_ptr)
       : function_pointer((callable_function_ptr<Args...> &)f_ptr) {}
 
-  void operator()(std::shared_ptr<xacc::CompositeInstruction> ir,
-                  Args... args) {
+  void operator()(std::shared_ptr<CompositeInstruction> ir, Args... args) {
     if (lambda_func) {
       lambda_func(ir, args...);
       return;
@@ -807,16 +807,16 @@ class KernelSignature {
 
   void operator()(Args... args) { operator()(parent_kernel, args...); }
 
-  void set_parent_kernel(std::shared_ptr<xacc::CompositeInstruction> ir) {
+  void set_parent_kernel(std::shared_ptr<CompositeInstruction> ir) {
     parent_kernel = ir;
   }
 
-  void ctrl(std::shared_ptr<xacc::CompositeInstruction> ir,
+  void ctrl(std::shared_ptr<CompositeInstruction> ir,
             const std::vector<qubit> &ctrl_qbits, Args... args) {
-    internal::apply_control<Args...>(ir, ctrl_qbits, *this, args...);
+    internal::apply_control(ir, ctrl_qbits, *this, args...);
   }
 
-  void ctrl(std::shared_ptr<xacc::CompositeInstruction> ir,
+  void ctrl(std::shared_ptr<CompositeInstruction> ir,
             const std::vector<int> ctrl_idxs, Args... args) {
     std::vector<qubit> ctrl_qubit_vec;
     for (int i = 0; i < ctrl_idxs.size(); i++) {
@@ -825,17 +825,17 @@ class KernelSignature {
     }
     ctrl(ir, ctrl_qubit_vec, args...);
   }
-  void ctrl(std::shared_ptr<xacc::CompositeInstruction> ir, int ctrl_qbit,
+  void ctrl(std::shared_ptr<CompositeInstruction> ir, int ctrl_qbit,
             Args... args) {
     ctrl(ir, std::vector<int>{ctrl_qbit}, args...);
   }
 
-  void ctrl(std::shared_ptr<xacc::CompositeInstruction> ir, qubit ctrl_qbit,
+  void ctrl(std::shared_ptr<CompositeInstruction> ir, qubit ctrl_qbit,
             Args... args) {
     ctrl(ir, std::vector<qubit>{ctrl_qbit}, args...);
   }
 
-  void ctrl(std::shared_ptr<xacc::CompositeInstruction> ir, qreg ctrl_qbits,
+  void ctrl(std::shared_ptr<CompositeInstruction> ir, qreg ctrl_qbits,
             Args... args) {
     std::vector<qubit> ctrl_qubit_vec;
     for (int i = 0; i < ctrl_qbits.size(); i++) {
@@ -845,33 +845,33 @@ class KernelSignature {
   }
 
   void adjoint(std::shared_ptr<CompositeInstruction> ir, Args... args) {
-    internal::apply_adjoint<Args...>(ir, *this, args...);
+    internal::apply_adjoint(ir, *this, args...);
   }
 
   void print_kernel(std::ostream &os, Args... args) {
-    return internal::print_kernel<Args...>(*this, os, args...);
+    return internal::print_kernel(*this, os, args...);
   }
 
   void print_kernel(Args... args) { print_kernel(std::cout, args...); }
 
   std::size_t n_instructions(Args... args) {
-    return internal::n_instructions<Args...>(*this, args...);
+    return internal::n_instructions(*this, args...);
   }
 
-  Eigen::MatrixXcd as_unitary_matrix(Args... args) {
-    return internal::as_unitary_matrix<Args...>(*this, args...);
+  UnitaryMatrix as_unitary_matrix(Args... args) {
+    return internal::as_unitary_matrix(*this, args...);
   }
 
   std::string openqasm(Args... args) {
-    return internal::openqasm<Args...>(*this, args...);
+    return internal::openqasm(*this, args...);
   }
 
-  double observe(std::shared_ptr<Observable> obs, Args... args) {
+  double observe(std::shared_ptr<Operator> obs, Args... args) {
     return observe(*obs.get(), args...);
   }
 
-  double observe(Observable &obs, Args... args) {
-    return internal::observe<Args...>(obs, *this, args...);
+  double observe(Operator &obs, Args... args) {
+    return internal::observe(obs, *this, args...);
   }
 };
 
@@ -887,15 +887,15 @@ class KernelSignature {
 
 // Last arg
 inline void init_kernel_signature_args_impl(
-    std::shared_ptr<xacc::CompositeInstruction> ir) {}
+    std::shared_ptr<CompositeInstruction> ir) {}
 template <typename T, typename... ArgsType>
-void init_kernel_signature_args_impl(
-    std::shared_ptr<xacc::CompositeInstruction> ir, T &t, ArgsType &...Args);
+void init_kernel_signature_args_impl(std::shared_ptr<CompositeInstruction> ir,
+                                     T &t, ArgsType &...Args);
 
 // Main function: to be added by the token collector at the beginning
 // of each kernel operator().
 template <typename... T>
-void init_kernel_signature_args(std::shared_ptr<xacc::CompositeInstruction> ir,
+void init_kernel_signature_args(std::shared_ptr<CompositeInstruction> ir,
                                 T &...multi_inputs) {
   init_kernel_signature_args_impl(ir, multi_inputs...);
 }
@@ -903,17 +903,17 @@ void init_kernel_signature_args(std::shared_ptr<xacc::CompositeInstruction> ir,
 // Base case: generic type T,
 // just ignore, proceed to the next arg.
 template <typename T, typename... ArgsType>
-void init_kernel_signature_args_impl(
-    std::shared_ptr<xacc::CompositeInstruction> ir, T &t, ArgsType &...Args) {
+void init_kernel_signature_args_impl(std::shared_ptr<CompositeInstruction> ir,
+                                     T &t, ArgsType &...Args) {
   init_kernel_signature_args(ir, Args...);
 }
 
 // Special case: this is a vector:
 // iterate over all elements.
 template <typename T, typename... ArgsType>
-void init_kernel_signature_args_impl(
-    std::shared_ptr<xacc::CompositeInstruction> ir, std::vector<T> &vec_arg,
-    ArgsType... Args) {
+void init_kernel_signature_args_impl(std::shared_ptr<CompositeInstruction> ir,
+                                     std::vector<T> &vec_arg,
+                                     ArgsType... Args) {
   for (auto &el : vec_arg) {
     // Iterate the vector elements.
     init_kernel_signature_args_impl(ir, el);
@@ -925,7 +925,7 @@ void init_kernel_signature_args_impl(
 // Handle KernelSignature arg => set the parent kernel.
 template <typename... ArgsType>
 void init_kernel_signature_args_impl(
-    std::shared_ptr<xacc::CompositeInstruction> ir,
+    std::shared_ptr<CompositeInstruction> ir,
     KernelSignature<ArgsType...> &kernel_signature) {
   kernel_signature.set_parent_kernel(ir);
 }
@@ -962,8 +962,9 @@ void apply_control(std::shared_ptr<CompositeInstruction> parent_kernel,
     ::quantum::qrt_impl->__begin_mark_segment_as_compute();
   }
 
-  auto ctrlKernel = qcor::__internal__::create_ctrl_u();
-  ctrlKernel->expand({{"U", tempKernel}, {"control-idx", ctrl_qubits}});
+  auto ctrlKernel = qcor::__internal__::create_and_expand_ctrl_u(
+      {{"U", tempKernel}, {"control-idx", ctrl_qubits}});
+  // ctrlKernel->expand({{"U", tempKernel}, {"control-idx", ctrl_qubits}});
 
   // Mark all the *Controlled* instructions as compute segment
   // if it was in the compute_section.
@@ -971,8 +972,8 @@ void apply_control(std::shared_ptr<CompositeInstruction> parent_kernel,
   // now we mark all the generated instructions.
   if (cached_is_compute_section) {
     for (int instId = 0; instId < ctrlKernel->nInstructions(); ++instId) {
-      ctrlKernel->getInstruction(instId)->attachMetadata(
-          {{"__qcor__compute__segment__", true}});
+      ctrlKernel->attachMetadata(instId,
+                                 {{"__qcor__compute__segment__", true}});
     }
   }
 
@@ -982,6 +983,11 @@ void apply_control(std::shared_ptr<CompositeInstruction> parent_kernel,
   // Need to reset and point current program to the parent
   quantum::set_current_program(parent_kernel);
 }
+
+bool is_not_measure(std::shared_ptr<xacc::Instruction> inst);
+std::vector<std::shared_ptr<xacc::Instruction>> handle_adjoint_instructions(
+    std::vector<std::shared_ptr<xacc::Instruction>>,
+    std::shared_ptr<CompositeInstruction>);
 
 template <typename... Args>
 void apply_adjoint(std::shared_ptr<CompositeInstruction> parent_kernel,
@@ -996,78 +1002,34 @@ void apply_adjoint(std::shared_ptr<CompositeInstruction> parent_kernel,
   // Assert that we don't have measurement
   if (!std::all_of(
           instructions.cbegin(), instructions.cend(),
-          [](const auto &inst) { return inst->name() != "Measure"; })) {
+          [](const auto &inst) { return is_not_measure(inst); })) {
     error("Unable to create Adjoint for kernels that have Measure operations.");
   }
 
-  auto provider = qcor::__internal__::get_provider();
-  for (int i = 0; i < instructions.size(); i++) {
-    auto inst = tempKernel->getInstruction(i);
-    // Parametric gates:
-    if (inst->name() == "Rx" || inst->name() == "Ry" || inst->name() == "Rz" ||
-        inst->name() == "CPhase" || inst->name() == "U1" ||
-        inst->name() == "CRZ") {
-      inst->setParameter(0, -inst->getParameter(0).template as<double>());
-    }
-    // Handles T and S gates, etc... => T -> Tdg
-    else if (inst->name() == "T") {
-      // Forward along the buffer name
-      auto tdg = provider->createInstruction(
-          "Tdg", {std::make_pair(inst->getBufferName(0), inst->bits()[0])});
-      program->replaceInstruction(i, tdg);
-    } else if (inst->name() == "S") {
-      auto sdg = provider->createInstruction(
-          "Sdg", {std::make_pair(inst->getBufferName(0), inst->bits()[0])});
-      program->replaceInstruction(i, sdg);
-    } else if (inst->name() == "Tdg") {
-      // Forward along the buffer name
-      auto t = provider->createInstruction(
-          "T", {std::make_pair(inst->getBufferName(0), inst->bits()[0])});
-      program->replaceInstruction(i, t);
-    } else if (inst->name() == "Sdg") {
-      auto s = provider->createInstruction(
-          "S", {std::make_pair(inst->getBufferName(0), inst->bits()[0])});
-      program->replaceInstruction(i, s);
-    }
-  }
-
-  // We update/replace instructions in the derived.parent_kernel composite,
-  // hence collecting these new instructions and reversing the sequence.
-  auto new_instructions = tempKernel->getInstructions();
-  std::reverse(new_instructions.begin(), new_instructions.end());
-
-  // Are we in a compute section?
-  // Make sure we mark all instructions appropriately.
-  // e.g. we do create new instructions, e.g. Tdg, Sdg, in the above step.
-  if (::quantum::qrt_impl->isComputeSection()) {
-    for (auto &inst : new_instructions) {
-      inst->attachMetadata({{"__qcor__compute__segment__", true}});
-    }
-  }
+  auto new_instructions = internal::handle_adjoint_instructions(instructions, tempKernel);
 
   // add the instructions to the current parent kernel
-  parent_kernel->addInstructions(new_instructions);
+  parent_kernel->addInstructions(std::move(new_instructions), false);
 
   ::quantum::set_current_program(parent_kernel);
 }
 
 template <typename... Args>
-double observe(Observable &obs, KernelSignature<Args...> &kernelCallable,
+double observe(Operator &obs, KernelSignature<Args...> &kernelCallable,
                Args... args) {
   auto tempKernel = qcor::__internal__::create_composite("temp_observe");
   kernelCallable(tempKernel, args...);
   auto instructions = tempKernel->getInstructions();
   // Assert that we don't have measurement
-  if (!std::all_of(
-          instructions.cbegin(), instructions.cend(),
-          [](const auto &inst) { return inst->name() != "Measure"; })) {
+  if (!std::all_of(instructions.cbegin(), instructions.cend(),
+                   [](const auto &inst) { return is_not_measure(inst); })) {
     error("Unable to observe kernels that already have Measure operations.");
   }
 
   xacc::internal_compiler::execute_pass_manager();
 
   // Operator pre-processing, map down to Pauli and cache
-  std::shared_ptr<Observable> observable;
+  Operator observable;
   auto obs_str = obs.toString();
   std::hash<std::string> hasher;
   auto operator_hash = hasher(obs_str);
@@ -1075,17 +1037,20 @@ double observe(Observable &obs, KernelSignature<Args...> &kernelCallable,
     observable = __internal__::cached_observables[operator_hash];
   } else {
     if (obs_str.find("^") != std::string::npos) {
-      try {
-        observable =
-            operatorTransform("jw", dynamic_cast<FermionOperator &>(obs));
-      } catch (std::exception &ex) {
-        auto fermionObservable = createOperator("fermion", obs_str);
-        observable = operatorTransform("jw", fermionObservable);
-      }
+      error("We have not implemented the case where the operator is Fermion...");
+      // FIXME HANDLE THIS
+      //   try {
+      //     observable =
+      //         operatorTransform("jw", dynamic_cast<FermionOperator &>(obs));
+      //   } catch (std::exception &ex) {
+      //     auto fermionObservable = createOperator("fermion", obs_str);
+      //     observable = operatorTransform("jw", fermionObservable);
+      //   }
 
-      // observable is PauliOperator, but does not cast down to it
-      // Not sure about the likelihood of this happening, but want to cover all
-      // bases
+      //   // observable is PauliOperator, but does not cast down to it
+      //   // Not sure about the likelihood of this happening, but want to cover
+      //   all
+      //   // bases
     } else if (obs_str.find("X") != std::string::npos ||
                obs_str.find("Y") != std::string::npos ||
                obs_str.find("Z") != std::string::npos) {
@@ -1101,28 +1066,21 @@ double observe(Observable &obs, KernelSignature<Args...> &kernelCallable,
 }
 
 template <typename... Args>
-Eigen::MatrixXcd as_unitary_matrix(KernelSignature<Args...> &kernelCallable,
-                                   Args... args) {
+UnitaryMatrix as_unitary_matrix(KernelSignature<Args...> &kernelCallable,
+                                Args... args) {
   auto tempKernel = qcor::__internal__::create_composite("temp_as_unitary");
   kernelCallable(tempKernel, args...);
   auto instructions = tempKernel->getInstructions();
   // Assert that we don't have measurement
   if (!std::all_of(
           instructions.cbegin(), instructions.cend(),
-          [](const auto &inst) { return inst->name() != "Measure"; })) {
+          [](const auto &inst) { return is_not_measure(inst); })) {
     error(
         "Unable to compute unitary matrix for kernels that already have "
         "Measure operations.");
   }
-  qcor::KernelToUnitaryVisitor visitor(tempKernel->nLogicalBits());
-  xacc::InstructionIterator iter(tempKernel);
-  while (iter.hasNext()) {
-    auto inst = iter.next();
-    if (!inst->isComposite() && inst->isEnabled()) {
-      inst->accept(&visitor);
-    }
-  }
-  return visitor.getMat();
+
+  return __internal__::map_composite_to_unitary_matrix(tempKernel);
 }
 
 template <typename... Args>

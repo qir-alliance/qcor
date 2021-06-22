@@ -21,7 +21,7 @@ int main() {
   auto optimizer = createOptimizer("nlopt");
 
   // Optimize the above function
-  auto [optval, opt_params] = optimizer->optimize(*objective.get());
+  auto [optval, opt_params] = optimizer->optimize(objective);
   std::cout << "Energy: " << optval << "\n";
   qcor_expect(std::abs(optval + 1.74886) < 0.1);
 
@@ -35,7 +35,7 @@ int main() {
   auto objective_vec = createObjectiveFunction(ansatz_vec_param, H, q1, 1);
 
   // Optimize the above function
-  auto [optval_vec, opt_params_vec] = optimizer->optimize(*objective_vec.get());
+  auto [optval_vec, opt_params_vec] = optimizer->optimize(objective_vec);
   std::cout << "Energy: " << optval_vec << "\n";
   qcor_expect(std::abs(optval_vec + 1.74886) < 0.1);
 }

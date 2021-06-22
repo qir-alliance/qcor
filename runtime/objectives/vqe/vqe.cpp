@@ -37,9 +37,15 @@ class VQEObjective : public ObjectiveFunction {
     if (!vqe) {
       vqe = xacc::getAlgorithm("vqe");
     }
+
+    auto xacc_kernel = std::dynamic_pointer_cast<xacc::CompositeInstruction>(
+        kernel->get_as_opaque());
+    auto xacc_observable =
+        std::dynamic_pointer_cast<xacc::Observable>(observable.get_as_opaque());
     auto qpu = xacc::internal_compiler::get_qpu();
-    auto success = vqe->initialize(
-        {{"ansatz", kernel}, {"accelerator", qpu}, {"observable", observable}});
+    auto success = vqe->initialize({{"ansatz", xacc_kernel},
+                                    {"accelerator", qpu},
+                                    {"observable", xacc_observable}});
 
     if (!success) {
       xacc::error(
@@ -99,14 +105,15 @@ class VQEObjective : public ObjectiveFunction {
               options.getString("gradient-strategy"));
 
       if (gradient_strategy->isNumerical() &&
-          observable->getIdentitySubTerm()) {
+          xacc_observable->getIdentitySubTerm()) {
         gradient_strategy->setFunctionValue(
-            val - std::real(observable->getIdentitySubTerm()->coefficient()));
+            val -
+            std::real(xacc_observable->getIdentitySubTerm()->coefficient()));
       }
 
       gradient_strategy->initialize(options);
       auto grad_kernels = gradient_strategy->getGradientExecutions(
-          kernel, current_iterate_parameters);
+          xacc_kernel, current_iterate_parameters);
 
       auto tmp_grad = qalloc(qreg.size());
       qpu->execute(xacc::as_shared_ptr(tmp_grad.results()), grad_kernels);

@@ -9,7 +9,7 @@ add_library(${LIBRARY_NAME}
             ${CMAKE_BINARY_DIR}/runtime/jit/qcor_jit.cpp)
 
 target_include_directories(${LIBRARY_NAME}
-                           PUBLIC . ../qrt ${CMAKE_SOURCE_DIR}/runtime/qrt/internal_compiler ${XACC_ROOT}/include/xacc ${CMAKE_SOURCE_DIR}/handlers
+                           PUBLIC . ../qrt ../utils ../qrt/ir ${CMAKE_SOURCE_DIR}/runtime/qrt/internal_compiler ${XACC_ROOT}/include/xacc ${CMAKE_SOURCE_DIR}/handlers
                                   ${CLANG_INCLUDE_DIRS}
                                   ${LLVM_INCLUDE_DIRS})
 

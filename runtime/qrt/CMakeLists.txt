@@ -1,10 +1,10 @@
 set(LIBRARY_NAME qrt)
 
-file(GLOB SRC *.cpp internal_compiler/*.cpp)
+file(GLOB SRC *.cpp internal_compiler/*.cpp ir/*.cpp)
 
 add_library(${LIBRARY_NAME} SHARED ${SRC})
 
-target_include_directories(${LIBRARY_NAME} PUBLIC . ./internal_compiler ${CMAKE_BINARY_DIR} ${XACC_ROOT}/include/eigen ${CMAKE_SOURCE_DIR}/tpls/argparse)
+target_include_directories(${LIBRARY_NAME} PUBLIC . ../utils ./ir ./internal_compiler ../observable ${CMAKE_BINARY_DIR} ${XACC_ROOT}/include/eigen ${CMAKE_SOURCE_DIR}/tpls/argparse)
 
 target_link_libraries(${LIBRARY_NAME} PUBLIC xacc::xacc xacc::quantum_gate xacc::pauli)
 
@@ -19,7 +19,7 @@ else()
   set_target_properties(${LIBRARY_NAME} PROPERTIES LINK_FLAGS "-shared")
 endif()
 
-file(GLOB HEADERS qrt.hpp internal_compiler/qalloc internal_compiler/*.hpp)
+file(GLOB HEADERS qrt.hpp ir/*.hpp internal_compiler/qalloc internal_compiler/*.hpp)
 install(FILES ${HEADERS} DESTINATION include/qcor)
 install(TARGETS ${LIBRARY_NAME} DESTINATION lib)
 

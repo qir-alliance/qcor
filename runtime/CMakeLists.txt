@@ -8,13 +8,16 @@ set(LIBRARY_NAME qcor)
 file(GLOB SRC observable/qcor_observable.cpp 
               optimizer/qcor_optimizer.cpp 
               objectives/objective_function.cpp
-              objectives/gradient_function.cpp
-              execution/taskInitiate.cpp
-              utils/qcor_utils.cpp)
+              kernel/quantum_kernel.cpp
+              utils/qcor_utils.cpp
+              objectives/gradient_function.cpp)
+
+              #execution/taskInitiate.cpp
+              #utils/qcor_types.cpp)
 
 add_library(${LIBRARY_NAME} SHARED ${SRC})
 
-target_include_directories(${LIBRARY_NAME} PUBLIC . qrt qrt/internal_compiler
+target_include_directories(${LIBRARY_NAME} PUBLIC . objectives qrt qrt/internal_compiler qrt/ir ${XACC_ROOT}/include/spdlog
                             observable 
                             optimizer 
                             jit
@@ -41,15 +44,17 @@ file(GLOB HEADERS qcor.hpp
                   optimizer/qcor_optimizer.hpp 
                   kernel/quantum_kernel.hpp 
                   objectives/objective_function.hpp 
-                  objectives/gradient_function.hpp
+                  ojectives/gradient_function.hpp
                   execution/taskInitiate.hpp
-                  utils/qcor_utils.hpp)
+                  utils/qcor_utils.hpp
+                  utils/qcor_pimpl.hpp)
                   
 install(FILES ${HEADERS} DESTINATION include/qcor)
 install(TARGETS ${LIBRARY_NAME} DESTINATION lib)
 
 if (QCOR_BUILD_TESTS)
   add_subdirectory(tests)
+  add_subdirectory(observable/tests)
 endif()
 
 add_subdirectory(objectives)

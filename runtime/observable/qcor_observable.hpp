@@ -1,136 +1,148 @@
 #pragma once
 
-#include "FermionOperator.hpp"
-#include "Observable.hpp"
-#include "PauliOperator.hpp"
 #include "qcor_utils.hpp"
+
+#include <complex>
+#include <functional>
+#include <memory>
+#include <vector>
+
+#include "Identifiable.hpp"
+#include "heterogeneous.hpp"
+#include "operators.hpp"
+#include "qcor_pimpl.hpp"
+
 
 namespace qcor {
 
-// Remap xacc types to qcor ones
-using Observable = xacc::Observable;
-using PauliOperator = xacc::quantum::PauliOperator;
-using FermionOperator = xacc::quantum::FermionOperator;
+using namespace tao::operators;
+
+class Operator
+    : public commutative_ring<Operator>,
+      public equality_comparable<Operator>,
+      public commutative_multipliable<Operator, double>,
+      public commutative_multipliable<Operator, std::complex<double>> {
+ private:
+  class OperatorImpl;
+  qcor_pimpl<OperatorImpl> m_internal;
+
+ public:
+  Operator(const std::string &type, const std::string &expr);
+  Operator(const OperatorImpl &&impl);
+  Operator(const Operator &i);
+  Operator& operator=(const Operator&);
+  Operator();
+  ~Operator();
+
+  std::shared_ptr<xacc::Identifiable> get_as_opaque();
+
+  Operator &operator+=(const Operator &v) noexcept;
+  Operator &operator-=(const Operator &v) noexcept;
+  Operator &operator*=(const Operator &v) noexcept;
+  bool operator==(const Operator &v) noexcept;
+  Operator &operator*=(const double v) noexcept;
+  Operator &operator*=(const std::complex<double> v) noexcept;
+
+  int nQubits();
+  int nBits() { return nQubits(); }
+
+  std::vector<std::shared_ptr<CompositeInstruction>> observe(
+      std::shared_ptr<CompositeInstruction> function);
+  // std::vector<CompositeInstruction> observe(CompositeInstruction &function);
+  // std::vector<std::shared_ptr<CompositeInstruction>> observe(
+  //     std::shared_ptr<CompositeInstruction> function,
+  //     const HeterogeneousMap &grouping_options);
+
+  std::vector<Operator> getSubTerms();
+  std::vector<Operator> getNonIdentitySubTerms();
+
+  std::string toString() const;
+  Operator getIdentitySubTerm();
+  std::complex<double> coefficient();
+
+  class SparseElement
+      : std::tuple<std::uint64_t, std::uint64_t, std::complex<double>> {
+   public:
+    SparseElement(std::uint64_t r, std::uint64_t c,
+                  std::complex<double> coeff) {
+      std::get<0>(*this) = r;
+      std::get<1>(*this) = c;
+      std::get<2>(*this) = coeff;
+    }
+    std::uint64_t row() { return std::get<0>(*this); }
+    std::uint64_t col() { return std::get<1>(*this); }
+    const std::complex<double> coeff() { return std::get<2>(*this); }
+  };
+  std::vector<SparseElement> to_sparse_matrix();
+
+  Operator commutator(Operator &);
+};
+
+void __internal_exec_observer(xacc::AcceleratorBuffer*, std::vector<std::shared_ptr<CompositeInstruction>>);
 
 // Convenience functions for constructing Pauli operators
-PauliOperator X(int idx);
-PauliOperator Y(int idx);
-PauliOperator Z(int idx);
-PauliOperator SP(int idx);
-PauliOperator SM(int idx);
-PauliOperator allZs(const int nQubits);
+Operator X(int idx);
+Operator Y(int idx);
+Operator Z(int idx);
+Operator SP(int idx);
+Operator SM(int idx);
+Operator allZs(const int nQubits);
 
-FermionOperator adag(int idx);
-FermionOperator a(int idx);
+Operator adag(int idx);
+Operator a(int idx);
 
-// Expose extra algebra needed for pauli operators
-PauliOperator operator+(double coeff, PauliOperator &op);
-PauliOperator operator+(PauliOperator &op, double coeff);
-PauliOperator operator-(double coeff, PauliOperator &op);
-PauliOperator operator-(PauliOperator &op, double coeff);
+// // Expose extra algebra needed for pauli operators
+Operator operator+(double coeff, Operator op);
+Operator operator+(Operator op, double coeff);
+Operator operator-(double coeff, Operator op);
+Operator operator-(Operator op, double coeff);
 
-Eigen::MatrixXcd get_dense_matrix(PauliOperator &op);
-Eigen::MatrixXcd get_dense_matrix(std::shared_ptr<Observable> op);
-
-// Public observe function, returns expected value of Observable
-template <typename... Args>
-auto observe(void (*quantum_kernel_functor)(
-                 std::shared_ptr<CompositeInstruction>, Args...),
-             std::shared_ptr<Observable> obs, Args... args) {
-  // create a temporary with name given by mem_location_qkernel
-  std::stringstream name_ss;
-  name_ss << "observe_qkernel";
-  auto program = qcor::__internal__::create_composite(name_ss.str());
-
-  // Run the functor, this will add
-  // all quantum instructions to the parent kernel
-  quantum_kernel_functor(program, args...);
-  return [program, obs](Args... args) {
-    // Get qreg arg, will fail if more than one
-    std::tuple<Args...> tmp(std::forward_as_tuple(args...));
-    auto q = std::get<qreg>(tmp);
-
-    // Observe the program
-    auto programs = obs->observe(program);
-
-    xacc::internal_compiler::execute(q.results(), programs);
-
-    // We want to contract q children buffer
-    // exp-val-zs with obs term coeffs
-    return q.weighted_sum(obs.get());
-  }(args...);
-}
-
-// Public observe function, returns expected value of Observable
-template <typename... Args>
-auto observe(void (*quantum_kernel_functor)(
-                 std::shared_ptr<CompositeInstruction>, Args...),
-             Observable &obs, Args... args) {
-  // create a temporary with name given by mem_location_qkernel
-  std::stringstream name_ss;
-  name_ss << "observe_qkernel";
-  auto program = qcor::__internal__::create_composite(name_ss.str());
-
-  // Run the functor, this will add
-  // all quantum instructions to the parent kernel
-  quantum_kernel_functor(program, args...);
-  return [program, &obs](Args... args) {
-    // Get the qreg argument. will fail if more than 1 passed
-    std::tuple<Args...> tmp(std::forward_as_tuple(args...));
-    auto q = std::get<qreg>(tmp);
-
-    // Observe the program
-    auto programs = obs.observe(program);
-
-    xacc::internal_compiler::execute(q.results(), programs);
-
-    // We want to contract q children buffer
-    // exp-val-zs with obs term coeffs
-    return q.weighted_sum(&obs);
-  }(args...);
-}
+// Eigen::MatrixXcd get_dense_matrix(PauliOperator &op);
+// Eigen::MatrixXcd get_dense_matrix(std::shared_ptr<Observable> op);
 
 // Observe the given kernel, and return the expected value
-double observe(std::shared_ptr<CompositeInstruction> program, Observable &obs,
+double observe(std::shared_ptr<CompositeInstruction> program, Operator &obs,
                xacc::internal_compiler::qreg &q);
 
 // Observe the given kernel, and return the expected value
-double observe(std::shared_ptr<CompositeInstruction> program,
-               std::shared_ptr<Observable> obs,
-               xacc::internal_compiler::qreg &q);
+// double observe(std::shared_ptr<CompositeInstruction> program,
+//                std::shared_ptr<Observable> obs,
+//                xacc::internal_compiler::qreg &q);
 namespace __internal__ {
 // Observe the kernel and return the measured kernels
 std::vector<std::shared_ptr<CompositeInstruction>> observe(
-    std::shared_ptr<Observable> obs,
+    Operator& obs,
     std::shared_ptr<CompositeInstruction> program);
 
-extern std::map<std::size_t, std::shared_ptr<Observable>> cached_observables;
+extern std::map<std::size_t, Operator> cached_observables;
 
 }  // namespace __internal__
 
-std::shared_ptr<Observable> _internal_python_createObservable(
+Operator _internal_python_createObservable(
     const std::string &name, const std::string &repr);
     
 // Create an observable from a string representation
-std::shared_ptr<Observable> createObservable(const std::string &repr);
-std::shared_ptr<Observable> createObservable(const std::string &name,
+Operator createObservable(const std::string &repr);
+Operator createObservable(const std::string &name,
                                              const std::string &repr);
-std::shared_ptr<Observable> createObservable(const std::string &name,
-                                             HeterogeneousMap &&options);
-std::shared_ptr<Observable> createObservable(const std::string &name,
-                                             HeterogeneousMap &options);
+// Operator createObservable(const std::string &name,
+//                                              HeterogeneousMap &&options);
+// Operator createObservable(const std::string &name,
+//                                              HeterogeneousMap &options);
 
-std::shared_ptr<Observable> createOperator(const std::string &repr);
-std::shared_ptr<Observable> createOperator(const std::string &name,
+Operator createOperator(const std::string &repr);
+Operator createOperator(const std::string &name,
                                            const std::string &repr);
-std::shared_ptr<Observable> createOperator(const std::string &name,
-                                           HeterogeneousMap &&options);
-std::shared_ptr<Observable> createOperator(const std::string &name,
-                                           HeterogeneousMap &options);
+// Operator createOperator(const std::string &name,
+//                                            HeterogeneousMap &&options);
+// Operator createOperator(const std::string &name,
+//                                            HeterogeneousMap &options);
 
-std::shared_ptr<Observable> operatorTransform(const std::string &type,
-                                              qcor::Observable &op);
-std::shared_ptr<Observable> operatorTransform(const std::string &type,
-                                              std::shared_ptr<Observable> op);
+// Operator operatorTransform(const std::string &type,
+//                                               Operator &op);
+// Operator operatorTransform(const std::string &type,
+//                                               std::shared_ptr<Observable> op);
 
 }  // namespace qcor
+
+std::ostream &operator<<(std::ostream &os, qcor::Operator const &m);

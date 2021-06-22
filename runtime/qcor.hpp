@@ -5,7 +5,7 @@
 #include "qcor_optimizer.hpp"
 #include "qcor_utils.hpp"
 #include "quantum_kernel.hpp"
-#include "taskInitiate.hpp"
+// #include "taskInitiate.hpp"
 #include <qalloc>
 
 namespace qcor {

@@ -582,7 +582,7 @@ void QJIT::jit_compile(const std::string &code,
         demangled.find(kernel_name+"::"+kernel_name) == std::string::npos && // don't pick the class constructor
         demangled.find("qcor::QuantumKernel<"+kernel_name) == std::string::npos && // don't pick the QuantumKernel 
         demangled.find("__internal__compute_context_") == std::string::npos && // don't pick any of our internally generated compute functions
-        demangled.find("std::shared_ptr<xacc::CompositeInstruction>") != std::string::npos) { // must have composite inst arg
+        demangled.find("std::shared_ptr<qcor::CompositeInstruction>") != std::string::npos) { // must have composite inst arg
       parent_mangled_name = name;
     }
   }
@@ -705,14 +705,14 @@ void QJIT::invoke_with_hetmap(const std::string &kernel_name,
   kernel_functor(args);
 }
 
-std::shared_ptr<xacc::CompositeInstruction> QJIT::extract_composite_with_hetmap(
+std::shared_ptr<qcor::CompositeInstruction> QJIT::extract_composite_with_hetmap(
     const std::string kernel_name, xacc::HeterogeneousMap &args) {
-  auto composite =
-      xacc::getIRProvider("quantum")->createComposite(kernel_name + "_qjit");
+  auto composite =std::make_shared<CompositeInstruction>(kernel_name+"_qjit");
+      // xacc::getIRProvider("quantum")->createComposite(kernel_name + "_qjit");
   auto f_ptr = kernel_name_to_f_ptr_parent_hetmap[kernel_name];
-  void (*kernel_functor)(std::shared_ptr<xacc::CompositeInstruction>,
+  void (*kernel_functor)(std::shared_ptr<qcor::CompositeInstruction>,
                          xacc::HeterogeneousMap &) =
-      (void (*)(std::shared_ptr<xacc::CompositeInstruction>,
+      (void (*)(std::shared_ptr<qcor::CompositeInstruction>,
                 xacc::HeterogeneousMap &))f_ptr;
   kernel_functor(composite, args);
   return composite;

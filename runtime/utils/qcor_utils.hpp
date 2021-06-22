@@ -1,20 +1,23 @@
 #pragma once
 
-#include <argparse.hpp>
-#include <Eigen/Dense>
-#include <functional>
-#include <future>
+// #include <argparse.hpp>
+#include <complex>
+#include <iostream>
 #include <memory>
 #include <random>
 #include <tuple>
 #include <vector>
-#include "AllGateVisitor.hpp"
-#include "CompositeInstruction.hpp"
-#include "IRProvider.hpp"
-#include "IRTransformation.hpp"
-#include "Optimizer.hpp"
+
 #include "qalloc.hpp"
-#include "xacc_internal_compiler.hpp"
+#include "qcor_ir.hpp"
+
+namespace xacc {
+class IRProvider;
+class IRTransformation;
+namespace internal_compiler {
+class qreg;
+}
+}  // namespace xacc
 
 namespace qcor {
 
@@ -22,46 +25,55 @@ namespace constants {
 static constexpr double pi = 3.141592653589793238;
 }
 
-namespace arg {
-  // Expose ArgumentParser for custom instantiation
-  using ArgumentParser = argparse::ArgumentParser;
+// namespace arg {
+// // Expose ArgumentParser for custom instantiation
+// using ArgumentParser = argparse::ArgumentParser;
 
-  // Default argument parser
-  ArgumentParser &get_parser();
+// // Default argument parser
+// ArgumentParser &get_parser();
 
-  // Parameter packing
-  // Call add_argument with variadic number of string arguments
-  template <typename... Targs> 
-  argparse::Argument &add_argument(Targs... Fargs) {
-    return get_parser().add_argument(Fargs...);
-  }
+// // Parameter packing
+// // Call add_argument with variadic number of string arguments
+// template <typename... Targs>
+// argparse::Argument &add_argument(Targs... Fargs) {
+//   return get_parser().add_argument(Fargs...);
+// }
 
-  // Getter for options with default values.
-  //  @throws std::logic_error if there is no such option
-  //  @throws std::logic_error if the option has no value
-  //  @throws std::bad_any_cast if the option is not of type T
-  //
-  template <typename T = std::string>
-  T get_argument(std::string_view argument_name) {
-    return get_parser().get<T>(argument_name);
-  }
-    
-  // Main entry point for parsing command-line arguments using this
-  //  ArgumentParser
-  //  @throws std::runtime_error in case of any invalid argument
-  //
-  void parse_args(int argc, const char *const argv[]);
-}
+// // Getter for options with default values.
+// //  @throws std::logic_error if there is no such option
+// //  @throws std::logic_error if the option has no value
+// //  @throws std::bad_any_cast if the option is not of type T
+// //
+// template <typename T = std::string>
+// T get_argument(std::string_view argument_name) {
+//   return get_parser().get<T>(argument_name);
+// }
+
+// // Main entry point for parsing command-line arguments using this
+// //  ArgumentParser
+// //  @throws std::runtime_error in case of any invalid argument
+// //
+// void parse_args(int argc, const char *const argv[]);
+// }  // namespace arg
 
 // Typedefs mapping xacc/Eigen types to qcor types
-using CompositeInstruction = xacc::CompositeInstruction;
+// class CompositeInstruction {
+//   public:
+//   xacc::CompositeInstruction operator->();
+//   CompositeInstruction(xacc::CompositeInstruction&& ci)
+
+//   private:
+//   std::unique_ptr<xacc::CompositeInstruction> _impl;
+// };
+
+// class CompositeInstruction;// = xacc::CompositeInstruction;
 using HeterogeneousMap = xacc::HeterogeneousMap;
 using IRTransformation = xacc::IRTransformation;
 using IRProvider = xacc::IRProvider;
 using qreg = xacc::internal_compiler::qreg;
-using UnitaryMatrix = Eigen::MatrixXcd;
-using DenseMatrix = Eigen::MatrixXcd;
-using DenseVector = Eigen::VectorXcd;
+
+using UnitaryMatrix =
+    std::vector<std::tuple<std::size_t, std::size_t, std::complex<double>>>;
 
 template <typename T>
 using PairList = std::vector<std::pair<T, T>>;
@@ -70,23 +82,24 @@ using PairList = std::vector<std::pair<T, T>>;
 // the taskInitiate async call, it contains the buffer,
 // the optimal value for the objective function, and the
 // optimal parameters
-class ResultsBuffer {
- public:
-  xacc::internal_compiler::qreg q_buffer;
-  double opt_val;
-  std::vector<double> opt_params;
-  double value;
-};
+// class ResultsBuffer {
+//  public:
+//   xacc::internal_compiler::qreg q_buffer;
+//   double opt_val;
+//   std::vector<double> opt_params;
+//   double value;
+// };
 
 // A Handle is just a future on ResultsBuffer
-using Handle = std::future<ResultsBuffer>;
+// using Handle = std::future<ResultsBuffer>;
 
 // Sync up a Handle
-ResultsBuffer sync(Handle &handle);
+// ResultsBuffer sync(Handle &handle);
 
 // Indicate we have an error with the given message.
 // This should abort execution
 void error(const std::string &msg);
+std::vector<std::string> split(const std::string &str, char delimiter);
 
 template <typename T>
 std::vector<T> linspace(T a, T b, size_t N) {
@@ -140,14 +153,14 @@ void print(const T &t, TAIL... tail) {
   print(tail...);
 }
 
-template <typename T>
-void persist_var_to_qreq(const std::string &key, T &val, qreg &q) {
-  q.results()->addExtraInfo(key, val);
-}
+// template <typename T>
+// void persist_var_to_qreq(const std::string &key, T &val, qreg &q) {
+//   q.results()->addExtraInfo(key, val);
+// }
 
 std::shared_ptr<qcor::IRTransformation> createTransformation(
     const std::string &transform_type);
-    
+
 // The TranslationFunctor maps vector<double> to a tuple of Args...
 template <typename... Args>
 using TranslationFunctor =
@@ -184,7 +197,11 @@ using GradientEvaluator =
 
 namespace __internal__ {
 
-std::string translate(const std::string compiler, std::shared_ptr<CompositeInstruction> program);
+UnitaryMatrix map_composite_to_unitary_matrix(
+    std::shared_ptr<CompositeInstruction> composite);
+
+std::string translate(const std::string compiler,
+                      std::shared_ptr<CompositeInstruction> program);
 
 void append_plugin_path(const std::string path);
 
@@ -194,6 +211,8 @@ std::shared_ptr<qcor::CompositeInstruction> create_composite(std::string name);
 
 // Return the CTRL-U CompositeInstruction generator
 std::shared_ptr<qcor::CompositeInstruction> create_ctrl_u();
+std::shared_ptr<qcor::CompositeInstruction> create_and_expand_ctrl_u(
+    HeterogeneousMap &&m);
 
 // Return the IR Transformation
 std::shared_ptr<qcor::IRTransformation> get_transformation(
@@ -203,16 +222,18 @@ std::shared_ptr<qcor::IRTransformation> get_transformation(
 std::shared_ptr<qcor::IRProvider> get_provider();
 
 // Decompose the given unitary matrix with the specified decomposition
-// algorithm.
+// // algorithm.
 std::shared_ptr<qcor::CompositeInstruction> decompose_unitary(
     const std::string algorithm, UnitaryMatrix &mat,
     const std::string buffer_name);
 
-// Decompose the given unitary matrix with the specified decomposition algorithm
-// and optimizer
-std::shared_ptr<qcor::CompositeInstruction> decompose_unitary(
-    const std::string algorithm, UnitaryMatrix &mat,
-    const std::string buffer_name, std::shared_ptr<xacc::Optimizer> optimizer);
+// // Decompose the given unitary matrix with the specified decomposition
+// algorithm
+// // and optimizer
+// std::shared_ptr<qcor::CompositeInstruction> decompose_unitary(
+//     const std::string algorithm, UnitaryMatrix &mat,
+//     const std::string buffer_name, std::shared_ptr<xacc::Optimizer>
+//     optimizer);
 
 // Utility for calling a Functor via mapping a tuple of Args to
 // a sequence of Args...
@@ -356,7 +377,7 @@ bool get_verbose();
 // Set the shots for a given quantum kernel execution
 void set_shots(const int shots);
 
-using namespace Eigen;
+// using namespace Eigen;
 
 // The following visitor is adapted from xacc AutodiffVisitor.
 
@@ -367,59 +388,13 @@ inline constexpr std::complex<double> operator"" _i(long double x) noexcept {
   return {0., static_cast<double>(x)};
 }
 
-MatrixXcd kroneckerProduct(MatrixXcd &lhs, MatrixXcd &rhs);
-enum class Rot { X, Y, Z };
-
-class KernelToUnitaryVisitor : public xacc::quantum::AllGateVisitor {
- public:
-  KernelToUnitaryVisitor(size_t in_nbQubits);
-
-  void visit(xacc::quantum::Hadamard &h) override;
-  void visit(xacc::quantum::CNOT &cnot) override;
-  void visit(xacc::quantum::Rz &rz) override;
-  void visit(xacc::quantum::Ry &ry) override;
-  void visit(xacc::quantum::Rx &rx) override;
-  void visit(xacc::quantum::X &x) override;
-  void visit(xacc::quantum::Y &y) override;
-  void visit(xacc::quantum::Z &z) override;
-  void visit(xacc::quantum::CY &cy) override;
-  void visit(xacc::quantum::CZ &cz) override;
-  void visit(xacc::quantum::Swap &s) override;
-  void visit(xacc::quantum::CRZ &crz) override;
-  void visit(xacc::quantum::CH &ch) override;
-  void visit(xacc::quantum::S &s) override;
-  void visit(xacc::quantum::Sdg &sdg) override;
-  void visit(xacc::quantum::T &t) override;
-  void visit(xacc::quantum::Tdg &tdg) override;
-  void visit(xacc::quantum::CPhase &cphase) override;
-  void visit(xacc::quantum::Measure &measure) override;
-  void visit(xacc::quantum::Identity &i) override;
-  void visit(xacc::quantum::U &u) override;
-  void visit(xacc::quantum::IfStmt &ifStmt) override;
-  // Identifiable Impl
-  const std::string name() const override { return "kernel-to-unitary"; }
-  const std::string description() const override { return ""; }
-  MatrixXcd getMat() const;
-  MatrixXcd singleQubitGateExpand(MatrixXcd &in_gateMat, size_t in_loc) const;
-
-  MatrixXcd singleParametricQubitGateExpand(double in_var, Rot in_rotType,
-                                            size_t in_bitLoc) const;
-
-  MatrixXcd twoQubitGateExpand(MatrixXcd &in_gateMat, size_t in_bit1,
-                               size_t in_bit2) const;
-
- private:
-  MatrixXcd m_circuitMat;
-  size_t m_nbQubit;
-};
-
-#define qcor_expect(test_condition)                                            \
-  {                                                                            \
-    if (!(test_condition)) {                                                   \
-      std::stringstream ss;                                                    \
-      ss << __FILE__ << ":" << __LINE__ << ": Assertion failed: '"             \
-         << #test_condition << "'.";                                           \
-      error(ss.str());                                                         \
-    }                                                                          \
+#define qcor_expect(test_condition)                                \
+  {                                                                \
+    if (!(test_condition)) {                                       \
+      std::stringstream ss;                                        \
+      ss << __FILE__ << ":" << __LINE__ << ": Assertion failed: '" \
+         << #test_condition << "'.";                               \
+      error(ss.str());                                             \
+    }                                                              \
   }
-} // namespace qcor
+}  // namespace qcor
