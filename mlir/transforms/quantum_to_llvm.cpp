@@ -21,8 +21,6 @@
 #include "lowering/SetQregOpLowering.hpp"
 #include "lowering/StdAtanOpLowering.hpp"
 #include "lowering/ValueSemanticsInstOpLowering.hpp"
-#include "optimizations/IdentityPairRemovalPass.hpp"
-#include "optimizations/RemoveUnusedQIRCalls.hpp"
 
 namespace qcor {
 mlir::Type get_quantum_type(std::string type, mlir::MLIRContext *context) {
@@ -70,28 +68,28 @@ void QuantumToLLVMLoweringPass::runOnOperation() {
   OwningRewritePatternList patterns;
   auto module = getOperation();
 
-  if (q_optimizations) {
-    // TODO Figure out how to rip this out to its on MLIR-level Pass. 
-    // I'm struggling to make that happen...
+  // if (q_optimizations) {
+  //   // TODO Figure out how to rip this out to its on MLIR-level Pass. 
+  //   // I'm struggling to make that happen...
     
-    // First, add any Optimization Passes.
-    // We note that some opt passes will free up other optimizations that
-    // would otherwise be missed on the first pass, so do this a certain
-    // number of times.
-    int n_heuristic_passes = 5;
-    for (int i = 0; i < n_heuristic_passes; i++) {
-      patterns.insert<SingleQubitIdentityPairRemovalPattern>(&getContext());
-      patterns.insert<CNOTIdentityPairRemovalPattern>(&getContext());
-      if (failed(applyPartialConversion(module, target, std::move(patterns))))
-        signalPassFailure();
-    }
+  //   // First, add any Optimization Passes.
+  //   // We note that some opt passes will free up other optimizations that
+  //   // would otherwise be missed on the first pass, so do this a certain
+  //   // number of times.
+  //   int n_heuristic_passes = 5;
+  //   for (int i = 0; i < n_heuristic_passes; i++) {
+  //     patterns.insert<SingleQubitIdentityPairRemovalPattern>(&getContext());
+  //     patterns.insert<CNOTIdentityPairRemovalPattern>(&getContext());
+  //     if (failed(applyPartialConversion(module, target, std::move(patterns))))
+  //       signalPassFailure();
+  //   }
 
-    // Clean up...
-    patterns.insert<RemoveUnusedExtractQubitCalls>(&getContext());
-    if (failed(applyPartialConversion(module, target, std::move(patterns))))
-      signalPassFailure();
-    patterns.insert<RemoveUnusedQallocCalls>(&getContext());
-  }
+  //   // Clean up...
+  //   patterns.insert<RemoveUnusedExtractQubitCalls>(&getContext());
+  //   if (failed(applyPartialConversion(module, target, std::move(patterns))))
+  //     signalPassFailure();
+  //   patterns.insert<RemoveUnusedQallocCalls>(&getContext());
+  // }
 
   // Lower arctan correctly
   patterns.insert<StdAtanOpLowering>(&getContext());
