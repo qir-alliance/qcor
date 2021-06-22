@@ -126,9 +126,7 @@ void RotationMergingPass::runOnOperation() {
                 .replaceAllUsesWith(*new_inst.result_begin());
           }
 
-          // Erase both original instructions:
-          // rewriter.eraseOp(op);
-          // rewriter.eraseOp(next_inst);
+          // Cache instructions for delete.
           deadOps.emplace_back(op);
           deadOps.emplace_back(next_inst);
         }
@@ -136,8 +134,13 @@ void RotationMergingPass::runOnOperation() {
     }
   });
 
+  // Remove but not erase the op (delete)
+  // since the new op is relied on them.
+  // TODO: use *op.remove()* once available (later version of LLVM)
   for (auto &op : deadOps) {
-    op.erase();
+    if (mlir::Block *parent = op.getOperation()->getBlock()) {
+      parent->getOperations().remove(op);
+    }
   }
 }
 } // namespace qcor
