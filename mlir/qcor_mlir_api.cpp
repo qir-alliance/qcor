@@ -18,6 +18,7 @@
 #include "qcor_jit.hpp"
 #include "quantum_to_llvm.hpp"
 #include "tools/ast_printer.hpp"
+#include "pass_manager.hpp"
 
 namespace qcor {
 
@@ -62,6 +63,7 @@ const std::string mlir_compile(const std::string &src_language_type,
 
   // Create the PassManager for lowering to LLVM MLIR and run it
   mlir::PassManager pm(&context);
+  qcor::configureOptimizationPasses(pm);
   pm.addPass(std::make_unique<qcor::QuantumToLLVMLoweringPass>(
       true, unique_function_names));
   auto module_op = (*module).getOperation();
@@ -151,6 +153,7 @@ int execute(const std::string &src_language_type, const std::string &src,
 
   // Create the PassManager for lowering to LLVM MLIR and run it
   mlir::PassManager pm(&context);
+  qcor::configureOptimizationPasses(pm);
   pm.addPass(std::make_unique<qcor::QuantumToLLVMLoweringPass>(
       true, unique_function_names));
   auto module_op = (*module).getOperation();
@@ -249,6 +252,7 @@ int execute(const std::string &src_language_type, const std::string &src,
 
   // Create the PassManager for lowering to LLVM MLIR and run it
   mlir::PassManager pm(&context);
+  qcor::configureOptimizationPasses(pm);
   pm.addPass(std::make_unique<qcor::QuantumToLLVMLoweringPass>(
       true, unique_function_names));
   auto module_op = (*module).getOperation();

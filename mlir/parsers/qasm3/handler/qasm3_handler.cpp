@@ -7,6 +7,7 @@
 #include "openqasmv3_mlir_generator.hpp"
 #include "qasm3_handler_utils.hpp"
 #include "quantum_to_llvm.hpp"
+#include "pass_manager.hpp"
 
 using namespace clang;
 
@@ -129,6 +130,7 @@ void Qasm3SyntaxHandler::GetReplacement(Preprocessor &PP, Declarator &D,
   std::vector<std::string> unique_f_names{kernel_name};
   mlir::PassManager pm(&context);
   applyPassManagerCLOptions(pm);
+  qcor::configureOptimizationPasses(pm);
   pm.addPass(std::make_unique<qcor::QuantumToLLVMLoweringPass>(true, unique_f_names));
   auto module_op = (*module).getOperation();
   if (mlir::failed(pm.run(module_op))) {

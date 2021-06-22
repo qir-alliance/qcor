@@ -16,8 +16,7 @@
 #include "openqasmv3_mlir_generator.hpp"
 #include "quantum_to_llvm.hpp"
 #include "tools/ast_printer.hpp"
-#include "optimizations/RotationMergingPass.hpp"
-#include "optimizations/SingleQubitGateMergingPass.hpp"
+#include "pass_manager.hpp"
 
 using namespace mlir;
 using namespace staq;
@@ -133,20 +132,14 @@ int main(int argc, char **argv) {
   mlir::PassManager pm(&context);
   applyPassManagerCLOptions(pm);
 
-  // **NOTE**
-  // Users can use `--print-ir-before` option to print MLIR before each pass.
-  // TODO: use more complex pipeline structure for passes.
   if (qoptimizations) {
-    // Add passes
-    // Rotation merging
-    pm.addPass(std::make_unique<RotationMergingPass>());
-    // General gate sequence re-synthesize
-    pm.addPass(std::make_unique<SingleQubitGateMergingPass>());
+    // Add optimization passes
+    qcor::configureOptimizationPasses(pm);
   }
-
   // Lower MLIR to LLVM
   pm.addPass(std::make_unique<qcor::QuantumToLLVMLoweringPass>(
       qoptimizations, unique_function_names));
+
   auto module_op = (*module).getOperation();
   if (mlir::failed(pm.run(module_op))) {
     std::cout << "Pass Manager Failed\n";
