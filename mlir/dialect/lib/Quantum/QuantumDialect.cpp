@@ -16,18 +16,26 @@ struct QuantumInlinerInterface : public DialectInlinerInterface {
   using DialectInlinerInterface::DialectInlinerInterface;
 
   /// This hook checks to see if the given callable operation is legal to inline
-  /// into the given call. 
+  /// into the given call.
   /// Operations in Quantum dialect are always legal to inline.
-  bool isLegalToInline(Operation *, Operation *, bool) const final {
+  bool isLegalToInline(Operation *call, Operation *callable,
+                       bool wouldBeCloned) const final {
     return true;
   }
 
   /// This hook checks to see if the given operation is legal to inline into the
   /// given region.
-  /// Always legal to inline.
-  bool isLegalToInline(Operation *, Region *, bool,
+  /// Only inline VSOp for now:
+  // FIXME: there is a weird error when qalloc is inlined at MLIR level
+  // hence, just allow VSOp to be inlined for the timebeing.
+  // i.e. all quantum subroutines that only contain VSOp's can be inlined.
+  bool isLegalToInline(Operation *op, Region *regione, bool,
                        BlockAndValueMapping &) const final {
-    return true;
+    if (dyn_cast_or_null<mlir::quantum::ValueSemanticsInstOp>(op)) {
+      return true;
+    }
+
+    return false;
   }
 };
 } // namespace
