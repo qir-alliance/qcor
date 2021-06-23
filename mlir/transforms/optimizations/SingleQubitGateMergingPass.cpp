@@ -133,9 +133,17 @@ void SingleQubitGateMergingPass::runOnOperation() {
 
         // Input -> Output mapping (this instruction is to be removed)
         auto last_inst_orig = ops_list.back();
-        auto last_inst_new = new_ops.back();
-        (*last_inst_orig.result_begin())
-            .replaceAllUsesWith(*last_inst_new.result_begin());
+        if (new_ops.empty()) {
+          auto first_inst_orig = ops_list.front();
+          // The new sequence is empty (complete cancellation)
+          // Map input to output of the whole sequence.
+          (*last_inst_orig.result_begin())
+              .replaceAllUsesWith(first_inst_orig.getOperand(0));
+        } else {
+          auto last_inst_new = new_ops.back();
+          (*last_inst_orig.result_begin())
+              .replaceAllUsesWith(*last_inst_new.result_begin());
+        }
 
         // Erase original instructions:
         for (auto &op_to_delete : ops_list) {
