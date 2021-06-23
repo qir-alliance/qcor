@@ -79,11 +79,11 @@ TEST(qasm3PassManagerTester, checkRemoveUnusedQirCalls) {
   const std::string src = R"#(OPENQASM 3;
 include "qelib1.inc";
 qubit q[2];
+cx q[0], q[1];
 h q[0];
 z q[0];
 h q[0];
 x q[0];
-cx q[0], q[1];
 cx q[0], q[1];
 )#";
   auto llvm =
