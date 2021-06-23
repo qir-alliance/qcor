@@ -10,6 +10,8 @@
 // across different use cases of MLIR compilation.
 namespace qcor {
 void configureOptimizationPasses(mlir::PassManager &passManager) {
+  auto inliner = mlir::createInlinerPass(); 
+  passManager.addPass(std::move(inliner));
   // TODO: configure the pass pipeline to handle repeated applications of passes.
   // Add passes
   constexpr int N_REPS = 5;
