@@ -124,6 +124,34 @@ oracle q[0];
   EXPECT_EQ(countSubstring(llvm, "__quantum__rt__qubit_release_array"), 0);
 }
 
+TEST(qasm3PassManagerTester, checkPermuteAndCancel) {
+  // Permute rz-cnot ==> gate cancellation
+  const std::string src = R"#(OPENQASM 3;
+include "qelib1.inc";
+
+qubit q[2];
+
+rz(0.123) q[0];
+cx q[0], q[1];
+rz(-0.123) q[0];
+cx q[0], q[1];
+)#";
+  auto llvm =
+      qcor::mlir_compile("qasm3", src, "test_kernel", qcor::OutputType::LLVMIR, false);
+  std::cout << "LLVM:\n" << llvm << "\n";
+  
+  // Get the main kernel section only (there is the oracle LLVM section as well)
+  llvm = llvm.substr(llvm.find("@test_kernel"));
+  const auto last = llvm.find_first_of("}");
+  llvm = llvm.substr(0, last + 1);
+  std::cout << "LLVM:\n" << llvm << "\n";
+  // Cancel all => No gates, extract, or alloc/dealloc:
+  EXPECT_EQ(countSubstring(llvm, "__quantum__qis"), 0);
+  EXPECT_EQ(countSubstring(llvm, "__quantum__rt__array_get_element_ptr_1d"), 0);
+  EXPECT_EQ(countSubstring(llvm, "__quantum__rt__qubit_allocate_array"), 0);
+  EXPECT_EQ(countSubstring(llvm, "__quantum__rt__qubit_release_array"), 0);
+}
+
 int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);
   auto ret = RUN_ALL_TESTS();

@@ -1,5 +1,7 @@
 #include "RotationMergingPass.hpp"
 #include "Quantum/QuantumOps.h"
+#include "mlir/Dialect/LLVMIR/LLVMDialect.h"
+#include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
@@ -7,8 +9,6 @@
 #include "mlir/Target/LLVMIR.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/Passes.h"
-#include "mlir/Dialect/LLVMIR/LLVMDialect.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include <iostream>
 
 namespace qcor {
@@ -99,17 +99,22 @@ void RotationMergingPass::runOnOperation() {
             // both angles are constant: pre-compute the total angle:
             const double totalAngle =
                 first_angle_const.value() + second_angle_const.value();
-            mlir::Value totalAngleVal = rewriter.create<mlir::ConstantOp>(
-                op.getLoc(),
-                mlir::FloatAttr::get(rewriter.getF64Type(), totalAngle));
-            auto new_inst =
-                rewriter.create<mlir::quantum::ValueSemanticsInstOp>(
-                    op.getLoc(), llvm::makeArrayRef(ret_types),
-                    result_inst_name, llvm::makeArrayRef(op.getOperand(0)),
-                    llvm::makeArrayRef({totalAngleVal}));
-            // Input -> Output mapping (this instruction is to be removed)
-            (*next_inst.result_begin())
-                .replaceAllUsesWith(*new_inst.result_begin());
+            if (std::abs(totalAngle) > ZERO_ROTATION_TOLERANCE) {
+              mlir::Value totalAngleVal = rewriter.create<mlir::ConstantOp>(
+                  op.getLoc(),
+                  mlir::FloatAttr::get(rewriter.getF64Type(), totalAngle));
+              auto new_inst =
+                  rewriter.create<mlir::quantum::ValueSemanticsInstOp>(
+                      op.getLoc(), llvm::makeArrayRef(ret_types),
+                      result_inst_name, llvm::makeArrayRef(op.getOperand(0)),
+                      llvm::makeArrayRef({totalAngleVal}));
+              // Input -> Output mapping (this instruction is to be removed)
+              (*next_inst.result_begin())
+                  .replaceAllUsesWith(*new_inst.result_begin());
+            } else {
+              // Zero rotation: just map from input -> output
+              (*next_inst.result_begin()).replaceAllUsesWith(op.getOperand(0));
+            }
           } else {
             // Need to create an AddFOp
             auto add_op = rewriter.create<mlir::AddFOp>(

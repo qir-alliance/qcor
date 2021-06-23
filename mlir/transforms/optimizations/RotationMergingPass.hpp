@@ -25,6 +25,8 @@ private:
   static inline const std::vector<std::pair<std::string, std::string>> search_gates{
       {"rx", "rx"}, {"ry", "ry"}, {"rz", "rz"},
       {"x", "rx"},  {"y", "ry"},  {"z", "rz"}};
+  // Angle that we considered zero:
+  static constexpr double ZERO_ROTATION_TOLERANCE = 1e-9;
   bool should_combine(const std::string &name1, const std::string &name2) const;
 };
 } // namespace qcor
