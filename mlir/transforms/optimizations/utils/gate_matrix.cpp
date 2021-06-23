@@ -253,7 +253,7 @@ std::vector<pauli_decomp_t>
 simplifySingleQubitSeq(double zAngleBefore, double yAngle, double zAngleAfter) {
   auto zExpBefore = zAngleBefore / M_PI - 0.5;
   auto middleExp = yAngle / M_PI;
-  std::string middlePauli = "Rx";
+  std::string middlePauli = "rx";
   auto zExpAfter = zAngleAfter / M_PI + 0.5;
 
   // Helper functions:

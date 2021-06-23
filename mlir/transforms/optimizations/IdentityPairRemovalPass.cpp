@@ -36,7 +36,6 @@ void SingleQubitIdentityPairRemovalPass::runOnOperation() {
               dyn_cast_or_null<mlir::quantum::ValueSemanticsInstOp>(user)) {
         // check that it is one of our known id pairs
         if (should_remove(next_inst.name().str(), inst_name.str())) {
-
           // need to get users of next_inst and point them to use
           // op.getOperands
           (*next_inst.result_begin()).replaceAllUsesWith(op.getOperand(0));
@@ -48,9 +47,8 @@ void SingleQubitIdentityPairRemovalPass::runOnOperation() {
   });
 
   for (auto &op : deadOps) {
-    if (mlir::Block *parent = op.getOperation()->getBlock()) {
-      parent->getOperations().remove(op);
-    }
+    op->dropAllUses();
+    op.erase();
   }
 }
 
@@ -128,9 +126,8 @@ void CNOTIdentityPairRemovalPass::runOnOperation() {
   });
 
   for (auto &op : deadOps) {
-    if (mlir::Block *parent = op.getOperation()->getBlock()) {
-      parent->getOperations().remove(op);
-    }
+    op->dropAllUses();
+    op.erase();
   }
 }
 } // namespace qcor

@@ -2,6 +2,7 @@
 #include "optimizations/RotationMergingPass.hpp"
 #include "optimizations/SingleQubitGateMergingPass.hpp"
 #include "optimizations/IdentityPairRemovalPass.hpp"
+#include "optimizations/RemoveUnusedQIRCallsPass.hpp"
 #include "quantum_to_llvm.hpp"
 
 // Construct QCOR MLIR pass manager:
@@ -19,5 +20,9 @@ void configureOptimizationPasses(mlir::PassManager &passManager) {
   passManager.addPass(std::make_unique<RotationMergingPass>());
   // General gate sequence re-synthesize
   passManager.addPass(std::make_unique<SingleQubitGateMergingPass>());
+
+
+  // Remove dead code
+  passManager.addPass(std::make_unique<RemoveUnusedQIRCallsPass>());
 }
 } // namespace qcor

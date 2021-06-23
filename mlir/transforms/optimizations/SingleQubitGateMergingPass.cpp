@@ -145,13 +145,9 @@ void SingleQubitGateMergingPass::runOnOperation() {
     }
   });
 
-  // Remove but not erase the op (delete)
-  // since the new op is relied on them.
-  // TODO: use *op.remove()* once available (later version of LLVM)
   for (auto &op : deadOps) {
-    if (mlir::Block *parent = op.getOperation()->getBlock()) {
-      parent->getOperations().remove(op);
-    }
+    op->dropAllUses();
+    op.erase();
   }
 }
 } // namespace qcor
