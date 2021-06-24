@@ -53,10 +53,10 @@ add_qcor_compile_and_exe_test(quasimo_vqe quasimo/VqeWithAnsatzCircuit.cpp)
 add_qcor_compile_and_exe_test(quasimo_trotter quasimo/TrotterTdWorkflow.cpp)
 add_qcor_compile_and_exe_test(quasimo_iqpe_vqe quasimo/IterativeQpeVqe.cpp)
 add_qcor_compile_and_exe_test(quasimo_adapt_vqe quasimo/AdaptVqeWorkflow.cpp)
-add_qcor_compile_and_exe_test(quasimo_qaoa quasimo/QaoaWorkflow.cpp)
+#add_qcor_compile_and_exe_test(quasimo_qaoa quasimo/QaoaWorkflow.cpp)
 add_qcor_compile_and_exe_test(quasimo_qite quasimo/QiteWorkflow.cpp)
 add_qcor_compile_and_exe_test(quasimo_heisenberg quasimo/TdWorkflowHeisenbergModel.cpp)
-add_qcor_compile_and_exe_test(quasimo_verified_qpe quasimo/VerifiedQuantumPhaseEstimation.cpp)
+#add_qcor_compile_and_exe_test(quasimo_verified_qpe quasimo/VerifiedQuantumPhaseEstimation.cpp)
 add_qcor_compile_and_exe_test(hadamard_ctrl_test ctrl-gates/simple_hadamard_test.cpp)
 add_qcor_compile_and_exe_test(multi_ctrl_test ctrl-gates/multiple_controls.cpp)
 
@@ -73,6 +73,7 @@ add_qcor_compile_and_exe_test(qrt_qpu_lambdas_in_loop qpu_lambda/deuteron_lambda
 add_qcor_compile_and_exe_test(qrt_qpu_lambda_deuteron qpu_lambda/deuteron_vqe.cpp)
 add_qcor_compile_and_exe_test(qrt_qpu_lambda_objfunc qpu_lambda/deuteron_vqe_obj_func.cpp)
 add_qcor_compile_and_exe_test(qrt_qpu_lambda_hadamard_test ctrl-gates/hadamard_test.cpp)
+add_qcor_compile_and_exe_test(qrt_qpu_lambda_compute_action qpu_lambda/lambda_with_compute_action.cpp)
 
 # Arithmetic tests
 add_qcor_compile_and_exe_test(qrt_qpu_arith_adder arithmetic/simple.cpp)

@@ -578,10 +578,11 @@ void QJIT::jit_compile(const std::string &code,
   for (Function &f : *module) {
     auto name = f.getName().str();
     auto demangled = demangle(name.c_str());
-    if (demangled.find(kernel_name) != std::string::npos && 
+    if (demangled.find(kernel_name+"(") != std::string::npos && // has to be KERNEL_NAME(
         demangled.find(kernel_name+"::"+kernel_name) == std::string::npos && // don't pick the class constructor
         demangled.find("qcor::QuantumKernel<"+kernel_name) == std::string::npos && // don't pick the QuantumKernel 
-        demangled.find("std::shared_ptr<xacc::CompositeInstruction>") != std::string::npos) {
+        demangled.find("__internal__compute_context_") == std::string::npos && // don't pick any of our internally generated compute functions
+        demangled.find("std::shared_ptr<xacc::CompositeInstruction>") != std::string::npos) { // must have composite inst arg
       parent_mangled_name = name;
     }
   }

@@ -79,10 +79,12 @@ void PyXasmTokenCollector::collect(clang::Preprocessor &PP,
       line += for_stmt;
     }
 
-    // If statement:
+    // If statement or while statement:
+    // Add a space b/w tokens.
     // Note: Python has an "elif" token, which doesn't have a C++ equiv.
     if (Toks[i].is(clang::tok::TokenKind::kw_if) ||
-        PP.getSpelling(Toks[i]) == "elif") {
+        PP.getSpelling(Toks[i]) == "elif" ||
+        Toks[i].is(clang::tok::TokenKind::kw_while)) {
       line += " ";
       i += 1;
       line += PP.getSpelling(Toks[i]);
@@ -171,6 +173,11 @@ void PyXasmTokenCollector::collect(clang::Preprocessor &PP,
       // Remove the first two characters ("el")
       // hence this line will be parsed as an idependent C++ if block:
       lineText.erase(0, 2);
+    } else if (line.first.rfind("while ", 0) == 0) {
+      // rewrite to 
+      // while (condition) {}
+      // Just capture the indent level to close the scope properly
+      scope_block_indent.push(line.second);
     }
     // is_in_for_loop = line.first.find("for ") != std::string::npos &&
     // line.second >= previous_col;

@@ -78,6 +78,7 @@ class NISQ : public ::quantum::QuantumRuntime,
   }
 
  public:
+
   std::shared_ptr<::quantum::QuantumRuntime> clone() override {
     return std::make_shared<NISQ>();
   }
