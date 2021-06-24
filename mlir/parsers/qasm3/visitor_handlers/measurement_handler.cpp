@@ -166,8 +166,11 @@ antlrcpp::Any qasm3_visitor::visitQuantumMeasurementAssignment(
           auto qbit_idx = qubit_indices[i];
           auto bit_idx = bit_indices[i];
 
-          mlir::Value idx_val = get_or_create_constant_index_value(
-              qbit_idx, location, 64, symbol_table, builder);
+          // !IMPORTANT! q.extract expects i64 as index.
+          // Using index type will cause validation issue at the MLIR level.
+          // (i.e. requires all-the-way-to-LLVM lowering for types to match)
+          mlir::Value idx_val = get_or_create_constant_integer_value(
+              qbit_idx, location, builder.getI64Type(), symbol_table, builder);
           mlir::Value bit_idx_val = get_or_create_constant_index_value(
               bit_idx, location, 64, symbol_table, builder);
 
@@ -251,18 +254,25 @@ antlrcpp::Any qasm3_visitor::visitQuantumMeasurementAssignment(
       }
 
       for (int i = 0; i < nqubits; i++) {
+        // q.Extract must use integer type (not index type)
+        mlir::Value q_idx_val = get_or_create_constant_integer_value(
+            i, location, builder.getI64Type(), symbol_table, builder);
         mlir::Value idx_val = get_or_create_constant_index_value(
             i, location, 64, symbol_table, builder);
 
         auto extract = builder.create<mlir::quantum::ExtractQubitOp>(
-            location, qubit_type, value, idx_val);
+            location, qubit_type, value, q_idx_val);
 
         auto instop = builder.create<mlir::quantum::InstOp>(
             location, result_type, str_attr, llvm::makeArrayRef(extract.qbit()),
             llvm::makeArrayRef(std::vector<mlir::Value>{}));
+        
+        // Cast Measure Result -> Bit (i1)
+        auto cast_bit_op = builder.create<mlir::quantum::ResultCastOp>(
+            location, builder.getIntegerType(1), instop.bit());
 
         builder.create<mlir::StoreOp>(
-            location, instop.bit(), bit_value,
+            location, cast_bit_op.bit_result(), bit_value,
             llvm::makeArrayRef(std::vector<mlir::Value>{idx_val}));
       }
     }

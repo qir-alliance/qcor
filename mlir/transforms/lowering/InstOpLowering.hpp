@@ -34,4 +34,20 @@ public:
   matchAndRewrite(Operation *op, ArrayRef<Value> operands,
                   ConversionPatternRewriter &rewriter) const override;
 };
+
+// Lower Result type casting:
+// In QCOR QIR runtime, Result is just a bool (i1)
+// hence, just need to do a type cast and load.
+class ResultCastOpLowering : public ConversionPattern {
+protected:
+public:
+  explicit ResultCastOpLowering(MLIRContext *context)
+      : ConversionPattern(mlir::quantum::ResultCastOp::getOperationName(), 1,
+                          context) {}
+
+  // Match and replace all InstOps
+  LogicalResult
+  matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+                  ConversionPatternRewriter &rewriter) const override;
+};
 } // namespace qcor

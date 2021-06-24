@@ -152,4 +152,11 @@ def CreateStringLiteralOp : QuantumOp<"createString", []> {
   p << "q.create_string(\"" << op.text() << "\")"; }];
 }
 
+// Cast QIR Result to bool (i1 type)
+def ResultCastOp : QuantumOp<"resultCast", []> {
+    let arguments = (ins ResultType:$measure_result);
+    let results = (outs I1:$bit_result);
+    let printer = [{  auto op = *this;
+  p << "q.resultCast" << "(" << op.measure_result() << ") : " << op.bit_result().getType(); }];
+}
 #endif // Quantum_OPS
