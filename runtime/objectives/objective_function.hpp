@@ -24,7 +24,6 @@ class ObjectiveFunction : public xacc::Identifiable {
   // evaluated quantum kernel
   std::shared_ptr<CompositeInstruction> kernel;
 
-  // non-owning
   Operator observable;
 
   HeterogeneousMap options;

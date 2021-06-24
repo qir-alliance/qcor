@@ -88,14 +88,14 @@ def main(argv=None):
     verbose=False
     keep_bit_code_files=False
     baseLibs = ['-rdynamic', '-Wl,-rpath,@XACC_ROOT@/lib:@CMAKE_INSTALL_PREFIX@/lib:@LLVM_INSTALL_PREFIX@/lib:@CMAKE_INSTALL_PREFIX@/clang-plugins',
-                            '-L', '@CMAKE_INSTALL_PREFIX@/lib','-lqcor', '-lqrt', '-lqcor-hybrid', '-lqcor-quasimo', '-lqcor-jit',
+                            '-L', '@CMAKE_INSTALL_PREFIX@/lib','-lqcor', '-lqrt', '-lqcor-jit',
                              '-L', '@XACC_ROOT@/lib', '-lxacc', '-lCppMicroServices', '-lxacc-quantum-gate',
                             '-lxacc-pauli', '-lxacc-fermion', '-lpthread']
     if '@CMAKE_SYSTEM_NAME@' != 'Darwin':
         baseLibs += ['-lqir-qrt']
         
     baseIncludes = ['-I', '@XACC_ROOT@/include/xacc', '-I', '@CMAKE_INSTALL_PREFIX@/include/qcor', '-I', '@XACC_ROOT@/include/quantum/gate', '-I', '@XACC_ROOT@/include/eigen']
-    defaultFlags = ['-std=c++17', '-fplugin=@CMAKE_INSTALL_PREFIX@/clang-plugins/libqcor-syntax-handler@CMAKE_SHARED_LIBRARY_SUFFIX@']
+    defaultFlags = ['-std=c++17', '-include', '@CMAKE_INSTALL_PREFIX@/include/qcor/qcor_lang_ext.hpp', '-fplugin=@CMAKE_INSTALL_PREFIX@/clang-plugins/libqcor-syntax-handler@CMAKE_SHARED_LIBRARY_SUFFIX@']
 
     extra_headers = '@QCOR_EXTRA_HEADERS@'.replace('"','')
     qs_qir_gen_dll = '@QIR_GEN_DLL@'
@@ -146,6 +146,7 @@ def main(argv=None):
         parser.add_argument('-pythonpath', metavar='', help='print the correct PYTHONPATH to leverage qcor and xacc python API.')
         parser.add_argument('-keep-llvm-file', metavar='', help='keep intermediate LLVM files.')
         parser.add_argument('-print-final-submission', metavar='', help='print the final quantum circuit for backend submission (ignored in FTQC).')
+        # FIXME ADD NO FAST COMPILE FLAG (TURN OFF PCH, MAINLY FOR BENCHMARK COMPARISONS)
         
         # Q# options to be passed to the Q# QIR generator:
         parser.add_argument('-qs-build-exe', metavar='', help='Q# QIR generator to emit alias functions for entry points.')
@@ -558,5 +559,17 @@ def main(argv=None):
 
     return 0
 
+
 if __name__ == "__main__":
+    # import cProfile, pstats, io
+    # from pstats import SortKey
+    # pr = cProfile.Profile()
+    # pr.enable()
+    # main()
+    # pr.disable()
+    # s = io.StringIO()
+    # sortby = SortKey.CUMULATIVE
+    # ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
+    # ps.print_stats()
+    # print(s.getvalue())
     sys.exit(main())

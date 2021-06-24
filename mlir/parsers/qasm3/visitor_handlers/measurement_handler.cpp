@@ -221,7 +221,7 @@ antlrcpp::Any qasm3_visitor::visitQuantumMeasurementAssignment(
       // This is the case where we are measuring an entire qubit array
       // to a bit array
       // First check that the sizes match up
-      std::uint64_t nqubits;
+      std::uint64_t nqubits = 0;
       if (auto qalloc_op = value.getDefiningOp<mlir::quantum::QallocOp>()) {
         nqubits = qalloc_op.size().getLimitedValue();
       } else {

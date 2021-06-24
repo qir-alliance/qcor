@@ -30,8 +30,8 @@ class CompositeInstruction {
   CompositeInstruction(const std::string &name);
   CompositeInstructionImpl *operator->();
 
-  const std::size_t nLogicalBits();
-  const std::size_t nPhysicalBits();
+  std::size_t nLogicalBits();
+  std::size_t nPhysicalBits();
   std::shared_ptr<CompositeInstruction> operator()(const std::vector<double>& x);
 
   std::shared_ptr<xacc::Identifiable> get_as_opaque();

@@ -9,12 +9,13 @@
 #include <vector>
 #include <Eigen/Dense>
 
-#include "qalloc.hpp"
+// #include "qalloc.hpp"
 #include "qcor_ir.hpp"
 
 namespace xacc {
 class IRProvider;
 class IRTransformation;
+class AcceleratorBuffer;
 namespace internal_compiler {
 class qreg;
 }
@@ -57,32 +58,14 @@ T get_argument(std::string_view argument_name) {
 void parse_args(int argc, const char *const argv[]);
 }  // namespace arg
 
-// Typedefs mapping xacc/Eigen types to qcor types
-// class CompositeInstruction {
-//   public:
-//   xacc::CompositeInstruction operator->();
-//   CompositeInstruction(xacc::CompositeInstruction&& ci)
 
-//   private:
-//   std::unique_ptr<xacc::CompositeInstruction> _impl;
-// };
-
-// class CompositeInstruction;// = xacc::CompositeInstruction;
+template <typename T>
+using PairList = std::vector<std::pair<T, T>>;
 using HeterogeneousMap = xacc::HeterogeneousMap;
 using IRTransformation = xacc::IRTransformation;
 using IRProvider = xacc::IRProvider;
 using qreg = xacc::internal_compiler::qreg;
-
-// namespace Eigen {
-//   template<typename Derived>
-//   class MatrixBase;
-// }
-
 using UnitaryMatrix = Eigen::MatrixXcd;
-    // std::vector<std::tuple<std::size_t, std::size_t, std::complex<double>>>;
-
-template <typename T>
-using PairList = std::vector<std::pair<T, T>>;
 
 // The ResultsBuffer is returned upon completion of
 // the taskInitiate async call, it contains the buffer,
@@ -146,6 +129,7 @@ template <typename T>
 int len(const T &countable) {
   return countable.size();
 }
+
 template <typename T>
 int len(T &countable) {
   return countable.size();
@@ -158,11 +142,6 @@ void print(const T &t, TAIL... tail) {
   std::cout << t << " ";
   print(tail...);
 }
-
-// template <typename T>
-// void persist_var_to_qreq(const std::string &key, T &val, qreg &q) {
-//   q.results()->addExtraInfo(key, val);
-// }
 
 std::shared_ptr<qcor::IRTransformation> createTransformation(
     const std::string &transform_type);

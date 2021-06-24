@@ -17,7 +17,7 @@ void qasm3_visitor::createInstOps_HandleBroadcast(
 
   auto get_qreg_size = [&, this](mlir::Value qreg_value,
                                  const std::string qreg_name) {
-    uint64_t nqubits;
+    uint64_t nqubits = 0;
     if (auto op = qreg_value.getDefiningOp<mlir::quantum::QallocOp>()) {
       nqubits = op.size().getLimitedValue();
     } else {

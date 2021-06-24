@@ -29,7 +29,7 @@ antlrcpp::Any qasm3_visitor::visitAliasStatement(
                                      in_indexIdentifierContext) {
         // Helper to determine the qreg size
         const auto get_qreg_size = [&](const std::string &qreg_name) {
-          uint64_t nqubits;
+          uint64_t nqubits = 0;
           auto qreg_value = symbol_table.get_symbol(qreg_name);
           if (auto op = qreg_value.getDefiningOp<mlir::quantum::QallocOp>()) {
             nqubits = op.size().getLimitedValue();

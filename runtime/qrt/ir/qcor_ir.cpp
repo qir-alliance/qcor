@@ -32,8 +32,8 @@ class CompositeInstruction::CompositeInstructionImpl {
     return program->getInstruction(idx);
   }
 
-  const std::size_t nLogicalBits() { return program->nLogicalBits(); }
-  const std::size_t nPhysicalBits() { return program->nPhysicalBits(); }
+  std::size_t nLogicalBits() { return program->nLogicalBits(); }
+  std::size_t nPhysicalBits() { return program->nPhysicalBits(); }
 
   std::vector<LocalOpaqueInstPtr> getInstructions() {
     auto tmp = program->getInstructions();
@@ -106,10 +106,10 @@ std::shared_ptr<xacc::CompositeInstruction> CompositeInstruction::as_xacc() {
   return m_internal->program;
 }
 
-const std::size_t CompositeInstruction::nLogicalBits() {
+std::size_t CompositeInstruction::nLogicalBits() {
   return m_internal->nLogicalBits();
 }
-const std::size_t CompositeInstruction::nPhysicalBits() {
+std::size_t CompositeInstruction::nPhysicalBits() {
   return m_internal->nPhysicalBits();
 }
 

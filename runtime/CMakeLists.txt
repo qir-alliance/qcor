@@ -43,14 +43,17 @@ file(GLOB HEADERS qcor.hpp
                   observable/qcor_observable.hpp 
                   optimizer/qcor_optimizer.hpp 
                   kernel/quantum_kernel.hpp 
+                  qcor_lang_ext.hpp
                   objectives/objective_function.hpp 
                   objectives/gradient_function.hpp
                   execution/taskInitiate.hpp
                   utils/qcor_utils.hpp
                   utils/qcor_pimpl.hpp)
-                  
+
 install(FILES ${HEADERS} DESTINATION include/qcor)
 install(TARGETS ${LIBRARY_NAME} DESTINATION lib)
+install(CODE "execute_process(COMMAND ${LLVM_INSTALL_PREFIX}/bin/clang++ -std=c++17 -x c++-header ${CMAKE_SOURCE_DIR}/runtime/qcor_lang_ext.hpp -o ${CMAKE_BINARY_DIR}/runtime/qcor_lang_ext.hpp.pch -I ${XACC_ROOT}/include/xacc -I ${XACC_ROOT}/include/qcor -I ${XACC_ROOT}/include/eigen)")
+install(FILES ${CMAKE_BINARY_DIR}/runtime/qcor_lang_ext.hpp.pch DESTINATION include/qcor)
 
 if (QCOR_BUILD_TESTS)
   add_subdirectory(tests)

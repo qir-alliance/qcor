@@ -16,6 +16,7 @@
 #include "qcor_pimpl_impl.hpp"
 #include "xacc_internal_compiler.hpp"
 #include "xacc_quantum_gate_api.hpp"
+#include "qalloc.hpp"
 
 namespace qcor {
 
