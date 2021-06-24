@@ -558,8 +558,8 @@ antlrcpp::Any qasm3_visitor::visitClassicalAssignment(
         }
 
         for (int i = 0; i < lhs_shape; i++) {
-          mlir::Value pos = get_or_create_constant_integer_value(
-              i, location, builder.getIntegerType(64), symbol_table, builder);
+          mlir::Value pos = get_or_create_constant_index_value(
+              i, location, 64, symbol_table, builder);
           auto load = builder.create<mlir::LoadOp>(location, rhs, pos);
           builder.create<mlir::StoreOp>(
               location, load, lhs,
@@ -571,6 +571,7 @@ antlrcpp::Any qasm3_visitor::visitClassicalAssignment(
                             {lhs, rhs});
         }
 
+        assert(v.getType().isa<mlir::IndexType>());
         builder.create<mlir::StoreOp>(
             location, rhs, lhs,
             llvm::makeArrayRef(std::vector<mlir::Value>{v}));

@@ -218,10 +218,18 @@ class qasm3_visitor : public qasm3::qasm3BaseVisitor {
           "Cannot allocate and initialize memory, shape and number of initial "
           "value indices is incorrect");
     }
+
+    // Assert that the values to init the memref array
+    // must be of the expected type.
+    for (const auto &init_val : initial_values) {
+      assert(init_val.getType() == type);
+    }
+
     // Allocate
     auto allocation = allocate_1d_memory(location, shape, type);
     // and initialize
     for (int i = 0; i < initial_values.size(); i++) {
+      assert(initial_indices[i].getType().isa<mlir::IndexType>());
       builder.create<mlir::StoreOp>(location, initial_values[i], allocation,
                                     initial_indices[i]);
     }

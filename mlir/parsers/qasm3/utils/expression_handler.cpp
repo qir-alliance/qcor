@@ -1056,7 +1056,8 @@ antlrcpp::Any qasm3_expression_generator::visitExpressionTerminator(
                   location, loop_var_memref, zero_index);
               auto add =
                   builder.create<mlir::AddIOp>(location, load_inc, c_val);
-
+              
+              assert(tmp2.getType().isa<mlir::IndexType>());
               builder.create<mlir::StoreOp>(
                   location, add, loop_var_memref,
                   llvm::makeArrayRef(std::vector<mlir::Value>{tmp2}));

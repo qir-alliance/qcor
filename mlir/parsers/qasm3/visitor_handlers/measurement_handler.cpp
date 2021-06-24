@@ -217,6 +217,7 @@ antlrcpp::Any qasm3_visitor::visitQuantumMeasurementAssignment(
           0, location, 64, symbol_table, builder);
       }
 
+      assert(v.getType().isa<mlir::IndexType>());
       builder.create<mlir::StoreOp>(
           location, instop.bit(), bit_value,
           llvm::makeArrayRef(std::vector<mlir::Value>{v}));
