@@ -28,12 +28,14 @@ std::vector<double> run_gradient_strategy(
     gradient_strategy->setFunctionValue(
         cost_val - std::real(observable->getIdentitySubTerm()->coefficient()));
   }
-  auto kernel_eval = [&](std::vector<double> x)
+  std::function<std::shared_ptr<xacc::CompositeInstruction>(
+      std::vector<double>)>
+      kernel_eval = [&](std::vector<double> x)
       -> std::shared_ptr<xacc::CompositeInstruction> {
     // _kernel_eval produces a qcor::CompositeInstruction ptr
-    return std::dynamic_pointer_cast<xacc::CompositeInstruction>(
-        _kernel_eval(x)->get_as_opaque());
+    return _kernel_eval(x)->as_xacc();
   };
+  std::cout << "NOW WE ARE HERE\n";
   auto kernel = kernel_eval(x);
   gradient_strategy->initialize({{"observable", observable},
                                  {"step", step},
@@ -42,6 +44,7 @@ std::vector<double> run_gradient_strategy(
   const size_t nb_qubits = std::max(static_cast<size_t>(observable->nBits()),
                                     kernel->nPhysicalBits());
   auto tmp_grad = qalloc(nb_qubits);
+  std::cout << "EXECING IN THIEN WORK\n";
   xacc::internal_compiler::execute(tmp_grad.results(), grad_kernels);
   auto tmp_grad_children = tmp_grad.results()->getChildren();
   gradient_strategy->compute(gradients, tmp_grad_children);
@@ -129,8 +132,7 @@ class KernelBackwardDifferenceGradient : public KernelGradientService {
     gradient_func = [&](const std::vector<double> &x,
                         double cost_val) -> std::vector<double> {
       auto obs = m_objFunc->get_observable();
-      return run_gradient_strategy(x, cost_val, "backward", m_step,
-                                   obs,
+      return run_gradient_strategy(x, cost_val, "backward", m_step, obs,
                                    m_objFunc->get_kernel_evaluator());
     };
   }
@@ -173,8 +175,7 @@ class KernelCentralDifferenceGradient : public KernelGradientService {
     gradient_func = [&](const std::vector<double> &x,
                         double cost_val) -> std::vector<double> {
       auto obs = m_objFunc->get_observable();
-      return run_gradient_strategy(x, cost_val, "central", m_step,
-                                   obs,
+      return run_gradient_strategy(x, cost_val, "central", m_step, obs,
                                    m_objFunc->get_kernel_evaluator());
     };
   }

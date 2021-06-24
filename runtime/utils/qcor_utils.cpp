@@ -14,15 +14,15 @@
 
 namespace qcor {
 
-// namespace arg {
-// static ArgumentParser _parser;
+namespace arg {
+static ArgumentParser _parser;
 
-// ArgumentParser &get_parser() { return _parser; }
+ArgumentParser &get_parser() { return _parser; }
 
-// void parse_args(int argc, const char *const argv[]) {
-//   get_parser().parse_args(argc, argv);
-// }
-// }  // namespace arg
+void parse_args(int argc, const char *const argv[]) {
+  get_parser().parse_args(argc, argv);
+}
+}  // namespace arg
 
 void set_verbose(bool verbose) { xacc::set_verbose(verbose); }
 bool get_verbose() { return xacc::verbose; }
@@ -51,9 +51,7 @@ std::shared_ptr<CompositeInstruction> compile(const std::string &src) {
 namespace __internal__ {
 std::string translate(const std::string compiler,
                       std::shared_ptr<CompositeInstruction> program) {
-  return xacc::getCompiler(compiler)->translate(
-      std::dynamic_pointer_cast<xacc::CompositeInstruction>(
-          program->get_as_opaque()));
+  return xacc::getCompiler(compiler)->translate(program->as_xacc());
 }
 
 void append_plugin_path(const std::string path) {
@@ -76,9 +74,7 @@ std::shared_ptr<qcor::CompositeInstruction> create_and_expand_ctrl_u(
       xacc::getService<xacc::Instruction>("C-U"));
   if (m.pointerLikeExists<CompositeInstruction>("U")) {
     // Cast to an XACC Composite Instruction
-    m.insert("U",
-             std::dynamic_pointer_cast<xacc::CompositeInstruction>(
-                 m.getPointerLike<CompositeInstruction>("U")->get_as_opaque()));
+    m.insert("U", m.getPointerLike<CompositeInstruction>("U")->as_xacc());
   }
   comp->expand(m);
   auto tmp = std::make_shared<CompositeInstruction>(comp);
@@ -205,8 +201,7 @@ class KernelToUnitaryVisitor : public xacc::quantum::AllGateVisitor {
 
 UnitaryMatrix map_composite_to_unitary_matrix(
     std::shared_ptr<CompositeInstruction> composite) {
-  auto c = std::dynamic_pointer_cast<xacc::CompositeInstruction>(
-      composite->get_as_opaque());
+  auto c = composite->as_xacc();
   qcor::KernelToUnitaryVisitor visitor(c->nLogicalBits());
   xacc::InstructionIterator iter(c);
   while (iter.hasNext()) {
@@ -215,7 +210,7 @@ UnitaryMatrix map_composite_to_unitary_matrix(
       inst->accept(&visitor);
     }
   }
-  // return visitor.getMat();
+  return visitor.getMat();
 }
 
 MatrixXcd X_Mat{MatrixXcd::Zero(2, 2)};

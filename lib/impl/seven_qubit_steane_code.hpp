@@ -1,8 +1,8 @@
 #pragma once
 
 // Distance-3 Steane quantum error correction code with 7 qubits
-std::vector<std::vector<qcor::PauliOperator>> seven_qubit_code_stabilizers() {
-  static const std::vector<std::vector<qcor::PauliOperator>> STABILIZERS{
+std::vector<std::vector<qcor::Operator>> seven_qubit_code_stabilizers() {
+  static const std::vector<std::vector<qcor::Operator>> STABILIZERS{
       // Steane code has two groups of syndromes to detect X and Z errors.
       // X syndromes
       {qcor::X(0), qcor::X(2), qcor::X(4), qcor::X(6)},

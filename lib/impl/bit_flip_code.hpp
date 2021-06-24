@@ -1,7 +1,7 @@
 #pragma once
 
-std::vector<std::vector<qcor::PauliOperator>> bit_flip_code_stabilizers() {
-  static const std::vector<std::vector<qcor::PauliOperator>> STABILIZERS{
+std::vector<std::vector<qcor::Operator>> bit_flip_code_stabilizers() {
+  static const std::vector<std::vector<qcor::Operator>> STABILIZERS{
       {qcor::Z(0), qcor::Z(1)}, {qcor::Z(1), qcor::Z(2)}};
   return STABILIZERS;
 }

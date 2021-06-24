@@ -32,6 +32,9 @@ class CompositeInstruction::CompositeInstructionImpl {
     return program->getInstruction(idx);
   }
 
+  const std::size_t nLogicalBits() { return program->nLogicalBits(); }
+  const std::size_t nPhysicalBits() { return program->nPhysicalBits(); }
+
   std::vector<LocalOpaqueInstPtr> getInstructions() {
     auto tmp = program->getInstructions();
     std::vector<LocalOpaqueInstPtr> ret(tmp.begin(), tmp.end());
@@ -49,6 +52,11 @@ class CompositeInstruction::CompositeInstructionImpl {
         idx, std::dynamic_pointer_cast<xacc::Instruction>(newInst));
   }
   void clear() { program->clear(); }
+
+  std::shared_ptr<CompositeInstruction> operator()(
+      const std::vector<double> &x) {
+    return std::make_shared<CompositeInstruction>(program->operator()(x));
+  }
 
   void addInstruction(LocalOpaqueInstPtr instruction) {
     program->addInstruction(
@@ -93,6 +101,21 @@ std::shared_ptr<xacc::Identifiable> CompositeInstruction::get_as_opaque() {
 
 const std::string CompositeInstruction::name() const {
   return m_internal->name();
+}
+std::shared_ptr<xacc::CompositeInstruction> CompositeInstruction::as_xacc() {
+  return m_internal->program;
+}
+
+const std::size_t CompositeInstruction::nLogicalBits() {
+  return m_internal->nLogicalBits();
+}
+const std::size_t CompositeInstruction::nPhysicalBits() {
+  return m_internal->nPhysicalBits();
+}
+
+std::shared_ptr<CompositeInstruction> CompositeInstruction::operator()(
+    const std::vector<double> &x) {
+  return m_internal->operator()(x);
 }
 
 std::string CompositeInstruction::toString() { return m_internal->toString(); }
@@ -147,4 +170,4 @@ void CompositeInstruction::addInstructions(
   m_internal->addInstructions(std::move(insts), shouldValidate);
 }
 
-}
+}  // namespace qcor

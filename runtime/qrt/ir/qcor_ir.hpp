@@ -11,6 +11,7 @@
 // Leave Instruction opaque
 namespace xacc {
 class Instruction;
+class CompositeInstruction;
 }
 
 namespace qcor {
@@ -29,8 +30,13 @@ class CompositeInstruction {
   CompositeInstruction(const std::string &name);
   CompositeInstructionImpl *operator->();
 
-  std::shared_ptr<xacc::Identifiable> get_as_opaque();
+  const std::size_t nLogicalBits();
+  const std::size_t nPhysicalBits();
+  std::shared_ptr<CompositeInstruction> operator()(const std::vector<double>& x);
 
+  std::shared_ptr<xacc::Identifiable> get_as_opaque();
+  std::shared_ptr<xacc::CompositeInstruction> as_xacc();
+  
   const std::string name() const;
   int nInstructions();
   int nChildren();
@@ -42,6 +48,7 @@ class CompositeInstruction {
   void removeInstruction(const std::size_t idx);
   void replaceInstruction(const std::size_t idx, LocalOpaqueInstPtr newInst);
   void insertInstruction(const std::size_t idx, LocalOpaqueInstPtr newInst);
+
   void clear();
 
   void addInstruction(LocalOpaqueInstPtr instruction);

@@ -38,8 +38,8 @@ class VQEObjective : public ObjectiveFunction {
       vqe = xacc::getAlgorithm("vqe");
     }
 
-    auto xacc_kernel = std::dynamic_pointer_cast<xacc::CompositeInstruction>(
-        kernel->get_as_opaque());
+    gradients_computed = false;
+    auto xacc_kernel = kernel->as_xacc();
     auto xacc_observable =
         std::dynamic_pointer_cast<xacc::Observable>(observable.get_as_opaque());
     auto qpu = xacc::internal_compiler::get_qpu();
@@ -99,6 +99,7 @@ class VQEObjective : public ObjectiveFunction {
     // qreg.addChild(tmp_child);
 
     if (!dx.empty() && options.stringExists("gradient-strategy")) {
+      std::cout << "WE HAVE GRADIENTS\n";
       // Compute the gradient
       auto gradient_strategy =
           xacc::getService<xacc::AlgorithmGradientStrategy>(
@@ -111,14 +112,38 @@ class VQEObjective : public ObjectiveFunction {
             std::real(xacc_observable->getIdentitySubTerm()->coefficient()));
       }
 
-      gradient_strategy->initialize(options);
+      if (!options.key_exists_any_type("kernel-evaluator")) {
+        error("cannot compute gradients without kernel evaluator.");
+      }
+
+      // First translate to an xacc kernel evaluator
+      auto k_eval =
+          options.get<std::function<std::shared_ptr<CompositeInstruction>(
+              std::vector<double>)>>("kernel-evaluator");
+
+      std::function<std::shared_ptr<xacc::CompositeInstruction>(
+          std::vector<double>)>
+          xacc_k_eval =
+              [&](std::vector<double> x) { return k_eval(x)->as_xacc(); };
+
+      std::cout << "MADE IT HERE1\n";
+      auto step = options.get_or_default("step", 1e-3);
+      gradient_strategy->initialize({{"kernel-evaluator", xacc_k_eval},
+                                     {"observable", xacc_observable},
+                                     {"step", step}});
+      std::cout << "MADE IT HERE2\n";
+
       auto grad_kernels = gradient_strategy->getGradientExecutions(
           xacc_kernel, current_iterate_parameters);
+      std::cout << "Got grad execs: " << grad_kernels.size() << "\n";
 
       auto tmp_grad = qalloc(qreg.size());
       qpu->execute(xacc::as_shared_ptr(tmp_grad.results()), grad_kernels);
       auto tmp_grad_children = tmp_grad.results()->getChildren();
+      std::cout << "EXECUTED\n";
       gradient_strategy->compute(dx, tmp_grad_children);
+      std::cout << "COMPUTINGGRADS\n";
+      gradients_computed = true;
     }
     return val;
   }

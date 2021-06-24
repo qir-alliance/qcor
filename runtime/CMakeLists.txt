@@ -44,7 +44,7 @@ file(GLOB HEADERS qcor.hpp
                   optimizer/qcor_optimizer.hpp 
                   kernel/quantum_kernel.hpp 
                   objectives/objective_function.hpp 
-                  ojectives/gradient_function.hpp
+                  objectives/gradient_function.hpp
                   execution/taskInitiate.hpp
                   utils/qcor_utils.hpp
                   utils/qcor_pimpl.hpp)

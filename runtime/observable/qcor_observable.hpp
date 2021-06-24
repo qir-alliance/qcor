@@ -48,17 +48,17 @@ class Operator
 
   std::vector<std::shared_ptr<CompositeInstruction>> observe(
       std::shared_ptr<CompositeInstruction> function);
-  // std::vector<CompositeInstruction> observe(CompositeInstruction &function);
-  // std::vector<std::shared_ptr<CompositeInstruction>> observe(
-  //     std::shared_ptr<CompositeInstruction> function,
-  //     const HeterogeneousMap &grouping_options);
 
   std::vector<Operator> getSubTerms();
   std::vector<Operator> getNonIdentitySubTerms();
-
+  bool hasIdentitySubTerm();
+  
   std::string toString() const;
   Operator getIdentitySubTerm();
   std::complex<double> coefficient();
+
+  std::pair<std::vector<int>, std::vector<int>> toBinaryVectors(const int nQubits);
+  void mapQubitSites(std::map<int, int> &siteMap);
 
   class SparseElement
       : std::tuple<std::uint64_t, std::uint64_t, std::complex<double>> {

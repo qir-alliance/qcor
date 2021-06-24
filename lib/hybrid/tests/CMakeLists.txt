@@ -1,8 +1,0 @@
-link_directories(${XACC_ROOT}/lib)
-set(CMAKE_CXX_COMPILER "${CMAKE_BINARY_DIR}/qcor")
-add_executable(VQE_Hybrid_Tester VQETester.cpp)
-add_dependencies(VQE_Hybrid_Tester qcor-syntax-handler)
-target_compile_options(VQE_Hybrid_Tester PRIVATE -internal-syntax-handler-plugin-path ${CMAKE_BINARY_DIR}/handlers)
-add_test(NAME qcor_VQE_Hybrid_Tester COMMAND VQE_Hybrid_Tester)
-target_include_directories(VQE_Hybrid_Tester PRIVATE ${XACC_ROOT}/include/gtest)
-target_link_libraries(VQE_Hybrid_Tester ${XACC_TEST_LIBRARIES} qcor-hybrid)

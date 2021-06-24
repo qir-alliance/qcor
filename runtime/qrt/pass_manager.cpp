@@ -52,8 +52,7 @@ PassStat PassManager::runPass(const std::string &passName,
                               std::shared_ptr<CompositeInstruction> _program) {
   PassStat stat;
   stat.passName = passName;
-  auto program = std::dynamic_pointer_cast<xacc::CompositeInstruction>(
-      _program->get_as_opaque());
+  auto program = _program->as_xacc();
 
   // Counts gate before:
   stat.gateCountBefore = PassStat::countGates(_program);
@@ -80,8 +79,7 @@ PassStat PassManager::runPass(const std::string &passName,
 std::vector<PassStat> PassManager::optimize(
     std::shared_ptr<CompositeInstruction> _program) const {
   std::vector<PassStat> passData;
-  auto program = std::dynamic_pointer_cast<xacc::CompositeInstruction>(
-      _program->get_as_opaque());
+  auto program = _program->as_xacc();
 
   // Selects the list of passes based on the optimization level.
   const auto passesToRun = [&]() {
@@ -104,8 +102,7 @@ std::vector<PassStat> PassManager::optimize(
 
 void PassManager::applyPlacement(
     std::shared_ptr<CompositeInstruction> _program) const {
-  auto program = std::dynamic_pointer_cast<xacc::CompositeInstruction>(
-      _program->get_as_opaque());
+  auto program = _program->as_xacc();
 
   const std::string placementName = [&]() -> std::string {
     // If the qubit-map was provided, always use default-placement
@@ -142,8 +139,7 @@ void PassManager::applyPlacement(
 
 std::unordered_map<std::string, int> PassStat::countGates(
     const std::shared_ptr<CompositeInstruction> &_program) {
-  auto program = std::dynamic_pointer_cast<xacc::CompositeInstruction>(
-      _program->get_as_opaque());
+  auto program = _program->as_xacc();
 
   std::unordered_map<std::string, int> gateCount;
   xacc::InstructionIterator iter(program);

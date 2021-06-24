@@ -223,7 +223,6 @@ void __quantum__rt__qubit_release(Qubit *q) {
   }
 }
 
-
 void __quantum__rt__start_pow_u_region() {
   // Create a new NISQ based runtime so that we can
   // queue up instructions and get them as a CompositeInstruction
@@ -366,7 +365,8 @@ void __quantum__rt__end_ctrl_u_region(Qubit *ctrl_qbit) {
   // Get the temp runtime created by start_adj_u_region.
   auto runtime = internal_runtimes.top();
   // Get the program we built up
-  auto program = runtime->get_current_program();
+  auto program = std::dynamic_pointer_cast<xacc::CompositeInstruction>(
+      runtime->get_current_program()->get_as_opaque());
   // Remove the tmp runtime
   internal_runtimes.pop();
 
@@ -396,7 +396,8 @@ void __quantum__rt__end_multi_ctrl_u_region(
   // Get the temp runtime created by start_adj_u_region.
   auto runtime = internal_runtimes.top();
   // Get the program we built up
-  auto program = runtime->get_current_program();
+  auto program = std::dynamic_pointer_cast<xacc::CompositeInstruction>(
+      runtime->get_current_program()->get_as_opaque());
   // Remove the tmp runtime
   internal_runtimes.pop();
 
@@ -461,7 +462,7 @@ void __quantum__rt__qubit_release_array(Array *q) {
     }
   }
 
-  // If all the runtime arrays have been cleared/dealocated, 
+  // If all the runtime arrays have been cleared/dealocated,
   // clean up the entire global register.
   // This is to handle **multiple** calls into an FTQC kernels (Q#/OpenQASM3).
   // At the end of the execution, all registers have been deallocated.

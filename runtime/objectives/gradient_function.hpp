@@ -6,10 +6,7 @@
 #include <functional>
 #include <memory>
 #include <vector>
-namespace xacc {
-// class CompositeInstruction;
-// class Observable;
-} // namespace xacc
+
 namespace qcor {
 class ObjectiveFunction;
 // Gradient function type:

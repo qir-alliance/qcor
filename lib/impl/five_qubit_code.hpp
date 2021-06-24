@@ -1,8 +1,8 @@
 #pragma once
 
 // Distance-3 quantum error correction code with 5 qubits
-std::vector<std::vector<qcor::PauliOperator>> five_qubit_code_stabilizers() {
-  static const std::vector<std::vector<qcor::PauliOperator>> STABILIZERS{
+std::vector<std::vector<qcor::Operator>> five_qubit_code_stabilizers() {
+  static const std::vector<std::vector<qcor::Operator>> STABILIZERS{
       {qcor::X(0), qcor::Z(1), qcor::Z(2), qcor::X(3)},
       {qcor::X(1), qcor::Z(2), qcor::Z(3), qcor::X(4)},
       {qcor::X(0), qcor::X(2), qcor::Z(3), qcor::Z(4)},

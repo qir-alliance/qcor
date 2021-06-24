@@ -19,7 +19,7 @@ using encodeFn = std::function<void(qreg, int, std::vector<int>)>;
 using recoverFn = std::function<void(qreg, std::vector<int>, std::vector<int>)>;
 
 // Set of stabilizers define the QEC code
-using stabilizerGroups = std::vector<std::vector<qcor::PauliOperator>>;
+using stabilizerGroups = std::vector<std::vector<qcor::Operator>>;
 
 using QecCode = std::tuple<stabilizerGroups, encodeFn, recoverFn>;
 

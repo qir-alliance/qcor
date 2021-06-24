@@ -185,6 +185,7 @@ class Operator::OperatorImpl
     return Operator(OperatorImpl(type, op->getIdentitySubTerm()));
   }
 
+  bool hasIdentitySubTerm() { return op->getIdentitySubTerm() != nullptr; }
   std::complex<double> coefficient() { return op->coefficient(); }
 
   std::vector<SparseElement> to_sparse_matrix() {
@@ -198,6 +199,19 @@ class Operator::OperatorImpl
 
   Operator commutator(Operator &other) {
     return Operator(OperatorImpl(type, op->commutator(other.m_internal->op)));
+  }
+
+  std::pair<std::vector<int>, std::vector<int>> toBinaryVectors(
+      const int nQubits) {
+    assert(type == "pauli" && "toBinaryVectors only works for pauli operators");
+    return std::dynamic_pointer_cast<xacc::quantum::PauliOperator>(op)
+        ->toBinaryVectors(nQubits);
+  }
+
+  void mapQubitSites(std::map<int, int> &siteMap) {
+    assert(type == "pauli" && "mapQubitSites only works for pauli operators");
+    std::dynamic_pointer_cast<xacc::quantum::PauliOperator>(op)->mapQubitSites(
+        siteMap);
   }
 };
 
@@ -253,10 +267,17 @@ Operator &Operator::operator*=(const std::complex<double> v) noexcept {
 
 int Operator::nQubits() { return m_internal->op->nBits(); }
 
+std::pair<std::vector<int>, std::vector<int>> Operator::toBinaryVectors(
+    const int nQubits) {
+  return m_internal->toBinaryVectors(nQubits);
+}
+void Operator::mapQubitSites(std::map<int, int> &siteMap) {
+  return m_internal->mapQubitSites(siteMap);
+}
+
 std::vector<std::shared_ptr<CompositeInstruction>> Operator::observe(
     std::shared_ptr<CompositeInstruction> program) {
-  auto opaque = program->get_as_opaque();
-  auto as_xacc = std::dynamic_pointer_cast<xacc::CompositeInstruction>(opaque);
+  auto as_xacc = program->as_xacc();
   auto cis = m_internal->op->observe(as_xacc);
   std::vector<std::shared_ptr<CompositeInstruction>> ret;
   for (auto ci : cis) {
@@ -267,25 +288,6 @@ std::vector<std::shared_ptr<CompositeInstruction>> Operator::observe(
   return ret;
 }
 
-// std::vector<CompositeInstruction> Operator::observe(
-//     CompositeInstruction &program) {
-//   auto cis =
-//   m_internal->op->observe(std::dynamic_pointer_cast<xacc::CompositeInstruction>(program->get_as_opaque()));
-//   std::vector<CompositeInstruction> ret;
-//   for (auto ci : cis) {
-//     CompositeInstruction
-//     c(std::dynamic_pointer_cast<xacc::Identifiable>(ci));
-//     //
-//     ret.push_back(CompositeInstruction(std::dynamic_pointer_cast<xacc::Identifiable>(ci)));
-//   }
-
-//   return ret;
-// }
-
-// std::vector<std::shared_ptr<CompositeInstruction>> Operator::observe(
-//     std::shared_ptr<CompositeInstruction> function,
-//     const HeterogeneousMap &grouping_options) {}
-
 std::vector<Operator> Operator::getSubTerms() {
   return m_internal->getSubTerms();
 }
@@ -293,6 +295,7 @@ std::vector<Operator> Operator::getSubTerms() {
 std::vector<Operator> Operator::getNonIdentitySubTerms() {
   return m_internal->getNonIdentitySubTerms();
 }
+bool Operator::hasIdentitySubTerm() { return m_internal->hasIdentitySubTerm(); }
 
 std::string Operator::toString() const { return m_internal->op->toString(); }
 Operator Operator::getIdentitySubTerm() {
@@ -318,8 +321,7 @@ void __internal_exec_observer(
   std::transform(v.begin(), v.end(), std::back_inserter(tmp),
                  [](std::shared_ptr<CompositeInstruction> c)
                      -> std::shared_ptr<xacc::CompositeInstruction> {
-                   return std::dynamic_pointer_cast<xacc::CompositeInstruction>(
-                       c->get_as_opaque());
+                   return c->as_xacc();
                  });
   xacc::internal_compiler::execute(b, tmp);
 }
@@ -387,15 +389,13 @@ Operator SM(int idx) {
 Operator createOperator(const std::string &repr) {
   if (!xacc::isInitialized())
     xacc::internal_compiler::compiler_InitializeXACC();
-  return qcor::Operator("pauli",
-                        repr);  // xacc::quantum::getObservable("pauli", repr);
+  return qcor::Operator("pauli", repr);
 }
 
 Operator createOperator(const std::string &name, const std::string &repr) {
   if (!xacc::isInitialized())
     xacc::internal_compiler::compiler_InitializeXACC();
-  return qcor::Operator(name,
-                        repr);  // xacc::quantum::getObservable(name, repr);
+  return qcor::Operator(name, repr);
 }
 
 Operator createObservable(const std::string &repr) {
@@ -405,30 +405,6 @@ Operator createObservable(const std::string &repr) {
 Operator createObservable(const std::string &name, const std::string &repr) {
   return createOperator(name, repr);
 }
-
-// std::shared_ptr<Observable> createObservable(const std::string &name,
-//                                              HeterogeneousMap &&options) {
-//   if (!xacc::isInitialized())
-//     xacc::internal_compiler::compiler_InitializeXACC();
-//   return xacc::quantum::getObservable(name, options);
-// }
-// std::shared_ptr<Observable> createObservable(const std::string &name,
-//                                              HeterogeneousMap &options) {
-//   if (!xacc::isInitialized())
-//     xacc::internal_compiler::compiler_InitializeXACC();
-//   return xacc::quantum::getObservable(name, options);
-// }
-
-// std::shared_ptr<Observable> operatorTransform(const std::string &type,
-//                                               qcor::Observable &op) {
-//   return xacc::getService<xacc::ObservableTransform>(type)->transform(
-//       xacc::as_shared_ptr(&op));
-// }
-// std::shared_ptr<Observable> operatorTransform(const std::string &type,
-//                                               std::shared_ptr<Observable> op)
-//                                               {
-//   return xacc::getService<xacc::ObservableTransform>(type)->transform(op);
-// }
 
 Operator _internal_python_createObservable(const std::string &name,
                                            const std::string &repr) {
@@ -447,14 +423,13 @@ std::vector<std::shared_ptr<CompositeInstruction>> observe(
 double observe(std::shared_ptr<CompositeInstruction> program, Operator &obs,
                xacc::internal_compiler::qreg &q) {
   // Observe the program
-  auto v = obs.observe(program); 
+  auto v = obs.observe(program);
 
   std::vector<std::shared_ptr<xacc::CompositeInstruction>> tmp;
   std::transform(v.begin(), v.end(), std::back_inserter(tmp),
                  [](std::shared_ptr<CompositeInstruction> c)
                      -> std::shared_ptr<xacc::CompositeInstruction> {
-                   return std::dynamic_pointer_cast<xacc::CompositeInstruction>(
-                       c->get_as_opaque());
+                   return c->as_xacc();
                  });
   xacc::internal_compiler::execute(q.results(), tmp);
 
@@ -464,20 +439,6 @@ double observe(std::shared_ptr<CompositeInstruction> program, Operator &obs,
       std::dynamic_pointer_cast<xacc::Observable>(obs.get_as_opaque()).get());
 }
 
-// double observe(std::shared_ptr<CompositeInstruction> program, Observable
-// &obs,
-//                xacc::internal_compiler::qreg &q) {
-//   return [program, &obs, &q]() {
-//     // Observe the program
-//     auto programs = obs.observe(program);
-
-//     xacc::internal_compiler::execute(q.results(), programs);
-
-//     // We want to contract q children buffer
-//     // exp-val-zs with obs term coeffs
-//     return q.weighted_sum(&obs);
-//   }();
-// }
 }  // namespace qcor
 
 std::ostream &operator<<(std::ostream &os, qcor::Operator const &m) {

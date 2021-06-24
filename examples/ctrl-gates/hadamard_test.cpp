@@ -1,9 +1,8 @@
 #include <qcor_hadamard_test>
-using FO = FermionOperator;
 
 int main() {
 
-  std::vector<FermionOperator> exp_args{
+  std::vector<Operator> exp_args{
       -4 * adag(0) * a(0) - 4 * adag(2) * a(2) +
           8 * adag(0) * a(0) * adag(2) * a(2),
       0.01 * adag(0) * a(1) + .01 * adag(3) * a(2) + .01 * adag(1) * a(0) +

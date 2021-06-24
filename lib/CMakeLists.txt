@@ -1,5 +1,4 @@
-add_subdirectory(hybrid)
-add_subdirectory(quasimo)
+#add_subdirectory(quasimo)
 
 # Install QCOR standard library header
 file(GLOB LIB_HEADERS qcor_*)

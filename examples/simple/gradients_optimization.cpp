@@ -34,7 +34,7 @@ int main(int argc, char **argv) {
   {
     // Create the Optimizer (gradient-based)
     auto optimizer = createOptimizer("nlopt", {{"nlopt-optimizer", "l-bfgs"}});
-    OptFunction opt_function(
+    ObjectiveFunction opt_function(
         [&](const std::vector<double> &x, std::vector<double> &dx) {
           auto q = qalloc(2);
           // Using kernel auto-gradient helper
@@ -55,7 +55,7 @@ int main(int argc, char **argv) {
   {
     // Create the Optimizer (gradient-based)
     auto optimizer = createOptimizer("nlopt", {{"nlopt-optimizer", "l-bfgs"}});
-    OptFunction opt_function(
+    ObjectiveFunction opt_function(
         [&](const std::vector<double> &x, std::vector<double> &dx) {
           auto q = qalloc(2);
           // Using kernel auto-gradient helper
@@ -74,7 +74,7 @@ int main(int argc, char **argv) {
   {
     // Create the Optimizer (gradient-based)
     auto optimizer = createOptimizer("nlopt", {{"nlopt-optimizer", "l-bfgs"}});
-    OptFunction opt_function(
+    ObjectiveFunction opt_function(
         [&](const std::vector<double> &x, std::vector<double> &dx) {
           // Using kernel auto-gradient helper
           // Needs to provide args translator for this complex kernel.

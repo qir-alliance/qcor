@@ -14,7 +14,7 @@ __qpu__ void reset_all(qreg q) {
 }
 
 // FTQC "sync" Pauli measurement: returns the parity output
-__qpu__ void measure_basis(qreg q, std::vector<qcor::PauliOperator> bases,
+__qpu__ void measure_basis(qreg q, std::vector<qcor::Operator> bases,
                       int &out_parity) {
   int oneCount = 0;
   for (int i = 0; i < bases.size(); ++i) {
@@ -38,7 +38,7 @@ __qpu__ void measure_basis(qreg q, std::vector<qcor::PauliOperator> bases,
 
 // Measure the given Pauli operator using an explicit scratch qubit to perform the measurement.
 __qpu__ void measure_basis_with_scratch(qreg q, int scratchQubit,
-                                        std::vector<qcor::PauliOperator> bases,
+                                        std::vector<qcor::Operator> bases,
                                         int &out_result) {
   H(q[scratchQubit]);
   for (int i = 0; i < bases.size(); ++i) {

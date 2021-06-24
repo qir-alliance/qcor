@@ -370,8 +370,7 @@ class NISQ : public ::quantum::QuantumRuntime,
         std::cout << "SUBMIT:\n" << program->toString() << "\n";
       }
       xacc::internal_compiler::execute(
-          buffer, std::dynamic_pointer_cast<xacc::CompositeInstruction>(
-                      program->get_as_opaque()));
+          buffer, program->as_xacc());
     }
 
     clearProgram();
@@ -401,9 +400,7 @@ class NISQ : public ::quantum::QuantumRuntime,
       std::cout << "SUBMIT:\n" << program->toString() << "\n";
     }
     xacc::internal_compiler::execute(
-        buffers, nBuffers,
-        std::dynamic_pointer_cast<xacc::CompositeInstruction>(
-            program->get_as_opaque()));
+        buffers, nBuffers, program->as_xacc());
   }
 
   void set_current_program(std::shared_ptr<CompositeInstruction> p) override {

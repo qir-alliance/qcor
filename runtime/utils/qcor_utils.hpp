@@ -1,12 +1,13 @@
 #pragma once
 
-// #include <argparse.hpp>
+#include <argparse.hpp>
 #include <complex>
 #include <iostream>
 #include <memory>
 #include <random>
 #include <tuple>
 #include <vector>
+#include <Eigen/Dense>
 
 #include "qalloc.hpp"
 #include "qcor_ir.hpp"
@@ -25,36 +26,36 @@ namespace constants {
 static constexpr double pi = 3.141592653589793238;
 }
 
-// namespace arg {
-// // Expose ArgumentParser for custom instantiation
-// using ArgumentParser = argparse::ArgumentParser;
+namespace arg {
+// Expose ArgumentParser for custom instantiation
+using ArgumentParser = argparse::ArgumentParser;
 
-// // Default argument parser
-// ArgumentParser &get_parser();
+// Default argument parser
+ArgumentParser &get_parser();
 
-// // Parameter packing
-// // Call add_argument with variadic number of string arguments
-// template <typename... Targs>
-// argparse::Argument &add_argument(Targs... Fargs) {
-//   return get_parser().add_argument(Fargs...);
-// }
+// Parameter packing
+// Call add_argument with variadic number of string arguments
+template <typename... Targs>
+argparse::Argument &add_argument(Targs... Fargs) {
+  return get_parser().add_argument(Fargs...);
+}
 
-// // Getter for options with default values.
-// //  @throws std::logic_error if there is no such option
-// //  @throws std::logic_error if the option has no value
-// //  @throws std::bad_any_cast if the option is not of type T
-// //
-// template <typename T = std::string>
-// T get_argument(std::string_view argument_name) {
-//   return get_parser().get<T>(argument_name);
-// }
+// Getter for options with default values.
+//  @throws std::logic_error if there is no such option
+//  @throws std::logic_error if the option has no value
+//  @throws std::bad_any_cast if the option is not of type T
+//
+template <typename T = std::string>
+T get_argument(std::string_view argument_name) {
+  return get_parser().get<T>(argument_name);
+}
 
-// // Main entry point for parsing command-line arguments using this
-// //  ArgumentParser
-// //  @throws std::runtime_error in case of any invalid argument
-// //
-// void parse_args(int argc, const char *const argv[]);
-// }  // namespace arg
+// Main entry point for parsing command-line arguments using this
+//  ArgumentParser
+//  @throws std::runtime_error in case of any invalid argument
+//
+void parse_args(int argc, const char *const argv[]);
+}  // namespace arg
 
 // Typedefs mapping xacc/Eigen types to qcor types
 // class CompositeInstruction {
@@ -72,8 +73,13 @@ using IRTransformation = xacc::IRTransformation;
 using IRProvider = xacc::IRProvider;
 using qreg = xacc::internal_compiler::qreg;
 
-using UnitaryMatrix =
-    std::vector<std::tuple<std::size_t, std::size_t, std::complex<double>>>;
+// namespace Eigen {
+//   template<typename Derived>
+//   class MatrixBase;
+// }
+
+using UnitaryMatrix = Eigen::MatrixXcd;
+    // std::vector<std::tuple<std::size_t, std::size_t, std::complex<double>>>;
 
 template <typename T>
 using PairList = std::vector<std::pair<T, T>>;
