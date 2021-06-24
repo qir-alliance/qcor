@@ -103,14 +103,15 @@ void ScopedSymbolTable::evaluate_const_global(const std::string variable_name,
   }
 
   // Now create the Global Memref Op
+  // Note: need to use Tensor type to init the GlobalMemrefOp;
   llvm::ArrayRef<int64_t> shaperef{};
   mlir::DenseElementsAttr initial_attr;
   if (type.isa<mlir::IntegerType>()) {
     initial_attr = mlir::DenseElementsAttr::get(
-        mlir::VectorType::get(shaperef, type), {(int64_t)ref});
+        mlir::RankedTensorType::get(shaperef, type), {(int64_t)ref});
   } else {
     initial_attr = mlir::DenseElementsAttr::get(
-        mlir::VectorType::get(shaperef, type), {ref});
+        mlir::RankedTensorType::get(shaperef, type), {ref});
   }
 
   auto memref_type = mlir::MemRefType::get(shaperef, type);

@@ -445,7 +445,7 @@ antlrcpp::Any qasm3_visitor::visitBitDeclaration(
       std::vector<mlir::Value> initial_values, indices;
       for (int j = 0; j < size; j++) {
         initial_values.push_back(get_or_create_constant_integer_value(
-            equals_expr[j] == '1' ? 1 : 0, location, result_type, symbol_table,
+            equals_expr[j] == '1' ? 1 : 0, location, builder.getI1Type(), symbol_table,
             builder));
         indices.push_back(get_or_create_constant_index_value(
             j, location, 64, symbol_table, builder));
