@@ -230,6 +230,26 @@ mlir::Type convertQasm3Type(qasm3::qasm3Parser::ClassicalTypeContext* ctx,
   return mlir::Type();
 }
 
+mlir::Value cast_array_index_value_if_required(mlir::Type array_type, mlir::Value raw_index, mlir::Location location, mlir::OpBuilder &builder) {
+  // Memref must use index type
+  if (array_type.isa<mlir::MemRefType>() &&
+      !raw_index.getType().isa<mlir::IndexType>()) {
+    return builder.create<mlir::IndexCastOp>(location, builder.getIndexType(),
+                                             raw_index);
+  }
+  // QIR arrays: must use I64
+  if (array_type.isa<mlir::OpaqueType>() &&
+      array_type.cast<mlir::OpaqueType>().getTypeData().str() == "Array" &&
+      raw_index.getType().isa<mlir::IndexType>()) {
+    return builder.create<mlir::IndexCastOp>(location, builder.getI64Type(),
+                                             raw_index);
+  }
+
+  // No need to do anything
+  return raw_index;
+}
+
+
 std::map<std::string, mlir::CmpIPredicate> antlr_to_mlir_predicate{
     {"==", mlir::CmpIPredicate::eq},  {"!=", mlir::CmpIPredicate::ne},
     {"<=", mlir::CmpIPredicate::sle}, {">=", mlir::CmpIPredicate::sge},

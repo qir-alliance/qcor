@@ -140,13 +140,18 @@ antlrcpp::Any qasm3_expression_generator::visitTerminal(
 
         update_current_value(
             builder.create<mlir::quantum::GeneralArrayExtractOp>(
-                location, array_type, indexed_variable_value, current_value));
+                location, array_type, indexed_variable_value,
+                cast_array_index_value_if_required(
+                    indexed_variable_value.getType(), current_value, location,
+                    builder)));
 
         // unset the variable name just in case
         indexed_variable_name = "";
       } else {
         // We are loading from a variable
-        llvm::ArrayRef<mlir::Value> idx(current_value);
+        llvm::ArrayRef<mlir::Value> idx(cast_array_index_value_if_required(
+            indexed_variable_value.getType(), current_value, location,
+            builder));
         update_current_value(builder.create<mlir::LoadOp>(
             location, indexed_variable_value, idx));
       }
