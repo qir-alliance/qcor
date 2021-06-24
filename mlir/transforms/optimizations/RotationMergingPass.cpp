@@ -86,7 +86,7 @@ void RotationMergingPass::runOnOperation() {
           };
 
           const auto first_angle_const = tryGetConstAngle(first_angle);
-          const auto second_angle_const = tryGetConstAngle(first_angle);
+          const auto second_angle_const = tryGetConstAngle(second_angle);
 
           // Create a new instruction:
           // Return type: qubit
