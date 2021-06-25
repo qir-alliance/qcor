@@ -58,6 +58,7 @@ install(FILES ${CMAKE_BINARY_DIR}/runtime/qcor_lang_ext.hpp.pch DESTINATION incl
 if (QCOR_BUILD_TESTS)
   add_subdirectory(tests)
   add_subdirectory(observable/tests)
+  add_subdirectory(optimizer/tests)
 endif()
 
 add_subdirectory(objectives)

@@ -1,5 +1,6 @@
 #include "AlgorithmGradientStrategy.hpp"
 #include "cppmicroservices/ServiceProperties.h"
+#include "objective_function.hpp"
 #include "gradient_function.hpp"
 #include "qcor.hpp"
 #include "qcor_observable.hpp"

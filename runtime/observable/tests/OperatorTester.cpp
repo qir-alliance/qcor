@@ -49,6 +49,8 @@ TEST(OperatorTester, checkSimple) {
 
     std::cout << (adag(1)*a(0)).toString() << "\n";
 
+    // FIXME Make this more robust.
+
 }
 
 #include "xacc.hpp"

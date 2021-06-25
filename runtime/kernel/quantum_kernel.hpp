@@ -2,11 +2,11 @@
 #include <optional>
 #include <stack>
 
+#include "gradient_function.hpp"
 #include "qcor_jit.hpp"
 #include "qcor_observable.hpp"
 #include "qcor_utils.hpp"
 #include "qrt.hpp"
-#include "gradient_function.hpp"
 
 namespace qcor {
 enum class QrtType { NISQ, FTQC };
@@ -164,7 +164,8 @@ class QuantumKernel {
     // instantiate and don't let it call the destructor
     Derived derived(args...);
     KernelSignature<Args...> callable(derived);
-    internal::apply_control<Args...>(parent_kernel, ctrl_qbits, callable, args...);
+    internal::apply_control<Args...>(parent_kernel, ctrl_qbits, callable,
+                                     args...);
   }
 
   // Create the controlled version of this quantum kernel
@@ -193,8 +194,7 @@ class QuantumKernel {
   // vector<double>. Other signatures must provide a translator...
   static double autograd(Operator &obs, std::vector<double> &dx, qreg q,
                          double x) {
-    std::function<std::shared_ptr<CompositeInstruction>(
-        std::vector<double>)>
+    std::function<std::shared_ptr<CompositeInstruction>(std::vector<double>)>
         kernel_eval = [q](std::vector<double> x) {
           auto tempKernel =
               qcor::__internal__::create_composite("__temp__autograd__");
@@ -214,8 +214,7 @@ class QuantumKernel {
 
   static double autograd(Operator &obs, std::vector<double> &dx, qreg q,
                          std::vector<double> x) {
-    std::function<std::shared_ptr<CompositeInstruction>(
-        std::vector<double>)>
+    std::function<std::shared_ptr<CompositeInstruction>(std::vector<double>)>
         kernel_eval = [q](std::vector<double> x) {
           auto tempKernel =
               qcor::__internal__::create_composite("__temp__autograd__");
@@ -236,8 +235,7 @@ class QuantumKernel {
   static double autograd(Operator &obs, std::vector<double> &dx,
                          std::vector<double> x,
                          ArgsTranslator<Args...> args_translator) {
-    std::function<std::shared_ptr<CompositeInstruction>(
-        std::vector<double>)>
+    std::function<std::shared_ptr<CompositeInstruction>(std::vector<double>)>
         kernel_eval = [&](std::vector<double> x_vec) {
           auto eval_lambda = [&](Args... args) {
             auto tempKernel =
@@ -256,8 +254,7 @@ class QuantumKernel {
     auto gradiend_method = qcor::__internal__::get_gradient_method(
         qcor::__internal__::DEFAULT_GRADIENT_METHOD, kernel_eval, obs);
 
-    auto kernel_observe = [&](Args... args) { return observe(obs, args...);
-    };
+    auto kernel_observe = [&](Args... args) { return observe(obs, args...); };
 
     auto args_tuple = args_translator(x);
     const double cost_val = std::apply(kernel_observe, args_tuple);
@@ -714,7 +711,8 @@ class _qpu_lambda {
   void adjoint(std::shared_ptr<CompositeInstruction> parent_kernel,
                FunctionArgs... args) {
     KernelSignature<FunctionArgs...> callable(*this);
-    return internal::apply_adjoint<FunctionArgs...>(parent_kernel, callable, args...);
+    return internal::apply_adjoint<FunctionArgs...>(parent_kernel, callable,
+                                                    args...);
   }
 
   template <typename... FunctionArgs>
@@ -1001,13 +999,13 @@ void apply_adjoint(std::shared_ptr<CompositeInstruction> parent_kernel,
   std::shared_ptr<CompositeInstruction> program = tempKernel;
 
   // Assert that we don't have measurement
-  if (!std::all_of(
-          instructions.cbegin(), instructions.cend(),
-          [](const auto &inst) { return is_not_measure(inst); })) {
+  if (!std::all_of(instructions.cbegin(), instructions.cend(),
+                   [](const auto &inst) { return is_not_measure(inst); })) {
     error("Unable to create Adjoint for kernels that have Measure operations.");
   }
 
-  auto new_instructions = internal::handle_adjoint_instructions(instructions, tempKernel);
+  auto new_instructions =
+      internal::handle_adjoint_instructions(instructions, tempKernel);
 
   // add the instructions to the current parent kernel
   parent_kernel->addInstructions(std::move(new_instructions), false);
@@ -1038,20 +1036,9 @@ double observe(Operator &obs, KernelSignature<Args...> &kernelCallable,
     observable = __internal__::cached_observables[operator_hash];
   } else {
     if (obs_str.find("^") != std::string::npos) {
-      error("We have not implemented the case where the operator is Fermion...");
-      // FIXME HANDLE THIS
-      //   try {
-      //     observable =
-      //         operatorTransform("jw", dynamic_cast<FermionOperator &>(obs));
-      //   } catch (std::exception &ex) {
-      //     auto fermionObservable = createOperator("fermion", obs_str);
-      //     observable = operatorTransform("jw", fermionObservable);
-      //   }
+      auto fermionObservable = createOperator("fermion", obs_str);
+      observable = operatorTransform("jw", fermionObservable);
 
-      //   // observable is PauliOperator, but does not cast down to it
-      //   // Not sure about the likelihood of this happening, but want to cover
-      //   all
-      //   // bases
     } else if (obs_str.find("X") != std::string::npos ||
                obs_str.find("Y") != std::string::npos ||
                obs_str.find("Z") != std::string::npos) {
@@ -1073,9 +1060,8 @@ UnitaryMatrix as_unitary_matrix(KernelSignature<Args...> &kernelCallable,
   kernelCallable(tempKernel, args...);
   auto instructions = tempKernel->getInstructions();
   // Assert that we don't have measurement
-  if (!std::all_of(
-          instructions.cbegin(), instructions.cend(),
-          [](const auto &inst) { return is_not_measure(inst); })) {
+  if (!std::all_of(instructions.cbegin(), instructions.cend(),
+                   [](const auto &inst) { return is_not_measure(inst); })) {
     error(
         "Unable to compute unitary matrix for kernels that already have "
         "Measure operations.");

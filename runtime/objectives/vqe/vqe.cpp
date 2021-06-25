@@ -1,7 +1,7 @@
 #include "cppmicroservices/BundleActivator.h"
 #include "cppmicroservices/BundleContext.h"
 #include "cppmicroservices/ServiceProperties.h"
-#include "qcor.hpp"
+#include "objective_function.hpp"
 using namespace cppmicroservices;
 
 #include <iomanip>

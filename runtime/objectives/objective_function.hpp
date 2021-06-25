@@ -13,6 +13,9 @@ using OptimizerFunctorNoGrad =
 using OptimizerFunctor =
     std::function<double(const std::vector<double> &, std::vector<double> &)>;
 
+// using OptimizerFunctorNonConstValueNoGrad =
+//     std::function<double(std::vector<double>)>;
+
 class ObjectiveFunction : public xacc::Identifiable {
  protected:
   // Quantum kernel function pointer, we will use
@@ -44,6 +47,11 @@ class ObjectiveFunction : public xacc::Identifiable {
         }),
         _dim(d) {}
 
+  // ObjectiveFunction(OptimizerFunctorNonConstValueNoGrad f, const int d)
+  //     : _function([&](const std::vector<double> &x, std::vector<double> &dx) {
+  //         return f(x);
+  //       }),
+  //       _dim(d) {}
   const std::string name() const override { return "base-objective-function"; }
   const std::string description() const override { return ""; }
 

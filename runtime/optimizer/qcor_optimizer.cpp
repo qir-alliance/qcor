@@ -11,10 +11,15 @@ namespace qcor {
 
 /// ------------- Optimizer Wrapper ---------------
 Optimizer::Optimizer() = default;
+Optimizer::Optimizer(const std::string &name)
+    : m_internal(xacc::getOptimizer(name)) {}
+Optimizer::Optimizer(const std::string &name, xacc::HeterogeneousMap &&options)
+    : m_internal(xacc::getOptimizer(name, std::move(options))) {}
 Optimizer::Optimizer(std::shared_ptr<xacc::Identifiable> generic)
     : m_internal(std::dynamic_pointer_cast<xacc::Optimizer>(generic)) {}
 Optimizer::~Optimizer() = default;
 
+// Define the internal implementation, wraps an XACC Optimizer
 struct Optimizer::OptimizerImpl {
   std::shared_ptr<xacc::Optimizer> xacc_opt;
 
@@ -27,6 +32,7 @@ struct Optimizer::OptimizerImpl {
 
   xacc::Optimizer *operator->() { return xacc_opt.get(); }
 };
+
 std::string Optimizer::name() { return m_internal->xacc_opt->name(); }
 
 std::pair<double, std::vector<double>> Optimizer::optimize(

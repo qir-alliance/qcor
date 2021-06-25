@@ -1,6 +1,7 @@
 #include "qcor_utils.hpp"
 
-#include <Eigen/Dense>
+#include <random>
+#include <complex>
 
 #include "AllGateVisitor.hpp"
 #include "CompositeInstruction.hpp"
@@ -74,6 +75,18 @@ std::shared_ptr<qcor::CompositeInstruction> create_ctrl_u() {
   return std::make_shared<CompositeInstruction>(
       std::dynamic_pointer_cast<xacc::CompositeInstruction>(
           xacc::getService<xacc::Instruction>("C-U")));
+}
+
+auto random_vector(const double l_range, const double r_range,
+                   const std::size_t size) {
+  // Generate a random initial parameter set
+  std::random_device rnd_device;
+  std::mt19937 mersenne_engine{rnd_device()};  // Generates random integers
+  std::uniform_real_distribution<double> dist{l_range, r_range};
+  auto gen = [&dist, &mersenne_engine]() { return dist(mersenne_engine); };
+  std::vector<double> vec(size);
+  std::generate(vec.begin(), vec.end(), gen);
+  return vec;
 }
 
 std::shared_ptr<qcor::CompositeInstruction> create_and_expand_ctrl_u(
@@ -158,6 +171,12 @@ std::shared_ptr<qcor::CompositeInstruction> decompose_unitary(
 
 // }  // namespace __internal__
 
+constexpr std::complex<double> I{0.0, 1.0};
+// Note: cannot use std::complex_literal
+// because https://gcc.gnu.org/onlinedocs/gcc/Complex.html#Complex
+inline constexpr std::complex<double> operator"" _i(long double x) noexcept {
+  return {0., static_cast<double>(x)};
+}
 using namespace xacc::quantum;
 using namespace Eigen;
 

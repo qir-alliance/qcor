@@ -4,6 +4,7 @@
 #include "xacc.hpp"
 // #include "xacc_quantum_gate_api.hpp"
 #include <spdlog/fmt/fmt.h>
+#include <Eigen/Dense>
 
 #include <algorithm>
 #include <cassert>
@@ -22,6 +23,7 @@ namespace qcor {
 
 // ---------------- Operator ---------------------- //
 
+// Internal hidden implementation
 class Operator::OperatorImpl
     : public commutative_ring<OperatorImpl>,
       public equality_comparable<OperatorImpl>,
@@ -32,6 +34,8 @@ class Operator::OperatorImpl
  private:
   enum operation { PlusEquals, MinusEqual, StarEqual };
 
+  // This function performs sub-class specific algebraic operation 
+  // with another operator instance, or scalar value (double, complex)
   template <typename T>
   struct cast_and_apply {
     void operator()(std::shared_ptr<xacc::Observable> obs, operation _op,
@@ -75,6 +79,7 @@ class Operator::OperatorImpl
     }
   };
 
+  // Apply the desired operation between this operator an the given other operator
   OperatorImpl &apply(const operation &_op, const OperatorImpl &other) {
     if (type == "pauli") {
       cast_and_apply<xacc::quantum::PauliOperator>()(op, _op, other);
@@ -83,10 +88,12 @@ class Operator::OperatorImpl
     } else {
       // FIXME / TODO As we add more Operator types, update
       // this if/else section
+      error("Invalid Operator type for the given algebraic operation.");
     }
     return *this;
   }
 
+  // Apply the desired operation between this operator an the given scalar double
   OperatorImpl &apply(const double &d) {
     if (type == "pauli") {
       cast_and_apply<xacc::quantum::PauliOperator>()(op, d);
@@ -95,10 +102,12 @@ class Operator::OperatorImpl
     } else {
       // FIXME / TODO As we add more Operator types, update
       // this if/else section
+      error("Invalid Operator type for the given algebraic operation.");
     }
     return *this;
   }
 
+  // Apply the desired operation between this operator an the given scalar complex
   OperatorImpl &apply(const std::complex<double> &d) {
     if (type == "pauli") {
       cast_and_apply<xacc::quantum::PauliOperator>()(op, d);
@@ -107,6 +116,7 @@ class Operator::OperatorImpl
     } else {
       // FIXME / TODO As we add more Operator types, update
       // this if/else section
+      error("Invalid Operator type for the given algebraic operation.");
     }
     return *this;
   }
@@ -115,6 +125,7 @@ class Operator::OperatorImpl
   std::shared_ptr<xacc::Observable> op;
 
  public:
+  // Internal impl constructed from HetMap of options, or string-like expression
   OperatorImpl() = default;
   OperatorImpl(const std::string &_type, const std::string &expr)
       : type(_type) {
@@ -142,6 +153,7 @@ class Operator::OperatorImpl
       : type(_type), op(_op) {}
   OperatorImpl(const OperatorImpl &other) : type(other.type), op(other.op) {}
 
+  // Implement internal Algebraic API
   OperatorImpl &operator+=(const OperatorImpl &v) noexcept {
     return apply(operation::PlusEquals, v);
   }
@@ -198,8 +210,7 @@ class Operator::OperatorImpl
     auto id_term = op->getIdentitySubTerm();
     if (!id_term) {
       // THROW AN ERROR.
-      std::cout << "There is no identity sub term. exiting.\n";
-      exit(1);
+     error("There is no identity sub term. exiting.");
     }
     return Operator(OperatorImpl(type, op->getIdentitySubTerm()));
   }
@@ -401,25 +412,15 @@ Operator SM(int idx) {
   return X(idx) - imag * Y(idx);
 }
 
-// Eigen::MatrixXcd get_dense_matrix(PauliOperator &op) {
-//   auto mat_el = op.to_sparse_matrix();
-//   auto size = std::pow(2, op.nBits());
-//   Eigen::MatrixXcd mat = Eigen::MatrixXcd::Zero(size, size);
-//   for (auto el : mat_el) {
-//     mat(el.row(), el.col()) = el.coeff();
-//   }
-//   return mat;
-// }
-
-// Eigen::MatrixXcd get_dense_matrix(std::shared_ptr<Observable> op) {
-//   auto mat_el = op->to_sparse_matrix();
-//   auto size = std::pow(2, op->nBits());
-//   Eigen::MatrixXcd mat = Eigen::MatrixXcd::Zero(size, size);
-//   for (auto el : mat_el) {
-//     mat(el.row(), el.col()) = el.coeff();
-//   }
-//   return mat;
-// }
+Eigen::MatrixXcd get_dense_matrix(Operator &op) {
+  auto mat_el = op.to_sparse_matrix();
+  auto size = std::pow(2, op.nBits());
+  Eigen::MatrixXcd mat = Eigen::MatrixXcd::Zero(size, size);
+  for (auto el : mat_el) {
+    mat(el.row(), el.col()) = el.coeff();
+  }
+  return mat;
+}
 
 Operator createOperator(const std::string &repr) {
   if (!xacc::isInitialized())

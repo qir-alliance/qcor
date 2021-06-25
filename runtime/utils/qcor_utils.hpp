@@ -1,10 +1,9 @@
 #pragma once
 
 #include <argparse.hpp>
-#include <complex>
+// #include <complex>
 #include <iostream>
 #include <memory>
-#include <random>
 #include <tuple>
 #include <vector>
 #include <Eigen/Dense>
@@ -65,6 +64,7 @@ using IRTransformation = xacc::IRTransformation;
 using IRProvider = xacc::IRProvider;
 using qreg = xacc::internal_compiler::qreg;
 using UnitaryMatrix = Eigen::MatrixXcd;
+using DenseMatrix = Eigen::MatrixXcd;
 
 // The ResultsBuffer is returned upon completion of
 // the taskInitiate async call, it contains the buffer,
@@ -305,19 +305,9 @@ void tuple_for_each(TupleType &&t, FunctionType f) {
 
 // Create and return a random vector<ScalarType> of the given size
 // where all elements are within the given range
-template <typename ScalarType>
-auto random_vector(const ScalarType l_range, const ScalarType r_range,
-                   const std::size_t size) {
-  // Generate a random initial parameter set
-  std::random_device rnd_device;
-  std::mt19937 mersenne_engine{rnd_device()};  // Generates random integers
-  std::uniform_real_distribution<ScalarType> dist{l_range, r_range};
-  auto gen = [&dist, &mersenne_engine]() { return dist(mersenne_engine); };
-  std::vector<ScalarType> vec(size);
-  std::generate(vec.begin(), vec.end(), gen);
-  return vec;
-}
-
+std::vector<double> random_vector(const double l_range, const double r_range,
+                   const std::size_t size);
+                    
 // Take a function and return a TranslationFunctor
 template <typename... Args>
 auto args_translator(
@@ -364,16 +354,12 @@ bool get_verbose();
 // Set the shots for a given quantum kernel execution
 void set_shots(const int shots);
 
-// using namespace Eigen;
-
-// The following visitor is adapted from xacc AutodiffVisitor.
-
-constexpr std::complex<double> I{0.0, 1.0};
-// Note: cannot use std::complex_literal
-// because https://gcc.gnu.org/onlinedocs/gcc/Complex.html#Complex
-inline constexpr std::complex<double> operator"" _i(long double x) noexcept {
-  return {0., static_cast<double>(x)};
-}
+// constexpr std::complex<double> I{0.0, 1.0};
+// // Note: cannot use std::complex_literal
+// // because https://gcc.gnu.org/onlinedocs/gcc/Complex.html#Complex
+// inline constexpr std::complex<double> operator"" _i(long double x) noexcept {
+//   return {0., static_cast<double>(x)};
+// }
 
 #define qcor_expect(test_condition)                                \
   {                                                                \
