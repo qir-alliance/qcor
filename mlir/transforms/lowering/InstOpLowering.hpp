@@ -45,7 +45,18 @@ public:
       : ConversionPattern(mlir::quantum::ResultCastOp::getOperationName(), 1,
                           context) {}
 
-  // Match and replace all InstOps
+  LogicalResult
+  matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+                  ConversionPatternRewriter &rewriter) const override;
+};
+
+class IntegerCastOpLowering : public ConversionPattern {
+protected:
+public:
+  explicit IntegerCastOpLowering(MLIRContext *context)
+      : ConversionPattern(mlir::quantum::IntegerCastOp::getOperationName(), 1,
+                          context) {}
+
   LogicalResult
   matchAndRewrite(Operation *op, ArrayRef<Value> operands,
                   ConversionPatternRewriter &rewriter) const override;

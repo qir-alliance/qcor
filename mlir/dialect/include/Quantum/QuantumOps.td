@@ -159,4 +159,17 @@ def ResultCastOp : QuantumOp<"resultCast", []> {
     let printer = [{  auto op = *this;
   p << "q.resultCast" << "(" << op.measure_result() << ") : " << op.bit_result().getType(); }];
 }
+
+// Sign-Unsign cast:
+// Rationale: std dialect only accepts signless type (i.e. int but not uint)
+// we need to have this cast op in the dialect to finally lower to LLVM cast 
+// which can handle int -> uint casting at the final lowering phase.
+// Note: std.index_cast cannot handle int -> unit casting (one of the type must be an index type).
+def IntegerCastOp : QuantumOp<"integerCast", []> {
+    let arguments = (ins AnyInteger:$input);
+    let results = (outs AnyInteger:$output);
+    let printer = [{  auto op = *this;
+  p << "q.integerCast" << "(" << op.input() << ") : " << op.output().getType(); }];
+}
+
 #endif // Quantum_OPS

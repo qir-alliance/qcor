@@ -773,13 +773,31 @@ antlrcpp::Any qasm3_expression_generator::visitExpressionTerminator(
       auto idx = std::stoi(integer->getText());
       // std::cout << "Integer Terminator " << integer->getText() << ", " << idx
       // << "\n";
+      const auto getSignlessIntegerType = [](mlir::OpBuilder &opBuilder,
+                                             mlir::IntegerType in_intType) {
+        return in_intType.isSignless()
+                   ? in_intType
+                   : opBuilder.getIntegerType(in_intType.getWidth());
+      };
       auto integer_attr = mlir::IntegerAttr::get(
           (internal_value_type.dyn_cast_or_null<mlir::IntegerType>()
-               ? internal_value_type.cast<mlir::IntegerType>()
+               ? getSignlessIntegerType(
+                     builder, internal_value_type.cast<mlir::IntegerType>())
                : builder.getI64Type()),
           idx);
+
       assert(integer_attr.getType().cast<mlir::IntegerType>().isSignless());
-      current_value = builder.create<mlir::ConstantOp>(location, integer_attr);
+      if (internal_value_type.dyn_cast_or_null<mlir::IntegerType>() &&
+          !internal_value_type.cast<mlir::IntegerType>().isSignless()) {
+        // Make sure we cast the constant value appropriately.
+        // i.e. respect the signed/unsigned of the requested type.
+        current_value = builder.create<mlir::quantum::IntegerCastOp>(
+            location, internal_value_type.cast<mlir::IntegerType>(),
+            builder.create<mlir::ConstantOp>(location, integer_attr)).output();
+      } else {
+        current_value =
+            builder.create<mlir::ConstantOp>(location, integer_attr);
+      }
     }
     return 0;
   } else if (auto real = ctx->RealNumber()) {

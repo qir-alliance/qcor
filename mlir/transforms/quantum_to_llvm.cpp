@@ -86,6 +86,7 @@ void QuantumToLLVMLoweringPass::runOnOperation() {
                                   function_names);
   patterns.insert<ValueSemanticsInstOpLowering>(&getContext(), function_names);
   patterns.insert<ResultCastOpLowering>(&getContext());
+  patterns.insert<IntegerCastOpLowering>(&getContext());
   patterns.insert<SetQregOpLowering>(&getContext(), variables);
   patterns.insert<ExtractQubitOpConversion>(&getContext(), typeConverter,
                                             variables, qubit_extract_map);
