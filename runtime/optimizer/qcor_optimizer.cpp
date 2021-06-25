@@ -27,6 +27,7 @@ struct Optimizer::OptimizerImpl {
 
   xacc::Optimizer *operator->() { return xacc_opt.get(); }
 };
+std::string Optimizer::name() { return m_internal->xacc_opt->name(); }
 
 std::pair<double, std::vector<double>> Optimizer::optimize(
     std::function<double(const std::vector<double> &)> opt, const int dim) {

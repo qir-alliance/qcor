@@ -37,6 +37,7 @@ class Optimizer {
   std::pair<double, std::vector<double>> optimize(ObjectiveFunction &&obj) {
     return optimize(obj);
   }
+  std::string name();
   ~Optimizer();
 };
 

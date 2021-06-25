@@ -3,7 +3,6 @@
 #include "ObservableTransform.hpp"
 #include "xacc.hpp"
 // #include "xacc_quantum_gate_api.hpp"
-// #include "xacc_service.hpp"
 #include <spdlog/fmt/fmt.h>
 
 #include <algorithm>
@@ -12,11 +11,12 @@
 #include "CompositeInstruction.hpp"
 #include "FermionOperator.hpp"
 #include "PauliOperator.hpp"
+#include "qalloc.hpp"
 #include "qcor_ir.hpp"
 #include "qcor_pimpl_impl.hpp"
 #include "xacc_internal_compiler.hpp"
 #include "xacc_quantum_gate_api.hpp"
-#include "qalloc.hpp"
+#include "xacc_service.hpp"
 
 namespace qcor {
 
@@ -120,6 +120,24 @@ class Operator::OperatorImpl
       : type(_type) {
     op = xacc::quantum::getObservable(type, expr);
   }
+
+  OperatorImpl(const std::string &name, xacc::HeterogeneousMap &options) {
+    auto tmp_op = xacc::quantum::getObservable(name, options);
+    auto obs_str = tmp_op->toString();
+
+    if (obs_str.find("^") != std::string::npos) {
+
+      op = xacc::quantum::getObservable("fermion", obs_str);
+      type = "fermion";
+
+    } else if (obs_str.find("X") != std::string::npos ||
+               obs_str.find("Y") != std::string::npos ||
+               obs_str.find("Z") != std::string::npos) {
+      op = xacc::quantum::getObservable("pauli", obs_str);
+      type = "pauli";
+    }
+  }
+
   OperatorImpl(const std::string &_type, std::shared_ptr<xacc::Observable> _op)
       : type(_type), op(_op) {}
   OperatorImpl(const OperatorImpl &other) : type(other.type), op(other.op) {}
@@ -222,6 +240,8 @@ Operator &Operator::operator=(const Operator &other) {
   return *this;
 }
 
+Operator::Operator(const std::string &name, xacc::HeterogeneousMap &options)
+    : m_internal(name, options) {}
 Operator::Operator(const std::string &type, const std::string &expr)
     : m_internal(type, expr) {}
 Operator::Operator(const Operator &op)
@@ -314,6 +334,18 @@ Operator Operator::commutator(Operator &op) {
   return m_internal->commutator(op);
 }
 
+Operator Operator::transform(const std::string &type,
+                             xacc::HeterogeneousMap m) {
+  auto transformed =
+      xacc::getService<xacc::ObservableTransform>(type)->transform(
+          m_internal->op);
+  auto new_type =
+      std::dynamic_pointer_cast<xacc::quantum::FermionOperator>(transformed)
+          ? "fermion"
+          : "pauli";
+  return Operator(OperatorImpl(new_type, transformed));
+}
+
 void __internal_exec_observer(
     xacc::AcceleratorBuffer *b,
     std::vector<std::shared_ptr<CompositeInstruction>> v) {
@@ -342,8 +374,10 @@ Operator operator-(Operator op, double coeff) {
   return op - Operator("pauli", fmt::format("{}", coeff));
 }
 
-Operator adag(int idx) { return Operator("fermion", fmt::format("{}^", idx)); }
-Operator a(int idx) { return Operator("fermion", fmt::format("{}", idx)); }
+Operator adag(int idx) {
+  return Operator("fermion", fmt::format("1.0 {}^", idx));
+}
+Operator a(int idx) { return Operator("fermion", fmt::format("1.0 {}", idx)); }
 
 Operator X(int idx) { return Operator("pauli", fmt::format("X{}", idx)); }
 Operator Y(int idx) { return Operator("pauli", fmt::format("Y{}", idx)); }
@@ -399,12 +433,23 @@ Operator createOperator(const std::string &name, const std::string &repr) {
   return qcor::Operator(name, repr);
 }
 
+Operator createOperator(const std::string &name, HeterogeneousMap &&options) {
+  return createOperator(name, options);
+}
+Operator createOperator(const std::string &name, HeterogeneousMap &options) {
+  return qcor::Operator(name, options);
+}
+
 Operator createObservable(const std::string &repr) {
   return createOperator(repr);
 }
 
 Operator createObservable(const std::string &name, const std::string &repr) {
   return createOperator(name, repr);
+}
+
+Operator operatorTransform(const std::string &type, Operator &op) {
+  return op.transform(type);
 }
 
 Operator _internal_python_createObservable(const std::string &name,

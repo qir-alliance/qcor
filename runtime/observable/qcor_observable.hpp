@@ -27,12 +27,15 @@ class Operator
   qcor_pimpl<OperatorImpl> m_internal;
 
  public:
+ Operator(const std::string& name, xacc::HeterogeneousMap& options);
   Operator(const std::string &type, const std::string &expr);
   Operator(const OperatorImpl &&impl);
   Operator(const Operator &i);
   Operator& operator=(const Operator&);
   Operator();
   ~Operator();
+
+  Operator transform(const std::string& type, xacc::HeterogeneousMap m = {});
 
   std::shared_ptr<xacc::Identifiable> get_as_opaque();
 
@@ -133,13 +136,13 @@ Operator createObservable(const std::string &name,
 Operator createOperator(const std::string &repr);
 Operator createOperator(const std::string &name,
                                            const std::string &repr);
-// Operator createOperator(const std::string &name,
-//                                            HeterogeneousMap &&options);
-// Operator createOperator(const std::string &name,
-//                                            HeterogeneousMap &options);
+Operator createOperator(const std::string &name,
+                                           HeterogeneousMap &&options);
+Operator createOperator(const std::string &name,
+                                           HeterogeneousMap &options);
 
-// Operator operatorTransform(const std::string &type,
-//                                               Operator &op);
+Operator operatorTransform(const std::string &type,
+                                              Operator &op);
 // Operator operatorTransform(const std::string &type,
 //                                               std::shared_ptr<Observable> op);
 

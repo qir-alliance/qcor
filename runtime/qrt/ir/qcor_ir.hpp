@@ -52,6 +52,7 @@ class CompositeInstruction {
   void clear();
 
   void addInstruction(LocalOpaqueInstPtr instruction);
+  void addInstruction(std::shared_ptr<CompositeInstruction> composite);
   void addInstructions(std::vector<LocalOpaqueInstPtr> &instruction);
   void addInstructions(const std::vector<LocalOpaqueInstPtr> &instruction);
   void addInstructions(const std::vector<LocalOpaqueInstPtr> &&insts,
@@ -59,6 +60,8 @@ class CompositeInstruction {
 
   void attachMetadata(const int instId, xacc::HeterogeneousMap &&m);
   std::string toString();
+  int depth();
+  
 };
 
 }  // namespace qcor

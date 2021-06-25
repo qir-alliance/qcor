@@ -9,7 +9,6 @@
 #include <vector>
 #include <Eigen/Dense>
 
-// #include "qalloc.hpp"
 #include "qcor_ir.hpp"
 
 namespace xacc {
@@ -17,7 +16,7 @@ class IRProvider;
 class IRTransformation;
 class AcceleratorBuffer;
 namespace internal_compiler {
-class qreg;
+  class qreg;
 }
 }  // namespace xacc
 
@@ -89,6 +88,9 @@ using UnitaryMatrix = Eigen::MatrixXcd;
 // This should abort execution
 void error(const std::string &msg);
 std::vector<std::string> split(const std::string &str, char delimiter);
+
+void persist_var_to_qreg(const std::string &key, double &val, qreg &q);
+void persist_var_to_qreg(const std::string &key, int &val, qreg &q);
 
 template <typename T>
 std::vector<T> linspace(T a, T b, size_t N) {

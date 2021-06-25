@@ -35,7 +35,7 @@ std::vector<double> run_gradient_strategy(
     // _kernel_eval produces a qcor::CompositeInstruction ptr
     return _kernel_eval(x)->as_xacc();
   };
-  std::cout << "NOW WE ARE HERE\n";
+
   auto kernel = kernel_eval(x);
   gradient_strategy->initialize({{"observable", observable},
                                  {"step", step},
@@ -44,7 +44,7 @@ std::vector<double> run_gradient_strategy(
   const size_t nb_qubits = std::max(static_cast<size_t>(observable->nBits()),
                                     kernel->nPhysicalBits());
   auto tmp_grad = qalloc(nb_qubits);
-  std::cout << "EXECING IN THIEN WORK\n";
+
   xacc::internal_compiler::execute(tmp_grad.results(), grad_kernels);
   auto tmp_grad_children = tmp_grad.results()->getChildren();
   gradient_strategy->compute(gradients, tmp_grad_children);

@@ -35,6 +35,14 @@ void set_backend(const std::string &backend) {
   xacc::internal_compiler::setAccelerator(backend.c_str());
 }
 
+void persist_var_to_qreg(const std::string &key, double &val, qreg &q) {
+  q.results()->addExtraInfo(key, val);
+}
+
+void persist_var_to_qreg(const std::string &key, int &val, qreg &q) {
+  q.results()->addExtraInfo(key, val);
+}
+
 std::shared_ptr<qcor::IRTransformation> createTransformation(
     const std::string &transform_type) {
   return __internal__::get_transformation(transform_type);
@@ -148,7 +156,7 @@ std::shared_ptr<qcor::CompositeInstruction> decompose_unitary(
 //   return decomposed;
 // }
 
-}  // namespace __internal__
+// }  // namespace __internal__
 
 using namespace xacc::quantum;
 using namespace Eigen;
@@ -203,7 +211,7 @@ class KernelToUnitaryVisitor : public AllGateVisitor {
 UnitaryMatrix map_composite_to_unitary_matrix(
     std::shared_ptr<CompositeInstruction> composite) {
   auto c = composite->as_xacc();
-  qcor::KernelToUnitaryVisitor visitor(c->nLogicalBits());
+  KernelToUnitaryVisitor visitor(c->nLogicalBits());
   xacc::InstructionIterator iter(c);
   while (iter.hasNext()) {
     auto inst = iter.next();
@@ -469,4 +477,5 @@ MatrixXcd KernelToUnitaryVisitor::twoQubitGateExpand(MatrixXcd &in_gateMat,
   return resultMat;
 }
 
+}
 }  // namespace qcor

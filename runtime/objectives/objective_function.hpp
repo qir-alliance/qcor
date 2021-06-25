@@ -336,7 +336,6 @@ class ObjectiveFunctionImpl : public ObjectiveFunction {
       auto m_kernel = create_new_composite();
       auto kernel_composite_tuple = std::make_tuple(m_kernel);
 
-      std::cout << "TRANSLATING: " << x[0] << "\n";
       // Translate x parameters into kernel args (represented as a tuple)
       auto translated_tuple = (*args_translator)(x);
      
@@ -344,7 +343,6 @@ class ObjectiveFunctionImpl : public ObjectiveFunction {
       auto concatenated =
           std::tuple_cat(kernel_composite_tuple, translated_tuple);
 
-       std::cout << "Evaluating with args\n";
       // Call the functor with those arguments
       qcor::__internal__::evaluate_function_with_tuple_args(kernel_functor,
                                                             concatenated);
@@ -368,7 +366,6 @@ class ObjectiveFunctionImpl : public ObjectiveFunction {
     // the optimizer requires dx (not empty)
     // and the concrete ObjFunc sub-class doesn't calculate the gradients.
     if (!dx.empty() && !helper->gradients_computed){
-      std::cout << "WE ARE IN HERE " << gradients_computed << ", " << dx.size() << "\n";
       if (dx.size() != x.size()) {
         error(
             "Dimension mismatched: gradients and parameters vectors have "

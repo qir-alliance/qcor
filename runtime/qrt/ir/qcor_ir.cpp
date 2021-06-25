@@ -105,6 +105,12 @@ const std::string CompositeInstruction::name() const {
 std::shared_ptr<xacc::CompositeInstruction> CompositeInstruction::as_xacc() {
   return m_internal->program;
 }
+void CompositeInstruction::addInstruction(
+    std::shared_ptr<CompositeInstruction> composite) {
+  m_internal->program->addInstruction(composite->as_xacc());
+}
+
+int CompositeInstruction::depth() { return m_internal->program->depth(); }
 
 std::size_t CompositeInstruction::nLogicalBits() {
   return m_internal->nLogicalBits();

@@ -58,17 +58,16 @@ def deuteron_cost_fn(angles: List[float]):
     # Convert the term to bases (list of integers)
     for term in H.getNonIdentitySubTerms():
         term_bases = [0, 0]
-        coeff = 0.0
-        for op in term:
-            coeff = op[1].coeff().real
-            for qId in op[1].ops():
-                op_name = op[1].ops()[qId]
-                if op_name == 'X':
-                   term_bases[qId] = 1
-                if op_name == 'Y':
-                   term_bases[qId] = 2
-                if op_name == 'Z':
-                    term_bases[qId] = 3
+        coeff = term.coefficient().real
+        zv, xv = term.toBinaryVectors(2)
+        for i, x_val in enumerate(xv):
+            z_val = zv[i]
+            if x_val == z_val:
+                term_bases[i] = 2
+            elif x_val == 0:
+                term_bases[i] = 3
+            else:
+                term_bases[i] = 1
         global energy
         energy = 0.0
         num_samples = 1024

@@ -29,7 +29,7 @@ class TestQCORKernelAutoGrad(unittest.TestCase):
     def test_autograd_args_translate(self):
         set_qpu('qpp')
         @qjit
-        def ansatz_args_translate(q: qreg, x: List[float], exp_args: List[FermionOperator]):
+        def ansatz_args_translate(q: qreg, x: List[float], exp_args: List[Operator]):
             X(q[0])
             for i, exp_arg in enumerate(exp_args):
                 exp_i_theta(q, x[i], exp_args[i])

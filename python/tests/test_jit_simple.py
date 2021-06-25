@@ -137,7 +137,7 @@ class TestKernelJIT(unittest.TestCase):
     def test_for_loop_enumerate(self):
         set_qpu('qpp')
         @qjit
-        def ansatz(q: qreg, x: List[float], exp_args: List[FermionOperator]):
+        def ansatz(q: qreg, x: List[float], exp_args: List[Operator]):
             X(q[0])
             for i, exp_arg in enumerate(exp_args):
                 exp_i_theta(q, x[i], exp_args[i])
