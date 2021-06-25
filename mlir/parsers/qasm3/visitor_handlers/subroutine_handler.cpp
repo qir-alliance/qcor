@@ -53,9 +53,9 @@ antlrcpp::Any qasm3_visitor::visitSubroutineDefinition(
         auto bit_size = symbol_table.evaluate_constant_integer_expression(
             designator->getText());
         llvm::ArrayRef<int64_t> shape{bit_size};
-        return_type = mlir::MemRefType::get(shape, result_type);
+        return_type = mlir::MemRefType::get(shape, builder.getI1Type());
       } else {
-        return_type = result_type;
+        return_type = builder.getI1Type();
       }
     } else if (auto single_desig = classical_type->singleDesignatorType()) {
       if (single_desig->getText() == "float") {
@@ -186,7 +186,13 @@ antlrcpp::Any qasm3_visitor::visitReturnStatement(
           auto tmp = get_or_create_constant_index_value(0, location, 64,
                                                         symbol_table, builder);
           llvm::ArrayRef<mlir::Value> zero_index(tmp);
-          value = builder.create<mlir::LoadOp>(location, value, zero_index);
+          if (value.getType().isa<mlir::MemRefType>() &&
+              value.getType().cast<mlir::MemRefType>().getShape().empty()) {
+            // No need to add index if the Memref has no dimension.
+            value = builder.create<mlir::LoadOp>(location, value);
+          } else {
+            value = builder.create<mlir::LoadOp>(location, value, zero_index);
+          }
         } else {
           value =
               builder.create<mlir::LoadOp>(location, value);  //, zero_index);
