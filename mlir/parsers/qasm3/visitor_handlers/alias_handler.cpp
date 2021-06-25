@@ -74,10 +74,10 @@ antlrcpp::Any qasm3_visitor::visitAliasStatement(
                 builder.create<mlir::quantum::QaliasArrayAllocOp>(
                     location, array_type, integer_attr, str_attr);
             // Add the alias register to the symbol table
-            std::cout << "Adding symbol 1\n";
+            // std::cout << "Adding symbol 1\n";
             symbol_table.add_symbol(in_aliasName, alias_allocation,
                                     {std::to_string(n_expressions)});
-        std::cout << "made it here\n";
+            // std::cout << "made it here\n";
             auto counter = 0;
             for (auto expr : expressions) {
               // GOAL HERE IS TO ASSIGN extracted qubits from original array
@@ -176,11 +176,10 @@ antlrcpp::Any qasm3_visitor::visitAliasStatement(
             };
             const auto new_size =
                 slice_size_calc(orig_size, range_start, range_step, range_stop);
-                            std::cout << "Adding symbol 2 " << in_aliasName << "\n";
+            // std::cout << "Adding symbol 2 " << in_aliasName << "\n";
 
             symbol_table.add_symbol(in_aliasName, array_slice,
                                     {std::to_string(new_size)});
-                                    std::cout << "HI\n";
           } else {
             printErrorMessage("Could not parse the alias statement.",
                               in_indexIdentifierContext);
@@ -232,7 +231,8 @@ antlrcpp::Any qasm3_visitor::visitAliasStatement(
               builder.create<mlir::quantum::ArrayConcatOp>(
                   location, array_type, first_reg_symbol, second_reg_symbol);
           const auto new_size = first_reg_size + second_reg_size;
-          // std::cout << "Concatenate " << lhs_temp_var << "[" << first_reg_size
+          // std::cout << "Concatenate " << lhs_temp_var << "[" <<
+          // first_reg_size
           //           << "] with " << rhs_temp_var << "[" << second_reg_size
           //           << "] -> " << in_aliasName << "[" << new_size << "].\n";
 

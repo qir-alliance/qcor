@@ -84,7 +84,13 @@ void SingleQubitGateMergingPass::runOnOperation() {
         auto user = *return_value.user_begin();
         if (auto next_inst =
                 dyn_cast_or_null<mlir::quantum::ValueSemanticsInstOp>(user)) {
-          current_op = next_inst;
+          // Only allow unitary gates...
+          if (next_inst.name() == "reset" || next_inst.name() == "mz") {
+            break;
+          } else {
+            // Continue the search
+            current_op = next_inst;
+          }
         } else {
           break;
         }
