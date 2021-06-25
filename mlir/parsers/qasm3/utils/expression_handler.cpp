@@ -505,8 +505,12 @@ antlrcpp::Any qasm3_expression_generator::visitXOrExpression(
       auto mem_type = mlir::MemRefType::get(shaperef, lhs_element_type);
 
       auto integer_attr2 = mlir::IntegerAttr::get(lhs_element_type, 0);
+      
+      assert(integer_attr2.getType().cast<mlir::IntegerType>().isSignless());
       auto ret2 = builder.create<mlir::ConstantOp>(location, integer_attr2);
+      
       auto integer_attr3 = mlir::IntegerAttr::get(lhs_element_type, 1);
+      assert(integer_attr3.getType().cast<mlir::IntegerType>().isSignless());
       auto ret3 = builder.create<mlir::ConstantOp>(location, integer_attr3);
 
       mlir::Value loop_var_memref = builder.create<mlir::AllocaOp>(
@@ -774,6 +778,7 @@ antlrcpp::Any qasm3_expression_generator::visitExpressionTerminator(
                ? internal_value_type.cast<mlir::IntegerType>()
                : builder.getI64Type()),
           idx);
+      assert(integer_attr.getType().cast<mlir::IntegerType>().isSignless());
       current_value = builder.create<mlir::ConstantOp>(location, integer_attr);
     }
     return 0;

@@ -232,6 +232,7 @@ antlrcpp::Any qasm3_visitor::visitNoDesignatorDeclaration(
     if (auto id_list = context->identifierList()) {
       for (auto id : id_list->Identifier()) {
         variable_names.push_back(id->getText());
+        assert(init_attr.getType().cast<mlir::IntegerType>().isSignless());
         initial_values.push_back(
             builder.create<mlir::ConstantOp>(location, init_attr));
       }

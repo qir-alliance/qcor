@@ -95,6 +95,7 @@ mlir::Value get_or_create_constant_integer_value(
     return symbol_table.get_constant_integer(idx, width);
   } else {
     auto integer_attr = mlir::IntegerAttr::get(type, idx);
+    assert(integer_attr.getType().cast<mlir::IntegerType>().isSignless());
     auto ret = builder.create<mlir::ConstantOp>(location, integer_attr);
     symbol_table.add_constant_integer(idx, ret, width);
     return ret;
