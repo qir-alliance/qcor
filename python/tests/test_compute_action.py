@@ -76,6 +76,24 @@ class TestKernelJIT(unittest.TestCase):
     self.assertEqual(comp3.getInstruction(middle_inst_idx).name(), 'CRZ')
     self.assertEqual(comp3.nInstructions(), comp0.nInstructions()) 
 
+  def test_capture_vars(self):
+    @qjit
+    def test_compute_action11(q : qreg, x : float):
+      i = 10
+      with compute:
+        # control of x gate
+        j = i
+        print(j)
+        X.ctrl(q[0], q[1])
+        for i in range(3):
+            H(q[i+1])
+      with action:
+        Rz(q[3], x)
+      
+      q = qalloc(2)
+      test_compute_action11(q, 2.2)
+      
+
   def test_multi_control(self):
     @qjit
     def x_gate_standalone_m(q: qubit):

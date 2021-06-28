@@ -61,7 +61,7 @@ using AllowedKernelArgTypes =
                   xacc::internal_compiler::qubit, std::vector<double>,
                   std::vector<int>, qcor::PauliOperator, qcor::FermionOperator,
                   qcor::PairList<int>, std::vector<qcor::PauliOperator>,
-                  std::vector<qcor::FermionOperator>>;
+                  std::vector<qcor::FermionOperator>, std::vector<std::string>>;
 
 // We will take as input a mapping of arg variable names to the argument itself.
 using KernelArgDict = std::map<std::string, AllowedKernelArgTypes>;
@@ -509,7 +509,9 @@ PYBIND11_MODULE(_pyqcor, m) {
       },
       py::arg("placement_name"), "Set the placement strategy.");
 
-  m.def("qalloc", &::qalloc, py::return_value_policy::reference, "");
+  m.def(
+      "qalloc", [](int size) { return ::qalloc(size); },
+      "Allocate qubit register.");
   m.def("set_shots", &qcor::set_shots, "");
   py::class_<xacc::internal_compiler::qubit>(m, "qubit", "");
   py::class_<xacc::internal_compiler::qreg>(m, "qreg", "")
@@ -524,8 +526,22 @@ PYBIND11_MODULE(_pyqcor, m) {
             return q.extract_range(r);
           },
           "")
-      // .def("extract_qubits", &xacc::internal_compiler::qreg::extract_qubits,
-      // "")
+      .def(
+          "head", [](xacc::internal_compiler::qreg &q) { return q.head(); }, "")
+      .def(
+          "head",
+          [](xacc::internal_compiler::qreg &q, const std::size_t n) {
+            return q.head(n);
+          },
+          "")
+      .def(
+          "tail", [](xacc::internal_compiler::qreg &q) { return q.tail(); }, "")
+      .def(
+          "tail",
+          [](xacc::internal_compiler::qreg &q, const std::size_t n) {
+            return q.tail(n);
+          },
+          "")
       .def("exp_val_z", &xacc::internal_compiler::qreg::exp_val_z, "")
       .def(
           "results",

@@ -193,6 +193,16 @@ void QCORSyntaxHandler::GetReplacement(
   // We only support one buffer in FTQC mode atm.
   OS << "quantum::set_current_buffer(" << bufferNames[0] << ".results());\n";
   OS << "}\n";
+  // Set the parent_kernel of this kernel to any KernelSignature
+  // (even nested in container) so that even w/o parent_kernel added by the 
+  // token collector, the KernelSignature will still be referring to the correct parent_kernel.
+  // i.e. we can track KernelSignature coming from complex data container such as std::vector
+  // rather than relying on the list of kernels in translation unit.
+  OS << "init_kernel_signature_args(parent_kernel, " << program_parameters[0];
+  for (int i = 1; i < program_arg_types.size(); i++) {
+    OS << ", " << program_parameters[i];
+  }
+  OS << ");\n";
   OS << new_src << "\n";
   OS << "}\n";
 
@@ -304,6 +314,8 @@ void QCORSyntaxHandler::GetReplacement(
   OS << ");\n";
   OS << "quantum::persistBitstring(" << bufferNames[0] << ".results());\n";
   OS << "}\n";
+  // Use a special submit for FTQC to denote that this executable kernel has been completed.
+  OS << "quantum::submit(nullptr);\n";
   OS << "}\n";
   OS << "return;\n";
   OS << "}\n";
@@ -435,6 +447,31 @@ void QCORSyntaxHandler::GetReplacement(
                               << kernel_signature_var_name << "("
                               << new_var_name << ");\n";
         arg_ctor_list.emplace_back(kernel_signature_var_name);
+      } else if (program_arg_types[i].rfind("std::vector<KernelSignature<",
+                                            0) == 0) {
+        // This is a list of KernelSignatures argument.
+        // The one in HetMap is the vector of function pointers represented as a
+        // hex string.
+        const std::string new_var_name =
+            "__temp_kernel_ptr_vector_var__" + std::to_string(var_counter++);
+        // Retrieve the list of function pointer from the HetMap
+        ref_type_copy_decl_ss << "auto " << new_var_name
+                              << " = args.get<std::vector<std::string>>(\""
+                              << program_parameters[i] << "\");\n";
+
+        const std::string list_kernel_signature_var_name =
+            "__temp_kernel_signature_var__" + std::to_string(var_counter++);
+        // Declare the vector of kernel signatures
+        ref_type_copy_decl_ss << program_arg_types[i] << " "
+                              << list_kernel_signature_var_name << ";\n";
+        // Construct the list from function pointers
+        ref_type_copy_decl_ss << "std::vector<void*> temp_fn_ptrs(" << new_var_name << ".size());\n";
+        ref_type_copy_decl_ss << "int fn_idx = 0;\n";
+        ref_type_copy_decl_ss << "for (const auto& ptr_str: " << new_var_name << ") {\n";
+        ref_type_copy_decl_ss << "temp_fn_ptrs[fn_idx] = (void *) strtoull(ptr_str.c_str(), nullptr, 16);\n";
+        ref_type_copy_decl_ss <<  list_kernel_signature_var_name << ".emplace_back(temp_fn_ptrs[fn_idx++]);\n";
+        ref_type_copy_decl_ss << "}\n";
+        arg_ctor_list.emplace_back(list_kernel_signature_var_name);
       } else {
         // Otherwise, just unpack the arg inline in the ctor call.
         std::stringstream ss;

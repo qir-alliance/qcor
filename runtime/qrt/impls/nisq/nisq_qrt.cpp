@@ -17,6 +17,21 @@
 using namespace cppmicroservices;
 using namespace xacc;
 
+namespace {
+class NisqQubitAllocator : public qcor::AncQubitAllocator {
+public:
+  static NisqQubitAllocator *getInstance() {
+    if (!g_instance) {
+      g_instance = new NisqQubitAllocator();
+    }
+    return g_instance;
+  }
+  static NisqQubitAllocator *g_instance;
+};
+
+NisqQubitAllocator *NisqQubitAllocator::g_instance = nullptr;
+} // namespace
+
 namespace qcor {
 template <typename T>
 bool ptr_is_a(std::shared_ptr<Observable> ptr) {
@@ -63,6 +78,7 @@ class NISQ : public ::quantum::QuantumRuntime,
   }
 
  public:
+
   std::shared_ptr<::quantum::QuantumRuntime> clone() override {
     return std::make_shared<NISQ>();
   }
@@ -70,6 +86,11 @@ class NISQ : public ::quantum::QuantumRuntime,
   void initialize(const std::string kernel_name) override {
     provider = xacc::getIRProvider("quantum");
     program = provider->createComposite(kernel_name);
+    setGlobalQubitManager(NisqQubitAllocator::getInstance());
+  }
+
+  QubitAllocator *get_anc_qubit_allocator() {
+    return NisqQubitAllocator::getInstance();
   }
 
   void __begin_mark_segment_as_compute() override { mark_as_compute = true; }
@@ -329,10 +350,19 @@ class NISQ : public ::quantum::QuantumRuntime,
 
   void submit(xacc::AcceleratorBuffer *buffer) override {
     // xacc::internal_compiler::execute_pass_manager();
-    if (__print_final_submission) {
-      std::cout << "SUBMIT:\n" << program->toString() << "\n";
+    auto anc_allocator = NisqQubitAllocator::getInstance();
+    if (anc_allocator->get_buffer() &&
+        anc_allocator->get_buffer()->size() > 0) {
+      std::vector<xacc::AcceleratorBuffer *> buffer_list{
+          buffer, anc_allocator->get_buffer().get()};
+      submit(buffer_list.data(), buffer_list.size());
+    } else {
+      if (__print_final_submission) {
+        std::cout << "SUBMIT:\n" << program->toString() << "\n";
+      }
+      xacc::internal_compiler::execute(buffer, program);
     }
-    xacc::internal_compiler::execute(buffer, program);
+
     clearProgram();
   }
 
@@ -342,6 +372,12 @@ class NISQ : public ::quantum::QuantumRuntime,
     std::set<xacc::AcceleratorBuffer*> ptrs;
     for (int i = 0; i < nBuffers; i++) {
       ptrs.insert(buffers[i]);
+    }
+    // Add the kernel-allocated temporary buffer if necessary:
+    auto anc_allocator = NisqQubitAllocator::getInstance();
+    if (anc_allocator->get_buffer() &&
+        anc_allocator->get_buffer()->size() > 0) {
+      ptrs.insert(anc_allocator->get_buffer().get());
     }
     // If size is 1 here, then we only have 
     // one pointer, like in the case of qubit.results()

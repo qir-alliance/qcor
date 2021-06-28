@@ -1,5 +1,5 @@
 
-// Generated from xasm_single.g4 by ANTLR 4.8
+// Generated from xasm_single.g4 by ANTLR 4.9.2
 
 #pragma once
 
@@ -29,7 +29,7 @@ public:
     RuleId = 10, RuleReal = 11, RuleString = 12
   };
 
-  xasm_singleParser(antlr4::TokenStream *input);
+  explicit xasm_singleParser(antlr4::TokenStream *input);
   ~xasm_singleParser();
 
   virtual std::string getGrammarFileName() const override;
@@ -102,7 +102,7 @@ public:
 
   class  QinstContext : public antlr4::ParserRuleContext {
   public:
-    xasm_singleParser::IdContext *inst_name = nullptr;;
+    xasm_singleParser::IdContext *inst_name = nullptr;
     QinstContext(antlr4::ParserRuleContext *parent, size_t invokingState);
     virtual size_t getRuleIndex() const override;
     ExplistContext *explist();
@@ -119,9 +119,9 @@ public:
 
   class  CinstContext : public antlr4::ParserRuleContext {
   public:
-    xasm_singleParser::Cpp_typeContext *type_name = nullptr;;
-    xasm_singleParser::ExpContext *var_name = nullptr;;
-    xasm_singleParser::ExpContext *var_value = nullptr;;
+    xasm_singleParser::Cpp_typeContext *type_name = nullptr;
+    xasm_singleParser::ExpContext *var_name = nullptr;
+    xasm_singleParser::ExpContext *var_value = nullptr;
     CinstContext(antlr4::ParserRuleContext *parent, size_t invokingState);
     virtual size_t getRuleIndex() const override;
     Cpp_typeContext *cpp_type();

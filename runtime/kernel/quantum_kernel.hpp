@@ -112,7 +112,7 @@ class QuantumKernel {
   static void print_kernel(std::ostream &os, Args... args) {
     Derived derived(args...);
     KernelSignature<Args...> callable(derived);
-    return internal::print_kernel(callable, os, args...);
+    return internal::print_kernel<Args...>(callable, os, args...);
   }
 
   static void print_kernel(Args... args) { print_kernel(std::cout, args...); }
@@ -121,7 +121,7 @@ class QuantumKernel {
   static std::size_t n_instructions(Args... args) {
     Derived derived(args...);
     KernelSignature<Args...> callable(derived);
-    return internal::n_instructions(callable, args...);
+    return internal::n_instructions<Args...>(callable, args...);
   }
 
   // Create the Adjoint of this quantum kernel
@@ -129,7 +129,7 @@ class QuantumKernel {
                       Args... args) {
     Derived derived(args...);
     KernelSignature<Args...> callable(derived);
-    return internal::apply_adjoint(parent_kernel, callable, args...);
+    return internal::apply_adjoint<Args...>(parent_kernel, callable, args...);
   }
 
   // Create the controlled version of this quantum kernel
@@ -162,7 +162,8 @@ class QuantumKernel {
     // instantiate and don't let it call the destructor
     Derived derived(args...);
     KernelSignature<Args...> callable(derived);
-    internal::apply_control(parent_kernel, ctrl_qbits, callable, args...);
+    internal::apply_control<Args...>(parent_kernel, ctrl_qbits, callable,
+                                     args...);
   }
 
   // Create the controlled version of this quantum kernel
@@ -174,13 +175,13 @@ class QuantumKernel {
   static Eigen::MatrixXcd as_unitary_matrix(Args... args) {
     Derived derived(args...);
     KernelSignature<Args...> callable(derived);
-    return internal::as_unitary_matrix(callable, args...);
+    return internal::as_unitary_matrix<Args...>(callable, args...);
   }
 
   static double observe(Observable &obs, Args... args) {
     Derived derived(args...);
     KernelSignature<Args...> callable(derived);
-    return internal::observe(obs, callable, args...);
+    return internal::observe<Args...>(obs, callable, args...);
   }
 
   static double observe(std::shared_ptr<Observable> obs, Args... args) {
@@ -265,7 +266,7 @@ class QuantumKernel {
   static std::string openqasm(Args... args) {
     Derived derived(args...);
     KernelSignature<Args...> callable(derived);
-    return internal::openqasm(callable, args...);
+    return internal::openqasm<Args...>(callable, args...);
   }
 
   virtual ~QuantumKernel() {}
@@ -609,7 +610,6 @@ class _qpu_lambda {
                   FunctionArgs &&...args) {
     // Map the function args to a tuple
     auto kernel_args_tuple = std::forward_as_tuple(args...);
-
     if (!optional_copy_capture_vars.has_value()) {
       // By-ref:
       // Merge the function args and the capture vars and execute
@@ -619,6 +619,7 @@ class _qpu_lambda {
             qjit.invoke_with_parent_forwarding("foo", parent, args...);
           },
           final_args_tuple);
+
     } else if constexpr (std::conjunction_v<
                              std::is_copy_assignable<CaptureArgs>...>) {
       // constexpr compile-time check to prevent compiler from looking at this
@@ -664,14 +665,14 @@ class _qpu_lambda {
   template <typename... FunctionArgs>
   double observe(Observable &obs, FunctionArgs... args) {
     KernelSignature<FunctionArgs...> callable(*this);
-    return internal::observe(obs, callable, args...);
+    return internal::observe<FunctionArgs...>(obs, callable, args...);
   }
 
   template <typename... FunctionArgs>
   void ctrl(std::shared_ptr<CompositeInstruction> ir,
             const std::vector<qubit> &ctrl_qbits, FunctionArgs... args) {
     KernelSignature<FunctionArgs...> callable(*this);
-    internal::apply_control(ir, ctrl_qbits, callable, args...);
+    internal::apply_control<FunctionArgs...>(ir, ctrl_qbits, callable, args...);
   }
 
   template <typename... FunctionArgs>
@@ -711,13 +712,13 @@ class _qpu_lambda {
   void adjoint(std::shared_ptr<CompositeInstruction> parent_kernel,
                FunctionArgs... args) {
     KernelSignature<FunctionArgs...> callable(*this);
-    return internal::apply_adjoint(parent_kernel, callable, args...);
+    return internal::apply_adjoint<FunctionArgs...>(parent_kernel, callable, args...);
   }
 
   template <typename... FunctionArgs>
   void print_kernel(std::ostream &os, FunctionArgs... args) {
     KernelSignature<FunctionArgs...> callable(*this);
-    return internal::print_kernel(callable, os, args...);
+    return internal::print_kernel<FunctionArgs...>(callable, os, args...);
   }
 
   template <typename... FunctionArgs>
@@ -728,19 +729,19 @@ class _qpu_lambda {
   template <typename... FunctionArgs>
   std::size_t n_instructions(FunctionArgs... args) {
     KernelSignature<FunctionArgs...> callable(*this);
-    return internal::n_instructions(callable, args...);
+    return internal::n_instructions<FunctionArgs...>(callable, args...);
   }
 
   template <typename... FunctionArgs>
   Eigen::MatrixXcd as_unitary_matrix(FunctionArgs... args) {
     KernelSignature<FunctionArgs...> callable(*this);
-    return internal::as_unitary_matrix(callable, args...);
+    return internal::as_unitary_matrix<FunctionArgs...>(callable, args...);
   }
 
   template <typename... FunctionArgs>
   std::string openqasm(FunctionArgs... args) {
     KernelSignature<FunctionArgs...> callable(*this);
-    return internal::openqasm(callable, args...);
+    return internal::openqasm<FunctionArgs...>(callable, args...);
   }
 };
 
@@ -757,6 +758,7 @@ class KernelSignature {
   callable_function_ptr<Args...> &function_pointer;
   std::function<void(std::shared_ptr<xacc::CompositeInstruction>, Args...)>
       lambda_func;
+  std::shared_ptr<xacc::CompositeInstruction> parent_kernel;
 
  public:
   // Here we set function_pointer to null and instead
@@ -803,9 +805,15 @@ class KernelSignature {
     function_pointer(ir, args...);
   }
 
+  void operator()(Args... args) { operator()(parent_kernel, args...); }
+
+  void set_parent_kernel(std::shared_ptr<xacc::CompositeInstruction> ir) {
+    parent_kernel = ir;
+  }
+
   void ctrl(std::shared_ptr<xacc::CompositeInstruction> ir,
             const std::vector<qubit> &ctrl_qbits, Args... args) {
-    internal::apply_control(ir, ctrl_qbits, *this, args...);
+    internal::apply_control<Args...>(ir, ctrl_qbits, *this, args...);
   }
 
   void ctrl(std::shared_ptr<xacc::CompositeInstruction> ir,
@@ -837,25 +845,25 @@ class KernelSignature {
   }
 
   void adjoint(std::shared_ptr<CompositeInstruction> ir, Args... args) {
-    internal::apply_adjoint(ir, *this, args...);
+    internal::apply_adjoint<Args...>(ir, *this, args...);
   }
 
   void print_kernel(std::ostream &os, Args... args) {
-    return internal::print_kernel(*this, os, args...);
+    return internal::print_kernel<Args...>(*this, os, args...);
   }
 
   void print_kernel(Args... args) { print_kernel(std::cout, args...); }
 
   std::size_t n_instructions(Args... args) {
-    return internal::n_instructions(*this, args...);
+    return internal::n_instructions<Args...>(*this, args...);
   }
 
   Eigen::MatrixXcd as_unitary_matrix(Args... args) {
-    return internal::as_unitary_matrix(*this, args...);
+    return internal::as_unitary_matrix<Args...>(*this, args...);
   }
 
   std::string openqasm(Args... args) {
-    return internal::openqasm(*this, args...);
+    return internal::openqasm<Args...>(*this, args...);
   }
 
   double observe(std::shared_ptr<Observable> obs, Args... args) {
@@ -863,9 +871,64 @@ class KernelSignature {
   }
 
   double observe(Observable &obs, Args... args) {
-    return internal::observe(obs, *this, args...);
+    return internal::observe<Args...>(obs, *this, args...);
   }
 };
+
+// Templated helper to attach parent_kernel to any
+// KernelSignature arguments even nested in a std::vector<KernelSignature>
+// The reason is that the Token Collector relies on a list of kernel names
+// in the translation unit to attach parent_kernel to the operator() call.
+// For KernelSignature provided in a container, tracking these at the
+// TokenCollector level is error-prone (e.g. need to track any array accesses).
+// Hence, we iterate over all kernel arguments and attach the parent_kernel
+// to any KernelSignature argument at the top of each kernel's operator() call
+// in a type-safe manner.
+
+// Last arg
+inline void init_kernel_signature_args_impl(
+    std::shared_ptr<xacc::CompositeInstruction> ir) {}
+template <typename T, typename... ArgsType>
+void init_kernel_signature_args_impl(
+    std::shared_ptr<xacc::CompositeInstruction> ir, T &t, ArgsType &...Args);
+
+// Main function: to be added by the token collector at the beginning
+// of each kernel operator().
+template <typename... T>
+void init_kernel_signature_args(std::shared_ptr<xacc::CompositeInstruction> ir,
+                                T &...multi_inputs) {
+  init_kernel_signature_args_impl(ir, multi_inputs...);
+}
+
+// Base case: generic type T,
+// just ignore, proceed to the next arg.
+template <typename T, typename... ArgsType>
+void init_kernel_signature_args_impl(
+    std::shared_ptr<xacc::CompositeInstruction> ir, T &t, ArgsType &...Args) {
+  init_kernel_signature_args(ir, Args...);
+}
+
+// Special case: this is a vector:
+// iterate over all elements.
+template <typename T, typename... ArgsType>
+void init_kernel_signature_args_impl(
+    std::shared_ptr<xacc::CompositeInstruction> ir, std::vector<T> &vec_arg,
+    ArgsType... Args) {
+  for (auto &el : vec_arg) {
+    // Iterate the vector elements.
+    init_kernel_signature_args_impl(ir, el);
+  }
+  // Proceed with the rest.
+  init_kernel_signature_args(ir, Args...);
+}
+
+// Handle KernelSignature arg => set the parent kernel.
+template <typename... ArgsType>
+void init_kernel_signature_args_impl(
+    std::shared_ptr<xacc::CompositeInstruction> ir,
+    KernelSignature<ArgsType...> &kernel_signature) {
+  kernel_signature.set_parent_kernel(ir);
+}
 
 namespace internal {
 // KernelSignature is the base of all kernel-like objects

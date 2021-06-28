@@ -144,11 +144,16 @@ __qpu__ void phase_add_integer_mod(qreg q, qubit anc, int a, int N) {
 // Add an integer a mod N to the a qubit register:
 // |q> --> |q + a mod N>
 // TODO: ability to create scratch qubits
-__qpu__ void add_integer_mod(qreg q, qubit anc, int a, int N) {
+__qpu__ void add_integer_mod_impl(qreg q, qubit anc, int a, int N) {
   // Bring it to Fourier basis
   // (IQFT automatically)
   compute { qft_opt_swap(q, 0); }
   action { phase_add_integer_mod(q, anc, a, N); }
+}
+
+__qpu__ void add_integer_mod(qreg q, int a, int N) {
+  auto anc = qalloc(1);
+  add_integer_mod_impl(q, anc[0], a, N);
 }
 
 // Modular multiply in phase basis:
@@ -164,20 +169,25 @@ __qpu__ void phase_mul_integer_mod(qreg x, qreg b, qubit anc, int a, int N) {
   }
 }
 
-__qpu__ void mul_integer_mod(qreg x, qreg b, qubit anc, int a, int N) {
+__qpu__ void mul_integer_mod_impl(qreg x, qreg b, qubit anc, int a, int N) {
   // Bring it to Fourier basis
   // (IQFT automatically)
   compute { qft_opt_swap(b, 0); }
   action { phase_mul_integer_mod(x, b, anc, a, N); }
 }
 
+__qpu__ void mul_integer_mod(qreg x, qreg b, int a, int N) {
+  auto anc = qalloc(1);
+  mul_integer_mod_impl(x, b, anc[0], a, N);
+}
+
 // Modular multiply in-place:
 // See Fig. 7 (https://arxiv.org/pdf/quant-ph/0205095.pdf)
 // |x>|0> ==> |ax mod N>|0>
 // x and aux_reg must have the same size.
-__qpu__ void mul_integer_mod_in_place(qreg x, qreg aux_reg, qubit anc, int a, int N) {
+__qpu__ void mul_integer_mod_in_place_impl(qreg x, qreg aux_reg, qubit anc, int a, int N) {
   Reset(aux_reg);
-  mul_integer_mod(x, aux_reg, anc, a, N);
+  mul_integer_mod_impl(x, aux_reg, anc, a, N);
   // Swap the result to x register
   for (int i = 0; i < x.size(); ++i) {
     Swap(x[i], aux_reg[i]);
@@ -186,5 +196,11 @@ __qpu__ void mul_integer_mod_in_place(qreg x, qreg aux_reg, qubit anc, int a, in
   int aInv = 0;
   qcor::internal::modinv(aInv, a, N);
   // Apply modular multiply of 1/a
-  mul_integer_mod::adjoint(x, aux_reg, anc, aInv, N);
+  mul_integer_mod_impl::adjoint(x, aux_reg, anc, aInv, N);
+}
+
+// |x> ==> |ax mod N> in-place
+__qpu__ void mul_integer_mod_in_place(qreg x, int a, int N) {
+  auto anc_reg = qalloc(1);
+  mul_integer_mod_in_place_impl(x, qalloc(x.size() + 1), anc_reg[0], a, N);
 }

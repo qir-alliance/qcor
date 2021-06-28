@@ -360,6 +360,7 @@ public:
 
       dx = (*gradiend_method)(x, cost_val);
     }
+    kernel->clear();
     return cost_val;
   }
 
@@ -694,6 +695,45 @@ createObjectiveFunction(_qpu_lambda<CaptureArgs...> &lambda,
 
   return std::make_shared<ObjectiveFunctionImpl<qreg, std::vector<double>>>(
       kernel_fn, __internal__::qcor_as_shared(&observable), q, args_translator,
+      helper, nParams, options);
+}
+
+template <typename... CaptureArgs>
+std::shared_ptr<ObjectiveFunction>
+createObjectiveFunction(_qpu_lambda<CaptureArgs...> &lambda,
+                        std::shared_ptr<Observable> observable, qreg &q, const int nParams,
+                        HeterogeneousMap &&options = {}) {
+  if (lambda.var_type ==
+      _qpu_lambda<CaptureArgs...>::Variational_Arg_Type::None) {
+    error("qpu_lambda has an incompatible signature. Please provide an "
+          "ArgsTranslator.");
+  }
+  auto helper = qcor::__internal__::get_objective("vqe");
+  std::function<void(std::shared_ptr<CompositeInstruction>, qreg,
+                     std::vector<double>)>
+      kernel_fn = [&lambda](std::shared_ptr<CompositeInstruction> comp, qreg q,
+                            std::vector<double> params) -> void {
+    if (lambda.var_type ==
+        _qpu_lambda<CaptureArgs...>::Variational_Arg_Type::Vec_Double) {
+      return lambda.eval_with_parent(comp, q, params);
+    }
+    if (lambda.var_type ==
+        _qpu_lambda<CaptureArgs...>::Variational_Arg_Type::Double) {
+      if (params.size() != 1) {
+        error("Invalid number of parameters. Expected 1, got " +
+              std::to_string(params.size()));
+      }
+      return lambda.eval_with_parent(comp, q, params[0]);
+    }
+    error("Internal error: invalid qpu lambda type encountered.");
+  };
+
+  auto args_translator =
+      std::make_shared<ArgsTranslator<qreg, std::vector<double>>>(
+          [&](const std::vector<double> x) { return std::make_tuple(q, x); });
+
+  return std::make_shared<ObjectiveFunctionImpl<qreg, std::vector<double>>>(
+      kernel_fn, observable, q, args_translator,
       helper, nParams, options);
 }
 

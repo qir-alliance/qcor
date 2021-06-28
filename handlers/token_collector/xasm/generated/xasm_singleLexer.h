@@ -1,5 +1,5 @@
 
-// Generated from xasm_single.g4 by ANTLR 4.8
+// Generated from xasm_single.g4 by ANTLR 4.9.2
 
 #pragma once
 
@@ -23,7 +23,7 @@ public:
     COMMENT = 45, ID = 46, REAL = 47, INT = 48, STRING = 49, WS = 50, EOL = 51
   };
 
-  xasm_singleLexer(antlr4::CharStream *input);
+  explicit xasm_singleLexer(antlr4::CharStream *input);
   ~xasm_singleLexer();
 
   virtual std::string getGrammarFileName() const override;

@@ -83,7 +83,7 @@ cpp_matrix_gen_code = '''#include <pybind11/embed.h>
 #include <pybind11/complex.h>
 namespace py = pybind11;
 // returns 1d data as vector and matrix size (assume square)
-auto __internal__qcor_pyjit_gen_{}_unitary_matrix({}) {{
+auto __internal__qcor_pyjit_{}_gen_{}_unitary_matrix({}) {{
   auto py_src = R"#({})#";
   auto locals = py::dict();
   {}
@@ -309,13 +309,13 @@ class qjit(object):
                         [s for s in analyzer.depends_on])
                     locals_code = '\n'.join(
                         ['locals["{}"] = {};'.format(n, n) for n in arg_var_names])
-                    self.extra_cpp_code = cpp_matrix_gen_code.format(
+                    self.extra_cpp_code = cpp_matrix_gen_code.format(self.kernel_name(),
                         with_decomp_matrix_names[i], arg_struct, code_to_exec, locals_code)
 
                     col_skip = ' '*with_decomp_lines_col_starts[i]
                     new_src = col_skip + 'decompose {\n'
                     new_src += col_skip + ' '*4 + \
-                        'auto [mat_data, mat_size] = __internal__qcor_pyjit_gen_{}_unitary_matrix({});\n'.format(
+                        'auto [mat_data, mat_size] = __internal__qcor_pyjit_{}_gen_{}_unitary_matrix({});\n'.format(self.kernel_name(),
                             with_decomp_matrix_names[i], arg_var_names)
                     new_src += col_skip+' '*4 + \
                         'UnitaryMatrix {} = Eigen::Map<UnitaryMatrix>(mat_data.data(), mat_size, mat_size);\n'.format(
@@ -408,20 +408,34 @@ class qjit(object):
                 cpp_arg_str += ',' + \
                     'int& ' + arg
                 continue
-            if str(_type).startswith('typing.Callable'):
-                cpp_type_str = 'KernelSignature<'
-                for i in range(len(_type.__args__) - 1):
-                    # print("input type:", _type.__args__[i])
-                    arg_type = _type.__args__[i]
-                    if str(arg_type) not in self.allowed_type_cpp_map:
-                        print('Error, this quantum kernel arg type is not allowed: ', str(_type))
-                        exit(1)
-                    cpp_type_str += self.allowed_type_cpp_map[str(arg_type)]
-                    cpp_type_str += ','
                 
-                cpp_type_str = cpp_type_str[:-1]
-                cpp_type_str += '>'
+            # Helper to parse Python KernelSignature type annotation     
+            def construct_callable_signature(clb_type):
+                result_type_str = 'KernelSignature<'
+                for i in range(len(clb_type.__args__) - 1):
+                    # print("input type:", _type.__args__[i])
+                    arg_type = clb_type.__args__[i]
+                    if str(arg_type) not in self.allowed_type_cpp_map:
+                        print('Error, this quantum kernel arg type is not allowed: ', str(clb_type))
+                        exit(1)
+                    result_type_str += self.allowed_type_cpp_map[str(arg_type)]
+                    result_type_str += ','
+                
+                result_type_str = result_type_str[:-1]
+                result_type_str += '>'
+                return result_type_str
+
+            # Single Callable argument
+            if str(_type).startswith('typing.Callable'):
+                cpp_type_str = construct_callable_signature(_type)
                 # print("cpp type", cpp_type_str)
+                cpp_arg_str += ',' + cpp_type_str + ' ' + arg
+                continue
+            # List of KernelSignature
+            if str(_type).startswith('typing.List[typing.Callable'):
+                # Note: All the Callables in the list must have the same signature.
+                # (and they should to be considered equivalent for grouping into a List)
+                cpp_type_str = 'std::vector<' + construct_callable_signature(_type.__args__[0]) + '>'
                 cpp_arg_str += ',' + cpp_type_str + ' ' + arg
                 continue
 
@@ -718,7 +732,40 @@ class qjit(object):
                 # Replace the argument (in the dict) with the function pointer
                 # qjit is a pure-Python object, hence cannot be used by native QCOR.
                 args_dict[arg_name] = hex(fn_ptr)
-            
+            # List of callables:
+            if arg_type_str.startswith('typing.List[typing.Callable['):
+                callable_qjit_list = args_dict[arg_name]
+                need_recompile = False
+                for clb in callable_qjit_list:
+                    if clb.kernel_name() not in self.sorted_kernel_dep:
+                        # print('New kernel:', clb.kernel_name())
+                        # Add a kernel dependency
+                        self.__kernels__graph.addKernelDependency(self.function.__name__, clb.kernel_name())
+                        self.sorted_kernel_dep = self.__kernels__graph.getSortedDependency(self.function.__name__)
+                        need_recompile = True
+                
+                if need_recompile:
+                    # Create a new QJIT
+                    self._qjit = QJIT()
+                    self._qjit.internal_python_jit_compile(self.src, self.sorted_kernel_dep, self.extra_cpp_code, extra_headers)
+                
+                clb_fn_ptrs = []
+                for clb in callable_qjit_list:
+                    if not isinstance(clb, qjit):
+                        print('Invalid argument type for {}. A list of quantum kernels (qjit) is expected.'.format(arg_name))
+                        exit(1)
+                    # print("Kernel name:", clb.kernel_name())
+                    # This should always be successful.
+                    fn_ptr = self._qjit.get_kernel_function_ptr(clb.kernel_name())
+                    if fn_ptr == 0:
+                        print('Failed to retrieve JIT-compiled function pointer for qjit kernel {}.'.format(clb.kernel_name()))
+                        exit(1)
+                    clb_fn_ptrs.append(hex(fn_ptr))
+                    
+                # Replace the argument (in the dict) with the list of function pointers
+                # qjit is a pure-Python object, hence cannot be used by native QCOR.
+                args_dict[arg_name] = clb_fn_ptrs
+        
         return args_dict
 
     def __call__(self, *args):

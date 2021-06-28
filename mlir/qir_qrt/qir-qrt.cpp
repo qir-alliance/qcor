@@ -22,6 +22,9 @@ std::string qpu_name = "qpp";
 std::string qpu_config = "";
 QRT_MODE mode = QRT_MODE::FTQC;
 std::vector<std::unique_ptr<Array>> allocated_arrays;
+// Map of single-qubit allocations,
+// i.e. arrays of size 1.
+std::unordered_map<uint64_t, Array *> single_qubit_arrays;
 std::stack<std::shared_ptr<xacc::CompositeInstruction>> internal_xacc_ir;
 std::stack<std::shared_ptr<::quantum::QuantumRuntime>> internal_runtimes;
 
@@ -188,6 +191,7 @@ Array *__quantum__rt__qubit_allocate_array(uint64_t size) {
   allocated_qbits += size;
   if (!global_qreg) {
     global_qreg = std::make_shared<xacc::AcceleratorBuffer>(size);
+    global_qreg->setName("q");
     ::quantum::set_current_buffer(global_qreg.get());
   }
   // Update size.
@@ -197,6 +201,28 @@ Array *__quantum__rt__qubit_allocate_array(uint64_t size) {
   allocated_arrays.push_back(std::move(new_array));
   return raw_ptr;
 }
+
+Qubit *__quantum__rt__qubit_allocate() {
+  auto qArray = __quantum__rt__qubit_allocate_array(1);
+  int8_t *arrayPtr = (*qArray)[0];
+  Qubit *qubitPtr = *(reinterpret_cast<Qubit **>(arrayPtr));
+  // We track the single-qubit array that holds this qubit.
+  single_qubit_arrays[qubitPtr->id] = qArray;
+  return qubitPtr;
+}
+
+void __quantum__rt__qubit_release(Qubit *q) {
+  if (q == nullptr) {
+    return;
+  }
+  if (single_qubit_arrays.find(q->id) != single_qubit_arrays.end()) {
+    __quantum__rt__qubit_release_array(single_qubit_arrays[q->id]);
+    single_qubit_arrays.erase(q->id);
+  } else {
+    throw "Illegal release of a qubit.";
+  }
+}
+
 
 void __quantum__rt__start_pow_u_region() {
   // Create a new NISQ based runtime so that we can
@@ -316,6 +342,10 @@ void __quantum__rt__end_adj_u_region() {
 }
 
 void __quantum__rt__start_ctrl_u_region() {
+  // Cache the current runtime into the stack if not already.
+  if (internal_runtimes.empty()) {
+    internal_runtimes.push(::quantum::qrt_impl);
+  }
   // Create a new NISQ based runtime so that we can
   // queue up instructions and get them as a CompositeInstruction
   auto tmp_runtime = xacc::getService<::quantum::QuantumRuntime>("nisq");
@@ -361,6 +391,43 @@ void __quantum__rt__end_ctrl_u_region(Qubit *ctrl_qbit) {
   return;
 }
 
+void __quantum__rt__end_multi_ctrl_u_region(
+    const std::vector<Qubit *> &ctrl_qubits) {
+  // Get the temp runtime created by start_adj_u_region.
+  auto runtime = internal_runtimes.top();
+  // Get the program we built up
+  auto program = runtime->get_current_program();
+  // Remove the tmp runtime
+  internal_runtimes.pop();
+
+  // Set the quantum runtime to the one before this
+  // temp one we just popped off
+  ::quantum::qrt_impl = internal_runtimes.top();
+
+  std::vector<int> ctrl_bits;
+  for (auto &qb : ctrl_qubits) {
+    ctrl_bits.emplace_back(qb->id);
+  }
+
+  auto ctrlKernel = std::dynamic_pointer_cast<xacc::CompositeInstruction>(
+      xacc::getService<xacc::Instruction>("C-U"));
+  ctrlKernel->expand({
+      std::make_pair("U", program),
+      std::make_pair("control-idx", ctrl_bits),
+  });
+
+  // std::cout << "Running Ctrl on ";
+  // for (const auto &bit : ctrl_bits) {
+  //   std::cout << bit << " ";
+  // }
+  // std::cout << ":\n" << ctrlKernel->toString() << "\n";
+  for (int instId = 0; instId < ctrlKernel->nInstructions(); ++instId) {
+    ::quantum::qrt_impl->general_instruction(
+        ctrlKernel->getInstruction(instId));
+  }
+  return;
+}
+
 int8_t *__quantum__rt__array_get_element_ptr_1d(Array *q, uint64_t idx) {
   Array &arr = *q;
   int8_t *ptr = arr[idx];
@@ -378,7 +445,7 @@ void __quantum__rt__qubit_release_array(Array *q) {
   // qubit index numbers (unique) are unused
   // => the backend won't apply any further instructions on these.
   for (std::size_t i = 0; i < allocated_arrays.size(); i++) {
-    if (allocated_arrays[i].get() == q) {
+    if (allocated_arrays[i] && allocated_arrays[i].get() == q) {
       auto &array_ptr = allocated_arrays[i];
       auto array_size = array_ptr->size();
       if (verbose && mode == QRT_MODE::FTQC)
@@ -390,7 +457,23 @@ void __quantum__rt__qubit_release_array(Array *q) {
         delete qubitPtr;
       }
       array_ptr->clear();
+      array_ptr.reset();
     }
+  }
+
+  // If all the runtime arrays have been cleared/dealocated, 
+  // clean up the entire global register.
+  // This is to handle **multiple** calls into an FTQC kernels (Q#/OpenQASM3).
+  // At the end of the execution, all registers have been deallocated.
+  if (std::all_of(allocated_arrays.begin(), allocated_arrays.end(),
+                  [](auto &array_ptr) { return array_ptr == nullptr; })) {
+    if (verbose) {
+      std::cout << "Reset global buffer.\n";
+    }
+    allocated_arrays.clear();
+    global_qreg.reset();
+    allocated_qbits = 0;
+    Qubit::reset_counter();
   }
 }
 

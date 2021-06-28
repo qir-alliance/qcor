@@ -53,3 +53,8 @@ __pycache__/
 # LLVM files
 *.ll 
 *.bc
+
+# Build results
+[Bb]in/
+[Oo]bj/
+*.bson

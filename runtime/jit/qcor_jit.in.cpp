@@ -492,6 +492,9 @@ void QJIT::jit_compile(const std::string &code,
       run_syntax_handler(code, add_het_map_kernel_ctor);
 
   static std::unordered_map<std::string, std::string> JIT_KERNEL_RUNTIME_CACHE;
+  
+  // Add any extra functions to be compiled
+  new_code = extra_functions_src + "\n" + new_code;
   JIT_KERNEL_RUNTIME_CACHE[kernel_name] = new_code;
 
   // Add dependency code if necessary:
@@ -506,9 +509,6 @@ void QJIT::jit_compile(const std::string &code,
   }
   // Add dependency before JIT compile:
   new_code = dependencyCode + new_code;
-
-  // Add any extra functions to be compiled
-  new_code = extra_functions_src + "\n" + new_code;
 
   // std::cout << "New code:\n" << new_code << "\n";
   // Hash the new code
@@ -578,10 +578,11 @@ void QJIT::jit_compile(const std::string &code,
   for (Function &f : *module) {
     auto name = f.getName().str();
     auto demangled = demangle(name.c_str());
-    if (demangled.find(kernel_name) != std::string::npos && 
+    if (demangled.find(kernel_name+"(") != std::string::npos && // has to be KERNEL_NAME(
         demangled.find(kernel_name+"::"+kernel_name) == std::string::npos && // don't pick the class constructor
         demangled.find("qcor::QuantumKernel<"+kernel_name) == std::string::npos && // don't pick the QuantumKernel 
-        demangled.find("std::shared_ptr<xacc::CompositeInstruction>") != std::string::npos) {
+        demangled.find("__internal__compute_context_") == std::string::npos && // don't pick any of our internally generated compute functions
+        demangled.find("std::shared_ptr<xacc::CompositeInstruction>") != std::string::npos) { // must have composite inst arg
       parent_mangled_name = name;
     }
   }

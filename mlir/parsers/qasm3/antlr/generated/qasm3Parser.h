@@ -30,9 +30,10 @@ public:
     T__86 = 87, T__87 = 88, T__88 = 89, T__89 = 90, T__90 = 91, T__91 = 92, 
     T__92 = 93, T__93 = 94, T__94 = 95, LBRACKET = 96, RBRACKET = 97, LBRACE = 98, 
     RBRACE = 99, LPAREN = 100, RPAREN = 101, COLON = 102, SEMICOLON = 103, 
-    DOT = 104, COMMA = 105, EQUALS = 106, ARROW = 107, MINUS = 108, Constant = 109, 
-    Whitespace = 110, Newline = 111, Integer = 112, Identifier = 113, RealNumber = 114, 
-    TimingLiteral = 115, StringLiteral = 116, LineComment = 117, BlockComment = 118
+    DOT = 104, COMMA = 105, EQUALS = 106, ARROW = 107, MINUS = 108, EXTERN = 109, 
+    Constant = 110, Whitespace = 111, Newline = 112, Integer = 113, Identifier = 114, 
+    RealNumber = 115, TimingLiteral = 116, StringLiteral = 117, LineComment = 118, 
+    BlockComment = 119
   };
 
   enum {
@@ -1730,6 +1731,8 @@ public:
     std::vector<StatementContext *> statement();
     StatementContext* statement(size_t i);
     ReturnStatementContext *returnStatement();
+    antlr4::tree::TerminalNode *EXTERN();
+    antlr4::tree::TerminalNode *SEMICOLON();
 
     virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
     virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;

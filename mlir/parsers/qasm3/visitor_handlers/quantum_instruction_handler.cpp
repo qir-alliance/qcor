@@ -507,14 +507,15 @@ antlrcpp::Any qasm3_visitor::visitKernelDeclaration(
     } else if (auto no_desig = classical_type->noDesignatorType()) {
       if (no_desig->getText().find("uint") != std::string::npos) {
         return_type = builder.getIntegerType(32, false);
+      } else if (no_desig->getText().find("int64_t") != std::string::npos) {
+        // This must be before "int"
+        return_type = builder.getI64Type();
       } else if (no_desig->getText().find("int") != std::string::npos) {
         return_type = builder.getIntegerType(32);
       } else if (no_desig->getText().find("float") != std::string::npos) {
         return_type = builder.getF32Type();
       } else if (no_desig->getText().find("double") != std::string::npos) {
         return_type = builder.getF64Type();
-      } else if (no_desig->getText().find("int64_t") != std::string::npos) {
-        return_type = builder.getI64Type();
       } else {
         printErrorMessage("Invalid no-designator default type.", context);
       }
