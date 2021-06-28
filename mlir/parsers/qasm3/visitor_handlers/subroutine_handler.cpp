@@ -124,9 +124,10 @@ antlrcpp::Any qasm3_visitor::visitSubroutineDefinition(
   if (context->subroutineBlock()->EXTERN()) {
     std::cout << "Handle extern subroutine: " << subroutine_name << "\n";
     builder.setInsertionPointToStart(&m_module.getRegion().getBlocks().front());
-    builder.create<mlir::FuncOp>(get_location(builder, file_name, context),
-                                 subroutine_name,
-                                 function.getType().cast<mlir::FunctionType>());
+    auto func_decl = builder.create<mlir::FuncOp>(
+        get_location(builder, file_name, context), subroutine_name,
+        function.getType().cast<mlir::FunctionType>());
+    func_decl.setVisibility(mlir::SymbolTable::Visibility::Private);
     builder.restoreInsertionPoint(main_block);
     symbol_table.add_seen_function(subroutine_name, function);
     return 0;

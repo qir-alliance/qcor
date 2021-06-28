@@ -539,8 +539,13 @@ antlrcpp::Any qasm3_visitor::visitKernelDeclaration(
   auto savept = builder.saveInsertionPoint();
 
   builder.setInsertionPointToStart(&m_module.getRegion().getBlocks().front());
-  builder.create<mlir::FuncOp>(location, name,
-                               function.getType().cast<mlir::FunctionType>());
+  
+  // Note: MLIR FuncOp **declaration** must have non-public visibility
+  // This is validated at MLIR level.
+  // https://llvm.discourse.group/t/rfc-symbol-definition-declaration-x-visibility-checks/2140
+  auto func_decl = builder.create<mlir::FuncOp>(
+      location, name, function.getType().cast<mlir::FunctionType>());
+  func_decl.setVisibility(mlir::SymbolTable::Visibility::Private);
   builder.restoreInsertionPoint(savept);
 
   symbol_table.add_seen_function(name, function);
