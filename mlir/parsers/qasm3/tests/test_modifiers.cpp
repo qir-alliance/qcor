@@ -71,12 +71,12 @@ for i in [0:100] {
 print(count);
 
 )#";
-  auto mlir = qcor::mlir_compile("qasm3", check_pow, "check_pow",
+  auto mlir = qcor::mlir_compile(check_pow, "check_pow",
                                  qcor::OutputType::MLIR, false);
   std::cout << mlir << "\n";
 
  
-  EXPECT_FALSE(qcor::execute("qasm3", check_pow, "check_pow"));
+  EXPECT_FALSE(qcor::execute(check_pow, "check_pow"));
 }
 
 int main(int argc, char **argv) {

@@ -27,10 +27,10 @@ QCOR_EXPECT_TRUE(hit_continue_value == 2);
 print("made it out of the loop");
 
 )#";
-  auto mlir = qcor::mlir_compile("qasm3", uint_index, "uint_index",
+  auto mlir = qcor::mlir_compile(uint_index, "uint_index",
                                  qcor::OutputType::MLIR, false);
   std::cout << mlir << "\n";
-  EXPECT_FALSE(qcor::execute("qasm3", uint_index, "uint_index"));
+  EXPECT_FALSE(qcor::execute(uint_index, "uint_index"));
 }
 
 

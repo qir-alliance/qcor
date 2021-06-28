@@ -1,4 +1,16 @@
 #include "InstOpLowering.hpp"
+
+#include <iostream>
+
+#include "llvm/ADT/Sequence.h"
+#include "llvm/ADT/StringRef.h"
+#include "llvm/IR/Module.h"
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Support/ErrorOr.h"
+#include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Support/SourceMgr.h"
+#include "llvm/Support/TargetSelect.h"
+#include "llvm/Support/raw_ostream.h"
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Conversion/SCFToStandard/SCFToStandard.h"
 #include "mlir/Conversion/StandardToLLVM/ConvertStandardToLLVM.h"
@@ -11,21 +23,11 @@
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/Verifier.h"
 #include "mlir/InitAllDialects.h"
-#include "llvm/ADT/Sequence.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/IR/Module.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/ErrorOr.h"
-#include "llvm/Support/MemoryBuffer.h"
-#include "llvm/Support/SourceMgr.h"
-#include "llvm/Support/TargetSelect.h"
-#include "llvm/Support/raw_ostream.h"
-#include <iostream>
 namespace qcor {
 // Match and replace all InstOps
-LogicalResult
-InstOpLowering::matchAndRewrite(Operation *op, ArrayRef<Value> operands,
-                                ConversionPatternRewriter &rewriter) const {
+LogicalResult InstOpLowering::matchAndRewrite(
+    Operation *op, ArrayRef<Value> operands,
+    ConversionPatternRewriter &rewriter) const {
   // Local Declarations
   auto loc = op->getLoc();
   ModuleOp parentModule = op->getParentOfType<ModuleOp>();
@@ -102,13 +104,28 @@ InstOpLowering::matchAndRewrite(Operation *op, ArrayRef<Value> operands,
     func_args.push_back(operands[i]);
   }
   for (size_t i = 0; i < n_qbits; i++) {
+    if (inst_name == "mz") {
+      // Handle situation like
+      // %4 = qvs.h(%1) : !quantum.Qubit
+      // %5 = q.mz(%4) : (!quantum.Qubit) -> i1
+      // 6 = index_cast %c0_i64 : i64 to index
+      // store %5, %3[%6] : memref<i1>
+      // %7 = qvs.reset(%4) : !quantum.Qubit
+      // with 2 users of %4
+      if (auto q_op =
+              operands[i]
+                  .getDefiningOp<mlir::quantum::ValueSemanticsInstOp>()) {
+        func_args.push_back(q_op.getOperands()[0]);
+        break;
+      }
+    }
     func_args.push_back(operands[i]);
   }
 
   // once again, return type should be void unless its a measure
   mlir::Type ret_type = LLVM::LLVMVoidType::get(context);
   if (inst_name == "mz") {
-    ret_type = // rewriter.getIntegerType(1);
+    ret_type =  // rewriter.getIntegerType(1);
         LLVM::LLVMPointerType::get(get_quantum_type("Result", context));
   }
 
@@ -117,12 +134,7 @@ InstOpLowering::matchAndRewrite(Operation *op, ArrayRef<Value> operands,
                                          llvm::makeArrayRef(func_args));
 
   if (inst_name == "mz") {
-    auto bitcast = rewriter.create<LLVM::BitcastOp>(
-        loc, LLVM::LLVMPointerType::get(rewriter.getIntegerType(1)),
-        c.getResult(0));
-    auto o = rewriter.create<LLVM::LoadOp>(loc, rewriter.getIntegerType(1),
-                                           bitcast.res());
-    rewriter.replaceOp(op, o.res());
+    rewriter.replaceOp(op, c.getResult(0));
   } else {
     rewriter.eraseOp(op);
   }
@@ -132,4 +144,34 @@ InstOpLowering::matchAndRewrite(Operation *op, ArrayRef<Value> operands,
 
   return success();
 }
-} // namespace qcor
+
+LogicalResult ResultCastOpLowering::matchAndRewrite(
+    Operation *op, ArrayRef<Value> operands,
+    ConversionPatternRewriter &rewriter) const {
+  auto loc = op->getLoc();
+  auto resultCastOp = cast<mlir::quantum::ResultCastOp>(op);
+  auto qir_result = resultCastOp.measure_result();
+  // Cast Result* -> Bool* (i1*)
+  auto bitcast = rewriter.create<LLVM::BitcastOp>(
+      loc, LLVM::LLVMPointerType::get(rewriter.getIntegerType(1)), qir_result);
+  // Load bool from bool*
+  auto bool_result = rewriter.create<LLVM::LoadOp>(
+      loc, rewriter.getIntegerType(1), bitcast.res());
+  rewriter.replaceOp(op, bool_result.res());
+
+  return success();
+}
+
+LogicalResult IntegerCastOpLowering::matchAndRewrite(
+    Operation *op, ArrayRef<Value> operands,
+    ConversionPatternRewriter &rewriter) const {
+  auto loc = op->getLoc();
+  auto resultCastOp = cast<mlir::quantum::IntegerCastOp>(op);
+  auto to_be_cast = resultCastOp.input();
+  mlir::IntegerType type = to_be_cast.getType().cast<mlir::IntegerType>();
+  auto cast_op = rewriter.create<LLVM::DialectCastOp>(
+      loc, rewriter.getIntegerType(type.getWidth(), false), to_be_cast);
+  rewriter.replaceOp(op, cast_op.res());
+  return success();
+}
+}  // namespace qcor

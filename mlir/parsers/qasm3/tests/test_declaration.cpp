@@ -46,15 +46,15 @@ float[64] test = 3.14 - f;
 QCOR_EXPECT_TRUE(test < .001);
 )#";
   auto mlir =
-      qcor::mlir_compile("qasm3", src, "test", qcor::OutputType::MLIR, true);
+      qcor::mlir_compile(src, "test", qcor::OutputType::MLIR, true);
   std::cout << "MLIR:\n" << mlir << "\n";
       auto llvmi =
-      qcor::mlir_compile("qasm3", src, "test", qcor::OutputType::LLVMMLIR, true);
+      qcor::mlir_compile(src, "test", qcor::OutputType::LLVMMLIR, true);
   std::cout << "LLVM:\n" << llvmi << "\n";
     auto llvm =
-      qcor::mlir_compile("qasm3", src, "test", qcor::OutputType::LLVMIR, true);
+      qcor::mlir_compile(src, "test", qcor::OutputType::LLVMIR, true);
   std::cout << "LLVM:\n" << llvm << "\n";
-  EXPECT_FALSE(qcor::execute("qasm3", src, "test"));
+  EXPECT_FALSE(qcor::execute(src, "test"));
 
   const std::string src2 = R"#(OPENQASM 3;
 include "qelib1.inc";
@@ -65,9 +65,9 @@ for i in [0:22] {
 }
 )#";
   auto mlir2 =
-      qcor::mlir_compile("qasm3", src2, "test", qcor::OutputType::MLIR, true);
+      qcor::mlir_compile(src2, "test", qcor::OutputType::MLIR, true);
   std::cout << "MLIR:\n" << mlir2 << "\n";
-  EXPECT_TRUE(qcor::execute("qasm3", src2, "test"));
+  EXPECT_TRUE(qcor::execute(src2, "test"));
 }
 
 

@@ -34,8 +34,8 @@ antlrcpp::Any qasm3_visitor::visitLoopStatement(
         exp_generator.visit(exp);
         auto value = exp_generator.current_value;
 
-        mlir::Value pos = get_or_create_constant_integer_value(
-            counter, location, builder.getI64Type(), symbol_table, builder);
+        mlir::Value pos = get_or_create_constant_index_value(
+            counter, location, 64, symbol_table, builder);
 
         builder.create<mlir::StoreOp>(
             location, value, allocation,
@@ -51,9 +51,10 @@ antlrcpp::Any qasm3_visitor::visitLoopStatement(
       auto tmp2 = get_or_create_constant_index_value(0, location, 64,
                                                      symbol_table, builder);
       llvm::ArrayRef<mlir::Value> zero_index(tmp2);
-
+      // Loop var must also be an Index type
+      // since we'll store the loop index values to this variable.
       auto loop_var_memref = allocate_1d_memory_and_initialize(
-          location, 1, builder.getI64Type(), std::vector<mlir::Value>{tmp},
+          location, 1, builder.getIndexType(), std::vector<mlir::Value>{tmp},
           llvm::makeArrayRef(std::vector<mlir::Value>{tmp}));
 
       auto b_val = get_or_create_constant_index_value(n_expr, location, 64,
@@ -114,7 +115,8 @@ antlrcpp::Any qasm3_visitor::visitLoopStatement(
       auto load_inc =
           builder.create<mlir::LoadOp>(location, loop_var_memref, zero_index);
       auto add = builder.create<mlir::AddIOp>(location, load_inc, c_val);
-
+      
+      assert(tmp2.getType().isa<mlir::IndexType>());
       builder.create<mlir::StoreOp>(
           location, add, loop_var_memref,
           llvm::makeArrayRef(std::vector<mlir::Value>{tmp2}));

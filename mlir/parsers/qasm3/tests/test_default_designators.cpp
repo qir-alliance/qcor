@@ -24,10 +24,10 @@ print(d);
 
 )#";
   auto mlir =
-      qcor::mlir_compile("qasm3", src, "test", qcor::OutputType::MLIR, true);
+      qcor::mlir_compile(src, "test", qcor::OutputType::MLIR, true);
   std::cout << "MLIR:\n" << mlir << "\n";
 
-  EXPECT_FALSE(qcor::execute("qasm3", src, "test"));
+  EXPECT_FALSE(qcor::execute(src, "test"));
 
 }
 

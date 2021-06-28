@@ -1,5 +1,4 @@
 #include "qasm3_utils.hpp"
-
 #include "symbol_table.hpp"
 
 #include <iostream>
@@ -15,6 +14,18 @@ using expression_t = exprtk::expression<double>;
 using parser_t = exprtk::parser<double>;
 
 namespace qcor {
+
+void ScopedSymbolTable::replace_symbol(mlir::Value old_value,
+                                       mlir::Value new_value) {
+  auto key = replacement_helper[old_value.getAsOpaquePointer()];
+  for (int i = current_scope; i >= 0; i--) { // again, nasty bug. MUST BE int NOT auto
+    if (scoped_symbol_tables[i].find(key) != scoped_symbol_tables[i].end()) {
+      scoped_symbol_tables[i].at(key) = new_value;
+      replacement_helper[new_value.getAsOpaquePointer()] = key;
+    }
+  }
+}
+
 int64_t ScopedSymbolTable::evaluate_constant_integer_expression(
     const std::string expr_str) {
   auto all_constants = get_constant_integer_variables();
@@ -92,14 +103,15 @@ void ScopedSymbolTable::evaluate_const_global(const std::string variable_name,
   }
 
   // Now create the Global Memref Op
+  // Note: need to use Tensor type to init the GlobalMemrefOp;
   llvm::ArrayRef<int64_t> shaperef{};
   mlir::DenseElementsAttr initial_attr;
   if (type.isa<mlir::IntegerType>()) {
     initial_attr = mlir::DenseElementsAttr::get(
-        mlir::VectorType::get(shaperef, type), {(int64_t)ref});
+        mlir::RankedTensorType::get(shaperef, type), {(int64_t)ref});
   } else {
     initial_attr = mlir::DenseElementsAttr::get(
-        mlir::VectorType::get(shaperef, type), {ref});
+        mlir::RankedTensorType::get(shaperef, type), {ref});
   }
 
   auto memref_type = mlir::MemRefType::get(shaperef, type);

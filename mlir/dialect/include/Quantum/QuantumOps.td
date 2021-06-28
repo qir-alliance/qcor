@@ -15,6 +15,10 @@ def StringType : OpaqueType<"quantum", "StringType", "opaque string type">;
 def QallocOp : QuantumOp<"qalloc", []> {
     let arguments = (ins AnyI64Attr:$size, StrAttr:$name);
     let results = (outs ArrayType:$qubits);
+
+    let printer = [{  auto op = *this;
+  p << "q.qalloc(" << op.size() << ") { name = " << op.name() << " }";
+  p << " : " << op.qubits().getType(); }];
 }
 
 // Create an array holding Qubit pointers for aliasing purposes,
@@ -27,6 +31,9 @@ def QaliasArrayAllocOp : QuantumOp<"createQubitArray", []> {
 def ExtractQubitOp : QuantumOp<"qextract", []> {
     let arguments = (ins ArrayType:$qreg, AnyInteger:$idx);
     let results = (outs QubitType:$qbit);
+    let printer = [{  auto op = *this;
+  p << "q.extract(" << op.getOperands() << ")";
+  p << " : " << op.qbit().getType(); }];
 }
 
 def GeneralArrayExtractOp : QuantumOp<"array_extract", []> {
@@ -55,11 +62,17 @@ def ArrayConcatOp : QuantumOp<"qarray_concat", []> {
 def StartCtrlURegion : QuantumOp<"start_ctrl_u_region", []> {
   let arguments = (ins);
   let results = (outs);
+  let printer = [{  
+  p << "q.ctrl_region {";
+  }];
 }
 
 def EndCtrlURegion : QuantumOp<"end_ctrl_u_region", []> {
   let arguments = (ins QubitType:$ctrl_qubit);
   let results = (outs);
+  let printer = [{  auto op = *this;
+  p << "} (ctrl_bit = " << op.ctrl_qubit() << ")";
+  }];
 }
 
 def StartAdjointURegion : QuantumOp<"start_adj_u_region", []> {
@@ -85,36 +98,78 @@ def EndPowURegion : QuantumOp<"end_pow_u_region", []> {
 def InstOp : QuantumOp<"inst", [AttrSizedOperandSegments]> {
     let arguments = (ins StrAttr:$name, Variadic<QubitType>:$qubits, Variadic<F64>:$params);
     let results = (outs Optional<ResultType>:$bit);
+
+    let printer = [{  auto op = *this;
+  p << "q." << op.name() << "(" << op.getOperands() << ") : " << op.getResultTypes(); }];
+}
+
+def ValueSemanticsInstOp : QuantumOp<"value_inst", [AttrSizedOperandSegments]> {
+    let arguments = (ins StrAttr:$name, Variadic<QubitType>:$qubits, Variadic<F64>:$params);
+    let results = (outs Variadic<AnyTypeOf<[ResultType, QubitType]>>:$result);
+
+    let printer = [{  auto op = *this;
+  p << "qvs." << op.name() << "(" << op.getOperands() << ") : " << op.result().getType(); }]; 
 }
 
 def DeallocOp : QuantumOp<"dealloc", []> {
     let arguments = (ins ArrayType:$qubits);
     let results = (outs);
+    let printer = [{  auto op = *this;
+  p << "q.dealloc(" << op.qubits() << ")"; }];
 }
 
 def QRTInitOp : QuantumOp<"init", []> {
     let arguments = (ins AnyI32:$argc, ArgvType:$argv);
     let results = (outs);
+    let printer = [{  auto op = *this;
+  p << "q.init(" << op.getOperands() << ")"; }];
 }
 
 def QRTFinalizeOp : QuantumOp<"finalize", []> {
     let arguments = (ins);
     let results = (outs);
+    let printer = [{  p << "q.finalize()"; }];
 }
 
 def SetQregOp : QuantumOp<"set_qreg", []> {
     let arguments = (ins QregType:$qreg);
     let results = (outs);
+    let printer = [{  auto op = *this;
+  p << "q.set_qreg(" << op.qreg() << ")"; }];
 }
 
 def PrintOp : QuantumOp<"print", []> {
     let arguments = (ins Variadic<AnyType>:$print_args);
     let results = (outs);
+let printer = [{  auto op = *this;
+  p << "q.print(" << op.getOperands() << ")"; }];
 }
 
 def CreateStringLiteralOp : QuantumOp<"createString", []> {
     let arguments = (ins StrAttr:$text, StrAttr:$varname);
     let results = (outs StringType:$result);
+    let printer = [{  auto op = *this;
+  p << "q.create_string(\"" << op.text() << "\")"; }];
+}
+
+// Cast QIR Result to bool (i1 type)
+def ResultCastOp : QuantumOp<"resultCast", []> {
+    let arguments = (ins ResultType:$measure_result);
+    let results = (outs I1:$bit_result);
+    let printer = [{  auto op = *this;
+  p << "q.resultCast" << "(" << op.measure_result() << ") : " << op.bit_result().getType(); }];
+}
+
+// Sign-Unsign cast:
+// Rationale: std dialect only accepts signless type (i.e. int but not uint)
+// we need to have this cast op in the dialect to finally lower to LLVM cast 
+// which can handle int -> uint casting at the final lowering phase.
+// Note: std.index_cast cannot handle int -> unit casting (one of the type must be an index type).
+def IntegerCastOp : QuantumOp<"integerCast", []> {
+    let arguments = (ins AnyInteger:$input);
+    let results = (outs AnyInteger:$output);
+    let printer = [{  auto op = *this;
+  p << "q.integerCast" << "(" << op.input() << ") : " << op.output().getType(); }];
 }
 
 #endif // Quantum_OPS

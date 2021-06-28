@@ -35,16 +35,16 @@ QCOR_EXPECT_TRUE(r == 1024);
 
   int opt_level = 0;
 
-  auto mlir = qcor::mlir_compile("qasm3", global_const, "global_const",
+  auto mlir = qcor::mlir_compile(global_const, "global_const",
                                  qcor::OutputType::MLIR, true);
   std::cout << mlir << "\n";
 
-  auto llvm = qcor::mlir_compile("qasm3", global_const, "global_const",
+  auto llvm = qcor::mlir_compile(global_const, "global_const",
                                  qcor::OutputType::LLVMIR, true);
   std::cout << llvm << "\n";
 
   // Hvae to set opt level 0 since llvm.lifetime.start.* can't be found by JIT
-  EXPECT_FALSE(qcor::execute("qasm3", global_const, "global_const", 0));
+  EXPECT_FALSE(qcor::execute(global_const, "global_const", 0));
 }
 
 int main(int argc, char **argv) {

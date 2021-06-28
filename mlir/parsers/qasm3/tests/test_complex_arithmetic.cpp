@@ -12,10 +12,10 @@ result = (shots - num_parity_ones) / shots - num_parity_ones / shots;
 test = result - .007812;
 QCOR_EXPECT_TRUE(test < .01);
 )#";
-  auto mlir = qcor::mlir_compile("qasm3", global_const, "global_const",
+  auto mlir = qcor::mlir_compile(global_const, "global_const",
                                  qcor::OutputType::MLIR, false);
   std::cout << mlir << "\n";
-  EXPECT_FALSE(qcor::execute("qasm3", global_const, "global_const"));
+  EXPECT_FALSE(qcor::execute(global_const, "global_const"));
 }
 
 int main(int argc, char **argv) {
