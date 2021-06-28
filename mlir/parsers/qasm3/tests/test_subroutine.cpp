@@ -26,11 +26,11 @@ p1 = parity(b1);
 QCOR_EXPECT_TRUE(p1 == 0);
 print(p1);
 )#";
-  auto mlir = qcor::mlir_compile("qasm3", sub1, "check_parity_sub",
+  auto mlir = qcor::mlir_compile(sub1, "check_parity_sub",
                                  qcor::OutputType::MLIR, false);
 
   std::cout << mlir << "\n";
-  EXPECT_FALSE(qcor::execute("qasm3", sub1, "check_parity_sub"));
+  EXPECT_FALSE(qcor::execute(sub1, "check_parity_sub"));
 }
 
 int main(int argc, char **argv) {

@@ -14,10 +14,10 @@ for i in [0:4] {
     QCOR_EXPECT_TRUE(m[i] == 1);
 }
 )#";
-  auto mlir = qcor::mlir_compile("qasm3", broadcast, "broadcast",
+  auto mlir = qcor::mlir_compile(broadcast, "broadcast",
                                  qcor::OutputType::MLIR, false);
 
-  EXPECT_FALSE(qcor::execute("qasm3", broadcast, "for_stmt"));
+  EXPECT_FALSE(qcor::execute(broadcast, "for_stmt"));
 }
 
 int main(int argc, char **argv) {

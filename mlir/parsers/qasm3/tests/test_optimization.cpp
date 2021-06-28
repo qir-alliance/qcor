@@ -26,7 +26,7 @@ cx q[0], q[1];
 cx q[0], q[1];
 )#";
   auto llvm =
-      qcor::mlir_compile("qasm3", src, "test", qcor::OutputType::LLVMIR, true);
+      qcor::mlir_compile(src, "test", qcor::OutputType::LLVMIR, true);
   std::cout << "LLVM:\n" << llvm << "\n";
   // No instrucions left
   EXPECT_TRUE(llvm.find("__quantum__qis") == std::string::npos);
@@ -43,7 +43,7 @@ rx(1.2345) q[0];
 rz(2.4566) q[1];
 )#";
   auto llvm =
-      qcor::mlir_compile("qasm3", src, "test_kernel", qcor::OutputType::LLVMIR, false);
+      qcor::mlir_compile(src, "test_kernel", qcor::OutputType::LLVMIR, false);
   std::cout << "LLVM:\n" << llvm << "\n";
   
   // Get the function LLVM only (not __internal_mlir_XXXX, etc.)
@@ -64,7 +64,7 @@ z q[0];
 h q[0];
 )#";
   auto llvm =
-      qcor::mlir_compile("qasm3", src, "test_kernel", qcor::OutputType::LLVMIR, false);
+      qcor::mlir_compile(src, "test_kernel", qcor::OutputType::LLVMIR, false);
   std::cout << "LLVM:\n" << llvm << "\n";
   
   // Get the function LLVM only (not __internal_mlir_XXXX, etc.)
@@ -87,7 +87,7 @@ x q[0];
 cx q[0], q[1];
 )#";
   auto llvm =
-      qcor::mlir_compile("qasm3", src, "test_kernel", qcor::OutputType::LLVMIR, false);
+      qcor::mlir_compile(src, "test_kernel", qcor::OutputType::LLVMIR, false);
   std::cout << "LLVM:\n" << llvm << "\n";
   // No gates, extract, or alloc/dealloc:
   EXPECT_EQ(countSubstring(llvm, "__quantum__qis"), 0);
@@ -109,7 +109,7 @@ x q[0];
 oracle q[0];
 )#";
   auto llvm =
-      qcor::mlir_compile("qasm3", src, "test_kernel", qcor::OutputType::LLVMIR, false);
+      qcor::mlir_compile(src, "test_kernel", qcor::OutputType::LLVMIR, false);
   std::cout << "LLVM:\n" << llvm << "\n";
   
   // Get the main kernel section only (there is the oracle LLVM section as well)
@@ -137,7 +137,7 @@ rz(-0.123) q[0];
 cx q[0], q[1];
 )#";
   auto llvm =
-      qcor::mlir_compile("qasm3", src, "test_kernel", qcor::OutputType::LLVMIR, false);
+      qcor::mlir_compile(src, "test_kernel", qcor::OutputType::LLVMIR, false);
   std::cout << "LLVM:\n" << llvm << "\n";
   
   // Get the main kernel section only (there is the oracle LLVM section as well)

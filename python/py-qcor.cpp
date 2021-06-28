@@ -805,21 +805,21 @@ PYBIND11_MODULE(_pyqcor, m) {
   m.def("openqasm_to_mlir",
         [](const std::string &oqasm_src, const std::string &kernel_name,
            bool add_entry_point) {
-          return qcor::mlir_compile("openqasm", oqasm_src, kernel_name,
+          return qcor::mlir_compile(oqasm_src, kernel_name,
                                     qcor::OutputType::MLIR, add_entry_point);
         });
 
   m.def("openqasm_to_llvm_mlir", [](const std::string &oqasm_src,
                                     const std::string &kernel_name,
                                     bool add_entry_point) {
-    return qcor::mlir_compile("openqasm", oqasm_src, kernel_name,
+    return qcor::mlir_compile(oqasm_src, kernel_name,
                               qcor::OutputType::LLVMMLIR, add_entry_point);
   });
 
   m.def("openqasm_to_llvm_ir",
         [](const std::string &oqasm_src, const std::string &kernel_name,
            bool add_entry_point) {
-          return qcor::mlir_compile("openqasm", oqasm_src, kernel_name,
+          return qcor::mlir_compile(oqasm_src, kernel_name,
                                     qcor::OutputType::LLVMIR, add_entry_point);
         });
 #endif

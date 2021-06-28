@@ -20,11 +20,11 @@ print(j);
 QCOR_EXPECT_TRUE(j == 20);
 )#";
 
-  auto mlir = qcor::mlir_compile("qasm3", kernel_test, "kernel_test",
+  auto mlir = qcor::mlir_compile(kernel_test, "kernel_test",
                                  qcor::OutputType::MLIR, true);
   std::cout << mlir << "\n";
 
-  auto llvm = qcor::mlir_compile("qasm3", kernel_test, "kernel_test",
+  auto llvm = qcor::mlir_compile(kernel_test, "kernel_test",
                                  qcor::OutputType::LLVMIR, true);
   std::cout << llvm << "\n";
 
@@ -43,7 +43,7 @@ int test_this(int i) { return i + 10; }
   extra_code_to_link.push_back(std::move(module));
   // -------------------------------------------//
 
-  EXPECT_FALSE(qcor::execute("qasm3", kernel_test, "kernel_test", extra_code_to_link, 0));
+  EXPECT_FALSE(qcor::execute(kernel_test, "kernel_test", extra_code_to_link, 0));
 }
 
 int main(int argc, char **argv) {
