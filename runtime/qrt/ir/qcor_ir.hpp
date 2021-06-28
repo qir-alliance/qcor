@@ -30,6 +30,7 @@ class CompositeInstruction {
 
   std::size_t nLogicalBits();
   std::size_t nPhysicalBits();
+  std::size_t nVariables();
   std::shared_ptr<CompositeInstruction> operator()(const std::vector<double>& x);
 
   std::shared_ptr<xacc::Identifiable> get_as_opaque();

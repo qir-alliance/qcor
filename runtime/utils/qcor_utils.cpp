@@ -57,6 +57,18 @@ std::shared_ptr<CompositeInstruction> compile(const std::string &src) {
       xacc::getCompiler("xasm")->compile(src)->getComposites()[0]);
 }
 
+std::vector<double> random_vector(const double l_range, const double r_range,
+                   const std::size_t size) {
+  // Generate a random initial parameter set
+  std::random_device rnd_device;
+  std::mt19937 mersenne_engine{rnd_device()};  // Generates random integers
+  std::uniform_real_distribution<double> dist{l_range, r_range};
+  auto gen = [&dist, &mersenne_engine]() { return dist(mersenne_engine); };
+  std::vector<double> vec(size);
+  std::generate(vec.begin(), vec.end(), gen);
+  return vec;
+}
+
 namespace __internal__ {
 std::string translate(const std::string compiler,
                       std::shared_ptr<CompositeInstruction> program) {
@@ -75,18 +87,6 @@ std::shared_ptr<qcor::CompositeInstruction> create_ctrl_u() {
   return std::make_shared<CompositeInstruction>(
       std::dynamic_pointer_cast<xacc::CompositeInstruction>(
           xacc::getService<xacc::Instruction>("C-U")));
-}
-
-auto random_vector(const double l_range, const double r_range,
-                   const std::size_t size) {
-  // Generate a random initial parameter set
-  std::random_device rnd_device;
-  std::mt19937 mersenne_engine{rnd_device()};  // Generates random integers
-  std::uniform_real_distribution<double> dist{l_range, r_range};
-  auto gen = [&dist, &mersenne_engine]() { return dist(mersenne_engine); };
-  std::vector<double> vec(size);
-  std::generate(vec.begin(), vec.end(), gen);
-  return vec;
 }
 
 std::shared_ptr<qcor::CompositeInstruction> create_and_expand_ctrl_u(

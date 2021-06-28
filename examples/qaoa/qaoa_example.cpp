@@ -13,9 +13,6 @@ __qpu__ void qaoa_ansatz(qreg q, int n_steps, std::vector<double> gamma,
     H(q[0]);
   }
 
-  // auto cost_ham_ptr = createObservable(cost_ham_str);
-  // auto& cost_ham = *cost_ham_ptr.get();
-
   // Get all non-identity hamiltonian terms
   // for the following exp(H_i) trotterization
   auto cost_terms = cost_ham.getNonIdentitySubTerms();

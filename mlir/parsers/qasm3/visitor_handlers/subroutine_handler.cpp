@@ -52,7 +52,7 @@ antlrcpp::Any qasm3_visitor::visitSubroutineDefinition(
       if (auto designator = classical_type->designator()) {
         auto bit_size = symbol_table.evaluate_constant_integer_expression(
             designator->getText());
-        llvm::ArrayRef<int64_t> shape{bit_size};
+        llvm::ArrayRef<int64_t> shape(bit_size);
         return_type = mlir::MemRefType::get(shape, builder.getI1Type());
       } else {
         return_type = builder.getI1Type();

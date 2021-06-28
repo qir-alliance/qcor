@@ -34,6 +34,7 @@ class CompositeInstruction::CompositeInstructionImpl {
 
   std::size_t nLogicalBits() { return program->nLogicalBits(); }
   std::size_t nPhysicalBits() { return program->nPhysicalBits(); }
+  std::size_t nVariables() { return program->nVariables(); }
 
   std::vector<LocalOpaqueInstPtr> getInstructions() {
     auto tmp = program->getInstructions();
@@ -117,6 +118,9 @@ std::size_t CompositeInstruction::nLogicalBits() {
 }
 std::size_t CompositeInstruction::nPhysicalBits() {
   return m_internal->nPhysicalBits();
+}
+std::size_t CompositeInstruction::nVariables() {
+  return m_internal->nVariables();
 }
 
 std::shared_ptr<CompositeInstruction> CompositeInstruction::operator()(

@@ -385,7 +385,7 @@ antlrcpp::Any qasm3_visitor::visitBitDeclaration(
   auto location = get_location(builder, file_name, context);
 
   // First case is indexIdentifierList, no initialization
-  std::size_t size = 1;
+  int64_t size = 1;
   if (auto index_ident_list = context->indexIdentifierList()) {
     for (auto idx_identifier : index_ident_list->indexIdentifier()) {
       auto var_name = idx_identifier->Identifier()->getText();
@@ -412,6 +412,7 @@ antlrcpp::Any qasm3_visitor::visitBitDeclaration(
         builder.create<mlir::StoreOp>(location, init_values[0], allocation);
         symbol_table.add_symbol(var_name, allocation);
       } else {
+
         auto allocation = allocate_1d_memory_and_initialize(
             location, size, builder.getI1Type(), init_values,
             llvm::makeArrayRef(init_indices));

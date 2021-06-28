@@ -973,7 +973,7 @@ antlrcpp::Any qasm3_expression_generator::visitExpressionTerminator(
               auto int_value_type = builder.getIntegerType(bit_width);
               auto init_attr = mlir::IntegerAttr::get(int_value_type, 0);
 
-              llvm::ArrayRef<int64_t> shaperef{1};
+              llvm::ArrayRef<int64_t> shaperef(1);
               auto mem_type = mlir::MemRefType::get(shaperef, int_value_type);
               mlir::Value init_allocation =
                   builder.create<mlir::AllocaOp>(location, mem_type);

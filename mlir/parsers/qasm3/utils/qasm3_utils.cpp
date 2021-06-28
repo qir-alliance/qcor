@@ -154,7 +154,7 @@ mlir::Type convertQasm3Type(qasm3::qasm3Parser::ClassicalTypeContext* ctx,
     auto bit_size = symbol_table.evaluate_constant_integer_expression(idx_str);
 
     mlir::Type mlir_type;
-    llvm::ArrayRef<int64_t> shaperef{bit_size};
+    llvm::ArrayRef<int64_t> shaperef(bit_size);
     mlir_type = mlir::MemRefType::get(shaperef, result_type);
     return mlir_type;
   } else if (type == "bool") {
