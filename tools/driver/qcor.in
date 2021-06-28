@@ -416,6 +416,10 @@ def main(argv=None):
         if '-no-entrypoint' in sys.argv[1:]:
             sys.argv.remove('-no-entrypoint')
             extra_args.append('-no-entrypoint')
+        # FIXME: define pass-mamanegement CLI options for qcor
+        if '--q-optimize' in sys.argv[1:]:
+            sys.argv.remove('--q-optimize')
+            extra_args.append('--q-optimize')
         result = subprocess.run(['@CMAKE_INSTALL_PREFIX@/bin/qcor-mlir-tool', filename] + extra_args, check=True)
         llvm_bin_path = str(pathlib.Path(compiler).parent)
         if verbose:

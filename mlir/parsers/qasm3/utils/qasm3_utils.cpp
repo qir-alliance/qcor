@@ -89,15 +89,33 @@ mlir::Value get_or_extract_qubit(const std::string& qreg_name,
 
 mlir::Value get_or_create_constant_integer_value(
     const std::size_t idx, mlir::Location location, mlir::Type type,
-    ScopedSymbolTable& symbol_table, mlir::OpBuilder& builder) {
+    ScopedSymbolTable &symbol_table, mlir::OpBuilder &builder) {
   auto width = type.getIntOrFloatBitWidth();
   if (symbol_table.has_constant_integer(idx, width)) {
     return symbol_table.get_constant_integer(idx, width);
   } else {
-    auto integer_attr = mlir::IntegerAttr::get(type, idx);
-    auto ret = builder.create<mlir::ConstantOp>(location, integer_attr);
-    symbol_table.add_constant_integer(idx, ret, width);
-    return ret;
+    // Handle unsigned int constant:
+    // ConstantOp (std dialect) doesn't support Signed type (uint)
+    if (!type.cast<mlir::IntegerType>().isSignless()) {
+      auto signless_int_type =
+          builder.getIntegerType(type.getIntOrFloatBitWidth());
+      auto integer_attr = mlir::IntegerAttr::get(signless_int_type, idx);
+
+      auto ret =
+          builder
+              .create<mlir::quantum::IntegerCastOp>(
+                  location, type,
+                  builder.create<mlir::ConstantOp>(location, integer_attr))
+              .output();
+      symbol_table.add_constant_integer(idx, ret, width);
+      return ret;
+    } else {
+      auto integer_attr = mlir::IntegerAttr::get(type, idx);
+      assert(integer_attr.getType().cast<mlir::IntegerType>().isSignless());
+      auto ret = builder.create<mlir::ConstantOp>(location, integer_attr);
+      symbol_table.add_constant_integer(idx, ret, width);
+      return ret;
+    }
   }
 }
 
@@ -229,6 +247,26 @@ mlir::Type convertQasm3Type(qasm3::qasm3Parser::ClassicalTypeContext* ctx,
   printErrorMessage("Could not convert qasm3 type to mlir type.", ctx);
   return mlir::Type();
 }
+
+mlir::Value cast_array_index_value_if_required(mlir::Type array_type, mlir::Value raw_index, mlir::Location location, mlir::OpBuilder &builder) {
+  // Memref must use index type
+  if (array_type.isa<mlir::MemRefType>() &&
+      !raw_index.getType().isa<mlir::IndexType>()) {
+    return builder.create<mlir::IndexCastOp>(location, builder.getIndexType(),
+                                             raw_index);
+  }
+  // QIR arrays: must use I64
+  if (array_type.isa<mlir::OpaqueType>() &&
+      array_type.cast<mlir::OpaqueType>().getTypeData().str() == "Array" &&
+      raw_index.getType().isa<mlir::IndexType>()) {
+    return builder.create<mlir::IndexCastOp>(location, builder.getI64Type(),
+                                             raw_index);
+  }
+
+  // No need to do anything
+  return raw_index;
+}
+
 
 std::map<std::string, mlir::CmpIPredicate> antlr_to_mlir_predicate{
     {"==", mlir::CmpIPredicate::eq},  {"!=", mlir::CmpIPredicate::ne},

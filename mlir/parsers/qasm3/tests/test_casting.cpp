@@ -19,10 +19,10 @@ QCOR_EXPECT_TRUE(b3 == 1);
 QCOR_EXPECT_TRUE(b4 == 1);
 
 )#";
-  auto mlir = qcor::mlir_compile("qasm3", uint_index, "uint_index",
+  auto mlir = qcor::mlir_compile(uint_index, "uint_index",
                                  qcor::OutputType::MLIR, false);
   std::cout << mlir << "\n";
-  EXPECT_FALSE(qcor::execute("qasm3", uint_index, "uint_index"));
+  EXPECT_FALSE(qcor::execute(uint_index, "uint_index"));
 }
 
 TEST(qasm3VisitorTester, checkCastBitToInt) {
@@ -34,12 +34,12 @@ int[4] t = int[4](c);
 print(t);
 QCOR_EXPECT_TRUE(t == 15);
 )#";
-  auto mlir = qcor::mlir_compile("qasm3", cast_int, "cast_int",
+  auto mlir = qcor::mlir_compile(cast_int, "cast_int",
                                  qcor::OutputType::MLIR, false);
 
   std::cout << "cast_int MLIR:\n" << mlir << "\n";
 
-  EXPECT_FALSE(qcor::execute("qasm3", cast_int, "cast_int"));
+  EXPECT_FALSE(qcor::execute(cast_int, "cast_int"));
 }
 
 int main(int argc, char **argv) {

@@ -215,10 +215,10 @@ QCOR_EXPECT_TRUE(m10[3] == 0);
 QCOR_EXPECT_TRUE(m10[4] == 0);
 QCOR_EXPECT_TRUE(m10[5] == 1);
 )#";
-  auto mlir = qcor::mlir_compile("qasm3", alias_by_indicies, "test",
+  auto mlir = qcor::mlir_compile(alias_by_indicies, "test",
                                  qcor::OutputType::MLIR, true);
   std::cout << "MLIR:\n" << mlir << "\n";
-  EXPECT_FALSE(qcor::execute("qasm3", alias_by_indicies, "test"));
+  EXPECT_FALSE(qcor::execute(alias_by_indicies, "test"));
 }
 
 int main(int argc, char **argv) {

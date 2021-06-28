@@ -134,12 +134,7 @@ LogicalResult InstOpLowering::matchAndRewrite(
                                          llvm::makeArrayRef(func_args));
 
   if (inst_name == "mz") {
-    auto bitcast = rewriter.create<LLVM::BitcastOp>(
-        loc, LLVM::LLVMPointerType::get(rewriter.getIntegerType(1)),
-        c.getResult(0));
-    auto o = rewriter.create<LLVM::LoadOp>(loc, rewriter.getIntegerType(1),
-                                           bitcast.res());
-    rewriter.replaceOp(op, o.res());
+    rewriter.replaceOp(op, c.getResult(0));
   } else {
     rewriter.eraseOp(op);
   }
@@ -147,6 +142,36 @@ LogicalResult InstOpLowering::matchAndRewrite(
   // Notify the rewriter that this operation has been removed.
   // rewriter.eraseOp(op);
 
+  return success();
+}
+
+LogicalResult ResultCastOpLowering::matchAndRewrite(
+    Operation *op, ArrayRef<Value> operands,
+    ConversionPatternRewriter &rewriter) const {
+  auto loc = op->getLoc();
+  auto resultCastOp = cast<mlir::quantum::ResultCastOp>(op);
+  auto qir_result = resultCastOp.measure_result();
+  // Cast Result* -> Bool* (i1*)
+  auto bitcast = rewriter.create<LLVM::BitcastOp>(
+      loc, LLVM::LLVMPointerType::get(rewriter.getIntegerType(1)), qir_result);
+  // Load bool from bool*
+  auto bool_result = rewriter.create<LLVM::LoadOp>(
+      loc, rewriter.getIntegerType(1), bitcast.res());
+  rewriter.replaceOp(op, bool_result.res());
+
+  return success();
+}
+
+LogicalResult IntegerCastOpLowering::matchAndRewrite(
+    Operation *op, ArrayRef<Value> operands,
+    ConversionPatternRewriter &rewriter) const {
+  auto loc = op->getLoc();
+  auto resultCastOp = cast<mlir::quantum::IntegerCastOp>(op);
+  auto to_be_cast = resultCastOp.input();
+  mlir::IntegerType type = to_be_cast.getType().cast<mlir::IntegerType>();
+  auto cast_op = rewriter.create<LLVM::DialectCastOp>(
+      loc, rewriter.getIntegerType(type.getWidth(), false), to_be_cast);
+  rewriter.replaceOp(op, cast_op.res());
   return success();
 }
 }  // namespace qcor
