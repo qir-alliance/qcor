@@ -89,16 +89,33 @@ mlir::Value get_or_extract_qubit(const std::string& qreg_name,
 
 mlir::Value get_or_create_constant_integer_value(
     const std::size_t idx, mlir::Location location, mlir::Type type,
-    ScopedSymbolTable& symbol_table, mlir::OpBuilder& builder) {
+    ScopedSymbolTable &symbol_table, mlir::OpBuilder &builder) {
   auto width = type.getIntOrFloatBitWidth();
   if (symbol_table.has_constant_integer(idx, width)) {
     return symbol_table.get_constant_integer(idx, width);
   } else {
-    auto integer_attr = mlir::IntegerAttr::get(type, idx);
-    assert(integer_attr.getType().cast<mlir::IntegerType>().isSignless());
-    auto ret = builder.create<mlir::ConstantOp>(location, integer_attr);
-    symbol_table.add_constant_integer(idx, ret, width);
-    return ret;
+    // Handle unsigned int constant:
+    // ConstantOp (std dialect) doesn't support Signed type (uint)
+    if (!type.cast<mlir::IntegerType>().isSignless()) {
+      auto signless_int_type =
+          builder.getIntegerType(type.getIntOrFloatBitWidth());
+      auto integer_attr = mlir::IntegerAttr::get(signless_int_type, idx);
+
+      auto ret =
+          builder
+              .create<mlir::quantum::IntegerCastOp>(
+                  location, type,
+                  builder.create<mlir::ConstantOp>(location, integer_attr))
+              .output();
+      symbol_table.add_constant_integer(idx, ret, width);
+      return ret;
+    } else {
+      auto integer_attr = mlir::IntegerAttr::get(type, idx);
+      assert(integer_attr.getType().cast<mlir::IntegerType>().isSignless());
+      auto ret = builder.create<mlir::ConstantOp>(location, integer_attr);
+      symbol_table.add_constant_integer(idx, ret, width);
+      return ret;
+    }
   }
 }
 
