@@ -82,7 +82,8 @@ QuantumSimulationResult QiteWorkflow::execute(
   auto acc = xacc::internal_compiler::get_qpu();
   qite->initialize({{"accelerator", acc},
                     {"steps", nbSteps},
-                    {"observable", observable},
+                    {"observable", std::dynamic_pointer_cast<xacc::Observable>(
+                                       observable->get_as_opaque())},
                     {"step-size", stepSize}});
 
   // Approximate imaginary-time Hamiltonian
@@ -183,7 +184,7 @@ QuantumSimulationResult QiteWorkflow::execute(
       constructPropagateCircuit(approxOps, model.user_defined_ansatz, stepSize);
   return {{"energy", energyAtStep.back()},
           {"exp-vals", energyAtStep},
-          {"circuit", finalCircuit}};
+          {"circuit", finalCircuit->as_xacc()}};
 }
 }  // namespace QuaSiMo
 }  // namespace qcor

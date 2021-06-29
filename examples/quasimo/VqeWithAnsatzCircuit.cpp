@@ -31,5 +31,6 @@ int main(int argc, char **argv) {
 
   const auto energy = result.get<double>("energy");
   std::cout << "Ground-state energy = " << energy << "\n";
+  qcor_expect(std::abs(energy + 1.7487) < 0.1);
   return 0;
 }

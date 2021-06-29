@@ -51,7 +51,7 @@ IterativeQpeWorkflow::constructQpeTrotterCircuit(
   auto ctrlKernel = std::dynamic_pointer_cast<xacc::CompositeInstruction>(
       xacc::getService<xacc::Instruction>("C-U"));
   ctrlKernel->expand({
-      std::make_pair("U", trotterCir),
+      std::make_pair("U", trotterCir->as_xacc()),
       std::make_pair("control-idx", static_cast<int>(ancBit)),
   });
 

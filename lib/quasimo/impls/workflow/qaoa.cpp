@@ -36,7 +36,8 @@ QaoaWorkflow::execute(const QuantumSimulationModel &model) {
       xacc::getService<xacc::Instruction>("qaoa"));
   qaoa_kernel->expand({{"nbQubits", model.observable->nBits()},
                        {"nbSteps", nbSteps},
-                       {"cost-ham", model.observable},
+                       {"cost-ham", std::dynamic_pointer_cast<xacc::Observable>(
+                                        model.observable->get_as_opaque())},
                        {"parameter-scheme", parameterScheme}});
   evaluator = getEvaluator(model.observable, config_params);
   size_t nParams = qaoa_kernel->nVariables();

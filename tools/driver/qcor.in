@@ -88,7 +88,7 @@ def main(argv=None):
     verbose=False
     keep_bit_code_files=False
     baseLibs = ['-rdynamic', '-Wl,-rpath,@XACC_ROOT@/lib:@CMAKE_INSTALL_PREFIX@/lib:@LLVM_INSTALL_PREFIX@/lib:@CMAKE_INSTALL_PREFIX@/clang-plugins',
-                            '-L', '@CMAKE_INSTALL_PREFIX@/lib','-lqcor', '-lqrt', '-lqcor-jit',
+                            '-L', '@CMAKE_INSTALL_PREFIX@/lib','-lqcor', '-lqrt', '-lqcor-jit', '-lqcor-quasimo',
                              '-L', '@XACC_ROOT@/lib', '-lxacc', '-lCppMicroServices', '-lxacc-quantum-gate',
                             '-lxacc-pauli', '-lxacc-fermion', '-lpthread']
     if '@CMAKE_SYSTEM_NAME@' != 'Darwin':
