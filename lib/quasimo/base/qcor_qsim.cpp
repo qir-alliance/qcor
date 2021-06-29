@@ -1,9 +1,10 @@
 #include "qcor_qsim.hpp"
 #include "xacc_service.hpp"
+#include "IRProvider.hpp"
 
 namespace qcor {
 namespace QuaSiMo {
-bool CostFunctionEvaluator::initialize(Observable *observable,
+bool CostFunctionEvaluator::initialize(Operator *observable,
                                        const HeterogeneousMap &params) {
   target_operator = observable;
   hyperParams = params;
@@ -18,7 +19,7 @@ void executePassManager(
 }
 
 QuantumSimulationModel
-ModelFactory::createModel(Observable *obs, TdObservable td_ham,
+ModelFactory::createModel(Operator *obs, TdObservable td_ham,
                           const HeterogeneousMap &params) {
   QuantumSimulationModel model;
   model.observable = obs;
@@ -27,11 +28,11 @@ ModelFactory::createModel(Observable *obs, TdObservable td_ham,
 }
 
 QuantumSimulationModel
-ModelFactory::createModel(Observable *obs, const HeterogeneousMap &params) {
+ModelFactory::createModel(Operator *obs, const HeterogeneousMap &params) {
   QuantumSimulationModel model;
   model.observable = obs;
   model.hamiltonian = [&](double t) {
-    return *(static_cast<PauliOperator *>(obs));
+    return *(static_cast<Operator *>(obs));
   };
   return model;
 }
@@ -52,15 +53,15 @@ ModelFactory::createModel(ModelType type, const HeterogeneousMap &params) {
     QuantumSimulationModel model;
 
     // Handle custom observable:
-    qcor::Observable *model_observable = nullptr;
+    qcor::Operator *model_observable = nullptr;
     // Get QCOR Pauli Op first (if any)
-    if (params.keyExists<qcor::PauliOperator>("observable")) {
-      static auto cached_pauli = params.get<qcor::PauliOperator>("observable");
+    if (params.keyExists<qcor::Operator>("observable")) {
+      static auto cached_pauli = params.get<qcor::Operator>("observable");
       model_observable = &cached_pauli;
     }
-    // Generic qcor::Observable
-    else if (params.pointerLikeExists<qcor::Observable>("observable")) {
-      model_observable = params.getPointerLike<qcor::Observable>("observable");
+    // Generic qcor::Operator
+    else if (params.pointerLikeExists<qcor::Operator>("observable")) {
+      model_observable = params.getPointerLike<qcor::Operator>("observable");
     }
     else {
       const std::vector<std::string> SUPPORTED_OBS{"average_magnetization",
@@ -74,7 +75,7 @@ ModelFactory::createModel(ModelType type, const HeterogeneousMap &params) {
         qcor::error("Unknown observable type: " + observable_type);
       }
 
-      auto observable = new qcor::PauliOperator;
+      auto observable = new qcor::Operator;
       if (observable_type == "average_magnetization") {
         for (int i = 0; i < hs_model->num_spins; ++i) {
           (*observable) += ((1.0 / hs_model->num_spins) * Z(i));
@@ -95,7 +96,7 @@ ModelFactory::createModel(ModelType type, const HeterogeneousMap &params) {
     assert(model_observable);
     model.observable = model_observable;
     QuaSiMo::TdObservable H = [&](double t) {
-      qcor::PauliOperator tdOp;
+      qcor::Operator tdOp;
       for (int i = 0; i < hs_model->num_spins - 1; ++i) {
         if (hs_model->Jx != 0.0) {
           tdOp += ((hs_model->Jx / hs_model->H_BAR) * (X(i) * X(i + 1)));
@@ -172,7 +173,7 @@ getWorkflow(const std::string &name, const HeterogeneousMap &init_params) {
 }
 
 std::shared_ptr<CostFunctionEvaluator>
-getObjEvaluator(Observable *observable, const std::string &name,
+getObjEvaluator(Operator *observable, const std::string &name,
                 const HeterogeneousMap &init_params) {
   auto evaluator = xacc::getService<CostFunctionEvaluator>(name);
   if (evaluator && evaluator->initialize(observable, init_params)) {

@@ -23,16 +23,13 @@ VqeWorkflow::execute(const QuantumSimulationModel &model) {
   if (model.user_defined_ansatz) {
     auto nParams = model.user_defined_ansatz->nParams();
     evaluator = getEvaluator(model.observable, config_params);
-
-    OptFunction f(
+    auto result = optimizer->optimize(
         [&](const std::vector<double> &x, std::vector<double> &dx) {
           auto kernel = model.user_defined_ansatz->evaluate_kernel(x);
           auto energy = evaluator->evaluate(kernel);
           return energy;
         },
         nParams);
-
-    auto result = optimizer->optimize(f);
     // std::cout << "Min energy = " << result.first << "\n";
     return {{"energy", result.first}, {"opt-params", result.second}};
   }

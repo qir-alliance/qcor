@@ -35,7 +35,7 @@ TimeDependentWorkflow::execute(const QuantumSimulationModel &model) {
   // TODO: support different methods:
   auto method = xacc::getService<AnsatzGenerator>("trotter");
   // List of all circuits to evaluate:
-  std::vector<std::shared_ptr<CompositeInstruction>> allCircuits;
+  std::vector<std::shared_ptr<xacc::CompositeInstruction>> allCircuits;
   for (;;) {
     // Evaluate the time-dependent Hamiltonian:
     auto ham_t = ham_func(currentTime);
@@ -57,7 +57,7 @@ TimeDependentWorkflow::execute(const QuantumSimulationModel &model) {
     }
     // std::cout << totalCirc->toString() << "\n";
     // Add the circuit for this time step to the list for later execution    
-    allCircuits.emplace_back(xacc::ir::asComposite(totalCirc->clone()));
+    allCircuits.emplace_back(xacc::ir::asComposite(totalCirc->as_xacc()->clone()));
     currentTime += dt;
     if (currentTime > t_final) {
       break;
@@ -65,7 +65,12 @@ TimeDependentWorkflow::execute(const QuantumSimulationModel &model) {
   }
 
   // Evaluate exp-val at all timesteps
-  auto resultExpectationValues = evaluator->evaluate(allCircuits);
+  std::vector<std::shared_ptr<CompositeInstruction>> allCircuitsCasted;
+  for (auto &circ : allCircuits) {
+    allCircuitsCasted.emplace_back(
+        std::make_shared<CompositeInstruction>(circ));
+  }
+  auto resultExpectationValues = evaluator->evaluate(allCircuitsCasted);
   result.insert("exp-vals", resultExpectationValues);
   return result;
 }

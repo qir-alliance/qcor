@@ -9,7 +9,6 @@
 #include "qcor_utils.hpp"
 #include "qrt.hpp"
 #include "quantum_kernel.hpp"
-#include "taskInitiate.hpp"
 #include <memory>
 #include <qalloc>
 #include <xacc_internal_compiler.hpp>
@@ -38,7 +37,7 @@ struct Ansatz {
 //  - QFT
 class AnsatzGenerator : public Identifiable {
 public:
-  virtual Ansatz create_ansatz(Observable *obs = nullptr,
+  virtual Ansatz create_ansatz(Operator *obs = nullptr,
                                const HeterogeneousMap &params = {}) = 0;
 };
 
@@ -61,18 +60,18 @@ public:
     return result;
   }
   
-  virtual bool initialize(Observable *observable,
+  virtual bool initialize(Operator *observable,
                           const HeterogeneousMap &params = {});
 
 protected:
-  Observable *target_operator;
+  Operator *target_operator;
   HeterogeneousMap hyperParams;
 };
 
 // Trotter time-dependent simulation workflow
 // Time-dependent Hamiltonian is a function mapping from time t to Observable
 // operator.
-using TdObservable = std::function<PauliOperator(double)>;
+using TdObservable = std::function<Operator(double)>;
 
 // Capture a quantum chemistry problem.
 // TODO: generalize this to capture all potential use cases.
@@ -83,7 +82,7 @@ struct QuantumSimulationModel {
   std::string name;
 
   // The Observable operator that needs to be measured/minimized.
-  Observable *observable;
+  Operator *observable;
 
   // The system Hamiltonian which can be static or dynamic (time-dependent).
   // This can be the same or different from the observable operator.
@@ -130,10 +129,10 @@ public:
   // Strongly-typed parameters/argument.
   // Build a simple Hamiltonian-based model: static Hamiltonian which is also
   // the observable of interest.
-  static QuantumSimulationModel createModel(Observable *obs,
+  static QuantumSimulationModel createModel(Operator *obs,
                                            const HeterogeneousMap &params = {});
   static QuantumSimulationModel
-  createModel(PauliOperator &obs, const HeterogeneousMap &params = {}) {
+  createModel(Operator &obs, const HeterogeneousMap &params = {}) {
     return createModel(&obs, params);
   }
   
@@ -141,11 +140,11 @@ public:
   //  -  obs: observable operator to measure.
   //  -  td_ham: time-dependent Hamiltonian to evolve the system.
   //     e.g. a function to map from time to Hamiltonian operator.
-  static QuantumSimulationModel createModel(Observable *obs, TdObservable td_ham,
+  static QuantumSimulationModel createModel(Operator *obs, TdObservable td_ham,
                                            const HeterogeneousMap &params = {});
   // Pauli operator overload:
   static QuantumSimulationModel
-  createModel(PauliOperator &obs, TdObservable td_ham,
+  createModel(Operator &obs, TdObservable td_ham,
               const HeterogeneousMap &params = {}) {
     return createModel(&obs, td_ham, params);
   }
@@ -172,7 +171,7 @@ public:
   static inline QuantumSimulationModel createModel(
       void (*quantum_kernel_functor)(std::shared_ptr<CompositeInstruction>,
                                      Args...),
-      Observable *obs, size_t nbQubits, size_t nbParams) {
+      Operator *obs, size_t nbQubits, size_t nbParams) {
     auto kernel_functor =
         createKernelFunctor(quantum_kernel_functor, nbQubits, nbParams);
 
@@ -186,14 +185,14 @@ public:
   static inline QuantumSimulationModel createModel(
       void (*quantum_kernel_functor)(std::shared_ptr<CompositeInstruction>,
                                      Args...),
-      PauliOperator &obs, size_t nbQubits, size_t nbParams) {
+      Operator &obs, size_t nbQubits, size_t nbParams) {
     return createModel(quantum_kernel_functor, &obs, nbQubits, nbParams);
   }
 
   // Passing the state-preparation ansatz as a CompositeInstruction
   static inline QuantumSimulationModel
   createModel(std::shared_ptr<CompositeInstruction> composite,
-              Observable *obs) {
+              Operator *obs) {
     QuantumSimulationModel model;
     model.observable = obs;
     model.user_defined_ansatz = createKernelFunctor(composite);
@@ -202,7 +201,7 @@ public:
 
   static inline QuantumSimulationModel
   createModel(std::shared_ptr<CompositeInstruction> composite,
-              PauliOperator &obs) {
+              Operator &obs) {
     return createModel(composite, &obs);
   }
 };
@@ -229,10 +228,10 @@ getWorkflow(const std::string &name, const HeterogeneousMap &init_params);
 
 // Get the Obj (cost) function evaluator:
 std::shared_ptr<CostFunctionEvaluator>
-getObjEvaluator(Observable *observable, const std::string &name = "default",
+getObjEvaluator(Operator *observable, const std::string &name = "default",
                 const HeterogeneousMap &init_params = {});
 inline std::shared_ptr<CostFunctionEvaluator>
-getObjEvaluator(PauliOperator &obs, const std::string &name = "default",
+getObjEvaluator(Operator &obs, const std::string &name = "default",
                 const HeterogeneousMap &init_params = {}) {
   return getObjEvaluator(&obs, name, init_params);
 }

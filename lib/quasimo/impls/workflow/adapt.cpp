@@ -37,7 +37,7 @@ AdaptVqeWorkflow::execute(const QuantumSimulationModel &model) {
   // If the model contains an ansatz:
   if (model.user_defined_ansatz) {
     std::shared_ptr<xacc::CompositeInstruction> state_prep_circ =
-        model.user_defined_ansatz->evaluate_kernel({});
+        model.user_defined_ansatz->evaluate_kernel({})->as_xacc();
     extra_params.insert("initial-state", state_prep_circ);
   }
 

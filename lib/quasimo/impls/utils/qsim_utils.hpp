@@ -4,7 +4,7 @@
 namespace qcor {
 namespace QuaSiMo {
 std::shared_ptr<CostFunctionEvaluator>
-getEvaluator(Observable *observable, const HeterogeneousMap &params);
+getEvaluator(Operator *observable, const HeterogeneousMap &params);
 
 // Implements Prony method for IQPE signal fitting.
 // i.e. fit g(t) = sum a_i * exp(i * omega_i * t)

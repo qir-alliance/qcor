@@ -25,13 +25,14 @@ bool IterativeQpeWorkflow::initialize(const HeterogeneousMap &params) {
 
 std::shared_ptr<CompositeInstruction>
 IterativeQpeWorkflow::constructQpeTrotterCircuit(
-    std::shared_ptr<Observable> obs, double trotter_step, size_t nbQubits,
+    std::shared_ptr<Operator> op, double trotter_step, size_t nbQubits,
     double compensatedAncRot, int steps, int k, double omega, bool cau_opt) {
   auto provider = xacc::getIRProvider("quantum");
   auto kernel = provider->createComposite("__TEMP__QPE__LOOP__");
   // Ancilla qubit is the last one in the register.
   const size_t ancBit = nbQubits;
-
+  std::shared_ptr<xacc::Observable> obs =
+      std::dynamic_pointer_cast<xacc::Observable>(op->get_as_opaque());
   // Hadamard on ancilla qubit
   kernel->addInstruction(provider->createInstruction("H", ancBit));
   // Add a pre-compensated angle (for noise mitigation)
@@ -43,11 +44,11 @@ IterativeQpeWorkflow::constructQpeTrotterCircuit(
   // TODO: support other methods (e.g. Suzuki)
   auto method = xacc::getService<AnsatzGenerator>("trotter");
   auto trotterCir =
-      method->create_ansatz(obs.get(), {{"dt", trotter_step}, {"cau-opt", cau_opt}}).circuit;
+      method->create_ansatz(op.get(), {{"dt", trotter_step}, {"cau-opt", cau_opt}}).circuit;
   // std::cout << "Trotter circ:\n" << trotterCir->toString() << "\n";
 
   // Controlled-U
-  auto ctrlKernel = std::dynamic_pointer_cast<CompositeInstruction>(
+  auto ctrlKernel = std::dynamic_pointer_cast<xacc::CompositeInstruction>(
       xacc::getService<xacc::Instruction>("C-U"));
   ctrlKernel->expand({
       std::make_pair("U", trotterCir),
@@ -79,11 +80,11 @@ IterativeQpeWorkflow::constructQpeTrotterCircuit(
     kernel->addInstruction(
         provider->createInstruction("Rz", {ancBit}, {-compensatedAncRot}));
   }
-  return kernel;
+  return std::make_shared<CompositeInstruction>(kernel);
 }
 
 std::shared_ptr<CompositeInstruction> IterativeQpeWorkflow::constructQpeCircuit(
-    std::shared_ptr<Observable> obs, int k, double omega, bool measure) const {
+    std::shared_ptr<Operator> obs, int k, double omega, bool measure) const {
   auto provider = xacc::getIRProvider("quantum");
   const double trotterStepSize = -2 * M_PI / num_steps;
   auto kernel = constructQpeTrotterCircuit(obs, trotterStepSize, obs->nBits(),
@@ -102,19 +103,20 @@ std::shared_ptr<CompositeInstruction> IterativeQpeWorkflow::constructQpeCircuit(
   return kernel;
 }
 
-void IterativeQpeWorkflow::HamOpConverter::fromObservable(Observable *obs) {
+void IterativeQpeWorkflow::HamOpConverter::fromObservable(Operator *obs) {
   translation = 0.0;
   for (auto &term : obs->getSubTerms()) {
-    translation += std::abs(term->coefficient());
+    translation += std::abs(term.coefficient());
   }
   stretch = 0.5 / translation;
 }
 
-std::shared_ptr<Observable>
-IterativeQpeWorkflow::HamOpConverter::stretchObservable(Observable *obs) const {
-  PauliOperator *pauliCast = static_cast<PauliOperator *>(obs);
+std::shared_ptr<Operator>
+IterativeQpeWorkflow::HamOpConverter::stretchObservable(Operator *obs) const {
+  Operator *pauliCast = obs;
   if (pauliCast) {
-    auto result = std::make_shared<PauliOperator>(translation);
+    auto result =
+        std::make_shared<Operator>("pauli", std::to_string(translation) + " I");
     result->operator+=(*pauliCast);
     result->operator*=(stretch);
     return result;
@@ -146,14 +148,14 @@ IterativeQpeWorkflow::execute(const QuantumSimulationModel &model) {
     // the eigenvector state to estimate the eigenvalue.
     auto kernel = provider->createComposite("__TEMP__ITER_QPE__");
     if (model.user_defined_ansatz) {
-      kernel->addInstruction(model.user_defined_ansatz->evaluate_kernel({}));
+      kernel->addInstruction(model.user_defined_ansatz->evaluate_kernel({})->as_xacc());
     }
     omega_coef = omega_coef / 2.0;
     // Construct the QPE circuit and append to the kernel:
     auto k = num_iters - iterIdx;
 
     auto iterQpe = constructQpeCircuit(stretchedObs, k, -2 * M_PI * omega_coef);
-    kernel->addInstruction(iterQpe);
+    kernel->addInstruction(iterQpe->as_xacc());
     int count = 0;
     xacc::InstructionIterator iter(kernel);
     while(iter.hasNext()) {

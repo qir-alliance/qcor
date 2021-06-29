@@ -86,11 +86,11 @@ QuantumSimulationResult QiteWorkflow::execute(
                     {"step-size", stepSize}});
 
   // Approximate imaginary-time Hamiltonian
-  std::vector<std::shared_ptr<Observable>> approxOps;
+  std::vector<Operator> approxOps;
   std::vector<double> energyAtStep;
 
   auto constructPropagateCircuit =
-      [this, &acc](const std::vector<std::shared_ptr<Observable>> &in_Aops,
+      [this, &acc](std::vector<Operator> &in_Aops,
              const std::shared_ptr<KernelFunctor> &in_statePrep,
              double in_stepSize) -> std::shared_ptr<CompositeInstruction> {
     auto gateRegistry = xacc::getService<xacc::IRProvider>("quantum");
@@ -105,13 +105,13 @@ QuantumSimulationResult QiteWorkflow::execute(
     // Progagates by Trotter steps
     // Using those A operators that have been
     // optimized up to this point.
-    for (const auto &aObs : in_Aops) {
+    for (auto &aObs : in_Aops) {
       // Circuit is: exp(-idt*A),
       // i.e. regular evolution which approximates the imaginary time evolution.
-      for (const auto &term : aObs->getNonIdentitySubTerms()) {
+      for (auto &term : aObs.getNonIdentitySubTerms()) {
         auto method = xacc::getService<AnsatzGenerator>("trotter");
         auto trotterCir =
-            method->create_ansatz(term.get(), {{"dt", 0.5 * in_stepSize}})
+            method->create_ansatz(&term, {{"dt", 0.5 * in_stepSize}})
                 .circuit;
         propagateKernel->addInstructions(trotterCir->getInstructions());
       }
@@ -123,7 +123,7 @@ QuantumSimulationResult QiteWorkflow::execute(
 
     // std::cout << "Progagated kernel:\n" << propagateKernel->toString() <<
     // "\n";
-    return propagateKernel;
+    return std::make_shared<CompositeInstruction>(propagateKernel);
   };
 
   // Cost function (observable) evaluator
@@ -145,10 +145,9 @@ QuantumSimulationResult QiteWorkflow::execute(
         std::vector<double> sigmaExpectation(pauliOps.size());
         sigmaExpectation[0] = 1.0;
         for (int i = 1; i < pauliOps.size(); ++i) {
-          std::shared_ptr<Observable> tomoObservable =
-              std::make_shared<xacc::quantum::PauliOperator>();
           const std::string pauliObsStr = "1.0 " + pauliOps[i];
-          tomoObservable->fromString(pauliObsStr);
+          std::shared_ptr<Operator> tomoObservable =
+              std::make_shared<Operator>("pauli", pauliObsStr);
           assert(tomoObservable->getSubTerms().size() == 1);
           assert(tomoObservable->getNonIdentitySubTerms().size() == 1);
           auto temp_evaluator =
