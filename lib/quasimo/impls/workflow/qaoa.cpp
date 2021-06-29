@@ -44,12 +44,10 @@ QaoaWorkflow::execute(const QuantumSimulationModel &model) {
   assert(nParams > 1);
   const std::vector<double> init_params =
       qcor::random_vector(-1.0, 1.0, nParams);
-  // **THIEN-TODO**
-  // (*optimizer)->appendOption("initial-parameters", init_params);
+
+  (*optimizer)->xacc_opt->appendOption("initial-parameters", init_params);
   std::shared_ptr<xacc::AlgorithmGradientStrategy> gradient_strategy;
-  // **THIEN-TODO**
-  // if ((*optimizer)->isGradientBased()) {
-  if (false) {
+  if ((*optimizer)->xacc_opt->isGradientBased()) {
     if (config_params.stringExists("gradient-strategy")) {
       gradient_strategy = xacc::getService<xacc::AlgorithmGradientStrategy>(
           config_params.getString("gradient-strategy"));
@@ -59,7 +57,8 @@ QaoaWorkflow::execute(const QuantumSimulationModel &model) {
           xacc::getService<xacc::AlgorithmGradientStrategy>("autodiff");
     }
     gradient_strategy->initialize(
-        {{"observable", xacc::as_shared_ptr(model.observable)}});
+        {{"observable", std::dynamic_pointer_cast<xacc::Observable>(
+                            model.observable->get_as_opaque())}});
   }
 
   auto result = optimizer->optimize(

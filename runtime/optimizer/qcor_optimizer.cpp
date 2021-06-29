@@ -20,18 +20,10 @@ Optimizer::Optimizer(std::shared_ptr<xacc::Identifiable> generic)
 Optimizer::~Optimizer() = default;
 
 // Define the internal implementation, wraps an XACC Optimizer
-struct Optimizer::OptimizerImpl {
-  std::shared_ptr<xacc::Optimizer> xacc_opt;
-
-  OptimizerImpl() = default;
-  OptimizerImpl(std::shared_ptr<xacc::Optimizer> opt) : xacc_opt(opt) {}
-
-  std::pair<double, std::vector<double>> optimize(xacc::OptFunction &opt) {
-    return xacc_opt->optimize(opt);
-  }
-
-  xacc::Optimizer *operator->() { return xacc_opt.get(); }
-};
+std::pair<double, std::vector<double>>
+Optimizer::OptimizerImpl::optimize(xacc::OptFunction &opt) {
+  return xacc_opt->optimize(opt);
+}
 
 std::string Optimizer::name() { return m_internal->xacc_opt->name(); }
 

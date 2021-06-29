@@ -8,6 +8,11 @@
 #include "heterogeneous.hpp"
 #include "qcor_pimpl.hpp"
 
+namespace xacc {
+class Optimizer;
+class OptFunction;
+} // namespace xacc
+
 namespace qcor {
 
 class ObjectiveFunction;
@@ -17,13 +22,22 @@ class ObjectiveFunction;
 // an implementation specific, user-specified, optimization workflow to 
 // compute the optimal value and parameters for the provided function. 
 class Optimizer {
- private:
-  // Delegate the actual implementation to 
-  // this hiddent opaque type. 
-  class OptimizerImpl;
+private:
+  // Delegate the actual implementation to
+  // this hiddent opaque type.
+  // Define the internal implementation, wraps an XACC Optimizer
+  // Need to declare OptimizerImpl in the header so that users can overload
+  // operator -> all the way to xacc::Optimizer.
+  struct OptimizerImpl {
+    std::shared_ptr<xacc::Optimizer> xacc_opt;
+    OptimizerImpl() = default;
+    OptimizerImpl(std::shared_ptr<xacc::Optimizer> opt) : xacc_opt(opt) {}
+    std::pair<double, std::vector<double>> optimize(xacc::OptFunction &opt);
+    xacc::Optimizer *operator->() { return xacc_opt.get(); }
+  };
   qcor_pimpl<OptimizerImpl> m_internal;
 
- public:
+public:
 
   // Constructors, take the name of the 
   // concrete Optimizer implementation, an 
