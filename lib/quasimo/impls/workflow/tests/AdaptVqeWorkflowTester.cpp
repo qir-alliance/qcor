@@ -32,8 +32,7 @@ TEST(AdaptVqeWorkflowTester, checkSimple) {
       "(-0.120200490713,-0)  0^ 1^ 0 1 + (-0.120200490713,-0)  1^ 0^ 1 0 + "
       "(0.7080240981,0)");
 
-  FermionOperator H_vqe;
-  H_vqe.fromString(str);
+  Operator H_vqe("fermion", str);
   // std::cout << H_vqe.toString() << "\n";
   xacc::internal_compiler::qpu = xacc::getAccelerator("qsim");
   auto problemModel = QuaSiMo::ModelFactory::createModel(&H_vqe);

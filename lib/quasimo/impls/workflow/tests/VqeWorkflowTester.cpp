@@ -15,7 +15,8 @@ TEST(VqeWorkflowTest, checkInputComposite) {
   exp_i_theta(q, theta, {{"pauli", "X0 Y1 - Y0 X1"}});
   }
 )#");
-  auto kernel = tmp->getComposites()[0];
+  auto kernel =
+      std::make_shared<qcor::CompositeInstruction>(tmp->getComposites()[0]);
   auto H = 5.907 - 2.1433 * X(0) * X(1) - 2.143 * Y(0) * Y(1) + 0.21829 * Z(0) -
            6.125 * Z(1);
   auto problemModel = QuaSiMo::ModelFactory::createModel(kernel, H);

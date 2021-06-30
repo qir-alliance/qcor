@@ -29,15 +29,17 @@ AdaptVqeWorkflow::execute(const QuantumSimulationModel &model) {
   
   // Some extra adapt params comming from the model.
   auto accelerator = xacc::internal_compiler::get_qpu();
-  xacc::HeterogeneousMap extra_params{{"observable", xacc::as_shared_ptr(model.observable)},
-                                      {"sub-algorithm", "vqe"},
-                                      {"accelerator", accelerator},
-                                      {"optimizer", optimizer}};
+  xacc::HeterogeneousMap extra_params{
+      {"observable", std::dynamic_pointer_cast<xacc::Observable>(
+                         model.observable->get_as_opaque())},
+      {"sub-algorithm", "vqe"},
+      {"accelerator", accelerator},
+      {"optimizer", (*optimizer)->xacc_opt}};
 
   // If the model contains an ansatz:
   if (model.user_defined_ansatz) {
     std::shared_ptr<xacc::CompositeInstruction> state_prep_circ =
-        model.user_defined_ansatz->evaluate_kernel({});
+        model.user_defined_ansatz->evaluate_kernel({})->as_xacc();
     extra_params.insert("initial-state", state_prep_circ);
   }
 
