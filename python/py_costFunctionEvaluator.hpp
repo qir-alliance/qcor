@@ -24,7 +24,7 @@ class PyCostFunctionEvaluator : public CostFunctionEvaluator {
   double evaluate(std::shared_ptr<CompositeInstruction> state_prep) override {
     PYBIND11_OVERLOAD_PURE(double, CostFunctionEvaluator, evaluate);
   }
-  bool initialize(Observable *observable,
+  bool initialize(Operator *observable,
                   const HeterogeneousMap &params) override {
     PYBIND11_OVERLOAD_PURE(bool, CostFunctionEvaluator, initialize);
   }

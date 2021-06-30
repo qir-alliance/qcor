@@ -30,11 +30,9 @@ target_include_directories(${LIBRARY_NAME} PUBLIC . ${CMAKE_SOURCE_DIR}/runtime/
 set_target_properties(${LIBRARY_NAME} PROPERTIES PREFIX "")
 
 if (NOT ${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-  target_link_libraries(${LIBRARY_NAME} PUBLIC qcor qcor-jit qcor-mlir-api xacc::xacc)
-#  target_link_libraries(${LIBRARY_NAME} PUBLIC qcor qcor-quasimo qcor-jit qcor-mlir-api xacc::xacc)
+  target_link_libraries(${LIBRARY_NAME} PUBLIC qcor qcor-quasimo qcor-jit qcor-mlir-api xacc::xacc)
 else()
-  #target_link_libraries(${LIBRARY_NAME} PUBLIC qcor qcor-quasimo qcor-jit xacc::xacc)
-  target_link_libraries(${LIBRARY_NAME} PUBLIC qcor qcor-jit xacc::xacc)
+  target_link_libraries(${LIBRARY_NAME} PUBLIC qcor qcor-quasimo qcor-jit xacc::xacc)
 endif()
 
 if(APPLE)

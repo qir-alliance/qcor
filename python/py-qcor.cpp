@@ -8,9 +8,9 @@
 #include <pybind11/stl.h>
 #include <pybind11/stl_bind.h>
 
-// #include "base/qcor_qsim.hpp"
-// #include "py_costFunctionEvaluator.hpp"
-// #include "py_qsimWorkflow.hpp"
+#include "base/qcor_qsim.hpp"
+#include "py_costFunctionEvaluator.hpp"
+#include "py_qsimWorkflow.hpp"
 #include "qcor_jit.hpp"
 #ifdef QCOR_BUILD_MLIR_PYTHON_API
 #include "qcor_mlir_api.hpp"
@@ -352,43 +352,43 @@ class PyObjectiveFunction : public qcor::ObjectiveFunction {
 // quantum kernel given a vector of parameters x. This will
 // leverage the QJIT infrastructure to create executable functor
 // representation of the python kernel.
-// class PyKernelFunctor : public qcor::KernelFunctor {
-//  protected:
-//   py::object py_kernel;
-//   QJIT qjit;
-//   std::size_t n_qubits;
+class PyKernelFunctor : public qcor::KernelFunctor {
+ protected:
+  py::object py_kernel;
+  QJIT qjit;
+  std::size_t n_qubits;
 
-//  public:
-//   PyKernelFunctor(py::object q, const std::size_t nq, const std::size_t np)
-//       : py_kernel(q), n_qubits(nq) {
-//     nbParams = np;
-//     auto src = py_kernel.attr("get_internal_src")().cast<std::string>();
-//     auto extra_cpp_src =
-//         py_kernel.attr("get_extra_cpp_code")().cast<std::string>();
-//     auto sorted_kernel_deps = py_kernel.attr("get_sorted_kernels_deps")()
-//                                   .cast<std::vector<std::string>>();
+ public:
+  PyKernelFunctor(py::object q, const std::size_t nq, const std::size_t np)
+      : py_kernel(q), n_qubits(nq) {
+    nbParams = np;
+    auto src = py_kernel.attr("get_internal_src")().cast<std::string>();
+    auto extra_cpp_src =
+        py_kernel.attr("get_extra_cpp_code")().cast<std::string>();
+    auto sorted_kernel_deps = py_kernel.attr("get_sorted_kernels_deps")()
+                                  .cast<std::vector<std::string>>();
 
-//     // this will be fast if already done, and we just do it once
-//     qjit.jit_compile(src, true, sorted_kernel_deps, extra_cpp_src);
-//     qjit.write_cache();
-//   }
+    // this will be fast if already done, and we just do it once
+    qjit.jit_compile(src, true, sorted_kernel_deps, extra_cpp_src);
+    qjit.write_cache();
+  }
 
-//   // Delegate to QJIT to create a CompositeInstruction representation
-//   // of the pythonic quantum kernel.
-//   std::shared_ptr<qcor::CompositeInstruction> evaluate_kernel(
-//       const std::vector<double> &x) override {
-//     // Translate x into kernel args
-//     auto qreg = ::qalloc(n_qubits);
-//     auto args = py_kernel.attr("translate")(qreg, x).cast<KernelArgDict>();
-//     xacc::HeterogeneousMap m;
-//     for (auto &item : args) {
-//       KernelArgDictToHeterogeneousMap vis(m, item.first);
-//       mpark::visit(vis, item.second);
-//     }
-//     auto kernel_name = py_kernel.attr("kernel_name")().cast<std::string>();
-//     return qjit.extract_composite_with_hetmap(kernel_name, m);
-//   }
-// };
+  // Delegate to QJIT to create a CompositeInstruction representation
+  // of the pythonic quantum kernel.
+  std::shared_ptr<qcor::CompositeInstruction> evaluate_kernel(
+      const std::vector<double> &x) override {
+    // Translate x into kernel args
+    auto qreg = ::qalloc(n_qubits);
+    auto args = py_kernel.attr("translate")(qreg, x).cast<KernelArgDict>();
+    xacc::HeterogeneousMap m;
+    for (auto &item : args) {
+      KernelArgDictToHeterogeneousMap vis(m, item.first);
+      mpark::visit(vis, item.second);
+    }
+    auto kernel_name = py_kernel.attr("kernel_name")().cast<std::string>();
+    return qjit.extract_composite_with_hetmap(kernel_name, m);
+  }
+};
 }  // namespace qcor
 
 PYBIND11_MODULE(_pyqcor, m) {
@@ -948,7 +948,7 @@ PYBIND11_MODULE(_pyqcor, m) {
                                     qcor::OutputType::LLVMIR, add_entry_point);
         });
 #endif
-  /*
+  
     // QuaSiMo sub-module bindings:
     {
       py::module qsim =
@@ -977,93 +977,93 @@ PYBIND11_MODULE(_pyqcor, m) {
           .def(py::init<>())
           .def(
               "createModel",
-              [](qcor::PauliOperator &obs, qcor::QuaSiMo::TdObservable ham_func)
-    { return qcor::QuaSiMo::ModelFactory::createModel(obs, ham_func);
+              [](qcor::Operator &obs, qcor::QuaSiMo::TdObservable ham_func) -> qcor::QuaSiMo::QuantumSimulationModel {
+                return qcor::QuaSiMo::ModelFactory::createModel(obs, ham_func);
               },
               "Return the Model for a time-dependent problem.")
           .def(
               "createModel",
-              [](py::object py_kernel, qcor::PauliOperator &obs,
-                 const int n_params) {
+              [](py::object py_kernel, qcor::Operator &obs,
+                 const int n_params)  -> qcor::QuaSiMo::QuantumSimulationModel {
                 qcor::QuaSiMo::QuantumSimulationModel model;
                 auto nq = obs.nBits();
                 auto kernel_functor = std::make_shared<qcor::PyKernelFunctor>(
                     py_kernel, nq, n_params);
                 model.observable = &obs;
                 model.user_defined_ansatz = kernel_functor;
-                return std::move(model);
+                return model;
               },
               "")
           .def(
               "createModel",
-              [](py::object py_kernel, py::object &py_obs, const int n_params) {
+              [](py::object py_kernel, py::object &py_obs, const int n_params) -> qcor::QuaSiMo::QuantumSimulationModel {
                 qcor::QuaSiMo::QuantumSimulationModel model;
                 static auto obs = convertToQCOROperator(py_obs);
-                auto nq = obs->nBits();
+                auto nq = obs.nBits();
                 auto kernel_functor = std::make_shared<qcor::PyKernelFunctor>(
                     py_kernel, nq, n_params);
-                model.observable = obs.get();
+                model.observable = &obs;
                 model.user_defined_ansatz = kernel_functor;
-                return std::move(model);
+                return model;
               },
               "")
           .def(
               "createModel",
-              [](py::object py_kernel, qcor::PauliOperator &obs,
-                 const int n_qubits, const int n_params) {
+              [](py::object py_kernel, qcor::Operator &obs, const int n_qubits,
+                 const int n_params) -> qcor::QuaSiMo::QuantumSimulationModel {
                 qcor::QuaSiMo::QuantumSimulationModel model;
                 auto kernel_functor = std::make_shared<qcor::PyKernelFunctor>(
                     py_kernel, n_qubits, n_params);
                 model.observable = &obs;
                 model.user_defined_ansatz = kernel_functor;
-                return std::move(model);
+                return model;
               },
               "")
           .def(
               "createModel",
-              [](py::object py_kernel, std::shared_ptr<Observable> &obs,
-                 const int n_params) {
+              [](py::object py_kernel, std::shared_ptr<qcor::Operator> &obs,
+                 const int n_params) -> qcor::QuaSiMo::QuantumSimulationModel {
                 qcor::QuaSiMo::QuantumSimulationModel model;
                 auto nq = obs->nBits();
                 auto kernel_functor = std::make_shared<qcor::PyKernelFunctor>(
                     py_kernel, nq, n_params);
                 model.observable = obs.get();
                 model.user_defined_ansatz = kernel_functor;
-                return std::move(model);
+                return model;
               },
               "")
 
           .def(
               "createModel",
-              [](py::object py_kernel, std::shared_ptr<Observable> &obs,
-                 const int n_qubits, const int n_params) {
+              [](py::object py_kernel, std::shared_ptr<qcor::Operator> &obs,
+                 const int n_qubits, const int n_params) -> qcor::QuaSiMo::QuantumSimulationModel {
                 qcor::QuaSiMo::QuantumSimulationModel model;
                 auto kernel_functor = std::make_shared<qcor::PyKernelFunctor>(
                     py_kernel, n_qubits, n_params);
                 model.observable = obs.get();
                 model.user_defined_ansatz = kernel_functor;
-                return std::move(model);
+                return model;
               },
               "")
           .def(
               "createModel",
-              [](qcor::PauliOperator &obs) {
+              [](qcor::Operator &obs) -> qcor::QuaSiMo::QuantumSimulationModel {
                 return qcor::QuaSiMo::ModelFactory::createModel(obs);
               },
               "")
           .def(
               "createModel",
-              [](py::object &py_obs) {
+              [](py::object &py_obs) -> qcor::QuaSiMo::QuantumSimulationModel {
                 qcor::QuaSiMo::QuantumSimulationModel model;
                 static auto obs = convertToQCOROperator(py_obs);
-                model.observable = obs.get();
-                return std::move(model);
+                model.observable = &obs;
+                return model;
               },
               "")
           .def(
               "createModel",
               [](qcor::QuaSiMo::ModelFactory::ModelType type,
-                 PyHeterogeneousMap &params) {
+                 PyHeterogeneousMap &params)-> qcor::QuaSiMo::QuantumSimulationModel {
                 auto nativeHetMap = heterogeneousMapConvert(params);
                 return qcor::QuaSiMo::ModelFactory::createModel(type,
                                                                 nativeHetMap);
@@ -1071,7 +1071,8 @@ PYBIND11_MODULE(_pyqcor, m) {
               "Create a model of a supported type.");
       py::enum_<qcor::QuaSiMo::ModelFactory::ModelType>(m, "ModelType")
           .value("Heisenberg",
-    qcor::QuaSiMo::ModelFactory::ModelType::Heisenberg) .export_values();
+                 qcor::QuaSiMo::ModelFactory::ModelType::Heisenberg)
+          .export_values();
       // CostFunctionEvaluator bindings
       py::class_<qcor::QuaSiMo::CostFunctionEvaluator,
                  std::shared_ptr<qcor::QuaSiMo::CostFunctionEvaluator>,
@@ -1084,24 +1085,24 @@ PYBIND11_MODULE(_pyqcor, m) {
           .def(
               "initialize",
               [](qcor::QuaSiMo::CostFunctionEvaluator &self,
-                 qcor::PauliOperator &obs) { return self.initialize(&obs); },
+                 qcor::Operator &obs) { return self.initialize(&obs); },
               "Initialize the evaluator")
           .def(
               "evaluate",
               [](qcor::QuaSiMo::CostFunctionEvaluator &self,
-                 std::shared_ptr<CompositeInstruction> state_prep) -> double {
+                 std::shared_ptr<qcor::CompositeInstruction> state_prep) -> double {
                 return self.evaluate(state_prep);
               },
               "Initialize the evaluator");
       qsim.def(
           "getObjEvaluator",
-          [](qcor::PauliOperator &obs, const std::string &name = "default",
+          [](qcor::Operator &obs, const std::string &name = "default",
              py::dict p = {}) {
             return qcor::QuaSiMo::getObjEvaluator(obs, name);
           },
-          py::arg("obs"), py::arg("name") = "default", py::arg("p") =
-    py::dict(), py::return_value_policy::reference, "Return the
-    CostFunctionEvaluator.");
+          py::arg("obs"), py::arg("name") = "default",
+          py::arg("p") = py::dict(), py::return_value_policy::reference,
+          "Return the CostFunctionEvaluator.");
 
       // QuantumSimulationWorkflow bindings
       py::class_<qcor::QuaSiMo::QuantumSimulationWorkflow,
@@ -1129,5 +1130,5 @@ PYBIND11_MODULE(_pyqcor, m) {
           py::return_value_policy::reference,
           "Return the quantum simulation workflow.");
     }
-    */
+    
 }

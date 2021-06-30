@@ -92,6 +92,20 @@ struct QuantumSimulationModel {
       other.owns_observable = false;
     }
   }
+  
+  // Move Constructor
+  QuantumSimulationModel(QuantumSimulationModel &&other)
+      : name(other.name),
+        observable(other.observable),
+        hamiltonian(other.hamiltonian),
+        user_defined_ansatz(other.user_defined_ansatz),
+        owns_observable(other.owns_observable) {
+    if (other.owns_observable) {
+      // Transfer ownership.
+      other.owns_observable = false;
+    }
+  }
+
   // Model name.
   std::string name;
 
