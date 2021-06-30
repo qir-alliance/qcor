@@ -467,7 +467,8 @@ void __quantum__rt__qubit_release_array(Array *q) {
   // This is to handle **multiple** calls into an FTQC kernels (Q#/OpenQASM3).
   // At the end of the execution, all registers have been deallocated.
   if (std::all_of(allocated_arrays.begin(), allocated_arrays.end(),
-                  [](auto &array_ptr) { return array_ptr == nullptr; })) {
+                  [](auto &array_ptr) { return array_ptr == nullptr; }) &&
+      mode == QRT_MODE::FTQC) {
     if (verbose) {
       std::cout << "Reset global buffer.\n";
     }
