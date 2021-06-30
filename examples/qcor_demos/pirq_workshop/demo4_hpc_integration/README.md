@@ -52,7 +52,7 @@ qcor -c file_name.cpp
 ```
 
 ```
-g++ -rdynamic -Wl,-rpath,/ccs/home/nguyent/.xacc/lib:/ccs/home/nguyent/.xacc/lib:/autofs/nccs-svm1_home1/nguyent/.llvm/lib:/ccs/home/nguyent/.xacc/clang-plugins -L /ccs/home/nguyent/.xacc/lib -lqcor -lqrt -lqcor-hybrid -lqcor-quasimo -lqcor-jit -L /ccs/home/nguyent/.xacc/lib -lxacc -lCppMicroServices -lxacc-quantum-gate -lxacc-pauli -lxacc-fermion -lpthread -lqir-qrt file_name.o
+g++ -rdynamic -Wl,-rpath,/ccs/home/nguyent/.xacc/lib:/ccs/home/nguyent/.xacc/lib:/autofs/nccs-svm1_home1/nguyent/.llvm/lib:/ccs/home/nguyent/.xacc/clang-plugins -L /ccs/home/nguyent/.xacc/lib -lqcor -lqrt -lqcor-quasimo -lqcor-jit -L /ccs/home/nguyent/.xacc/lib -lxacc -lCppMicroServices -lxacc-quantum-gate -lxacc-pauli -lxacc-fermion -lpthread -lqir-qrt file_name.o
 ```
 
 ### ExaTN Build
