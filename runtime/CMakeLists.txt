@@ -43,12 +43,16 @@ file(GLOB HEADERS qcor.hpp
                   observable/qcor_observable.hpp 
                   optimizer/qcor_optimizer.hpp 
                   kernel/quantum_kernel.hpp 
-                  qcor_lang_ext.hpp
+                  qrt/qrt.hpp qrt/ir/*.hpp 
+                  qrt/internal_compiler/qalloc 
+                  qrt/internal_compiler/*.hpp
                   objectives/objective_function.hpp 
                   objectives/gradient_function.hpp
                   execution/taskInitiate.hpp
                   utils/qcor_utils.hpp
-                  utils/qcor_pimpl.hpp)
+                  utils/qcor_pimpl.hpp
+                  jit/qcor_jit.hpp
+                  qcor_lang_ext.hpp)
 
 install(FILES ${HEADERS} DESTINATION include/qcor)
 install(TARGETS ${LIBRARY_NAME} DESTINATION lib)

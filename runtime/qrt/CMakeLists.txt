@@ -19,8 +19,6 @@ else()
   set_target_properties(${LIBRARY_NAME} PROPERTIES LINK_FLAGS "-shared")
 endif()
 
-file(GLOB HEADERS qrt.hpp ir/*.hpp internal_compiler/qalloc internal_compiler/*.hpp)
-install(FILES ${HEADERS} DESTINATION include/qcor)
 install(TARGETS ${LIBRARY_NAME} DESTINATION lib)
 
 add_subdirectory(impls)

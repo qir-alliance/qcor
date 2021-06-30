@@ -26,6 +26,4 @@ else()
   set_target_properties(${LIBRARY_NAME} PROPERTIES LINK_FLAGS "-shared")
 endif()
 
-install(FILES qcor_jit.hpp DESTINATION include/qcor)
-
 install(TARGETS ${LIBRARY_NAME} DESTINATION lib)
