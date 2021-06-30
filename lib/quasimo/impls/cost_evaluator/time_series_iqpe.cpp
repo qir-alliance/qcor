@@ -55,7 +55,7 @@ double PhaseEstimationObjFuncEval::evaluate(
       provider->createComposite(state_prep->name() + "_adj");
   if (verifyMode) {
     std::vector<std::shared_ptr<xacc::Instruction>> gate_list;
-    xacc::InstructionIterator it(state_prep);
+    xacc::InstructionIterator it(state_prep->as_xacc());
     while (it.hasNext()) {
       auto nextInst = it.next();
       if (nextInst->isEnabled() && !nextInst->isComposite()) {
@@ -94,9 +94,9 @@ double PhaseEstimationObjFuncEval::evaluate(
   for (auto &term : target_operator->getNonIdentitySubTerms()) {
     TimeSeriesData termData;
     // std::cout << "Evaluate: " << term->toString() << "\n";
-    const auto termCoeff = term->coefficient();
+    const auto termCoeff = term.coefficient();
     // Normalize the term so that the signal processing works as expected.
-    auto pauliCast = std::static_pointer_cast<PauliOperator>(term);
+    auto pauliCast = std::make_shared<Operator>(term);
     if (pauliCast) {
       pauliCast->operator*=(1.0 / termCoeff);
     } else {
@@ -111,13 +111,13 @@ double PhaseEstimationObjFuncEval::evaluate(
       static int count = 0;
       auto kernel = provider->createComposite("__TEMP__QPE__KERNEL__" +
                                               std::to_string(count++));
-      kernel->addInstruction(state_prep);
+      kernel->addInstruction(state_prep->as_xacc());
       ///    (2) Estimate the <X> and <Y> for this time step
       // Note: we add a Pi/4 Z rotation for noise mitigation on the control
       // qubit as described in the first paragraph on Page 8.
       auto qpeKernel = IterativeQpeWorkflow::constructQpeTrotterCircuit(
           pauliCast, t, nbQubits, M_PI_4);
-      kernel->addInstruction(qpeKernel);
+      kernel->addInstruction(qpeKernel->as_xacc());
       ///    (3) Add g(t) = <X> + i <Y>
       auto xKernel = provider->createComposite("__TEMP__QPE__KERNEL__X__" +
                                                std::to_string(count++));
@@ -152,8 +152,8 @@ double PhaseEstimationObjFuncEval::evaluate(
         xacc::info("Y-basis kernel: \n" + yKernel->toString());
         printedOnce = true;
       }
-      fsToExec.emplace_back(xKernel);
-      fsToExec.emplace_back(yKernel);
+      fsToExec.emplace_back(std::make_shared<CompositeInstruction>(xKernel));
+      fsToExec.emplace_back(std::make_shared<CompositeInstruction>(yKernel));
       termData.emplace_back(std::make_pair(xKernel->name(), yKernel->name()));
     }
     obsTermTracking.emplace_back(std::make_pair(termCoeff, termData));
@@ -162,7 +162,12 @@ double PhaseEstimationObjFuncEval::evaluate(
   auto temp_buffer = xacc::qalloc(nbQubits + 1);
   // Execute all sub-kernels
   executePassManager(fsToExec);
-  xacc::internal_compiler::execute(temp_buffer.get(), fsToExec);
+  std::vector<std::shared_ptr<xacc::CompositeInstruction>> fsToExecCasted;
+  for (auto &f : fsToExec) {
+    fsToExecCasted.emplace_back(f->as_xacc());
+  }
+
+  xacc::internal_compiler::execute(temp_buffer.get(), fsToExecCasted);
 
   // Assemble execution data into a fast look-up map
   ExecutionData exeResult;
@@ -241,8 +246,8 @@ double PhaseEstimationObjFuncEval::evaluate(
   }
 
   std::complex<double> expVal =
-      target_operator->getIdentitySubTerm()
-          ? target_operator->getIdentitySubTerm()->coefficient()
+      target_operator->hasIdentitySubTerm()
+          ? target_operator->getIdentitySubTerm().coefficient()
           : 0.0;
 
   for (const auto &[coeff, listKernels] : obsTermTracking) {

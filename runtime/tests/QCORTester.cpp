@@ -86,29 +86,29 @@ void __internal_call_function_rucc_vec(qreg q, std::vector<double> x) {
   class rucc_vec k(q, x);
 }
 
-TEST(QCORTester, checkTaskInitiate) {
+// TEST(QCORTester, checkTaskInitiate) {
 
-  ::quantum::initialize("qpp", "empty");
+//   ::quantum::initialize("qpp", "empty");
 
-  auto buffer = qalloc(4);
+//   auto buffer = qalloc(4);
 
-  auto optimizer = qcor::createOptimizer("nlopt");
-  std::shared_ptr<Observable> observable = qcor::createObservable(
-      std::string("5.907 - 2.1433 X0X1 - 2.1433 Y0Y1 + .21829 Z0 - 6.125 Z1"));
+//   auto optimizer = qcor::createOptimizer("nlopt");
+//   std::shared_ptr<Observable> observable = qcor::createObservable(
+//       std::string("5.907 - 2.1433 X0X1 - 2.1433 Y0Y1 + .21829 Z0 - 6.125 Z1"));
 
-  // Create the ObjectiveFunction, here we want to run VQE
-  // need to provide ansatz and the Observable
-  auto objective = qcor::createObjectiveFunction(rucc, observable, buffer, 1);
+//   // Create the ObjectiveFunction, here we want to run VQE
+//   // need to provide ansatz and the Observable
+//   auto objective = qcor::createObjectiveFunction(rucc, observable, buffer, 1);
 
-  auto handle = qcor::taskInitiate(objective, optimizer);
-  auto results = qcor::sync(handle);
-  EXPECT_NEAR(-1.748865, results.opt_val, 1e-4);
+//   auto handle = qcor::taskInitiate(objective, optimizer);
+//   auto results = qcor::sync(handle);
+//   EXPECT_NEAR(-1.748865, results.opt_val, 1e-4);
 
-  auto objective_vec = qcor::createObjectiveFunction(rucc_vec, observable, buffer,  1);
-  auto handle2 = qcor::taskInitiate(objective_vec, optimizer);
-  auto results5 = qcor::sync(handle2);
-  EXPECT_NEAR(-1.748865, results5.opt_val, 1e-4);
-}
+//   auto objective_vec = qcor::createObjectiveFunction(rucc_vec, observable, buffer,  1);
+//   auto handle2 = qcor::taskInitiate(objective_vec, optimizer);
+//   auto results5 = qcor::sync(handle2);
+//   EXPECT_NEAR(-1.748865, results5.opt_val, 1e-4);
+// }
 
 int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);

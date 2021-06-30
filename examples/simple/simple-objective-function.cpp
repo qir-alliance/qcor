@@ -2,7 +2,7 @@
 // using the language extension
 //
 // run this with
-// qcor -qpu tnqvm simple-objective-function.cpp
+// qcor simple-objective-function.cpp
 // ./a.out
 
 __qpu__ void ansatz(qreg q, double theta) {
@@ -26,22 +26,20 @@ int main(int argc, char **argv) {
   // Create the ObjectiveFunction, here we want to run VQE
   // need to provide ansatz, Operator, and qreg
   auto objective = createObjectiveFunction(ansatz, H, q, n_variational_params,
-                                           {{"gradient-strategy", "central"}});
+                                           {{"gradient-strategy", "central"}, {"step", 1e-3}});
 
   // Create the Optimizer.
   auto optimizer = createOptimizer("nlopt", {{"nlopt-optimizer", "l-bfgs"}});
 
   // Launch the Optimization Task with taskInitiate
-  auto handle = taskInitiate(objective, optimizer);
+  // auto handle = taskInitiate(objective, optimizer);
+  auto [opt_val, opt_params] = optimizer->optimize(objective);
 
   // Go do other work...
 
   // Query results when ready.
-  auto results = sync(handle);
-  printf("vqe-energy from taskInitiate = %f\n", results.opt_val);
-  qcor_expect(std::abs(results.opt_val + 1.74886) < 0.1);
+  // auto results = sync(handle);
+  // printf("vqe-energy from taskInitiate = %f\n", results.opt_val);
+  qcor_expect(std::abs(opt_val + 1.74886) < 0.1);
   
-  for (auto &x : linspace(-constants::pi, constants::pi, 20)) {
-    std::cout << x << ", " << (*objective)({x}) << "\n";
-  }
 }

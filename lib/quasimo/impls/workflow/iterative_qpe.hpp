@@ -12,8 +12,8 @@ public:
   struct HamOpConverter {
     double translation;
     double stretch;
-    void fromObservable(Observable *obs);
-    std::shared_ptr<Observable> stretchObservable(Observable *obs) const;
+    void fromObservable(Operator *obs);
+    std::shared_ptr<Operator> stretchObservable(Operator *obs) const;
     double computeEnergy(double phaseVal) const;
   };
 
@@ -24,12 +24,12 @@ public:
   virtual const std::string description() const override { return ""; }
 
   static std::shared_ptr<CompositeInstruction> constructQpeTrotterCircuit(
-      std::shared_ptr<Observable> obs, double trotter_step, size_t nbQubits,
+      std::shared_ptr<Operator> obs, double trotter_step, size_t nbQubits,
       double compensatedAncRot = 0, int steps = 1, int k = 1, double omega = 0, bool cau_opt = true);
 
 private:
   std::shared_ptr<CompositeInstruction>
-  constructQpeCircuit(std::shared_ptr<Observable> obs, int k, double omega,
+  constructQpeCircuit(std::shared_ptr<Operator> obs, int k, double omega,
                       bool measure = true) const;
 
 private:

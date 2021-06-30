@@ -36,8 +36,6 @@ QJIT_OBJ_CACHE = []
 def clear_qjit_cache():
     QJIT_OBJ_CACHE = []
 
-PauliOperator = xacc.quantum.PauliOperator
-FermionOperator = xacc.quantum.FermionOperator 
 FLOAT_REF = typing.NewType('value', float)
 INT_REF = typing.NewType('value', int)
 
@@ -45,11 +43,9 @@ typing_to_simple_map = {'<class \'_pyqcor.qreg\'>': 'qreg',
                             '<class \'_pyqcor.qubit\'>': 'qubit',
                             '<class \'float\'>': 'float', 'typing.List[float]': 'List[float]',
                             '<class \'int\'>': 'int', 'typing.List[int]': 'List[int]',
-                            '<class \'_pyxacc.quantum.PauliOperator\'>': 'PauliOperator',
-                            '<class \'_pyxacc.quantum.FermionOperator\'>': 'FermionOperator',
+                            '<class \'_pyqcor.Operator\'>': 'Operator',
                             'typing.List[typing.Tuple[int, int]]': 'List[Tuple[int,int]]',
-                            'typing.List[_pyxacc.quantum.PauliOperator]': 'List[PauliOperator]',
-                            'typing.List[_pyxacc.quantum.FermionOperator]': 'List[FermionOperator]'}
+                            'typing.List[_pyqcor.Operator]': 'List[Operator]'}
 
 # Need to add a few extra header paths 
 # for the clang code-gen mechanism. Mac OS X will 
@@ -62,21 +58,21 @@ for path in tmp_extra_headers.split(';'):
         extra_headers.append('-I'+path)
 
 def X(idx):
-    return xacc.quantum.PauliOperator({idx: 'X'}, 1.0)
+    return Operator('pauli', 'X{}'.format(idx))
 
 
 def Y(idx):
-    return xacc.quantum.PauliOperator({idx: 'Y'}, 1.0)
+    return Operator('pauli', 'Y{}'.format(idx))
 
 
 def Z(idx):
-    return xacc.quantum.PauliOperator({idx: 'Z'}, 1.0)
+    return Operator('pauli', 'Z{}'.format(idx))
 
 def adag(idx):
-    return xacc.quantum.FermionOperator([(idx,True)], 1.0)
+    return Operator('fermion', '1.0 {}^'.format(idx))
 
 def a(idx):
-    return xacc.quantum.FermionOperator([(idx,False)], 1.0)
+    return Operator('fermion', '1.0 {}'.format(idx))
 
 cpp_matrix_gen_code = '''#include <pybind11/embed.h>
 #include <pybind11/stl.h>
@@ -208,11 +204,9 @@ class qjit(object):
                                      '<class \'_pyqcor.qubit\'>': 'qubit',
                                      '<class \'float\'>': 'double', 'typing.List[float]': 'std::vector<double>',
                                      '<class \'int\'>': 'int', 'typing.List[int]': 'std::vector<int>',
-                                     '<class \'_pyxacc.quantum.PauliOperator\'>': 'qcor::PauliOperator',
-                                     '<class \'_pyxacc.quantum.FermionOperator\'>': 'qcor::FermionOperator',
+                                     '<class \'_pyqcor.Operator\'>': 'qcor::Operator',
                                      'typing.List[typing.Tuple[int, int]]': 'PairList<int>',
-                                     'typing.List[_pyxacc.quantum.PauliOperator]': 'std::vector<qcor::PauliOperator>',
-                                     'typing.List[_pyxacc.quantum.FermionOperator]': 'std::vector<qcor::FermionOperator>'}
+                                     'typing.List[_pyqcor.Operator]': 'std::vector<qcor::Operator>'}
         self.__dict__.update(kwargs)
 
         # Create the qcor just in time engine
@@ -417,6 +411,8 @@ class qjit(object):
                     arg_type = clb_type.__args__[i]
                     if str(arg_type) not in self.allowed_type_cpp_map:
                         print('Error, this quantum kernel arg type is not allowed: ', str(clb_type))
+                        print('\nAllowed kernel arg types:\n{}'.format('\n'.join([k.replace('<class ', '').replace(
+                            '>', '').replace('typing.', '').replace("'", '') for k in self.allowed_type_cpp_map.keys()])))
                         exit(1)
                     result_type_str += self.allowed_type_cpp_map[str(arg_type)]
                     result_type_str += ','
@@ -440,7 +436,9 @@ class qjit(object):
                 continue
 
             if str(_type) not in self.allowed_type_cpp_map:
-                print('Error, this quantum kernel arg type is not allowed: ', str(_type))
+                print('Error, {} quantum kernel arg type is not allowed: '.format(arg), str(_type))
+                print('\nAllowed kernel arg types:\n{}'.format('\n'.join([k.replace('<class ', '').replace(
+                    '>', '').replace('typing.', '').replace("'", '') for k in self.allowed_type_cpp_map.keys()])))
                 exit(1)
             if self.allowed_type_cpp_map[str(_type)] == 'qreg':
                 self.qRegName = arg
@@ -484,7 +482,7 @@ class qjit(object):
         # Persist *pass by ref* variables to the accelerator buffer:
         persist_by_ref_var_code = ''
         for ref_var in self.ref_type_args:
-            persist_by_ref_var_code += '\npersist_var_to_qreq(\"' + \
+            persist_by_ref_var_code += '\npersist_var_to_qreg(\"' + \
                 ref_var + '\", ' + ref_var + ', ' + self.qRegName + ')'
 
         # Create the qcor quantum kernel function src for QJIT and the Clang syntax handler
@@ -642,7 +640,7 @@ class qjit(object):
         """
         kernel = self.extract_composite(*args)
         staq = xacc.getCompiler('staq')
-        return staq.translate(kernel)
+        return staq.translate(kernel.as_xacc())
 
     def print_kernel(self, *args):
         """

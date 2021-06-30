@@ -1,16 +1,21 @@
 #ifndef RUNTIME_QCOR_QRT_HPP_
 #define RUNTIME_QCOR_QRT_HPP_
 
-#include "CompositeInstruction.hpp"
 #include "Identifiable.hpp"
 #include "qalloc.hpp"
 #include <memory>
+#include <unordered_map>
+#include "qcor_ir.hpp"
 
+namespace qcor {
+  class Operator;
+}
 using namespace xacc::internal_compiler;
 
 namespace xacc {
 class AcceleratorBuffer;
-class CompositeInstruction;
+// class CompositeInstruction;
+class Instruction;
 class IRProvider;
 class Observable;
 } // namespace xacc
@@ -61,10 +66,10 @@ public:
                    const double theta) = 0;
 
   // exponential of i * theta * H, where H is an Observable pointer
-  virtual void exp(qreg q, const double theta, xacc::Observable &H) = 0;
-  virtual void exp(qreg q, const double theta, xacc::Observable *H) = 0;
+  // virtual void exp(qreg q, const double theta, xacc::Observable &H) = 0;
+  // virtual void exp(qreg q, const double theta, xacc::Observable *H) = 0;
   virtual void exp(qreg q, const double theta,
-                   std::shared_ptr<xacc::Observable> H) = 0;
+                   qcor::Operator& H) = 0;
 
   virtual void general_instruction(std::shared_ptr<xacc::Instruction> inst) = 0;
 
@@ -76,8 +81,8 @@ public:
 
   // Some getters for the qcor runtime library.
   virtual void
-  set_current_program(std::shared_ptr<xacc::CompositeInstruction> p) = 0;
-  virtual std::shared_ptr<xacc::CompositeInstruction> get_current_program() = 0;
+  set_current_program(std::shared_ptr<qcor::CompositeInstruction> p) = 0;
+  virtual std::shared_ptr<qcor::CompositeInstruction> get_current_program() = 0;
   virtual void set_current_buffer(xacc::AcceleratorBuffer *buffer) = 0;
   // Ancilla qubit allocator:
   // i.e. handle in kernel allocation.
@@ -179,9 +184,9 @@ void cz(qreg src, qreg tgt);
 void ch(qreg src, qreg tgt);
 
 // exponential of i * theta * H, where H is an Observable pointer
-void exp(qreg q, const double theta, xacc::Observable &H);
-void exp(qreg q, const double theta, xacc::Observable *H);
-void exp(qreg q, const double theta, std::shared_ptr<xacc::Observable> H);
+void exp(qreg q, const double theta, qcor::Operator &H);
+// void exp(qreg q, const double theta, xacc::Observable *H);
+// void exp(qreg q, const double theta, std::shared_ptr<xacc::Observable> H);
 
 // Submission API. Submit the constructed CompositeInstruction operating
 // on the provided AcceleratorBuffer(s) (note qreg wraps an AcceleratorBuffer)
@@ -189,7 +194,7 @@ void submit(xacc::AcceleratorBuffer *buffer);
 void submit(xacc::AcceleratorBuffer **buffers, const int nBuffers);
 
 // Some getters for the qcor runtime library.
-void set_current_program(std::shared_ptr<xacc::CompositeInstruction> p);
+void set_current_program(std::shared_ptr<qcor::CompositeInstruction> p);
 
 // Set the *runtime* buffer
 void set_current_buffer(xacc::AcceleratorBuffer *buffer);
@@ -237,7 +242,7 @@ extern bool __print_final_submission;
 // Execute the pass manager on the provided kernel.
 // If none provided, execute the pass manager on the current QRT kernel.
 void execute_pass_manager(
-    std::shared_ptr<CompositeInstruction> optional_composite = nullptr);
+    std::shared_ptr<qcor::CompositeInstruction> optional_composite = nullptr);
 
 } // namespace internal_compiler
 } // namespace xacc

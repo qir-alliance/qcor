@@ -22,9 +22,9 @@ print(xx);
 print(b1[1]);
 )#";
   auto mlir =
-      qcor::mlir_compile("qasm3", src, "test", qcor::OutputType::MLIR, true);
+      qcor::mlir_compile(src, "test", qcor::OutputType::MLIR, true);
   std::cout << "MLIR:\n" << mlir << "\n";
-  qcor::execute("qasm3", src, "test");
+  qcor::execute(src, "test");
 }
 
 TEST(qasm3VisitorTester, checkAssignment) {
@@ -71,9 +71,9 @@ print(f);
 print(ff);
 )#";
   auto mlir =
-      qcor::mlir_compile("qasm3", src, "test", qcor::OutputType::MLIR, true);
+      qcor::mlir_compile(src, "test", qcor::OutputType::MLIR, true);
   std::cout << "MLIR:\n" << mlir << "\n";
-  qcor::execute("qasm3", src, "test");
+  qcor::execute(src, "test");
 }
 
 TEST(qasm3VisitorTester, checkMeasurements) {
@@ -95,10 +95,10 @@ xx = measure qqq;
 
 
 )#";
-  auto mlir = qcor::mlir_compile("qasm3", measure_test, "measure_test",
+  auto mlir = qcor::mlir_compile(measure_test, "measure_test",
                                  qcor::OutputType::MLIR, false);
   std::cout << "MLIR:\n" << mlir << "\n";
-  // qcor::execute("qasm3", measure_test, "test");
+  // qcor::execute(measure_test, "test");
 }
 
 TEST(qasm3VisitorTester, checkQuantumInsts) {
@@ -115,7 +115,7 @@ U(0.1,0.2,0.3) qq[1];
 cx q, qq[1];
 
 )#";
-  auto mlir = qcor::mlir_compile("qasm3", qinst_test, "qinst_test",
+  auto mlir = qcor::mlir_compile(qinst_test, "qinst_test",
                                  qcor::OutputType::MLIR, false);
   std::cout << "MLIR:\n" << mlir << "\n";
 }
@@ -147,10 +147,10 @@ for i in [0:4] {
  }
 }
 )#";
-  auto mlir = qcor::mlir_compile("qasm3", for_stmt, "for_stmt",
+  auto mlir = qcor::mlir_compile(for_stmt, "for_stmt",
                                  qcor::OutputType::MLIR, false);
   std::cout << "for_stmt MLIR:\n" << mlir << "\n";
-  qcor::execute("qasm3", for_stmt, "for_stmt");
+  qcor::execute(for_stmt, "for_stmt");
 }
 
 TEST(qasm3VisitorTester, checkUintIndexing) {
@@ -166,10 +166,10 @@ bool b4 = bool(b_in[3]);
 
 print(b1,b2,b3,b4);
 )#";
-  auto mlir = qcor::mlir_compile("qasm3", uint_index, "uint_index",
+  auto mlir = qcor::mlir_compile(uint_index, "uint_index",
                                  qcor::OutputType::MLIR, false);
   std::cout << mlir << "\n";
-  qcor::execute("qasm3", uint_index, "uint_index");
+  qcor::execute(uint_index, "uint_index");
 }
 
 TEST(qasm3VisitorTester, checkIfStmt) {
@@ -203,7 +203,7 @@ if ( cc[1] == 1) {
 
 
 )#";
-  auto mlir = qcor::mlir_compile("qasm3", if_stmt, "if_stmt",
+  auto mlir = qcor::mlir_compile(if_stmt, "if_stmt",
                                  qcor::OutputType::MLIR, false);
   std::cout << mlir << "\n";
 }
@@ -228,10 +228,10 @@ c = measure qqq[0];
 print("hi world");
 
 )#";
-  auto mlir = qcor::mlir_compile("qasm3", if_stmt, "if_stmt",
+  auto mlir = qcor::mlir_compile(if_stmt, "if_stmt",
                                  qcor::OutputType::MLIR, false);
   std::cout << mlir << "\n";
-  qcor::execute("qasm3", if_stmt, "if_stmt");
+  qcor::execute(if_stmt, "if_stmt");
 }
 
 TEST(qasm3VisitorTester, checkIfStmt3) {
@@ -248,10 +248,10 @@ if(temp==0 && i==3) {
 }
 
 )#";
-  auto mlir = qcor::mlir_compile("qasm3", complex_if, "complex_if",
+  auto mlir = qcor::mlir_compile(complex_if, "complex_if",
                                  qcor::OutputType::MLIR, false);
   std::cout << mlir << "\n";
-  qcor::execute("qasm3", complex_if, "complex_if");
+  qcor::execute(complex_if, "complex_if");
 }
 
 TEST(qasm3VisitorTester, checkWhile) {
@@ -263,10 +263,10 @@ while (i < 10) {
   i += 1;
 }
 )#";
-  auto mlir = qcor::mlir_compile("qasm3", while_stmt, "while_stmt",
+  auto mlir = qcor::mlir_compile(while_stmt, "while_stmt",
                                  qcor::OutputType::MLIR, false);
   std::cout << mlir << "\n";
-  qcor::execute("qasm3", while_stmt, "while_stmt");
+  qcor::execute(while_stmt, "while_stmt");
 }
 
 TEST(qasm3VisitorTester, checkSubroutine) {
@@ -279,7 +279,7 @@ bit r, rr[2];
 rr[0] = xmeasure q;
 r = xmeasure qq[0];
 )#";
-  auto mlir = qcor::mlir_compile("qasm3", subroutine_test, "subroutine_test",
+  auto mlir = qcor::mlir_compile(subroutine_test, "subroutine_test",
                                  qcor::OutputType::MLIR, false);
 
   std::cout << "subroutine_test MLIR:\n" << mlir << "\n";
@@ -303,7 +303,7 @@ def parity(bit[n]:cin) -> bit {
   return c;
 }
 )#";
-  auto mlir = qcor::mlir_compile("qasm3", subroutine_test, "subroutine_test",
+  auto mlir = qcor::mlir_compile(subroutine_test, "subroutine_test",
                                  qcor::OutputType::MLIR, false);
 
   std::cout << "subroutine_test MLIR:\n" << mlir << "\n";
@@ -328,7 +328,7 @@ def pauli_measurement(bit[2*n]:spec) qubit[n]:q -> bit {
   return b;
 }
 )#";
-  auto mlir = qcor::mlir_compile("qasm3", subroutine_test, "subroutine_test",
+  auto mlir = qcor::mlir_compile(subroutine_test, "subroutine_test",
                                  qcor::OutputType::MLIR, false);
 
   std::cout << "subroutine_test MLIR:\n" << mlir << "\n";
@@ -348,7 +348,7 @@ def test(int[32]:addr) qubit:q, qubit[buffer_size]:buffer {
   if(outcome == 1) ry(pi / 2) q;
 }
 )#";
-  auto mlir = qcor::mlir_compile("qasm3", subroutine_test, "subroutine_test",
+  auto mlir = qcor::mlir_compile(subroutine_test, "subroutine_test",
                                  qcor::OutputType::MLIR, false);
 
   std::cout << "subroutine_test MLIR:\n" << mlir << "\n";
@@ -364,7 +364,7 @@ bit ans[5];
 measure b[1:3] -> ans[1:3];
 ans[1:3] = measure b[1:3];
 )#";
-  auto mlir = qcor::mlir_compile("qasm3", meas_range, "meas_range",
+  auto mlir = qcor::mlir_compile(meas_range, "meas_range",
                                  qcor::OutputType::MLIR, false);
 
   std::cout << "meas_range MLIR:\n" << mlir << "\n";
@@ -389,15 +389,15 @@ cphase(pi / 2) q[0], q[1];
 // cphase(pi / 2) s, t;
 
 )#";
-  auto mlir = qcor::mlir_compile("qasm3", gate_def, "gate_def",
+  auto mlir = qcor::mlir_compile(gate_def, "gate_def",
                                  qcor::OutputType::MLIR, false);
 
   std::cout << "gate_def MLIR:\n" << mlir << "\n";
 
-  qcor::execute("qasm3", gate_def, "gate_def");
+  qcor::execute(gate_def, "gate_def");
 
   std::cout << "LLVM:\n"
-            << qcor::mlir_compile("qasm3", gate_def, "gate_def",
+            << qcor::mlir_compile(gate_def, "gate_def",
                                   qcor::OutputType::LLVMIR, false)
             << "\n";
 }
@@ -410,16 +410,16 @@ int[4] t = int[4](c);
 // should print 15
 print(t);
 )#";
-  auto mlir = qcor::mlir_compile("qasm3", cast_int, "cast_int",
+  auto mlir = qcor::mlir_compile(cast_int, "cast_int",
                                  qcor::OutputType::MLIR, false);
 
   std::cout << "cast_int MLIR:\n" << mlir << "\n";
 
-  auto mlir2 = qcor::mlir_compile("qasm3", cast_int, "cast_int",
+  auto mlir2 = qcor::mlir_compile(cast_int, "cast_int",
                                   qcor::OutputType::LLVMIR, false);
 
   std::cout << "cast_int MLIR:\n" << mlir2 << "\n";
-  qcor::execute("qasm3", cast_int, "cast_int");
+  qcor::execute(cast_int, "cast_int");
 }
 
 TEST(qasm3VisitorTester, checkQuantumBroadcast) {
@@ -435,7 +435,7 @@ cx bb, b;
 reset r;
 
 )#";
-  auto mlir = qcor::mlir_compile("qasm3", broadcast, "broadcast",
+  auto mlir = qcor::mlir_compile(broadcast, "broadcast",
                                  qcor::OutputType::MLIR, false);
 
   std::cout << "cast_int MLIR:\n" << mlir << "\n";
@@ -449,11 +449,11 @@ float[64] x = pi - arccos(3/5);
 print(x);
 rz(x) q;
 )#";
-  auto mlir = qcor::mlir_compile("qasm3", built_in_math, "built_in_math",
+  auto mlir = qcor::mlir_compile(built_in_math, "built_in_math",
                                  qcor::OutputType::MLIR, false);
 
   std::cout << "cast_int MLIR:\n" << mlir << "\n";
-  auto llvm = qcor::mlir_compile("qasm3", built_in_math, "built_in_math",
+  auto llvm = qcor::mlir_compile(built_in_math, "built_in_math",
                                  qcor::OutputType::LLVMIR, false);
   std::cout << "LLVM:\n" << llvm << "\n";
 }
@@ -468,14 +468,14 @@ print(int[2](flags));
 
 // }
 )#";
-  auto mlir = qcor::mlir_compile("qasm3", while2, "while2",
+  auto mlir = qcor::mlir_compile(while2, "while2",
                                  qcor::OutputType::MLIR, false);
 
   std::cout << "cast_int MLIR:\n" << mlir << "\n";
-  auto llvm = qcor::mlir_compile("qasm3", while2, "while2",
+  auto llvm = qcor::mlir_compile(while2, "while2",
                                  qcor::OutputType::LLVMIR, false);
   std::cout << "LLVM:\n" << llvm << "\n";
-    qcor::execute("qasm3", while2, "while2");
+    qcor::execute(while2, "while2");
 
 }
 int main(int argc, char **argv) {

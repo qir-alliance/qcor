@@ -16,6 +16,7 @@ def objective_function(x):
     energy = ansatz.observe(H, q, x[0])
     return abs(target_energy - energy)
 
+objective_function([2.2])
 optimizer = createOptimizer('nlopt', {'nlopt-maxeval':20})
 opt_val, opt_params = optimizer.optimize(objective_function, 1)
 

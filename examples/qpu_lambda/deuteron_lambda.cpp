@@ -6,11 +6,8 @@ int main() {
   auto terms = H.getNonIdentitySubTerms();
   // Test repeated lambda creation.
   for (auto term : terms) {
-    auto pop = std::dynamic_pointer_cast<PauliOperator>(term);
-
-    assert(pop && pop->nTerms() == 1);
-
-    auto [zv, xv] = pop->toBinaryVectors(2);
+    // auto pop = std::dynamic_pointer_cast<PauliOperator>(term);
+    auto [zv, xv] = term.toBinaryVectors(2);
 
     auto l = qpu_lambda(
         [](qreg q) {

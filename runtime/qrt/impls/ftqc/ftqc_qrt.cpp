@@ -7,6 +7,7 @@
 #include "cppmicroservices/BundleContext.h"
 #include "cppmicroservices/ServiceProperties.h"
 #include "qrt.hpp"
+#include "qcor_ir.hpp"
 #include "xacc.hpp"
 #include "xacc_internal_compiler.hpp"
 #include "xacc_service.hpp"
@@ -109,14 +110,9 @@ public:
 
   // exponential of i * theta * H, where H is an Observable pointer
   virtual void exp(qreg q, const double theta,
-                   xacc::Observable &H) override { /* TODO */
+                   Operator &H) override { /* TODO */
   }
-  virtual void exp(qreg q, const double theta,
-                   xacc::Observable *H) override { /* TODO */
-  }
-  virtual void exp(qreg q, const double theta,
-                   std::shared_ptr<xacc::Observable> H) override { /* TODO */
-  }
+
 
   // Submission API: sanity check that we don't call these API's.
   // e.g. catch high-level code gen errors.
@@ -152,7 +148,7 @@ public:
 
   // Some getters for the qcor runtime library.
   virtual void
-  set_current_program(std::shared_ptr<xacc::CompositeInstruction> p) override {
+  set_current_program(std::shared_ptr<qcor::CompositeInstruction> p) override {
     if (!entryPoint) {
       entryPoint = p;
     } else {
@@ -171,7 +167,7 @@ public:
       }
     }
   }
-  virtual std::shared_ptr<xacc::CompositeInstruction>
+  virtual std::shared_ptr<qcor::CompositeInstruction>
   get_current_program() override {
     return nullptr;
   }
@@ -257,7 +253,7 @@ private:
   }
 
   // Apply a batched composite:
-  void applyComposite(std::shared_ptr<xacc::CompositeInstruction> program) {
+  void applyComposite(std::shared_ptr<qcor::CompositeInstruction> program) {
     for (auto &inst : program->getInstructions()) {
       std::vector<size_t> mapped_bits;
       for (int i = 0; i < inst->bits().size(); ++i) {
@@ -288,14 +284,14 @@ private:
   // Are we in a instruction collection mode?
   // cannot execute the instructions now.
   bool instruction_collect_mode = false;
-  std::shared_ptr<xacc::CompositeInstruction> instruction_collector;
+  std::shared_ptr<qcor::CompositeInstruction> instruction_collector;
   std::shared_ptr<xacc::IRProvider> provider;
   std::shared_ptr<xacc::Accelerator> qpu;
   // TODO: eventually, we may want to support an arbitrary number of qubit
   // registers when the FTQC backend can support it.
   std::shared_ptr<xacc::AcceleratorBuffer> qReg;
   std::map<std::pair<std::string, size_t>, size_t> qubitIdToGlobalIdx;
-  std::shared_ptr<xacc::CompositeInstruction> entryPoint;
+  std::shared_ptr<qcor::CompositeInstruction> entryPoint;
 };
 } // namespace qcor
 

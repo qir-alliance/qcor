@@ -8,7 +8,7 @@ from types import MethodType
 
 # Define a QAOA kernel with variational parameters (theta and beta angles)
 @qjit
-def qaoa_circ(q: qreg, cost_ham: PauliOperator, nbSteps: int, theta: List[float], beta: List[float]):
+def qaoa_circ(q: qreg, cost_ham: Operator, nbSteps: int, theta: List[float], beta: List[float]):
     # Start off in the uniform superposition
     for i in range(q.size()):
         H(q[i])
@@ -50,3 +50,4 @@ obj = createObjectiveFunction(qaoa_circ, H, n_params)
 # Run optimization
 optimizer = createOptimizer('nlopt', {'initial-parameters': np.random.rand(n_params)})
 results = optimizer.optimize(obj)
+print(results)

@@ -49,7 +49,7 @@ mlir::Type get_custom_opaque_type(const std::string& type,
 mlir::Value get_or_extract_qubit(const std::string& qreg_name,
                                  const std::size_t idx, mlir::Location location,
                                  ScopedSymbolTable& symbol_table,
-                                 mlir::OpBuilder& builder);
+                                 mlir::OpBuilder& builder, std::string prepended_st_name = "");
 
 mlir::Value get_or_create_constant_integer_value(
     const std::size_t idx, mlir::Location location, mlir::Type int_like_type,
@@ -60,6 +60,15 @@ mlir::Value get_or_create_constant_index_value(const std::size_t idx,
                                                int width,
                                                ScopedSymbolTable& symbol_table,
                                                mlir::OpBuilder& builder);
+
+// Construct the correct array indexing type:
+// For memref: index type
+// For qubit array: I64 type
+mlir::Value cast_array_index_value_if_required(mlir::Type array_type,
+                                               mlir::Value raw_index,
+                                               mlir::Location location,
+                                               mlir::OpBuilder &builder);
+
 extern std::map<std::string, mlir::CmpIPredicate> antlr_to_mlir_predicate;
 extern std::map<std::string, mlir::CmpFPredicate> antlr_to_mlir_fpredicate;
 

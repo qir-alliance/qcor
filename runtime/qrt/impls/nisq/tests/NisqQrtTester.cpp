@@ -1,12 +1,13 @@
 #include "qcor.hpp"
 #include <gtest/gtest.h>
 #include "xacc_service.hpp"
+#include "Circuit.hpp"
 
 TEST(NisqQrtTester, checkExpInst) {
   ::quantum::initialize("qpp", "empty");
   const std::string obs_str =
       "5.907 - 2.1433 X0X1 - 2.1433 Y0Y1 + .21829 Z0 - 6.125 Z1";
-  auto observable = qcor::createObservable(obs_str);
+  auto observable = qcor::createOperator(obs_str);
   auto qreg = qalloc(2);
   qreg.setName("q");
   ::quantum::exp(qreg, 1.0, observable);

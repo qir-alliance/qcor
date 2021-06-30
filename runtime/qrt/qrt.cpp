@@ -11,6 +11,7 @@
 #include "xacc_config.hpp"
 #include "xacc_internal_compiler.hpp"
 #include "xacc_service.hpp"
+#include "qcor_observable.hpp"
 
 namespace xacc {
 namespace internal_compiler {
@@ -24,12 +25,13 @@ std::string __qrt_env = "nisq";
 bool __print_final_submission = false;
 
 void execute_pass_manager(
-    std::shared_ptr<CompositeInstruction> optional_composite) {
+    std::shared_ptr<qcor::CompositeInstruction> optional_composite) {
   qcor::internal::PassManager passManager(__opt_level, __qubit_map,
                                           __placement_name);
   auto kernelToExecute = optional_composite
                              ? optional_composite
                              : ::quantum::qrt_impl->get_current_program();
+  // auto kernelToExecute = std::dynamic_pointer_cast<xacc::CompositeInstruction>(_kernelToExecute->get_as_opaque());
   auto optData = passManager.optimize(kernelToExecute);
 
   std::vector<std::string> user_passes;
@@ -192,17 +194,17 @@ void crz(const qubit &src_idx, const qubit &tgt_idx, const double theta) {
   qrt_impl->crz(src_idx, tgt_idx, theta);
 }
 
-void exp(qreg q, const double theta, xacc::Observable &H) {
+void exp(qreg q, const double theta, qcor::Operator &H) {
   qrt_impl->exp(q, theta, H);
 }
 
-void exp(qreg q, const double theta, xacc::Observable *H) {
-  qrt_impl->exp(q, theta, H);
-}
+// void exp(qreg q, const double theta, xacc::Observable *H) {
+//   qrt_impl->exp(q, theta, H);
+// }
 
-void exp(qreg q, const double theta, std::shared_ptr<xacc::Observable> H) {
-  qrt_impl->exp(q, theta, H);
-}
+// void exp(qreg q, const double theta, std::shared_ptr<xacc::Observable> H) {
+//   qrt_impl->exp(q, theta, H);
+// }
 
 void submit(xacc::AcceleratorBuffer *buffer) { qrt_impl->submit(buffer); }
 
@@ -210,7 +212,7 @@ void submit(xacc::AcceleratorBuffer **buffers, const int nBuffers) {
   qrt_impl->submit(buffers, nBuffers);
 }
 
-void set_current_program(std::shared_ptr<xacc::CompositeInstruction> p) {
+void set_current_program(std::shared_ptr<qcor::CompositeInstruction> p) {
   qrt_impl->set_current_program(p);
 }
 

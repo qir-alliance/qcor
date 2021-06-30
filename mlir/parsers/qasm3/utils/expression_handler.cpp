@@ -34,7 +34,13 @@ antlrcpp::Any qasm3_expression_generator::visitTerminal(
     // std::cout << "TERMNODE:\n";
     indexed_variable_value = current_value;
     if (casting_indexed_integer_to_bool) {
-      internal_value_type = builder.getIndexType();
+      if (indexed_variable_value.getType().isa<mlir::MemRefType>()) {
+        internal_value_type = indexed_variable_value.getType()
+                                  .cast<mlir::MemRefType>()
+                                  .getElementType();
+      } else {
+        internal_value_type = builder.getIndexType();
+      }
     } else if (indexed_variable_value.getType().isa<mlir::MemRefType>()) {
       internal_value_type = builder.getIndexType();
     }
@@ -63,28 +69,40 @@ antlrcpp::Any qasm3_expression_generator::visitTerminal(
       // builder.create<mlir::SubIOp>(location, current_value,
       // get_or_create_constant_integer_value(1, location));
       auto bw = indexed_variable_value.getType().getIntOrFloatBitWidth();
-      auto casted_idx =
-          builder.create<mlir::IndexCastOp>(location, current_value,
-                                            indexed_variable_value.getType()
-                                                .cast<mlir::MemRefType>()
-                                                .getElementType());
-      auto load_value = builder.create<mlir::LoadOp>(
-          location, indexed_variable_value,
-          get_or_create_constant_index_value(0, location, 64, symbol_table,
-                                             builder));
-      auto shift = builder.create<mlir::UnsignedShiftRightOp>(
-          location, load_value, casted_idx);
+      
+      // NOTE: UnsignedShiftRightOp (std dialect) expects operands of type "signless-integer-like"
+      // i.e. although it treats the operants as unsigned, they must be of type signless (int not uint). 
+      // https://mlir.llvm.org/docs/Dialects/Standard/#stdshift_right_unsigned-mlirunsignedshiftrightop
 
-      auto old_int_type = internal_value_type;
-      internal_value_type = indexed_variable_value.getType();
+      // This is the type for all variables involved in this procedure:
+      mlir::IntegerType signless_integer_like_type =
+          builder.getIntegerType(indexed_variable_value.getType()
+                                     .cast<mlir::MemRefType>()
+                                     .getElementType()
+                                     .getIntOrFloatBitWidth());
+      auto casted_idx =
+          builder
+              .create<mlir::quantum::IntegerCastOp>(
+                  location, signless_integer_like_type, current_value)
+              .output();
+      auto load_value =
+          builder.create<mlir::LoadOp>(location, indexed_variable_value);
+
+      auto load_value_casted =
+          builder
+              .create<mlir::quantum::IntegerCastOp>(
+                  location, signless_integer_like_type, load_value)
+              .output();
+      // Note: 'std.shift_right_unsigned' op requires the same type for
+      // all operands and results
+      assert(load_value_casted.getType() == casted_idx.getType());
+      auto shift = builder.create<mlir::UnsignedShiftRightOp>(
+          location, load_value_casted, casted_idx);
+
       auto and_value = builder.create<mlir::AndOp>(
           location, shift,
-          get_or_create_constant_integer_value(1, location,
-                                               indexed_variable_value.getType()
-                                                   .cast<mlir::MemRefType>()
-                                                   .getElementType(),
-                                               symbol_table, builder));
-      internal_value_type = old_int_type;
+          get_or_create_constant_integer_value(
+              1, location, signless_integer_like_type, symbol_table, builder));
       update_current_value(and_value.result());
       casting_indexed_integer_to_bool = false;
     } else {
@@ -140,13 +158,18 @@ antlrcpp::Any qasm3_expression_generator::visitTerminal(
 
         update_current_value(
             builder.create<mlir::quantum::GeneralArrayExtractOp>(
-                location, array_type, indexed_variable_value, current_value));
+                location, array_type, indexed_variable_value,
+                cast_array_index_value_if_required(
+                    indexed_variable_value.getType(), current_value, location,
+                    builder)));
 
         // unset the variable name just in case
         indexed_variable_name = "";
       } else {
         // We are loading from a variable
-        llvm::ArrayRef<mlir::Value> idx(current_value);
+        llvm::ArrayRef<mlir::Value> idx(cast_array_index_value_if_required(
+            indexed_variable_value.getType(), current_value, location,
+            builder));
         update_current_value(builder.create<mlir::LoadOp>(
             location, indexed_variable_value, idx));
       }
@@ -500,8 +523,12 @@ antlrcpp::Any qasm3_expression_generator::visitXOrExpression(
       auto mem_type = mlir::MemRefType::get(shaperef, lhs_element_type);
 
       auto integer_attr2 = mlir::IntegerAttr::get(lhs_element_type, 0);
+      
+      assert(integer_attr2.getType().cast<mlir::IntegerType>().isSignless());
       auto ret2 = builder.create<mlir::ConstantOp>(location, integer_attr2);
+      
       auto integer_attr3 = mlir::IntegerAttr::get(lhs_element_type, 1);
+      assert(integer_attr3.getType().cast<mlir::IntegerType>().isSignless());
       auto ret3 = builder.create<mlir::ConstantOp>(location, integer_attr3);
 
       mlir::Value loop_var_memref = builder.create<mlir::AllocaOp>(
@@ -764,12 +791,31 @@ antlrcpp::Any qasm3_expression_generator::visitExpressionTerminator(
       auto idx = std::stoi(integer->getText());
       // std::cout << "Integer Terminator " << integer->getText() << ", " << idx
       // << "\n";
+      const auto getSignlessIntegerType = [](mlir::OpBuilder &opBuilder,
+                                             mlir::IntegerType in_intType) {
+        return in_intType.isSignless()
+                   ? in_intType
+                   : opBuilder.getIntegerType(in_intType.getWidth());
+      };
       auto integer_attr = mlir::IntegerAttr::get(
           (internal_value_type.dyn_cast_or_null<mlir::IntegerType>()
-               ? internal_value_type.cast<mlir::IntegerType>()
+               ? getSignlessIntegerType(
+                     builder, internal_value_type.cast<mlir::IntegerType>())
                : builder.getI64Type()),
           idx);
-      current_value = builder.create<mlir::ConstantOp>(location, integer_attr);
+
+      assert(integer_attr.getType().cast<mlir::IntegerType>().isSignless());
+      if (internal_value_type.dyn_cast_or_null<mlir::IntegerType>() &&
+          !internal_value_type.cast<mlir::IntegerType>().isSignless()) {
+        // Make sure we cast the constant value appropriately.
+        // i.e. respect the signed/unsigned of the requested type.
+        current_value = builder.create<mlir::quantum::IntegerCastOp>(
+            location, internal_value_type.cast<mlir::IntegerType>(),
+            builder.create<mlir::ConstantOp>(location, integer_attr)).output();
+      } else {
+        current_value =
+            builder.create<mlir::ConstantOp>(location, integer_attr);
+      }
     }
     return 0;
   } else if (auto real = ctx->RealNumber()) {
@@ -927,7 +973,7 @@ antlrcpp::Any qasm3_expression_generator::visitExpressionTerminator(
               auto int_value_type = builder.getIntegerType(bit_width);
               auto init_attr = mlir::IntegerAttr::get(int_value_type, 0);
 
-              llvm::ArrayRef<int64_t> shaperef{1};
+              llvm::ArrayRef<int64_t> shaperef(1);
               auto mem_type = mlir::MemRefType::get(shaperef, int_value_type);
               mlir::Value init_allocation =
                   builder.create<mlir::AllocaOp>(location, mem_type);
@@ -994,8 +1040,15 @@ antlrcpp::Any qasm3_expression_generator::visitExpressionTerminator(
                                                      zero_index)
                                .result();
 
+              mlir::Value j_val_as_index = builder.create<mlir::IndexCastOp>(
+                                location, j_val, builder.getIndexType());
+
               auto load_bit_j =
-                  builder.create<mlir::LoadOp>(location, var_to_cast, j_val);
+                  j_val.getType().isa<mlir::IndexType>()
+                      ? builder.create<mlir::LoadOp>(location, var_to_cast,
+                                                     j_val)
+                      : builder.create<mlir::LoadOp>(location, var_to_cast,
+                                                     j_val_as_index);
               // Extend i1 to the same width as i
               auto load_j_ext = builder.create<mlir::ZeroExtendIOp>(
                   location, load_bit_j, int_value_type);
@@ -1051,7 +1104,8 @@ antlrcpp::Any qasm3_expression_generator::visitExpressionTerminator(
                   location, loop_var_memref, zero_index);
               auto add =
                   builder.create<mlir::AddIOp>(location, load_inc, c_val);
-
+              
+              assert(tmp2.getType().isa<mlir::IndexType>());
               builder.create<mlir::StoreOp>(
                   location, add, loop_var_memref,
                   llvm::makeArrayRef(std::vector<mlir::Value>{tmp2}));

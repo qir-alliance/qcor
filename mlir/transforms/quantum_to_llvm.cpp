@@ -20,6 +20,7 @@
 #include "lowering/QubitArrayAllocOpLowering.hpp"
 #include "lowering/SetQregOpLowering.hpp"
 #include "lowering/StdAtanOpLowering.hpp"
+#include "lowering/ValueSemanticsInstOpLowering.hpp"
 
 namespace qcor {
 mlir::Type get_quantum_type(std::string type, mlir::MLIRContext *context) {
@@ -45,6 +46,7 @@ struct QuantumLLVMTypeConverter : public LLVMTypeConverter {
       return LLVM::LLVMPointerType::get(get_quantum_type("Array", context));
     }
     std::cout << "ERROR WE DONT KNOW WAHT THIS TYPE IS\n";
+    exit(0);
     return mlir::IntegerType::get(context, 64);
   }
 
@@ -64,8 +66,12 @@ void QuantumToLLVMLoweringPass::runOnOperation() {
   QuantumLLVMTypeConverter typeConverter(&getContext());
 
   OwningRewritePatternList patterns;
+  auto module = getOperation();
+
+  // Lower arctan correctly
   patterns.insert<StdAtanOpLowering>(&getContext());
 
+  // Add Standard to LLVM
   populateStdToLLVMConversionPatterns(typeConverter, patterns);
 
   // Common variables to share across converteres
@@ -78,6 +84,9 @@ void QuantumToLLVMLoweringPass::runOnOperation() {
   patterns.insert<QallocOpLowering>(&getContext(), variables);
   patterns.insert<InstOpLowering>(&getContext(), variables, qubit_extract_map,
                                   function_names);
+  patterns.insert<ValueSemanticsInstOpLowering>(&getContext(), function_names);
+  patterns.insert<ResultCastOpLowering>(&getContext());
+  patterns.insert<IntegerCastOpLowering>(&getContext());
   patterns.insert<SetQregOpLowering>(&getContext(), variables);
   patterns.insert<ExtractQubitOpConversion>(&getContext(), typeConverter,
                                             variables, qubit_extract_map);
@@ -99,8 +108,11 @@ void QuantumToLLVMLoweringPass::runOnOperation() {
 
   // We want to completely lower to LLVM, so we use a `FullConversion`. This
   // ensures that only legal operations will remain after the conversion.
-  auto module = getOperation();
   if (failed(applyFullConversion(module, target, std::move(patterns))))
     signalPassFailure();
 }
+
+// std::unique_ptr<mlir::Pass> createQuantumOptPass() {return
+// std::make_unique<IdentityPairRemovalPass>();}
+
 }  // namespace qcor

@@ -1,10 +1,15 @@
 #include "qalloc.hpp"
-#include "xacc.hpp"
+
 #include <algorithm>
+#include <cassert>
+#include <fstream>
+
+#include "xacc.hpp"
 
 namespace xacc {
 namespace internal_compiler {
-template <typename T> struct empty_delete {
+template <typename T>
+struct empty_delete {
   empty_delete() {}
   void operator()(T *const) const {}
 };
@@ -21,8 +26,9 @@ void qreg::write_file(const std::string &file_name) {
 
 std::string qreg::random_string(std::size_t length) {
   auto randchar = []() -> char {
-    const char charset[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-                           "abcdefghijklmnopqrstuvwxyz";
+    const char charset[] =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        "abcdefghijklmnopqrstuvwxyz";
     const size_t max_index = (sizeof(charset) - 1);
     return charset[rand() % max_index];
   };
@@ -31,6 +37,25 @@ std::string qreg::random_string(std::size_t length) {
   return str;
 }
 
+qreg::Range::Range(std::vector<std::size_t> &s) {
+  assert(s.size() > 1 &&
+         "qreg::Range error - you must provide {start, end, optional step=1}");
+  start = s[0];
+  end = s[1];
+  if (s.size() > 2) {
+    step = s[2];
+  }
+}
+qreg::Range::Range(std::initializer_list<std::size_t> &&s) {
+  assert(s.size() > 1 &&
+         "qreg::Range error - you must provide {start, end, optional step=1}");
+  std::vector<std::size_t> v(s);
+  start = v[0];
+  end = v[1];
+  if (v.size() > 2) {
+    step = v[2];
+  }
+}
 qreg::qreg(const int n) {
   buffer = xacc::qalloc(n);
   auto name = "qrg_" + random_string(5);
@@ -44,8 +69,10 @@ qreg::qreg(const int n) {
 }
 
 qreg::qreg(const qreg &other)
-    : buffer(other.buffer), been_named_and_stored(other.been_named_and_stored),
-      creg(buffer), internal_qubits(other.internal_qubits) {}
+    : buffer(other.buffer),
+      been_named_and_stored(other.been_named_and_stored),
+      creg(buffer),
+      internal_qubits(other.internal_qubits) {}
 
 qubit qreg::operator[](const std::size_t i) { return internal_qubits[i]; }
 
@@ -87,8 +114,9 @@ qreg qreg::extract_range(const Range &&range) {
 qreg qreg::extract_qubits(const std::initializer_list<std::size_t> &&qbits) {
   std::vector<std::size_t> v(qbits);
   std::size_t max_element = *std::max_element(v.begin(), v.end());
-  assert(max_element < size() && "qreg::extract_qubits - you have requested a "
-                                 "qubit idx outside the size() of this qreg.");
+  assert(max_element < size() &&
+         "qreg::extract_qubits - you have requested a "
+         "qubit idx outside the size() of this qreg.");
   std::vector<qubit> new_qubits;
   for (auto vv : v) {
     new_qubits.push_back(internal_qubits[vv]);
@@ -146,8 +174,9 @@ double qreg::weighted_sum(Observable *obs) {
                                     }),
                      children.end());
     } else {
-      xacc::error("[qreg::weighted_sum()] error, number of observable terms != "
-                  "number of children buffers.");
+      xacc::error(
+          "[qreg::weighted_sum()] error, number of observable terms != "
+          "number of children buffers.");
     }
   }
 
@@ -207,11 +236,11 @@ AllocEventListener *getGlobalQubitManager() {
   return global_alloc_tracker ? global_alloc_tracker
                               : DummyListener::getInstance();
 }
-} // namespace internal_compiler
-} // namespace xacc
+}  // namespace internal_compiler
+}  // namespace xacc
 
-xacc::internal_compiler::qreg
-qalloc(const int n, xacc::internal_compiler::QubitAllocator *allocator) {
+xacc::internal_compiler::qreg qalloc(
+    const int n, xacc::internal_compiler::QubitAllocator *allocator) {
   if (allocator) {
     std::vector<xacc::internal_compiler::qubit> qubits;
     for (int i = 0; i < n; ++i) {

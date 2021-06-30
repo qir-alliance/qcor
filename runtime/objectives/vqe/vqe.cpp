@@ -1,7 +1,7 @@
 #include "cppmicroservices/BundleActivator.h"
 #include "cppmicroservices/BundleContext.h"
 #include "cppmicroservices/ServiceProperties.h"
-#include "qcor.hpp"
+#include "objective_function.hpp"
 using namespace cppmicroservices;
 
 #include <iomanip>
@@ -37,9 +37,15 @@ class VQEObjective : public ObjectiveFunction {
     if (!vqe) {
       vqe = xacc::getAlgorithm("vqe");
     }
+
+    gradients_computed = false;
+    auto xacc_kernel = kernel->as_xacc();
+    auto xacc_observable =
+        std::dynamic_pointer_cast<xacc::Observable>(observable.get_as_opaque());
     auto qpu = xacc::internal_compiler::get_qpu();
-    auto success = vqe->initialize(
-        {{"ansatz", kernel}, {"accelerator", qpu}, {"observable", observable}});
+    auto success = vqe->initialize({{"ansatz", xacc_kernel},
+                                    {"accelerator", qpu},
+                                    {"observable", xacc_observable}});
 
     if (!success) {
       xacc::error(
@@ -99,19 +105,39 @@ class VQEObjective : public ObjectiveFunction {
               options.getString("gradient-strategy"));
 
       if (gradient_strategy->isNumerical() &&
-          observable->getIdentitySubTerm()) {
+          xacc_observable->getIdentitySubTerm()) {
         gradient_strategy->setFunctionValue(
-            val - std::real(observable->getIdentitySubTerm()->coefficient()));
+            val -
+            std::real(xacc_observable->getIdentitySubTerm()->coefficient()));
       }
 
-      gradient_strategy->initialize(options);
+      if (!options.key_exists_any_type("kernel-evaluator")) {
+        error("cannot compute gradients without kernel evaluator.");
+      }
+
+      // First translate to an xacc kernel evaluator
+      auto k_eval =
+          options.get<std::function<std::shared_ptr<CompositeInstruction>(
+              std::vector<double>)>>("kernel-evaluator");
+
+      std::function<std::shared_ptr<xacc::CompositeInstruction>(
+          std::vector<double>)>
+          xacc_k_eval =
+              [&](std::vector<double> x) { return k_eval(x)->as_xacc(); };
+
+      auto step = options.get_or_default("step", 1e-3);
+      gradient_strategy->initialize({{"kernel-evaluator", xacc_k_eval},
+                                     {"observable", xacc_observable},
+                                     {"step", step}});
+
       auto grad_kernels = gradient_strategy->getGradientExecutions(
-          kernel, current_iterate_parameters);
+          xacc_kernel, current_iterate_parameters);
 
       auto tmp_grad = qalloc(qreg.size());
       qpu->execute(xacc::as_shared_ptr(tmp_grad.results()), grad_kernels);
       auto tmp_grad_children = tmp_grad.results()->getChildren();
       gradient_strategy->compute(dx, tmp_grad_children);
+      gradients_computed = true;
     }
     return val;
   }

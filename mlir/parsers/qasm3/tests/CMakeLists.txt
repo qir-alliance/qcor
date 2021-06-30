@@ -86,3 +86,9 @@ add_executable(qasm3CompilerTester_Kernel test_kernel.cpp)
 add_test(NAME qcor_qasm3_test_kernel COMMAND qasm3CompilerTester_Kernel)
 target_include_directories(qasm3CompilerTester_Kernel PRIVATE . ../../ ${CMAKE_SOURCE_DIR}/tools/clang-wrapper/ ${CMAKE_SOURCE_DIR}/handlers ${XACC_ROOT}/include/gtest)
 target_link_libraries(qasm3CompilerTester_Kernel qcor-mlir-api gtest gtest_main qcor-clang-wrapper qcor-syntax-handler ${CLANG_LIBS})
+
+add_executable(qasm3CompilerTester_PassManager test_optimization.cpp)
+add_test(NAME qcor_qasm3_test_pass_mamager COMMAND qasm3CompilerTester_PassManager)
+target_include_directories(qasm3CompilerTester_PassManager PRIVATE . ../../ ${CMAKE_SOURCE_DIR}/tools/clang-wrapper/ ${CMAKE_SOURCE_DIR}/handlers ${XACC_ROOT}/include/gtest)
+target_link_libraries(qasm3CompilerTester_PassManager qcor-mlir-api gtest gtest_main qcor-clang-wrapper qcor-syntax-handler ${CLANG_LIBS})
+

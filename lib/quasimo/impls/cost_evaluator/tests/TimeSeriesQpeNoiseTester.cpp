@@ -3,6 +3,7 @@
 #include "xacc.hpp"
 #include "xacc_service.hpp"
 #include <gtest/gtest.h>
+#include <fstream>
 
 // These tests take quite some time, hence just run one at a time...
 // Default for CI: only run the simple test
@@ -36,7 +37,8 @@ TEST(TimeSeriesQpeNoiseTester, checkSimple) {
   xacc::internal_compiler::qpu = accelerator;
 
   for (const auto &angle : angles) {
-    auto kernel = provider->createComposite("test");
+    auto kernel = std::make_shared<qcor::CompositeInstruction>(
+        provider->createComposite("test"));
     kernel->addInstruction(provider->createInstruction("Rx", {0}, {angle}));
     const auto expVal = evaluator->evaluate(kernel);
     const auto theoreticalExp = 1.0 - 2.0 * std::pow(std::sin(angle / 2.0), 2);
@@ -106,7 +108,7 @@ TEST(TimeSeriesQpeNoiseTester, checkIsingModel) {
   const int nbQubits = 4;
   const double Jz = 1.0;
   const double Jx = 1.0;
-  xacc::quantum::PauliOperator hamOpZ, hamOpX;
+  xacc::quantum::Operator hamOpZ, hamOpX;
   for (int j = 0; j < nbQubits; ++j) {
     hamOpZ += (Jz * Z(j));
   }

@@ -232,6 +232,7 @@ antlrcpp::Any qasm3_visitor::visitNoDesignatorDeclaration(
     if (auto id_list = context->identifierList()) {
       for (auto id : id_list->Identifier()) {
         variable_names.push_back(id->getText());
+        assert(init_attr.getType().cast<mlir::IntegerType>().isSignless());
         initial_values.push_back(
             builder.create<mlir::ConstantOp>(location, init_attr));
       }
@@ -384,7 +385,7 @@ antlrcpp::Any qasm3_visitor::visitBitDeclaration(
   auto location = get_location(builder, file_name, context);
 
   // First case is indexIdentifierList, no initialization
-  std::size_t size = 1;
+  int64_t size = 1;
   if (auto index_ident_list = context->indexIdentifierList()) {
     for (auto idx_identifier : index_ident_list->indexIdentifier()) {
       auto var_name = idx_identifier->Identifier()->getText();
@@ -411,6 +412,7 @@ antlrcpp::Any qasm3_visitor::visitBitDeclaration(
         builder.create<mlir::StoreOp>(location, init_values[0], allocation);
         symbol_table.add_symbol(var_name, allocation);
       } else {
+
         auto allocation = allocate_1d_memory_and_initialize(
             location, size, builder.getI1Type(), init_values,
             llvm::makeArrayRef(init_indices));
@@ -445,7 +447,7 @@ antlrcpp::Any qasm3_visitor::visitBitDeclaration(
       std::vector<mlir::Value> initial_values, indices;
       for (int j = 0; j < size; j++) {
         initial_values.push_back(get_or_create_constant_integer_value(
-            equals_expr[j] == '1' ? 1 : 0, location, result_type, symbol_table,
+            equals_expr[j] == '1' ? 1 : 0, location, builder.getI1Type(), symbol_table,
             builder));
         indices.push_back(get_or_create_constant_index_value(
             j, location, 64, symbol_table, builder));
@@ -558,8 +560,8 @@ antlrcpp::Any qasm3_visitor::visitClassicalAssignment(
         }
 
         for (int i = 0; i < lhs_shape; i++) {
-          mlir::Value pos = get_or_create_constant_integer_value(
-              i, location, builder.getIntegerType(64), symbol_table, builder);
+          mlir::Value pos = get_or_create_constant_index_value(
+              i, location, 64, symbol_table, builder);
           auto load = builder.create<mlir::LoadOp>(location, rhs, pos);
           builder.create<mlir::StoreOp>(
               location, load, lhs,
@@ -571,6 +573,7 @@ antlrcpp::Any qasm3_visitor::visitClassicalAssignment(
                             {lhs, rhs});
         }
 
+        assert(v.getType().isa<mlir::IndexType>());
         builder.create<mlir::StoreOp>(
             location, rhs, lhs,
             llvm::makeArrayRef(std::vector<mlir::Value>{v}));

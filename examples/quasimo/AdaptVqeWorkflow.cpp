@@ -30,8 +30,7 @@ int main(int argc, char **argv) {
       "(-0.120200490713,-0)  0^ 1^ 0 1 + (-0.120200490713,-0)  1^ 0^ 1 0 + "
       "(0.7080240981,0)");
 
-  FermionOperator H_vqe;
-  H_vqe.fromString(str);
+  Operator H_vqe("fermion", str);
   auto problemModel = QuaSiMo::ModelFactory::createModel(&H_vqe);
   auto optimizer = createOptimizer("nlopt", {{"nlopt-optimizer", "l-bfgs"}});
   const int nElectrons = 2;

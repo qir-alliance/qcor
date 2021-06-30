@@ -3,6 +3,7 @@
 #include "utils/qsim_utils.hpp"
 #include "xacc.hpp"
 #include <gtest/gtest.h>
+#include "qcor_ir.hpp"
 
 TEST(TimeSeriesQpeTester, checkPronyMethod) {
   auto x_vec = xacc::linspace(0.0, 1.0, 11);
@@ -41,7 +42,8 @@ TEST(TimeSeriesQpeTester, checkSimple) {
   for (const auto &angle : angles) {
     auto kernel = provider->createComposite("test");
     kernel->addInstruction(provider->createInstruction("Rx", {0}, {angle}));
-    const auto expVal = evaluator->evaluate(kernel);
+    const auto expVal =
+        evaluator->evaluate(std::make_shared<qcor::CompositeInstruction>(kernel));
     const auto theoreticalExp = 1.0 - 2.0 * std::pow(std::sin(angle / 2.0), 2);
     std::cout << "Angle = " << angle << ": Exp val = " << expVal << " vs. "
               << theoreticalExp << "\n";
@@ -65,8 +67,8 @@ TEST(TimeSeriesQpeTester, checkMultipleTerms) {
     kernel->addInstruction(provider->createInstruction("X", {0}));
     kernel->addInstruction(provider->createInstruction("Ry", {0}, {angle}));
     kernel->addInstruction(provider->createInstruction("CNOT", {1, 0}));
-    const auto expVal = evaluator->evaluate(kernel);
-    const auto refResult = refEvaluator->evaluate(kernel);
+    const auto expVal = evaluator->evaluate(std::make_shared<qcor::CompositeInstruction>(kernel));
+    const auto refResult = refEvaluator->evaluate(std::make_shared<qcor::CompositeInstruction>(kernel));
     std::cout << "Angle = " << angle << ": Exp val = " << expVal << " vs "
               << refResult << "\n";
     EXPECT_NEAR(expVal, refResult, 0.01);
@@ -88,7 +90,7 @@ TEST(TimeSeriesQpeTester, checkVerifiedProtocolNoiseless) {
   for (const auto &angle : angles) {
     auto kernel = provider->createComposite("test");
     kernel->addInstruction(provider->createInstruction("Rx", {0}, {angle}));
-    const auto expVal = evaluator->evaluate(kernel);
+    const auto expVal = evaluator->evaluate(std::make_shared<qcor::CompositeInstruction>(kernel));
     const auto theoreticalExp = 1.0 - 2.0 * std::pow(std::sin(angle / 2.0), 2);
     std::cout << "Angle = " << angle << ": Exp val = " << expVal << " vs. "
               << theoreticalExp << "\n";

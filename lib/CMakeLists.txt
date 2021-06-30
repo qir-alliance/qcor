@@ -1,4 +1,3 @@
-add_subdirectory(hybrid)
 add_subdirectory(quasimo)
 
 # Install QCOR standard library header

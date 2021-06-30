@@ -1,7 +1,7 @@
 #include <random>
 
 __qpu__ void qaoa_ansatz(qreg q, int n_steps, std::vector<double> gamma,
-                         std::vector<double> beta, std::string cost_ham_str) {
+                         std::vector<double> beta, Operator cost_ham) {
 
   // Local Declarations
   auto nQubits = q.size();
@@ -12,9 +12,6 @@ __qpu__ void qaoa_ansatz(qreg q, int n_steps, std::vector<double> gamma,
   for (int i = 0; i < nQubits; i++) {
     H(q[0]);
   }
-
-  auto cost_ham_ptr = createObservable(cost_ham_str);
-  auto& cost_ham = *cost_ham_ptr.get();
 
   // Get all non-identity hamiltonian terms
   // for the following exp(H_i) trotterization
@@ -71,13 +68,13 @@ int main(int argc, char **argv) {
   // read the string to an Observable in the kernel
   auto args_translator =
       std::make_shared<ArgsTranslator<qreg, int, std::vector<double>,
-                                      std::vector<double>, std::string>>(
+                                      std::vector<double>, Operator>>(
           [&](const std::vector<double> x) {
             // split x into gamma and beta sets
             std::vector<double> gamma(x.begin(), x.begin() + nSteps * nGamma),
                 beta(x.begin() + nSteps * nGamma,
                      x.begin() + nSteps * nGamma + nSteps * nBeta);
-            return std::make_tuple(q, nSteps, gamma, beta, cost_ham.toString());
+            return std::make_tuple(q, nSteps, gamma, beta, cost_ham);
           });
 
   // Create the VQE ObjectiveFunction
@@ -86,21 +83,12 @@ int main(int argc, char **argv) {
 
   // Create the classical Optimizer
   auto optimizer = createOptimizer(
-      "nlopt", {std::make_pair("initial-parameters", initial_params),
-                std::make_pair("nlopt-maxeval", 100)});
+      "nlopt", {{"initial-parameters", initial_params},
+                {"nlopt-maxeval", 100}});
 
-  
-  set_verbose(true);
 
-  // Launch the job asynchronously
-  auto handle =
-      taskInitiate(objective, optimizer);
-
-  // Go do other work... if you want
-
-  // Query results when ready.
-  auto results = sync(handle);
+  auto [opt_val, opt_params] = optimizer->optimize(objective);
 
   // Print the optimal value.
-  printf("Min QUBO value = %f\n", results.opt_val);
+  printf("Min QUBO value = %f\n", opt_val);
 }

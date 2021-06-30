@@ -14,12 +14,12 @@ QCOR_EXPECT_TRUE(f == 1.234);
 
 )#";
   auto mlir =
-      qcor::mlir_compile("qasm3", src, "test", qcor::OutputType::MLIR, true);
+      qcor::mlir_compile(src, "test", qcor::OutputType::MLIR, true);
   std::cout << "MLIR:\n" << mlir << "\n";
 
   // We expect false because execution
   // should return 0, anything else is an error code
-  EXPECT_FALSE(qcor::execute("qasm3", src, "test"));
+  EXPECT_FALSE(qcor::execute(src, "test"));
 
   const std::string src2 = R"#(OPENQASM 3;
 include "qelib1.inc";
@@ -29,12 +29,12 @@ const i = 33;
 QCOR_EXPECT_TRUE(i == 1);
 )#";
   mlir =
-      qcor::mlir_compile("qasm3", src2, "test", qcor::OutputType::MLIR, true);
+      qcor::mlir_compile(src2, "test", qcor::OutputType::MLIR, true);
   std::cout << "MLIR:\n" << mlir << "\n";
 
   // We expect true because execution
   // should return 1, 33 not equal to 1
-  EXPECT_TRUE(qcor::execute("qasm3", src2, "test"));
+  EXPECT_TRUE(qcor::execute(src2, "test"));
 }
 
 int main(int argc, char **argv) {

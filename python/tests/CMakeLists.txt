@@ -1,9 +1,9 @@
-add_test (NAME qcor_quasimo_python_bindings
-  COMMAND ${Python_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test_quasimo.py
-  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-)
-set_tests_properties(qcor_quasimo_python_bindings
-    PROPERTIES ENVIRONMENT "PYTHONPATH=${CMAKE_INSTALL_PREFIX}:$ENV{PYTHONPATH}")
+#add_test (NAME qcor_quasimo_python_bindings
+#  COMMAND ${Python_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test_quasimo.py
+#  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+#)
+#set_tests_properties(qcor_quasimo_python_bindings
+#    PROPERTIES ENVIRONMENT "PYTHONPATH=${CMAKE_INSTALL_PREFIX}:$ENV{PYTHONPATH}")
 
 add_test (NAME qcor_python_jit_simple
  COMMAND ${Python_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test_jit_simple.py 

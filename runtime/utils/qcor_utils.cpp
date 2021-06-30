@@ -1,47 +1,78 @@
 #include "qcor_utils.hpp"
 
+#include <random>
+#include <complex>
+
+#include "AllGateVisitor.hpp"
+#include "CompositeInstruction.hpp"
+#include "IRProvider.hpp"
+#include "IRTransformation.hpp"
+#include "Optimizer.hpp"
 #include "qrt.hpp"
 #include "xacc.hpp"
+#include "xacc_internal_compiler.hpp"
 #include "xacc_service.hpp"
 
 namespace qcor {
 
 namespace arg {
-  static ArgumentParser _parser;
-  
-  ArgumentParser &get_parser() {
-    return _parser;
-  }
+static ArgumentParser _parser;
 
-  void parse_args(int argc, const char *const argv[]) {
-    get_parser().parse_args(argc, argv);
-  }
+ArgumentParser &get_parser() { return _parser; }
+
+void parse_args(int argc, const char *const argv[]) {
+  get_parser().parse_args(argc, argv);
 }
+}  // namespace arg
 
 void set_verbose(bool verbose) { xacc::set_verbose(verbose); }
 bool get_verbose() { return xacc::verbose; }
 void set_shots(const int shots) { ::quantum::set_shots(shots); }
 void error(const std::string &msg) { xacc::error(msg); }
-ResultsBuffer sync(Handle &handle) { return handle.get(); }
+// ResultsBuffer sync(Handle &handle) { return handle.get(); }
 
 void set_backend(const std::string &backend) {
   xacc::internal_compiler::compiler_InitializeXACC();
   xacc::internal_compiler::setAccelerator(backend.c_str());
 }
 
+void persist_var_to_qreg(const std::string &key, double &val, qreg &q) {
+  q.results()->addExtraInfo(key, val);
+}
+
+void persist_var_to_qreg(const std::string &key, int &val, qreg &q) {
+  q.results()->addExtraInfo(key, val);
+}
+
 std::shared_ptr<qcor::IRTransformation> createTransformation(
     const std::string &transform_type) {
   return __internal__::get_transformation(transform_type);
 }
+std::vector<std::string> split(const std::string &str, char delimiter) {
+  return xacc::split(str, delimiter);
+}
 
-std::shared_ptr<xacc::CompositeInstruction> compile(const std::string &src) {
-  return xacc::getCompiler("xasm")->compile(src)->getComposites()[0];
+std::shared_ptr<CompositeInstruction> compile(const std::string &src) {
+  return std::make_shared<CompositeInstruction>(
+      xacc::getCompiler("xasm")->compile(src)->getComposites()[0]);
+}
+
+std::vector<double> random_vector(const double l_range, const double r_range,
+                   const std::size_t size) {
+  // Generate a random initial parameter set
+  std::random_device rnd_device;
+  std::mt19937 mersenne_engine{rnd_device()};  // Generates random integers
+  std::uniform_real_distribution<double> dist{l_range, r_range};
+  auto gen = [&dist, &mersenne_engine]() { return dist(mersenne_engine); };
+  std::vector<double> vec(size);
+  std::generate(vec.begin(), vec.end(), gen);
+  return vec;
 }
 
 namespace __internal__ {
 std::string translate(const std::string compiler,
                       std::shared_ptr<CompositeInstruction> program) {
-  return xacc::getCompiler(compiler)->translate(program);
+  return xacc::getCompiler(compiler)->translate(program->as_xacc());
 }
 
 void append_plugin_path(const std::string path) {
@@ -49,11 +80,26 @@ void append_plugin_path(const std::string path) {
 }
 
 std::shared_ptr<qcor::CompositeInstruction> create_composite(std::string name) {
-  return xacc::getIRProvider("quantum")->createComposite(name);
+  return std::make_shared<CompositeInstruction>(
+      xacc::getIRProvider("quantum")->createComposite(name));
 }
 std::shared_ptr<qcor::CompositeInstruction> create_ctrl_u() {
-  return std::dynamic_pointer_cast<xacc::CompositeInstruction>(
+  return std::make_shared<CompositeInstruction>(
+      std::dynamic_pointer_cast<xacc::CompositeInstruction>(
+          xacc::getService<xacc::Instruction>("C-U")));
+}
+
+std::shared_ptr<qcor::CompositeInstruction> create_and_expand_ctrl_u(
+    HeterogeneousMap &&m) {
+  auto comp = std::dynamic_pointer_cast<xacc::CompositeInstruction>(
       xacc::getService<xacc::Instruction>("C-U"));
+  if (m.pointerLikeExists<CompositeInstruction>("U")) {
+    // Cast to an XACC Composite Instruction
+    m.insert("U", m.getPointerLike<CompositeInstruction>("U")->as_xacc());
+  }
+  comp->expand(m);
+  auto tmp = std::make_shared<CompositeInstruction>(comp);
+  return tmp;
 }
 std::shared_ptr<qcor::IRTransformation> get_transformation(
     const std::string &transform_type) {
@@ -73,7 +119,7 @@ std::shared_ptr<qcor::CompositeInstruction> decompose_unitary(
   if (local_algorithm == "z_y_z") local_algorithm = "z-y-z";
 
   auto tmp = xacc::getService<xacc::Instruction>(local_algorithm);
-  auto decomposed = std::dynamic_pointer_cast<CompositeInstruction>(tmp);
+  auto decomposed = std::dynamic_pointer_cast<xacc::CompositeInstruction>(tmp);
 
   // default Adam
   auto optimizer = xacc::getOptimizer("mlpack");
@@ -99,43 +145,112 @@ std::shared_ptr<qcor::CompositeInstruction> decompose_unitary(
     inst->mapBits(bitMap);
   }
 
-  return decomposed;
+  return std::make_shared<CompositeInstruction>(
+      std::dynamic_pointer_cast<xacc::Identifiable>(decomposed));
 }
 
-std::shared_ptr<qcor::CompositeInstruction> decompose_unitary(
-    const std::string algorithm, UnitaryMatrix &mat,
-    qreg& buffer, std::shared_ptr<xacc::Optimizer> optimizer) {
-  auto tmp = xacc::getService<xacc::Instruction>(algorithm);
-  auto decomposed = std::dynamic_pointer_cast<CompositeInstruction>(tmp);
-  // Map the decomposed circuit to the qubits in the register.
-  std::vector<std::size_t> bitMap;
-  for (int i = 0; i < buffer.size(); ++i) {
-    bitMap.emplace_back(buffer[i].second);
-  }
-  // default Adam
-  const bool expandOk = decomposed->expand(
-      {std::make_pair("unitary", mat), std::make_pair("optimizer", optimizer)});
+// std::shared_ptr<qcor::CompositeInstruction> decompose_unitary(
+//     const std::string algorithm, UnitaryMatrix &mat,
+//     qreg& buffer, std::shared_ptr<xacc::Optimizer> optimizer) {
+//   auto tmp = xacc::getService<xacc::Instruction>(algorithm);
+//   auto decomposed = std::dynamic_pointer_cast<CompositeInstruction>(tmp);
+//   // Map the decomposed circuit to the qubits in the register.
+//   std::vector<std::size_t> bitMap;
+//   for (int i = 0; i < buffer.size(); ++i) {
+//     bitMap.emplace_back(buffer[i].second);
+//   }
+//   // default Adam
+//   const bool expandOk = decomposed->expand(
+//       {std::make_pair("unitary", mat), std::make_pair("optimizer", optimizer)});
 
-  if (!expandOk) {
-    xacc::error("Could not decmpose unitary with " + algorithm);
-  }
+// //   if (!expandOk) {
+// //     xacc::error("Could not decmpose unitary with " + algorithm);
+// //   }
 
-  for (auto inst : decomposed->getInstructions()) {
-    std::vector<std::string> buffer_names;
-    for (int i = 0; i < inst->nRequiredBits(); i++) {
-      const std::string buffer_name = buffer[inst->bits()[i]].first;
-      buffer_names.push_back(buffer_name);
-    }
-    inst->setBufferNames(buffer_names);
-    inst->mapBits(bitMap);
-  }
+//   for (auto inst : decomposed->getInstructions()) {
+//     std::vector<std::string> buffer_names;
+//     for (int i = 0; i < inst->nRequiredBits(); i++) {
+//       const std::string buffer_name = buffer[inst->bits()[i]].first;
+//       buffer_names.push_back(buffer_name);
+//     }
+//     inst->setBufferNames(buffer_names);
+//     inst->mapBits(bitMap);
+//   }
 
-  return decomposed;
+//   return decomposed;
+// }
+
+// }  // namespace __internal__
+
+constexpr std::complex<double> I{0.0, 1.0};
+// Note: cannot use std::complex_literal
+// because https://gcc.gnu.org/onlinedocs/gcc/Complex.html#Complex
+inline constexpr std::complex<double> operator"" _i(long double x) noexcept {
+  return {0., static_cast<double>(x)};
 }
-
-}  // namespace __internal__
-
 using namespace xacc::quantum;
+using namespace Eigen;
+
+MatrixXcd kroneckerProduct(MatrixXcd &lhs, MatrixXcd &rhs);
+enum class Rot { X, Y, Z };
+
+class KernelToUnitaryVisitor : public AllGateVisitor {
+ public:
+  KernelToUnitaryVisitor(size_t in_nbQubits);
+
+  void visit(Hadamard &h) override;
+  void visit(CNOT &cnot) override;
+  void visit(Rz &rz) override;
+  void visit(Ry &ry) override;
+  void visit(Rx &rx) override;
+  void visit(X &x) override;
+  void visit(Y &y) override;
+  void visit(Z &z) override;
+  void visit(CY &cy) override;
+  void visit(CZ &cz) override;
+  void visit(Swap &s) override;
+  void visit(CRZ &crz) override;
+  void visit(CH &ch) override;
+  void visit(S &s) override;
+  void visit(Sdg &sdg) override;
+  void visit(T &t) override;
+  void visit(Tdg &tdg) override;
+  void visit(CPhase &cphase) override;
+  void visit(Measure &measure) override;
+  void visit(Identity &i) override;
+  void visit(U &u) override;
+  void visit(IfStmt &ifStmt) override;
+  // Identifiable Impl
+  const std::string name() const override { return "kernel-to-unitary"; }
+  const std::string description() const override { return ""; }
+  MatrixXcd getMat() const;
+  MatrixXcd singleQubitGateExpand(MatrixXcd &in_gateMat, size_t in_loc) const;
+
+  MatrixXcd singleParametricQubitGateExpand(double in_var, Rot in_rotType,
+                                            size_t in_bitLoc) const;
+
+  MatrixXcd twoQubitGateExpand(MatrixXcd &in_gateMat, size_t in_bit1,
+                               size_t in_bit2) const;
+
+ private:
+  MatrixXcd m_circuitMat;
+  size_t m_nbQubit;
+};
+
+
+UnitaryMatrix map_composite_to_unitary_matrix(
+    std::shared_ptr<CompositeInstruction> composite) {
+  auto c = composite->as_xacc();
+  KernelToUnitaryVisitor visitor(c->nLogicalBits());
+  xacc::InstructionIterator iter(c);
+  while (iter.hasNext()) {
+    auto inst = iter.next();
+    if (!inst->isComposite() && inst->isEnabled()) {
+      inst->accept(&visitor);
+    }
+  }
+  return visitor.getMat();
+}
 
 MatrixXcd X_Mat{MatrixXcd::Zero(2, 2)};
 MatrixXcd Y_Mat{MatrixXcd::Zero(2, 2)};
@@ -392,4 +507,5 @@ MatrixXcd KernelToUnitaryVisitor::twoQubitGateExpand(MatrixXcd &in_gateMat,
   return resultMat;
 }
 
+}
 }  // namespace qcor

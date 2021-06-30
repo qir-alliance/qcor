@@ -17,7 +17,6 @@
 #include <string>
 #include <memory>
 #include <vector>
-#include <cassert>
 
 namespace xacc {
 class AcceleratorBuffer;
@@ -102,27 +101,8 @@ public:
     std::size_t start;
     std::size_t end;
     std::size_t step = 1;
-    Range(std::vector<std::size_t> &s) {
-      assert(
-          s.size() > 1 &&
-          "qreg::Range error - you must provide {start, end, optional step=1}");
-      start = s[0];
-      end = s[1];
-      if (s.size() > 2) {
-        step = s[2];
-      }
-    }
-    Range(std::initializer_list<std::size_t> &&s) {
-      assert(
-          s.size() > 1 &&
-          "qreg::Range error - you must provide {start, end, optional step=1}");
-      std::vector<std::size_t> v(s);
-      start = v[0];
-      end = v[1];
-      if (v.size() > 2) {
-        step = v[2];
-      }
-    }
+    Range(std::vector<std::size_t> &s);
+    Range(std::initializer_list<std::size_t> &&s);
   };
 
   qreg() = default;

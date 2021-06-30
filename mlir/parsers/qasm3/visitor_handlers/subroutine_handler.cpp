@@ -52,10 +52,10 @@ antlrcpp::Any qasm3_visitor::visitSubroutineDefinition(
       if (auto designator = classical_type->designator()) {
         auto bit_size = symbol_table.evaluate_constant_integer_expression(
             designator->getText());
-        llvm::ArrayRef<int64_t> shape{bit_size};
-        return_type = mlir::MemRefType::get(shape, result_type);
+        llvm::ArrayRef<int64_t> shape(bit_size);
+        return_type = mlir::MemRefType::get(shape, builder.getI1Type());
       } else {
-        return_type = result_type;
+        return_type = builder.getI1Type();
       }
     } else if (auto single_desig = classical_type->singleDesignatorType()) {
       if (single_desig->getText() == "float") {
@@ -124,9 +124,10 @@ antlrcpp::Any qasm3_visitor::visitSubroutineDefinition(
   if (context->subroutineBlock()->EXTERN()) {
     std::cout << "Handle extern subroutine: " << subroutine_name << "\n";
     builder.setInsertionPointToStart(&m_module.getRegion().getBlocks().front());
-    builder.create<mlir::FuncOp>(get_location(builder, file_name, context),
-                                 subroutine_name,
-                                 function.getType().cast<mlir::FunctionType>());
+    auto func_decl = builder.create<mlir::FuncOp>(
+        get_location(builder, file_name, context), subroutine_name,
+        function.getType().cast<mlir::FunctionType>());
+    func_decl.setVisibility(mlir::SymbolTable::Visibility::Private);
     builder.restoreInsertionPoint(main_block);
     symbol_table.add_seen_function(subroutine_name, function);
     return 0;
@@ -186,7 +187,13 @@ antlrcpp::Any qasm3_visitor::visitReturnStatement(
           auto tmp = get_or_create_constant_index_value(0, location, 64,
                                                         symbol_table, builder);
           llvm::ArrayRef<mlir::Value> zero_index(tmp);
-          value = builder.create<mlir::LoadOp>(location, value, zero_index);
+          if (value.getType().isa<mlir::MemRefType>() &&
+              value.getType().cast<mlir::MemRefType>().getShape().empty()) {
+            // No need to add index if the Memref has no dimension.
+            value = builder.create<mlir::LoadOp>(location, value);
+          } else {
+            value = builder.create<mlir::LoadOp>(location, value, zero_index);
+          }
         } else {
           value =
               builder.create<mlir::LoadOp>(location, value);  //, zero_index);

@@ -12,7 +12,7 @@ int syndrome_array_to_int(const std::vector<int> &syndromes) {
 #ifdef _QCOR_FTQC_RUNTIME
 namespace ftqc {
 __qpu__ void measure_stabilizer_generators(
-    qreg q, std::vector<std::vector<qcor::PauliOperator>> stabilizerGroup,
+    qreg q, std::vector<std::vector<qcor::Operator>> stabilizerGroup,
     std::vector<int> logicalReg, int scratchQubitIdx,
     std::vector<int> &out_syndromes) {
   for (auto &stabilizer : stabilizerGroup) {

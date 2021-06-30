@@ -4,7 +4,7 @@
 
 namespace qcor {
 namespace QuaSiMo {
-Ansatz TrotterEvolution::create_ansatz(Observable *obs,
+Ansatz TrotterEvolution::create_ansatz(Operator *obs,
                                        const HeterogeneousMap &params) {
   Ansatz result;
   // This ansatz generator requires an observable.
@@ -23,7 +23,8 @@ Ansatz TrotterEvolution::create_ansatz(Observable *obs,
       xacc::getService<xacc::Instruction>("exp_i_theta"));
   expCirc->expand({{"pauli", obs->toString()},
                    {"__internal_compute_action_uncompute_opt__", cau_opt}});
-  result.circuit = expCirc->operator()({dt});
+  result.circuit =
+      std::make_shared<qcor::CompositeInstruction>(expCirc->operator()({dt}));
   result.nb_qubits = expCirc->nRequiredBits();
 
   return result;

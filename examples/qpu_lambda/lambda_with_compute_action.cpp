@@ -25,7 +25,7 @@ int main() {
   auto optimizer = createOptimizer("nlopt", {{"maxeval", 20}});
 
   // Optimize the above function
-  auto [optval, opt_params] = optimizer->optimize(*objective.get());
+  auto [optval, opt_params] = optimizer->optimize(objective);
 
   // Print the result
   printf("energy = %f\n", optval);

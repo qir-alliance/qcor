@@ -3,10 +3,11 @@
 #include <unordered_map>
 #include <vector>
 #include <string>
+#include "qcor_ir.hpp"
 
-namespace xacc {
-class CompositeInstruction;
-}
+// namespace xacc {
+// class CompositeInstruction;
+// }
 namespace qcor {
 namespace internal {
 // Stats about an optimization pass:
@@ -21,7 +22,7 @@ struct PassStat {
   double wallTimeMs;
   // Helper to collect stats.
   static std::unordered_map<std::string, int>
-  countGates(const std::shared_ptr<xacc::CompositeInstruction> &program);
+  countGates(const std::shared_ptr<CompositeInstruction> &program);
   // Pretty printer.
   std::string toString(bool shortForm = true) const;
 };
@@ -30,16 +31,16 @@ class PassManager {
 public:
   PassManager(int level, const std::vector<int> &qubitMap = {}, const std::string &placementName = "");
   // Static helper to run an optimization pass
-  static PassStat runPass(const std::string &passName, std::shared_ptr<xacc::CompositeInstruction> program);
+  static PassStat runPass(const std::string &passName, std::shared_ptr<CompositeInstruction> program);
   // Default placement strategy
   static constexpr const char *DEFAULT_PLACEMENT = "swap-shortest-path";
   // Apply placement
-  void applyPlacement(std::shared_ptr<xacc::CompositeInstruction> program) const;
+  void applyPlacement(std::shared_ptr<CompositeInstruction> program) const;
 
   // Optimizes the input program.
   // Returns the full statistics about all the passes that have been executed.
   std::vector<PassStat>
-  optimize(std::shared_ptr<xacc::CompositeInstruction> program) const;
+  optimize(std::shared_ptr<CompositeInstruction> program) const;
   // List of passes for level 1:
   // Ordered list of passes to be executed.
   // Can have duplicated entries (run multiple times).

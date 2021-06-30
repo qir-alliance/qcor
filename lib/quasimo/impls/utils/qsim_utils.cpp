@@ -6,7 +6,7 @@
 namespace qcor {
 namespace QuaSiMo {
 std::shared_ptr<CostFunctionEvaluator>
-getEvaluator(Observable *observable, const HeterogeneousMap &params) {
+getEvaluator(Operator *observable, const HeterogeneousMap &params) {
   // If an evaluator was provided explicitly:
   if (params.pointerLikeExists<CostFunctionEvaluator>("evaluator")) {
     return xacc::as_shared_ptr(

@@ -1,7 +1,7 @@
 #include "objective_function.hpp"
 #include "xacc.hpp"
 #include "xacc_service.hpp"
-
+#include "xacc_internal_compiler.hpp"
 namespace qcor {
 namespace __internal__ {
 std::shared_ptr<ObjectiveFunction> get_objective(const std::string &type) {

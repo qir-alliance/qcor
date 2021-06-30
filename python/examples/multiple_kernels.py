@@ -29,7 +29,7 @@ q = qalloc(2)
 
 # Inspect the IR
 comp = bell_test.extract_composite(q)
-print(comp.toString())
+print(comp)
 
 # Run the bell experiment
 bell_test(q)

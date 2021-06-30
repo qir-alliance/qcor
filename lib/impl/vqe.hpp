@@ -1,16 +1,15 @@
 #pragma once
 
-#include <vector>
-#include "qcor_observable.hpp"
 #include <qcor_common>
+#include <vector>
 
+#include "qcor_observable.hpp"
 
 #ifdef _QCOR_FTQC_RUNTIME
 namespace ftqc {
-__qpu__ void estimate_term_expectation(qreg q,
-                                     const std::function<void(qreg)> &statePrep,
-                                     std::vector<qcor::PauliOperator> bases,
-                                     int nSamples, double &out_energy) {
+__qpu__ void estimate_term_expectation(
+    qreg q, const std::function<void(qreg)> &statePrep,
+    std::vector<qcor::Operator> bases, int nSamples, double &out_energy) {
   double sum = 0.0;
   for (int i = 0; i < nSamples; ++i) {
     statePrep(q);
@@ -36,22 +35,25 @@ __qpu__ void estimate_term_expectation(qreg q,
 // Output
 // The estimated energy of the observable
 __qpu__ void estimate_energy(qreg q, const std::function<void(qreg)> &statePrep,
-                            qcor::PauliOperator observable, int nSamples,
-                            double &out_energy) {
-  std::complex<double> energy = 0.0;
-  for (auto &[termStr, pauliInst] : observable.getTerms()) {
-    auto coeff = pauliInst.coeff();
-    auto termsMap = pauliInst.ops();
-    std::vector<qcor::PauliOperator> ops;
-    for (auto &[bitIdx, pauliOpStr] : termsMap) {
-      if (pauliOpStr == "X") {
-        ops.emplace_back(qcor::X(bitIdx));
-      }
-      if (pauliOpStr == "Y") {
-        ops.emplace_back(qcor::Y(bitIdx));
-      }
-      if (pauliOpStr == "Z") {
-        ops.emplace_back(qcor::Z(bitIdx));
+                             qcor::Operator observable, int nSamples,
+                             double &out_energy) {
+  std::complex<double> energy = observable.hasIdentitySubTerm() ? observable.getIdentitySubTerm().coefficient().real() : 0.0;
+  for (auto pauliInst : observable.getNonIdentitySubTerms()) {
+    auto coeff = pauliInst.coefficient().real();
+    auto [zv, xv] = pauliInst.toBinaryVectors(q.size());
+    std::vector<qcor::Operator> ops;
+    for (auto [i, x_val] : enumerate(xv)) {
+      auto z_val = zv[i];
+      if (x_val == z_val) {
+        // Y(q[i]);
+        ops.emplace_back(qcor::Y(i));
+      } else if (x_val == 0) {
+        // Z(q[i]);
+        ops.emplace_back(qcor::Z(i));
+
+      } else {
+        // X(q[i]);
+        ops.emplace_back(qcor::X(i));
       }
     }
     if (!ops.empty()) {
@@ -65,5 +67,5 @@ __qpu__ void estimate_energy(qreg q, const std::function<void(qreg)> &statePrep,
   }
   out_energy = energy.real();
 }
-} // namespace ftqc
+}  // namespace ftqc
 #endif

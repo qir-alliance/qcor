@@ -14,7 +14,7 @@ def ansatz(q : qreg, x : List[float]):
     with decompose(q, kak) as u:
         from scipy.sparse.linalg import expm
         from openfermion.ops import QubitOperator
-        from openfermion.transforms import get_sparse_operator
+        from openfermion.linalg import get_sparse_operator
         qop = QubitOperator('X0 Y1') - QubitOperator('Y0 X1')
         qubit_sparse = get_sparse_operator(qop)
         u = expm(0.5j * x[0] * qubit_sparse).todense()
