@@ -105,14 +105,16 @@ MlirGenerationResult mlir_gen(const std::string &qasm_src,
 }
 
 MlirGenerationResult mlir_gen(const std::string &inputFilename,
-                              bool add_entry_point) {
+                              bool add_entry_point, std::string function_name = "") {
   llvm::StringRef ref(inputFilename);
   std::ifstream t(ref.str());
   std::string qasm_src((std::istreambuf_iterator<char>(t)),
                        std::istreambuf_iterator<char>());
-  auto function_name = llvm::sys::path::filename(inputFilename)
+  if (function_name.empty()) {
+    function_name = llvm::sys::path::filename(inputFilename)
                            .split(StringRef("."))
                            .first.str();
+  }
   return mlir_gen(qasm_src, function_name, add_entry_point);
 }
 } // namespace util

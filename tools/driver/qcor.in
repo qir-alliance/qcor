@@ -413,12 +413,27 @@ def main(argv=None):
     # To support mixing multiple file types in one compilation.
     # Util to compile QASM2/3 (MLIR)
     def compile_qasm(filename):
+        llvm_bin_path = str(pathlib.Path(compiler).parent)
+        # Run preprocessor to handle any includes
+        result = subprocess.check_output(
+            [compiler, '-x', 'c++', '-E', '-P', filename]).decode('ascii')
+        # process to single file
+        text = 'OPENQASM 3;\n' + \
+            '\n'.join([line for line in result.split('\n')
+                       if 'OPENQASM' not in line and len(line) > 0])
+
+        base_name = os.path.splitext(filename)[0].split(os.path.sep)[-1]
+
+        # Write to a temporary file
+        temp_file_name = '__tmp__'+base_name+'.qasm'
+        with open(temp_file_name, 'w') as f:
+            f.write(text)
+        
         # Convert to MLIR and then to LLVM QIR
-        base_name = os.path.splitext(filename)[0]
         ll_file_name = base_name + '.ll'
         bc_file_name = base_name + '.bc'
         object_file_name = base_name+'.o'
-        extra_args = []
+        extra_args = ['-internal-func-name', base_name]
         if '-no-entrypoint' in sys.argv[1:]:
             sys.argv.remove('-no-entrypoint')
             extra_args.append('-no-entrypoint')
@@ -426,11 +441,35 @@ def main(argv=None):
         if '--q-optimize' in sys.argv[1:]:
             sys.argv.remove('--q-optimize')
             extra_args.append('--q-optimize')
-        result = subprocess.run(['@CMAKE_INSTALL_PREFIX@/bin/qcor-mlir-tool', filename] + extra_args, check=True)
-        llvm_bin_path = str(pathlib.Path(compiler).parent)
+
+        if '--emit-mlir' in sys.argv[1:]:
+            result = subprocess.run(['@CMAKE_INSTALL_PREFIX@/bin/qcor-mlir-tool',
+                                     '-emit=mlir', temp_file_name] + extra_args, check=True)
+            os.remove(temp_file_name)
+            exit(0)
+
+        if '--emit-llvm' in sys.argv[1:]:
+            result = subprocess.run(['@CMAKE_INSTALL_PREFIX@/bin/qcor-mlir-tool',
+                                     '-emit=llvm', temp_file_name] + extra_args, check=True)
+            os.remove(temp_file_name)
+            exit(0)
+
+        if '--emit-mlir-llvm' in sys.argv[1:]:
+            result = subprocess.run(['@CMAKE_INSTALL_PREFIX@/bin/qcor-mlir-tool',
+                                     '-emit=mlir-llvm', temp_file_name] + extra_args, check=True)
+            os.remove(temp_file_name)
+            exit(0)
+
+        # Operate on the temporary file
+        result = subprocess.run(
+            ['@CMAKE_INSTALL_PREFIX@/bin/qcor-mlir-tool', temp_file_name] + extra_args, check=True)
+        # Rename the output
+        os.rename('__tmp__'+ll_file_name, ll_file_name)
         if verbose:
-            print('[qcor-exec]: ', '@CMAKE_INSTALL_PREFIX@/bin/qcor-mlir-tool {}'.format(filename) )
-            print('[qcor-exec]: ', '{}'.format(' '.join([llvm_bin_path+'/llvm-as', ll_file_name, '-o', bc_file_name ])) )
+            print(
+                '[qcor-exec]: ', '@CMAKE_INSTALL_PREFIX@/bin/qcor-mlir-tool {}'.format(filename))
+            print('[qcor-exec]: ', '{}'.format(' '.join([llvm_bin_path +
+                                                         '/llvm-as', ll_file_name, '-o', bc_file_name])))
             print('[qcor-exec]: ', '{}'.format(' '.join([llvm_bin_path+'/llc', '-filetype=obj', bc_file_name ])) )
         result = subprocess.run([llvm_bin_path+'/llvm-as', ll_file_name, '-o', bc_file_name ], check=True)
         result = subprocess.run([llvm_bin_path+'/llc', '-filetype=obj', bc_file_name ], check=True)
@@ -439,12 +478,14 @@ def main(argv=None):
 
         sys.argv.remove(filename)
         sys.argv.append(base_name+'.o')
+        os.remove(temp_file_name)
         fileType = None
         filename = None
         if not keep_bit_code_files:
             # remove these temp files
             os.remove(ll_file_name)
             os.remove(bc_file_name)
+
     
     # Util to compile Q#
     def compile_qsharp(filename):

@@ -2,6 +2,7 @@
 #include <fstream>
 
 #include "Quantum/QuantumDialect.h"
+#include "llvm/Support/TargetSelect.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/SCF/SCF.h"
@@ -17,7 +18,6 @@
 #include "qcor-mlir-helper.hpp"
 #include "quantum_to_llvm.hpp"
 #include "tools/ast_printer.hpp"
-#include "llvm/Support/TargetSelect.h"
 
 using namespace mlir;
 using namespace staq;
@@ -35,6 +35,9 @@ cl::opt<bool> noEntryPoint("no-entrypoint",
 cl::opt<bool> mlir_quantum_opt(
     "q-optimize",
     cl::desc("Turn on MLIR-level quantum instruction optimizations."));
+
+cl::opt<std::string> mlir_specified_func_name(
+    "internal-func-name", cl::desc("qcor provided function name"));
 
 namespace {
 enum Action { None, DumpMLIR, DumpMLIRLLVM, DumpLLVMIR };
@@ -61,7 +64,12 @@ int main(int argc, char **argv) {
   llvm::cl::ParseCommandLineOptions(argc, argv,
                                     "qcor quantum assembly compiler\n");
   bool qoptimizations = mlir_quantum_opt;
-  auto mlir_gen_result = qcor::util::mlir_gen(inputFilename, !noEntryPoint);
+  std::string input_func_name = "";
+  if (!mlir_specified_func_name.empty()) {
+    input_func_name = mlir_specified_func_name;
+  }
+  auto mlir_gen_result =
+      qcor::util::mlir_gen(inputFilename, !noEntryPoint, input_func_name);
   mlir::OwningModuleRef &module = *(mlir_gen_result.module_ref);
   mlir::MLIRContext &context = *(mlir_gen_result.mlir_context);
   std::vector<std::string> &unique_function_names =
