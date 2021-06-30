@@ -38,7 +38,7 @@ double hadamard_test(StatePrep state_prep, Unitary unitary,
   // if not, grab exp-val-z key in buffer
   auto counts = q.counts();
   if (counts.empty()) {
-    return q.results()->getExpectationValueZ();
+    return q.exp_val_z();
   }
  
   // We have counts, so use that
