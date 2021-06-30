@@ -24,3 +24,9 @@
 
 - Python binding: equivalent kernel expressed in Python (qjit)
 
+- IonQ: Create `.ionq_config` with 
+
+```
+key: XXXX
+url: url:https://api.ionq.co/v0.1
+```

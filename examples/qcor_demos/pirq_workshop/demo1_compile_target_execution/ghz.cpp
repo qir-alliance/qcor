@@ -7,6 +7,13 @@
 /// IBMQ Backend (pulse mode)
 /// QCOR lowers gates --> pulses
 /// $qcor -qpu ibm:ibmq_montreal[mode:pulse] ghz.cpp 
+
+/// IonQ 
+/// Simulator:
+/// qcor -qpu ionq ghz.cpp
+/// QPU (11 qubits)
+/// qcor -qpu ionq:qpu ghz.cpp
+
 __qpu__ void ghz(qreg q) {
   H(q[0]);
 

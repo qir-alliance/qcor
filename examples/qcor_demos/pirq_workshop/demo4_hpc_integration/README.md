@@ -14,7 +14,12 @@
 
 - Init file: configuring TNQVM (amplitude calculation mode). QCOR stack on Summit. Execution with MPI (showing GPU flops after calculation)
 
-- Submit a job to QLM via a simple `-qpu` switch.
+- Submit a job to QLM via a simple `-qpu` switch. Make sure `.qlm_config` is valid.
+```
+pip3 install qlmaas
+
+qcor -qpu atos-qlm[sim-type:MPS] file.cpp
+```
 
 
 ## Summit Build Instructions
@@ -48,4 +53,16 @@ qcor -c file_name.cpp
 
 ```
 g++ -rdynamic -Wl,-rpath,/ccs/home/nguyent/.xacc/lib:/ccs/home/nguyent/.xacc/lib:/autofs/nccs-svm1_home1/nguyent/.llvm/lib:/ccs/home/nguyent/.xacc/clang-plugins -L /ccs/home/nguyent/.xacc/lib -lqcor -lqrt -lqcor-hybrid -lqcor-quasimo -lqcor-jit -L /ccs/home/nguyent/.xacc/lib -lxacc -lCppMicroServices -lxacc-quantum-gate -lxacc-pauli -lxacc-fermion -lpthread -lqir-qrt file_name.o
+```
+
+### ExaTN Build
+
+```
+CC=gcc CXX=g++ FC=gfortran cmake .. -DCMAKE_BUILD_TYPE=Debug -DEXATN_BUILD_TESTS=TRUE -DBLAS_LIB=OPENBLAS -DBLAS_PATH=/autofs/nccs-svm1_sw/summit/.swci/1-compute/opt/spack/20180914/linux-rhel7-ppc64le/gcc-10.2.0/openblas-0.3.9-jzzdcglqreyi3t22emvurkxhrpkj4bhl/lib -DCMAKE_INSTALL_PREFIX=~/.exatn
+```
+
+### TNQVM Build
+
+```
+cmake .. -DXACC_DIR=~/.xacc -DEXATN_DIR=~/.exatn -DCMAKE_BUILD_TYPE=Debug 
 ```
