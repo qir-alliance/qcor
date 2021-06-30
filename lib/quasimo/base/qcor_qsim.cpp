@@ -91,6 +91,9 @@ ModelFactory::createModel(ModelType type, const HeterogeneousMap &params) {
       }
 
       model_observable = observable;
+
+      // FIXME workaround to handle above raw pointer.
+      model.owns_observable = true;
     }
 
     assert(model_observable);

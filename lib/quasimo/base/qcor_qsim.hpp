@@ -1,4 +1,8 @@
 #pragma once
+#include <memory>
+#include <qalloc>
+#include <xacc_internal_compiler.hpp>
+
 #include "Accelerator.hpp"
 #include "AcceleratorBuffer.hpp"
 #include "Circuit.hpp"
@@ -9,9 +13,6 @@
 #include "qcor_utils.hpp"
 #include "qrt.hpp"
 #include "quantum_kernel.hpp"
-#include <memory>
-#include <qalloc>
-#include <xacc_internal_compiler.hpp>
 
 using CompositeInstruction = xacc::CompositeInstruction;
 using Accelerator = xacc::Accelerator;
@@ -36,7 +37,7 @@ struct Ansatz {
 //  - Two-point correlation function measurements
 //  - QFT
 class AnsatzGenerator : public Identifiable {
-public:
+ public:
   virtual Ansatz create_ansatz(Operator *obs = nullptr,
                                const HeterogeneousMap &params = {}) = 0;
 };
@@ -45,11 +46,12 @@ public:
 // prepares the unknown state) and a target operator (e.g. Hamiltonian
 // Observable) as input and produce a estimation as output.
 class CostFunctionEvaluator : public Identifiable {
-public:
+ public:
   // Evaluate the cost
   virtual double evaluate(std::shared_ptr<CompositeInstruction> state_prep) = 0;
   // Batching evaluation: observing multiple kernels in batches.
-  // E.g. for non-vqe cases (Trotter), we have all kernels ready for observable evaluation
+  // E.g. for non-vqe cases (Trotter), we have all kernels ready for observable
+  // evaluation
   virtual std::vector<double> evaluate(
       std::vector<std::shared_ptr<CompositeInstruction>> state_prep_circuits) {
     // Default is one-by-one, subclass to provide batching if supported.
@@ -59,11 +61,11 @@ public:
     }
     return result;
   }
-  
+
   virtual bool initialize(Operator *observable,
                           const HeterogeneousMap &params = {});
 
-protected:
+ protected:
   Operator *target_operator;
   HeterogeneousMap hyperParams;
 };
@@ -78,6 +80,18 @@ using TdObservable = std::function<Operator(double)>;
 
 struct QuantumSimulationModel {
   QuantumSimulationModel() : observable(nullptr) {}
+  // Copy Constructor
+  QuantumSimulationModel(QuantumSimulationModel &other)
+      : name(other.name),
+        observable(other.observable),
+        hamiltonian(other.hamiltonian),
+        user_defined_ansatz(other.user_defined_ansatz),
+        owns_observable(other.owns_observable) {
+    if (other.owns_observable) {
+      // Transfer ownership.
+      other.owns_observable = false;
+    }
+  }
   // Model name.
   std::string name;
 
@@ -90,12 +104,26 @@ struct QuantumSimulationModel {
 
   // QuantumSimulationModel also support a user-defined (fixed) ansatz.
   std::shared_ptr<KernelFunctor> user_defined_ansatz;
+
+  // clients can create raw operator pointers, and
+  // provided them to this Model and indicate that
+  // the Model owns the observable, and will delete it
+  // upon destruction
+  bool owns_observable = false;
+
+  // Destructor, delete observable if we own it
+  ~QuantumSimulationModel() {
+    if (owns_observable) {
+      printf("Deleting the raw ptr\n");
+      delete observable;
+    }
+  }
 };
 
 // Generic model builder (factory)
 // Create a model which capture the problem description.
 class ModelFactory {
-public:
+ public:
   // Generic Heisenberg model
   struct HeisenbergModel {
     double Jx = 0.0;
@@ -119,8 +147,10 @@ public:
     void fromDict(const HeterogeneousMap &params);
 
     bool validateModel() const {
-      const bool ext_dir_valid = (ext_dir == "X" || ext_dir == "Y" || ext_dir == "Z");
-      const bool initial_spins_valid = (initial_spins.empty() || (initial_spins.size() == num_spins));
+      const bool ext_dir_valid =
+          (ext_dir == "X" || ext_dir == "Y" || ext_dir == "Z");
+      const bool initial_spins_valid =
+          (initial_spins.empty() || (initial_spins.size() == num_spins));
       return ext_dir_valid && initial_spins_valid;
     }
   };
@@ -129,23 +159,22 @@ public:
   // Strongly-typed parameters/argument.
   // Build a simple Hamiltonian-based model: static Hamiltonian which is also
   // the observable of interest.
-  static QuantumSimulationModel createModel(Operator *obs,
-                                           const HeterogeneousMap &params = {});
-  static QuantumSimulationModel
-  createModel(Operator &obs, const HeterogeneousMap &params = {}) {
+  static QuantumSimulationModel createModel(
+      Operator *obs, const HeterogeneousMap &params = {});
+  static QuantumSimulationModel createModel(
+      Operator &obs, const HeterogeneousMap &params = {}) {
     return createModel(&obs, params);
   }
-  
+
   // Build a time-dependent problem model:
   //  -  obs: observable operator to measure.
   //  -  td_ham: time-dependent Hamiltonian to evolve the system.
   //     e.g. a function to map from time to Hamiltonian operator.
-  static QuantumSimulationModel createModel(Operator *obs, TdObservable td_ham,
-                                           const HeterogeneousMap &params = {});
+  static QuantumSimulationModel createModel(
+      Operator *obs, TdObservable td_ham, const HeterogeneousMap &params = {});
   // Pauli operator overload:
-  static QuantumSimulationModel
-  createModel(Operator &obs, TdObservable td_ham,
-              const HeterogeneousMap &params = {}) {
+  static QuantumSimulationModel createModel(
+      Operator &obs, TdObservable td_ham, const HeterogeneousMap &params = {}) {
     return createModel(&obs, td_ham, params);
   }
 
@@ -158,15 +187,15 @@ public:
   //  - params: extra parameters to pass to the parser/generator,
   //            e.g. any transformations required in order to generate the
   //            Observable.
-  static QuantumSimulationModel createModel(const std::string &format,
-                                           const std::string &data,
-                                           const HeterogeneousMap &params = {});
+  static QuantumSimulationModel createModel(
+      const std::string &format, const std::string &data,
+      const HeterogeneousMap &params = {});
   // Predefined model type that we support intrinsically.
   enum class ModelType { Heisenberg };
   static QuantumSimulationModel createModel(ModelType type,
-                                           const HeterogeneousMap &params);
-  // ========== QuantumSimulationModel with a fixed (pre-defined) ansatz ========
-  // The ansatz is provided as a QCOR kernel.
+                                            const HeterogeneousMap &params);
+  // ========== QuantumSimulationModel with a fixed (pre-defined) ansatz
+  // ======== The ansatz is provided as a QCOR kernel.
   template <typename... Args>
   static inline QuantumSimulationModel createModel(
       void (*quantum_kernel_functor)(std::shared_ptr<CompositeInstruction>,
@@ -190,18 +219,16 @@ public:
   }
 
   // Passing the state-preparation ansatz as a CompositeInstruction
-  static inline QuantumSimulationModel
-  createModel(std::shared_ptr<CompositeInstruction> composite,
-              Operator *obs) {
+  static inline QuantumSimulationModel createModel(
+      std::shared_ptr<CompositeInstruction> composite, Operator *obs) {
     QuantumSimulationModel model;
     model.observable = obs;
     model.user_defined_ansatz = createKernelFunctor(composite);
     return model;
   }
 
-  static inline QuantumSimulationModel
-  createModel(std::shared_ptr<CompositeInstruction> composite,
-              Operator &obs) {
+  static inline QuantumSimulationModel createModel(
+      std::shared_ptr<CompositeInstruction> composite, Operator &obs) {
     return createModel(composite, &obs);
   }
 };
@@ -213,31 +240,31 @@ public:
 using QuantumSimulationResult = HeterogeneousMap;
 // Abstract workflow:
 class QuantumSimulationWorkflow : public Identifiable {
-public:
+ public:
   virtual bool initialize(const HeterogeneousMap &params) = 0;
-  virtual QuantumSimulationResult
-  execute(const QuantumSimulationModel &model) = 0;
+  virtual QuantumSimulationResult execute(
+      const QuantumSimulationModel &model) = 0;
 
-protected:
+ protected:
   std::shared_ptr<CostFunctionEvaluator> evaluator;
 };
 
 // Get workflow by name:
-std::shared_ptr<QuantumSimulationWorkflow>
-getWorkflow(const std::string &name, const HeterogeneousMap &init_params);
+std::shared_ptr<QuantumSimulationWorkflow> getWorkflow(
+    const std::string &name, const HeterogeneousMap &init_params);
 
 // Get the Obj (cost) function evaluator:
-std::shared_ptr<CostFunctionEvaluator>
-getObjEvaluator(Operator *observable, const std::string &name = "default",
-                const HeterogeneousMap &init_params = {});
-inline std::shared_ptr<CostFunctionEvaluator>
-getObjEvaluator(Operator &obs, const std::string &name = "default",
-                const HeterogeneousMap &init_params = {}) {
+std::shared_ptr<CostFunctionEvaluator> getObjEvaluator(
+    Operator *observable, const std::string &name = "default",
+    const HeterogeneousMap &init_params = {});
+inline std::shared_ptr<CostFunctionEvaluator> getObjEvaluator(
+    Operator &obs, const std::string &name = "default",
+    const HeterogeneousMap &init_params = {}) {
   return getObjEvaluator(&obs, name, init_params);
 }
 
 // Helper to apply optimization/placement before evaluation:
 void executePassManager(
     std::vector<std::shared_ptr<CompositeInstruction>> evalKernels);
-} // namespace QuaSiMo
-} // namespace qcor
+}  // namespace QuaSiMo
+}  // namespace qcor

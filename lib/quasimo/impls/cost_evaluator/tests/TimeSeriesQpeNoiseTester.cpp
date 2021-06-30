@@ -3,6 +3,7 @@
 #include "xacc.hpp"
 #include "xacc_service.hpp"
 #include <gtest/gtest.h>
+#include <fstream>
 
 // These tests take quite some time, hence just run one at a time...
 // Default for CI: only run the simple test
