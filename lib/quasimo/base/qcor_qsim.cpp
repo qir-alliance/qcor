@@ -75,7 +75,7 @@ ModelFactory::createModel(ModelType type, const HeterogeneousMap &params) {
         qcor::error("Unknown observable type: " + observable_type);
       }
 
-      auto observable = new qcor::Operator;
+      auto observable = new qcor::Operator("pauli", "0.0");
       if (observable_type == "average_magnetization") {
         for (int i = 0; i < hs_model->num_spins; ++i) {
           (*observable) += ((1.0 / hs_model->num_spins) * Z(i));
@@ -96,7 +96,7 @@ ModelFactory::createModel(ModelType type, const HeterogeneousMap &params) {
     assert(model_observable);
     model.observable = model_observable;
     QuaSiMo::TdObservable H = [&](double t) {
-      qcor::Operator tdOp;
+      qcor::Operator tdOp("pauli", "0.0");
       for (int i = 0; i < hs_model->num_spins - 1; ++i) {
         if (hs_model->Jx != 0.0) {
           tdOp += ((hs_model->Jx / hs_model->H_BAR) * (X(i) * X(i + 1)));
