@@ -1,6 +1,8 @@
 /// qaoa_placement.cpp: Topology placement example
-/// qcor -qpu ibm:ibmq_paris  qaoa_placement.cpp -print-final-submission
-
+/// Using the default placement:
+/// qcor -qpu aer:ibmq_paris  qaoa_placement.cpp -print-final-submission
+/// Change the placement:
+/// qcor -qpu aer:ibmq_paris -placement enfield qaoa_placement.cpp -print-final-submission
 __qpu__ void qaoa_maxcut(qreg q, std::vector<double> gamma,
                   std::vector<double> beta,
                   std::vector<std::pair<int, int>> graph_edges) {
@@ -26,6 +28,8 @@ __qpu__ void qaoa_maxcut(qreg q, std::vector<double> gamma,
       exp_i_theta(q, beta[step], ref_ham_term);
     }
   }
+
+  Measure(q);
 }
 
 int main(int argc, char **argv) {
