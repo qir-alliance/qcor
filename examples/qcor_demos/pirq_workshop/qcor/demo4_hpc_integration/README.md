@@ -27,7 +27,7 @@ qcor -qpu atos-qlm[sim-type:MPS] file.cpp
 ### Modules
 
 ```
-module load gcc/10.2.0 cmake/3.20.2 python/3.7.0 openblas/0.3.9-omp
+module load gcc/10.2.0 cmake/3.20.2 python/3.7.0 openblas/0.3.9-omp cuda/11.2.0 git/2.20.1
 ```
 
 ### LLVM CSP Build
@@ -48,7 +48,7 @@ For some reason, Clang-CSP on Summit failed to link against libc++ loaded by mod
 Hence, we need to separate the QCOR compilation to two phases: (1) compile with qcor (-c) then (2) using g++ to link.
 
 ```
-qcor -c file_name.cpp
+qcor -c -qpu tnqvm -qpu-config tnqvm.ini file_name.cpp
 ```
 
 ```
@@ -58,7 +58,7 @@ g++ -rdynamic -Wl,-rpath,/ccs/home/nguyent/.xacc/lib:/ccs/home/nguyent/.xacc/lib
 ### ExaTN Build
 
 ```
-CC=gcc CXX=g++ FC=gfortran cmake .. -DCMAKE_BUILD_TYPE=Debug -DEXATN_BUILD_TESTS=TRUE -DBLAS_LIB=OPENBLAS -DBLAS_PATH=/autofs/nccs-svm1_sw/summit/.swci/1-compute/opt/spack/20180914/linux-rhel7-ppc64le/gcc-10.2.0/openblas-0.3.9-jzzdcglqreyi3t22emvurkxhrpkj4bhl/lib -DCMAKE_INSTALL_PREFIX=~/.exatn
+CC=gcc CXX=g++ FC=gfortran cmake .. -DEXATN_BUILD_TESTS=TRUE -DBLAS_LIB=OPENBLAS -DBLAS_PATH=/autofs/nccs-svm1_sw/summit/.swci/1-compute/opt/spack/20180914/linux-rhel7-ppc64le/gcc-10.2.0/openblas-0.3.9-jzzdcglqreyi3t22emvurkxhrpkj4bhl/lib -DMPI_LIB=OPENMPI -DMPI_ROOT_DIR=/autofs/nccs-svm1_sw/summit/.swci/1-compute/opt/spack/20180914/linux-rhel7-ppc64le/gcc-10.2.0/spectrum-mpi-10.3.1.2-20200121-4pokcfvq4efu6vh7gofiiszc7t7iyzqc -DENABLE_CUDA=True -DCUDA_HOST_COMPILER=/sw/summit/gcc/10.2.0/bin/g++ -DCMAKE_INSTALL_PREFIX=~/.exatn
 ```
 
 ### TNQVM Build
@@ -66,3 +66,53 @@ CC=gcc CXX=g++ FC=gfortran cmake .. -DCMAKE_BUILD_TYPE=Debug -DEXATN_BUILD_TESTS
 ```
 cmake .. -DXACC_DIR=~/.xacc -DEXATN_DIR=~/.exatn -DCMAKE_BUILD_TYPE=Debug 
 ```
+
+
+### Summit Job Submission
+
+
+Request an interactive session
+
+```
+bsub -Is -W 0:10 -nnodes 1 -P PHYXXX $SHELL
+```
+
+Set-up compute node:
+
+```
+module load gcc/10.2.0 cmake/3.20.2 python/3.7.0 openblas/0.3.9-omp cuda/11.2.0 git/2.20.1
+```
+
+```
+export OMP_PLACES=cores
+export OMP_NUM_THREADS=21
+export OMP_DYNAMIC=false               #no OpenMP dynamic threading
+export OMP_NESTED=true                 #OpenMP nested parallelism is mandatory
+export OMP_MAX_ACTIVE_LEVELS=3         #max number of OpenMP nesting levels (at least 3)
+export OMP_WAIT_POLICY=PASSIVE         #idle thread behavior
+
+
+export PAMI_IBV_ADAPTER_AFFINITY=1
+export PAMI_IBV_DEVICE_NAME="mlx5_0:1,mlx5_3:1"
+export PAMI_IBV_DEVICE_NAME_1="mlx5_3:1,mlx5_0:1"
+export PAMI_IBV_ENABLE_OOO_AR=1                   #adaptive routing is default
+export PAMI_ENABLE_STRIPING=1                     #increases network bandwidth, also increases latency
+export PAMI_IBV_DISABLE_ODP=0                     #ODP (requires CAPI for performance)
+export PAMI_IBV_ENABLE_DCT=1                      #reduces MPI_Init() time at large scale
+
+
+ulimit -s unlimited
+rm core.* *.tmp *.log *.out
+```
+
+Execute
+
+```
+jsrun --smpiargs='-async' --smpiargs='-mca common_pami_use_odp 1' -D PAMI_IBV_DISABLE_ODP=0 -n 1 -r 1 -a 1 -c 42 -g 1 -brs a.out
+```
+
+Notes:
+
+`-g`: number of GPU
+
+`-n`: number of resource sets 
