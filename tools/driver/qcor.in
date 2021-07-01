@@ -550,6 +550,14 @@ def main(argv=None):
             filename = arg
             compile_qsharp(filename)
 
+        # Fall-through handling of *.cpp file:
+        # On certain platforms (e.g., RedHat), mimetypes.guess_type
+        # may return None for cpp files.
+        if os.path.isfile(arg) and os.path.splitext(arg)[1] == '.cpp':
+            fileType = 'text/x-c++src'
+            filename = arg
+            break
+
     # If it is a C++ file
     if fileType != None and 'text/x-c' in fileType:
         fileIdx = sys.argv[1:].index(filename)

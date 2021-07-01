@@ -185,6 +185,8 @@ std::string run_token_collector(
           {0,
            [&](const std::string arg) {
              code_ss << "auto decompose_buffer_name = " << arg << ".name();\n";
+             // Cache the decompose buffer as well
+             code_ss << "auto decompose_buffer = " << arg << ";\n";
            }},
           {1,
            [&](const std::string arg) {

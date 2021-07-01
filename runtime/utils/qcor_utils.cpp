@@ -114,7 +114,7 @@ std::shared_ptr<qcor::IRProvider> get_provider() {
 
 std::shared_ptr<qcor::CompositeInstruction> decompose_unitary(
     const std::string algorithm, UnitaryMatrix &mat,
-    const std::string buffer_name) {
+    qreg& buffer) {
   std::string local_algorithm = algorithm;
   if (local_algorithm == "z_y_z") local_algorithm = "z-y-z";
 
@@ -130,12 +130,19 @@ std::shared_ptr<qcor::CompositeInstruction> decompose_unitary(
     xacc::error("Could not decompose unitary with " + local_algorithm);
   }
 
+  // Map the decomposed circuit to the qubits in the register.
+  std::vector<std::size_t> bitMap;
+  for (int i = 0; i < buffer.size(); ++i) {
+    bitMap.emplace_back(buffer[i].second);
+  }
   for (auto inst : decomposed->getInstructions()) {
     std::vector<std::string> buffer_names;
     for (int i = 0; i < inst->nRequiredBits(); i++) {
+      const std::string buffer_name = buffer[inst->bits()[i]].first;
       buffer_names.push_back(buffer_name);
     }
     inst->setBufferNames(buffer_names);
+    inst->mapBits(bitMap);
   }
 
   return std::make_shared<CompositeInstruction>(
@@ -144,26 +151,30 @@ std::shared_ptr<qcor::CompositeInstruction> decompose_unitary(
 
 // std::shared_ptr<qcor::CompositeInstruction> decompose_unitary(
 //     const std::string algorithm, UnitaryMatrix &mat,
-//     const std::string buffer_name, std::shared_ptr<xacc::Optimizer>
-//     optimizer) {
+//     qreg& buffer, std::shared_ptr<xacc::Optimizer> optimizer) {
 //   auto tmp = xacc::getService<xacc::Instruction>(algorithm);
 //   auto decomposed = std::dynamic_pointer_cast<CompositeInstruction>(tmp);
-
+//   // Map the decomposed circuit to the qubits in the register.
+//   std::vector<std::size_t> bitMap;
+//   for (int i = 0; i < buffer.size(); ++i) {
+//     bitMap.emplace_back(buffer[i].second);
+//   }
 //   // default Adam
 //   const bool expandOk = decomposed->expand(
-//       {std::make_pair("unitary", mat), std::make_pair("optimizer",
-//       optimizer)});
+//       {std::make_pair("unitary", mat), std::make_pair("optimizer", optimizer)});
 
-//   if (!expandOk) {
-//     xacc::error("Could not decmpose unitary with " + algorithm);
-//   }
+// //   if (!expandOk) {
+// //     xacc::error("Could not decmpose unitary with " + algorithm);
+// //   }
 
 //   for (auto inst : decomposed->getInstructions()) {
 //     std::vector<std::string> buffer_names;
 //     for (int i = 0; i < inst->nRequiredBits(); i++) {
+//       const std::string buffer_name = buffer[inst->bits()[i]].first;
 //       buffer_names.push_back(buffer_name);
 //     }
 //     inst->setBufferNames(buffer_names);
+//     inst->mapBits(bitMap);
 //   }
 
 //   return decomposed;

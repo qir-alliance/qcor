@@ -209,18 +209,16 @@ std::shared_ptr<qcor::IRTransformation> get_transformation(
 std::shared_ptr<qcor::IRProvider> get_provider();
 
 // Decompose the given unitary matrix with the specified decomposition
-// // algorithm.
-std::shared_ptr<qcor::CompositeInstruction> decompose_unitary(
-    const std::string algorithm, UnitaryMatrix &mat,
-    const std::string buffer_name);
+// algorithm.
+std::shared_ptr<qcor::CompositeInstruction>
+decompose_unitary(const std::string algorithm, UnitaryMatrix &mat,
+                  qreg &buffer);
 
-// // Decompose the given unitary matrix with the specified decomposition
-// algorithm
-// // and optimizer
-// std::shared_ptr<qcor::CompositeInstruction> decompose_unitary(
-//     const std::string algorithm, UnitaryMatrix &mat,
-//     const std::string buffer_name, std::shared_ptr<xacc::Optimizer>
-//     optimizer);
+// Decompose the given unitary matrix with the specified decomposition algorithm
+// and optimizer
+// std::shared_ptr<qcor::CompositeInstruction>
+// decompose_unitary(const std::string algorithm, UnitaryMatrix &mat, qreg &buffer,
+//                   std::shared_ptr<xacc::Optimizer> optimizer);
 
 // Utility for calling a Functor via mapping a tuple of Args to
 // a sequence of Args...
