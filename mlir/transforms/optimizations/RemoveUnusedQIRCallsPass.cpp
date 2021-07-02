@@ -25,6 +25,14 @@ void RemoveUnusedQIRCallsPass::runOnOperation() {
     }
   });
 
+  // Remove any constant ops that are not being used. 
+  getOperation().walk([&](mlir::ConstantOp op) {
+    // Extracted qubit has no use
+    if (op.getResult().use_empty()) {
+      deadOps.emplace_back(op.getOperation());
+    }
+  });
+
   // Need to remove these extract calls to realize qalloc removal below.
   for (auto &op : deadOps) {
     op->dropAllUses();

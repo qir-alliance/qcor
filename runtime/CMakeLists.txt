@@ -60,7 +60,7 @@ foreach(EXTRA_HEADER ${QCOR_EXTRA_HEADERS})
   set(EXTRA_INCLUDE "${EXTRA_INCLUDE} -I ${EXTRA_HEADER}")
 endforeach()
 
-install(CODE "execute_process(COMMAND ${LLVM_INSTALL_PREFIX}/bin/clang++ -std=c++17 -x c++-header ${CMAKE_INSTALL_PREFIX}/include/qcor/qcor_lang_ext.hpp -o ${CMAKE_BINARY_DIR}/runtime/qcor_lang_ext.hpp.pch -I ${XACC_ROOT}/include/xacc -I ${XACC_ROOT}/include/qcor -I ${XACC_ROOT}/include/eigen ${EXTRA_INCLUDE})")
+install(CODE "execute_process(COMMAND ${LLVM_INSTALL_PREFIX}/bin/clang++ -std=c++17 -x c++-header ${CMAKE_INSTALL_PREFIX}/include/qcor/qcor_lang_ext.hpp -o ${CMAKE_BINARY_DIR}/runtime/qcor_lang_ext.hpp.pch -I ${XACC_ROOT}/include/xacc -I ${CMAKE_INSTALL_PREFIX}/include/qcor -I ${XACC_ROOT}/include/eigen ${EXTRA_INCLUDE})")
 install(FILES ${CMAKE_BINARY_DIR}/runtime/qcor_lang_ext.hpp.pch DESTINATION include/qcor)
 
 if (QCOR_BUILD_TESTS)
