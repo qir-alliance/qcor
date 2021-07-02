@@ -4,3 +4,8 @@ set +x
 
 ln -s /usr/local/aideqc/qcor/bin/qcor /usr/bin/
 ln -s /usr/local/aideqc/qcor/bin/qcor-mlir-tool /usr/bin/
+/usr/local/aideqc/llvm/bin/clang++ -std=c++17 -x c++-header \
+   /usr/local/aideqc/qcor/include/qcor/qcor_lang_ext.hpp \
+   -o /usr/local/aideqc/qcor/include/qcor/qcor_lang_ext.hpp.pch \
+   -I ${XACC_ROOT}/include/xacc -I ${XACC_ROOT}/include/qcor \
+   -I ${XACC_ROOT}/include/eigen @EXTRA_INCLUDE@

@@ -278,7 +278,7 @@ antlrcpp::Any qasm3_visitor::visitLoopStatement(
       builder.setInsertionPointToStart(incBlock);
       auto load_inc = builder.create<mlir::LoadOp>(location, loop_var_memref);
 
-        auto add = builder.create<mlir::AddIOp>(location, load_inc, c_value);
+      auto add = builder.create<mlir::AddIOp>(location, load_inc, c_value);
 
 
       builder.create<mlir::StoreOp>(location, add, loop_var_memref);

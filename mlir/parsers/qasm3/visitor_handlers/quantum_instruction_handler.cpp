@@ -278,10 +278,14 @@ antlrcpp::Any qasm3_visitor::visitQuantumGateCall(
                 "float or int.",
                 context, {val});
           }
-          val = builder.create<mlir::LoadOp>(
-              location, val,
-              get_or_create_constant_index_value(0, location, 64, symbol_table,
-                                                 builder));
+
+          auto shape = val.getType().cast<mlir::MemRefType>().getShape();
+          if (!shape.empty() && shape[0] == 1) {
+            val = builder.create<mlir::LoadOp>(
+                location, val,
+                get_or_create_constant_index_value(0, location, 64,
+                                                   symbol_table, builder));
+          }
         }
       }
       param_values.push_back(val);
@@ -539,7 +543,7 @@ antlrcpp::Any qasm3_visitor::visitKernelDeclaration(
   auto savept = builder.saveInsertionPoint();
 
   builder.setInsertionPointToStart(&m_module.getRegion().getBlocks().front());
-  
+
   // Note: MLIR FuncOp **declaration** must have non-public visibility
   // This is validated at MLIR level.
   // https://llvm.discourse.group/t/rfc-symbol-definition-declaration-x-visibility-checks/2140
@@ -658,10 +662,18 @@ antlrcpp::Any qasm3_visitor::visitSubroutineCall(
               "float or int.",
               context, {variable_value});
         }
-        variable_value = builder.create<mlir::LoadOp>(
-            location, variable_value,
-            get_or_create_constant_index_value(0, location, 64, symbol_table,
-                                               builder));
+
+        auto shape = variable_value.getType()
+                             .cast<mlir::MemRefType>().getShape();
+        if (!shape.empty() && shape[0] == 1) {
+
+          variable_value = builder.create<mlir::LoadOp>(
+              location, variable_value,
+              get_or_create_constant_index_value(0, location, 64, symbol_table,
+                                                 builder));
+        }else if (shape.empty()) {
+          variable_value = builder.create<mlir::LoadOp>(location, variable_value);
+        }
       }
 
       param_values.push_back(variable_value);
