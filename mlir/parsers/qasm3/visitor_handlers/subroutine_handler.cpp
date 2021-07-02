@@ -1,5 +1,38 @@
 #include "qasm3_visitor.hpp"
 
+namespace {
+void add_body_wrapper(mlir::OpBuilder &builder, const std::string &func_name, mlir::ModuleOp& moduleOp, mlir::FuncOp& wrapped_func) {
+  // define internal void @body__wrapper(%Tuple* %capture-tuple, %Tuple*
+  // %arg-tuple, %Tuple* %result-tuple)
+  const std::string wrapper_fn_name = func_name + "__body__wrapper";
+  auto main_block = builder.saveInsertionPoint();
+  auto context = builder.getContext();
+  llvm::StringRef tuple_type_name("Tuple");
+  mlir::Identifier dialect = mlir::Identifier::get("quantum", context);
+  auto tuple_type = mlir::OpaqueType::get(context, dialect, tuple_type_name);
+  const std::vector<mlir::Type> argument_types{tuple_type, tuple_type,
+                                               tuple_type};
+  auto func_type = builder.getFunctionType(argument_types, llvm::None);
+  auto proto =
+      mlir::FuncOp::create(builder.getUnknownLoc(), wrapper_fn_name, func_type);
+  mlir::FuncOp function_op(proto);
+
+  auto &entryBlock = *function_op.addEntryBlock();
+  
+  builder.setInsertionPointToStart(&entryBlock);
+  auto arguments = entryBlock.getArguments();
+  assert(arguments.size() == 3);
+  mlir::Value arg_tuple = arguments[1];
+  auto fn_type = wrapped_func.getType().cast<mlir::FunctionType>();
+  mlir::TypeRange arg_types(fn_type.getInputs());
+  auto unpackOp =
+      builder.create<mlir::quantum::TupleUnpackOp>(builder.getUnknownLoc(), arg_types, arg_tuple);
+  auto call_op = builder.create<mlir::CallOp>(builder.getUnknownLoc(),
+                                              wrapped_func, unpackOp.result());
+  builder.restoreInsertionPoint(main_block);
+  moduleOp.push_back(function_op);
+}
+}; // namespace
 namespace qcor {
 antlrcpp::Any qasm3_visitor::visitSubroutineDefinition(
     qasm3Parser::SubroutineDefinitionContext* context) {
@@ -161,6 +194,9 @@ antlrcpp::Any qasm3_visitor::visitSubroutineDefinition(
   subroutine_return_statment_added = false;
 
   symbol_table.set_last_created_block(nullptr);
+  
+  // TODO: add a compile switch to enable/disable this export: 
+  add_body_wrapper(builder, subroutine_name, m_module, function);
   return 0;
 }
 
