@@ -31,8 +31,8 @@
 
 #define CONSTRUCT_ARGS_LIST_(type_name, var_name) , type_name var_name
 #define CONSTRUCT_ARGS_LIST(type_name, counter)                                \
-  CONSTRUCT_ARGS_LIST_(type_name, __internal__var__##counter)
-#define CONSTRUCT_VAR_NAME_LIST(type_name, counter) , __internal__var__##counter
+  CONSTRUCT_ARGS_LIST_(type_name, m__internal__var__##counter)
+#define CONSTRUCT_VAR_NAME_LIST(type_name, counter) , m__internal__var__##counter
 
 // Macro to use to construct list of types and var names.
 #define ARGS_LIST_FOR_FUNC_SIGNATURE(...)                                      \
