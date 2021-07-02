@@ -1,5 +1,5 @@
 file(GLOB SRC *.cpp)
-file(GLOB HEADERS qir-types.hpp qir-qrt.hpp qir-types-utils.hpp)
+file(GLOB HEADERS qir-types.hpp qir-qrt.hpp qir-types-utils.hpp qir_nisq_kernel_utils.hpp)
 
 set(LIBRARY_NAME qir-qrt)
 

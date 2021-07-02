@@ -1,6 +1,7 @@
 namespace QCOR 
 {
-open QCOR.Intrinsic;
+open Microsoft.Quantum.Intrinsic;
+
 operation Bell(qubits : Qubit[]) : Unit {
     H(qubits[0]);
     for index in 0 .. Length(qubits) - 2 {

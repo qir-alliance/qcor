@@ -1,9 +1,11 @@
 #include <iostream> 
 #include <vector>
-#include "import_kernel_utils.hpp"
+#include "qir_nisq_kernel_utils.hpp"
 
+// Compile:
+// qcor -qdk-version 0.17.2106148041-alpha qft.qs qft_driver.cpp -shots 1024 -print-final-submission
 using QPEOracleSignature = KernelSignature<qubit>;
-qcor_import_qsharp_kernel(QCOR__InverseQFT);
+qcor_import_qsharp_kernel(QCOR__IQFT);
 
 __qpu__ void qpe(qreg q, QPEOracleSignature oracle) {
   // Extract the counting qubits and the state qubit
@@ -24,7 +26,7 @@ __qpu__ void qpe(qreg q, QPEOracleSignature oracle) {
 
   // Run Inverse QFT on counting qubits
   // Using the Q# Kernel (wrapped as a QCOR kernel)
-  QCOR__InverseQFT(parent_kernel, counting_qubits);
+  QCOR__IQFT(counting_qubits);
 
   // Measure the counting qubits
   Measure(counting_qubits);
@@ -35,5 +37,8 @@ __qpu__ void oracle(qubit q) { T(q); }
 
 int main(int argc, char **argv) {
   auto q = qalloc(4);
-  qpe::print_kernel(std::cout, q, oracle);
+  qpe::print_kernel(q, oracle);
+  // Run
+  qpe(q, oracle);
+  q.print();
 }
