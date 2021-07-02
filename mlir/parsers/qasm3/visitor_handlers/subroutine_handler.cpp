@@ -122,7 +122,7 @@ antlrcpp::Any qasm3_visitor::visitSubroutineDefinition(
   }
   // Handle "extern" subroutine declaration:
   if (context->subroutineBlock()->EXTERN()) {
-    std::cout << "Handle extern subroutine: " << subroutine_name << "\n";
+    // std::cout << "Handle extern subroutine: " << subroutine_name << "\n";
     builder.setInsertionPointToStart(&m_module.getRegion().getBlocks().front());
     auto func_decl = builder.create<mlir::FuncOp>(
         get_location(builder, file_name, context), subroutine_name,
