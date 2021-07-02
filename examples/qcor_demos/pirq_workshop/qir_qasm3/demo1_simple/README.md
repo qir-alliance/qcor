@@ -27,3 +27,13 @@ GHZ (nisq) and Bell (ftqc) QASM3 codes, compile and run on simulator, IBM, Riget
 
 
 ## Notes:
+
+Count how many qvs instructions in the MLIR text
+
+```bash 
+qcor --emit-mlir trotter_decompose.qasm &> out.log && cat out.log | grep 'qvs.' | tee out2.log | wc -l && rm -rf out*.log
+```
+and with optimizations
+```bash
+qcor --q-optimize --emit-mlir trotter_decompose.qasm &> out.log && cat out.log | grep 'qvs.' | tee out2.log | wc -l && rm -rf out*.log
+```
