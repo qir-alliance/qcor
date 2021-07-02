@@ -39,7 +39,7 @@ else()
   set_target_properties(${LIBRARY_NAME} PROPERTIES LINK_FLAGS "-shared")
 endif()
 
-file(GLOB HEADERS qcor.hpp 
+file(GLOB HEADERS qcor.hpp qcor_lang_ext.hpp
                   observable/qcor_observable.hpp 
                   optimizer/qcor_optimizer.hpp 
                   kernel/quantum_kernel.hpp 
@@ -51,8 +51,7 @@ file(GLOB HEADERS qcor.hpp
                   execution/taskInitiate.hpp
                   utils/qcor_utils.hpp
                   utils/qcor_pimpl.hpp
-                  jit/qcor_jit.hpp
-                  qcor_lang_ext.hpp)
+                  jit/qcor_jit.hpp)
 
 install(FILES ${HEADERS} DESTINATION include/qcor)
 install(TARGETS ${LIBRARY_NAME} DESTINATION lib)
@@ -61,7 +60,7 @@ foreach(EXTRA_HEADER ${QCOR_EXTRA_HEADERS})
   set(EXTRA_INCLUDE "${EXTRA_INCLUDE} -I ${EXTRA_HEADER}")
 endforeach()
 
-install(CODE "execute_process(COMMAND ${LLVM_INSTALL_PREFIX}/bin/clang++ -std=c++17 -x c++-header ${CMAKE_SOURCE_DIR}/runtime/qcor_lang_ext.hpp -o ${CMAKE_BINARY_DIR}/runtime/qcor_lang_ext.hpp.pch -I ${XACC_ROOT}/include/xacc -I ${XACC_ROOT}/include/qcor -I ${XACC_ROOT}/include/eigen ${EXTRA_INCLUDE})")
+install(CODE "execute_process(COMMAND ${LLVM_INSTALL_PREFIX}/bin/clang++ -std=c++17 -x c++-header ${CMAKE_INSTALL_PREFIX}/include/qcor/qcor_lang_ext.hpp -o ${CMAKE_BINARY_DIR}/runtime/qcor_lang_ext.hpp.pch -I ${XACC_ROOT}/include/xacc -I ${XACC_ROOT}/include/qcor -I ${XACC_ROOT}/include/eigen ${EXTRA_INCLUDE})")
 install(FILES ${CMAKE_BINARY_DIR}/runtime/qcor_lang_ext.hpp.pch DESTINATION include/qcor)
 
 if (QCOR_BUILD_TESTS)
