@@ -26,7 +26,7 @@ __qpu__ void qpe(qreg q, QPEOracleSignature oracle) {
 
   // Run Inverse QFT on counting qubits
   // Using the Q# Kernel (wrapped as a QCOR kernel)
-  QCOR__IQFT(parent_kernel, counting_qubits);
+  QCOR__IQFT(counting_qubits);
 
   // Measure the counting qubits
   Measure(counting_qubits);

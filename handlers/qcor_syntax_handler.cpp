@@ -40,8 +40,9 @@ void QCORSyntaxHandler::GetReplacement(Preprocessor &PP, Declarator &D,
 
     auto type = QualType::getAsString(parm_var_decl->getType().split(),
                                       PrintingPolicy{{}});
-    auto var = PP.getSpelling(IdentToken);
-
+    // auto var = PP.getSpelling(IdentToken);
+    // Using IdentifierInfo to get the correct name (after any macro expansion)
+    auto var = ident->getName().str();
     if (type == "class xacc::internal_compiler::qreg") {
       bufferNames.push_back(ident->getName().str());
       type = "qreg";
