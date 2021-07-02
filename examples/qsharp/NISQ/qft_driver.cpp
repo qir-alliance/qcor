@@ -1,6 +1,6 @@
 #include <iostream> 
 #include <vector>
-#include "import_kernel_utils.hpp"
+#include "qir_nisq_kernel_utils.hpp"
 
 // Compile:
 // qcor -qdk-version 0.17.2106148041-alpha qft.qs qft_driver.cpp -shots 1024 -print-final-submission
@@ -37,7 +37,7 @@ __qpu__ void oracle(qubit q) { T(q); }
 
 int main(int argc, char **argv) {
   auto q = qalloc(4);
-  // qpe::print_kernel(std::cout, q, oracle);
+  qpe::print_kernel(q, oracle);
   // Run
   qpe(q, oracle);
   q.print();

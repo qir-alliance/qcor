@@ -53,6 +53,7 @@
   private:                                                                     \
     ::Array *m_qubits = nullptr;                                               \
     friend class qcor::QuantumKernel<class OPERATION_NAME, qreg, __VA_ARGS__>; \
+    friend class qcor::KernelSignature<qreg, __VA_ARGS__>;                     \
                                                                                \
   protected:                                                                   \
     void operator()(qreg q ARGS_LIST_FOR_FUNC_SIGNATURE(__VA_ARGS__)) {        \
@@ -67,7 +68,7 @@
       if (!m_qubits) {                                                         \
         m_qubits = new ::Array(q.size());                                      \
         for (int i = 0; i < q.size(); ++i) {                                   \
-          auto qubit = Qubit::allocate();                                      \
+          auto qubit = Qubit::create(q[i].second);                             \
           int8_t *arrayPtr = (*m_qubits)[i];                                   \
           auto qubitPtr = reinterpret_cast<Qubit **>(arrayPtr);                \
           *qubitPtr = qubit;                                                   \
@@ -110,14 +111,15 @@
   private:                                                                     \
     ::Array *m_qubits = nullptr;                                               \
     friend class qcor::QuantumKernel<class OPERATION_NAME, qreg>;              \
+    friend class qcor::KernelSignature<qreg>;                                  \
                                                                                \
   protected:                                                                   \
     void operator()(qreg q) {                                                  \
       if (!parent_kernel) {                                                    \
-        std::cout << "Create parent kernel\n"; \
+        /* std::cout << "Create parent kernel\n";   */                         \
         parent_kernel = qcor::__internal__::create_composite(kernel_name);     \
       }                                                                        \
-      std::cout << "Parent:\n" << parent_kernel->toString() << "\n";           \
+      /* std::cout << "Parent:\n" << parent_kernel->toString() << "\n";  */    \
       quantum::set_current_program(parent_kernel);                             \
       if (runtime_env == QrtType::FTQC) {                                      \
         quantum::set_current_buffer(q.results());                              \
@@ -126,13 +128,13 @@
       if (!m_qubits) {                                                         \
         m_qubits = new ::Array(q.size());                                      \
         for (int i = 0; i < q.size(); ++i) {                                   \
-          auto qubit = Qubit::allocate();                                      \
+          auto qubit = Qubit::create(q[i].second);                             \
           int8_t *arrayPtr = (*m_qubits)[i];                                   \
           auto qubitPtr = reinterpret_cast<Qubit **>(arrayPtr);                \
           *qubitPtr = qubit;                                                   \
         }                                                                      \
       }                                                                        \
-      std::cout << "INVOKE:\n" << parent_kernel->toString() << "\n";           \
+      /*std::cout << "INVOKE:\n" << parent_kernel->toString() << "\n";  */     \
       OPERATION_NAME##__body(m_qubits); /* std::cout << "INVOKE:\n" <<         \
                             parent_kernel->toString(); */                      \
     }                                                                          \
@@ -148,7 +150,7 @@
         return;                                                                \
       }                                                                        \
       auto [q] = args_tuple;                                                   \
-      std::cout << "here\n"; \
+      /* std::cout << "here\n";   */                                           \
       operator()(q);                                                           \
       xacc::internal_compiler::execute_pass_manager();                         \
       if (is_callable) {                                                       \
@@ -160,7 +162,7 @@
                       qreg q) {                                                \
     class OPERATION_NAME kernel(parent, q);                                    \
   }                                                                            \
-  void OPERATION_NAME(qreg q) { class OPERATION_NAME kernel(q); }              
+  void OPERATION_NAME(qreg q) { class OPERATION_NAME kernel(q); }
 
 // Usage:
 // qcor_import_qsharp_kernel(MyQsharpKernel, double, int);

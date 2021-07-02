@@ -74,6 +74,16 @@ struct Qubit {
     return newQubit;
   }
 
+  // Create a QIR qubit with this ID
+  // Rationale: should only be used for interoperability with non-QIR
+  // environment.
+  // i.e. actual qubits are allocated elsewhere, just need to create an alias
+  // in QIR runtime to match up the qubit ID.
+  static Qubit *create(uint64_t id) {
+    Qubit *newQubit = new Qubit(id);
+    return newQubit;
+  }
+
   static void reset_counter() { q_counter = 0; }
 
 private:
