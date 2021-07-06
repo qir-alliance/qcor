@@ -12,6 +12,7 @@ def ArgvType : OpaqueType<"quantum", "ArgvType", "opaque argv type">;
 def QregType : OpaqueType<"quantum", "QregType", "opaque qreg type">;
 def StringType : OpaqueType<"quantum", "StringType", "opaque string type">;
 def TupleType : OpaqueType<"quantum", "Tuple", "opaque tuple type">;
+def CallableType : OpaqueType<"quantum", "Callable", "opaque callable type">;
 
 def QallocOp : QuantumOp<"qalloc", []> {
     let arguments = (ins AnyI64Attr:$size, StrAttr:$name);
@@ -179,6 +180,13 @@ def TupleUnpackOp : QuantumOp<"tupleUnpack", []> {
     let results = (outs Variadic<AnyType>:$result);
     let printer = [{  auto op = *this;
   p << "q.tupleUnpack" << "(" << op.tuple() << ") : " << op.result().getType(); }];
+}
+
+def CreateCallableOp : QuantumOp<"createCallable", []> {
+    let arguments = (ins FlatSymbolRefAttr:$functors);
+    let results = (outs CallableType:$callable);
+    let printer = [{  auto op = *this;
+  p << "q.createCallable" << "(" << op.functors() << ") : " << op.callable().getType(); }];
 }
 
 #endif // Quantum_OPS
