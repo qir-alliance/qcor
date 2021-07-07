@@ -234,82 +234,106 @@ antlrcpp::Any qasm3_visitor::visitLoopStatement(
         }
       }
 
-      // Create a new scope for the for loop
-      symbol_table.enter_new_scope();
+      const std::string program_block_str = program_block->getText();
+      // std::cout << "HOWDY:\n" << program_block_str << "\n";
 
-      llvm::ArrayRef<int64_t> shaperef{};
-      auto mem_type = mlir::MemRefType::get(shaperef, a_value.getType());
-      mlir::Value loop_var_memref =
-          builder.create<mlir::AllocaOp>(location, mem_type);
-      builder.create<mlir::StoreOp>(location, a_value, loop_var_memref);
+      // HACK: Currently, we don't handle 'if', 'break', 'continue'
+      // in the Affine for loop yet.
+      if (program_block_str.find("if") == std::string::npos &&
+          program_block_str.find("break") == std::string::npos &&
+          program_block_str.find("continue") == std::string::npos) {
+        // Can use Affine for loop....
+        affineLoopBuilder(
+            a_value, b_value, c,
+            [&](mlir::Value loop_var) {
+              // Create a new scope for the for loop
+              symbol_table.enter_new_scope();
+              symbol_table.add_symbol(idx_var_name, loop_var, {}, true);
+              visitChildren(program_block);
+              symbol_table.exit_scope();
+            },
+            builder, location);
+      } else {
+        // Need to use the legacy for loop construction for now...
+        // Create a new scope for the for loop
+        symbol_table.enter_new_scope();
 
-      // Save the current builder point
-      // auto savept = builder.saveInsertionPoint();
-      auto loaded_var = builder.create<mlir::LoadOp>(location, loop_var_memref);
+        llvm::ArrayRef<int64_t> shaperef{};
+        auto mem_type = mlir::MemRefType::get(shaperef, a_value.getType());
+        mlir::Value loop_var_memref =
+            builder.create<mlir::AllocaOp>(location, mem_type);
+        builder.create<mlir::StoreOp>(location, a_value, loop_var_memref);
 
-      symbol_table.add_symbol(idx_var_name, loaded_var, {}, true);
+        // Save the current builder point
+        // auto savept = builder.saveInsertionPoint();
+        auto loaded_var =
+            builder.create<mlir::LoadOp>(location, loop_var_memref);
 
-      // Strategy...
+        symbol_table.add_symbol(idx_var_name, loaded_var, {}, true);
 
-      // We need to create a header block to check that loop var is still valid
-      // it will branch at the end to the body or the exit
+        // Strategy...
 
-      // Then we create the body block, it should branch to the incrementor
-      // block
+        // We need to create a header block to check that loop var is still
+        // valid it will branch at the end to the body or the exit
 
-      // Then we create the incrementor block, it should branch back to header
+        // Then we create the body block, it should branch to the incrementor
+        // block
 
-      // Any downstream children that will create blocks will need to know what
-      // the fallback block for them is, and it should be the incrementor block
-      auto savept = builder.saveInsertionPoint();
-      auto currRegion = builder.getBlock()->getParent();
-      auto headerBlock = builder.createBlock(currRegion, currRegion->end());
-      auto bodyBlock = builder.createBlock(currRegion, currRegion->end());
-      auto incBlock = builder.createBlock(currRegion, currRegion->end());
-      mlir::Block* exitBlock =
-          builder.createBlock(currRegion, currRegion->end());
-      builder.restoreInsertionPoint(savept);
+        // Then we create the incrementor block, it should branch back to header
 
-      builder.create<mlir::BranchOp>(location, headerBlock);
-      builder.setInsertionPointToStart(headerBlock);
+        // Any downstream children that will create blocks will need to know
+        // what the fallback block for them is, and it should be the incrementor
+        // block
+        auto savept = builder.saveInsertionPoint();
+        auto currRegion = builder.getBlock()->getParent();
+        auto headerBlock = builder.createBlock(currRegion, currRegion->end());
+        auto bodyBlock = builder.createBlock(currRegion, currRegion->end());
+        auto incBlock = builder.createBlock(currRegion, currRegion->end());
+        mlir::Block *exitBlock =
+            builder.createBlock(currRegion, currRegion->end());
+        builder.restoreInsertionPoint(savept);
 
-      auto load = builder.create<mlir::LoadOp>(location, loop_var_memref);
-      auto cmp = builder.create<mlir::CmpIOp>(
-          location, c > 0 ? mlir::CmpIPredicate::slt : mlir::CmpIPredicate::sge, load, b_value);
-      builder.create<mlir::CondBranchOp>(location, cmp, bodyBlock, exitBlock);
+        builder.create<mlir::BranchOp>(location, headerBlock);
+        builder.setInsertionPointToStart(headerBlock);
 
-      builder.setInsertionPointToStart(bodyBlock);
-      // body needs to load the loop variable
-      auto x = builder.create<mlir::LoadOp>(location, loop_var_memref);
-      symbol_table.add_symbol(idx_var_name, x, {}, true);
+        auto load = builder.create<mlir::LoadOp>(location, loop_var_memref);
+        auto cmp = builder.create<mlir::CmpIOp>(
+            location,
+            c > 0 ? mlir::CmpIPredicate::slt : mlir::CmpIPredicate::sge, load,
+            b_value);
+        builder.create<mlir::CondBranchOp>(location, cmp, bodyBlock, exitBlock);
 
-      current_loop_exit_block = exitBlock;
+        builder.setInsertionPointToStart(bodyBlock);
+        // body needs to load the loop variable
+        auto x = builder.create<mlir::LoadOp>(location, loop_var_memref);
+        symbol_table.add_symbol(idx_var_name, x, {}, true);
 
-      current_loop_incrementor_block = incBlock;
+        current_loop_exit_block = exitBlock;
 
-      visitChildren(program_block);
+        current_loop_incrementor_block = incBlock;
 
-      current_loop_incrementor_block = nullptr;
-      current_loop_exit_block = nullptr;
+        visitChildren(program_block);
 
-      builder.create<mlir::BranchOp>(location, incBlock);
+        current_loop_incrementor_block = nullptr;
+        current_loop_exit_block = nullptr;
 
-      builder.setInsertionPointToStart(incBlock);
-      auto load_inc = builder.create<mlir::LoadOp>(location, loop_var_memref);
+        builder.create<mlir::BranchOp>(location, incBlock);
 
-      auto add = builder.create<mlir::AddIOp>(location, load_inc, c_value);
+        builder.setInsertionPointToStart(incBlock);
+        auto load_inc = builder.create<mlir::LoadOp>(location, loop_var_memref);
 
+        auto add = builder.create<mlir::AddIOp>(location, load_inc, c_value);
 
-      builder.create<mlir::StoreOp>(location, add, loop_var_memref);
+        builder.create<mlir::StoreOp>(location, add, loop_var_memref);
 
-      builder.create<mlir::BranchOp>(location, headerBlock);
+        builder.create<mlir::BranchOp>(location, headerBlock);
 
-      builder.setInsertionPointToStart(exitBlock);
+        builder.setInsertionPointToStart(exitBlock);
 
-      symbol_table.set_last_created_block(exitBlock);
+        symbol_table.set_last_created_block(exitBlock);
 
-      symbol_table.exit_scope();
-
+        symbol_table.exit_scope();
+      }
     } else {
       printErrorMessage(
           "For loops must be of form 'for i in {SET}' or 'for i in [RANGE]'.");
