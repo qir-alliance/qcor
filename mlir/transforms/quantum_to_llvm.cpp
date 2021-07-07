@@ -70,6 +70,9 @@ void QuantumToLLVMLoweringPass::runOnOperation() {
 
   // Lower arctan correctly
   patterns.insert<StdAtanOpLowering>(&getContext());
+  // Affine to Standard
+  populateAffineToStdConversionPatterns(patterns, &getContext());
+  populateLoopToStdConversionPatterns(patterns, &getContext());
 
   // Add Standard to LLVM
   populateStdToLLVMConversionPatterns(typeConverter, patterns);

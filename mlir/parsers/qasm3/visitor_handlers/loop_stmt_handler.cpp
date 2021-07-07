@@ -5,6 +5,25 @@ using symbol_table_t = exprtk::symbol_table<double>;
 using expression_t = exprtk::expression<double>;
 using parser_t = exprtk::parser<double>;
 
+namespace {
+/// Creates a single affine "for" loop, iterating from lbs to ubs with
+/// the given step.
+/// to construct the body of the loop and is passed the induction variable.
+void affineLoopBuilder(mlir::ValueRange lbs, mlir::ValueRange ubs, int64_t step,
+                       std::function<void(mlir::Value)> bodyBuilderFn,
+                       mlir::OpBuilder &builder, mlir::Location &loc) {
+  // Create the actual loop
+  builder.create<mlir::AffineForOp>(
+      loc, lbs, builder.getMultiDimIdentityMap(lbs.size()), ubs,
+      builder.getMultiDimIdentityMap(ubs.size()), step, llvm::None,
+      [&](mlir::OpBuilder &nestedBuilder, mlir::Location nestedLoc,
+          mlir::Value iv, mlir::ValueRange itrArgs) {
+        mlir::OpBuilder::InsertionGuard guard(nestedBuilder);
+        bodyBuilderFn(iv);
+        nestedBuilder.create<mlir::AffineYieldOp>(nestedLoc);
+      });
+}
+} // namespace
 namespace qcor {
 antlrcpp::Any qasm3_visitor::visitLoopStatement(
     qasm3Parser::LoopStatementContext* context) {
