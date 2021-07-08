@@ -94,7 +94,10 @@ antlrcpp::Any qasm3_visitor::visitQuantumMeasurementAssignment(
               mlir::Identifier::get("quantum", builder.getContext());
           auto qubit_type = mlir::OpaqueType::get(builder.getContext(), dialect,
                                                   qubit_type_name);
-
+          if (!qbit.getType().isa<mlir::IntegerType>()) {
+            qbit = builder.create<mlir::IndexCastOp>(
+                location, builder.getI64Type(), qbit);
+          }
           value = builder.create<mlir::quantum::ExtractQubitOp>(
               location, qubit_type, qubits, qbit);
         } else {
