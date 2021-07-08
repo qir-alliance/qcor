@@ -404,8 +404,10 @@ antlrcpp::Any qasm3_expression_generator::visitAdditiveExpression(
         }
 
         createOp<mlir::AddFOp>(location, lhs, rhs);
-      } else if (lhs.getType().isa<mlir::IntegerType>() &&
-                 rhs.getType().isa<mlir::IntegerType>()) {
+      } else if ((lhs.getType().isa<mlir::IntegerType>() ||
+                  lhs.getType().isa<mlir::IndexType>()) &&
+                 (rhs.getType().isa<mlir::IntegerType>() ||
+                  rhs.getType().isa<mlir::IndexType>())) {
         if (lhs.getType().getIntOrFloatBitWidth() <
             rhs.getType().getIntOrFloatBitWidth()) {
           lhs =

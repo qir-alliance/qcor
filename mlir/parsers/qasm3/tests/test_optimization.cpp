@@ -167,14 +167,46 @@ for i in [0:10] {
       qcor::mlir_compile(src, "test_kernel", qcor::OutputType::LLVMIR, false);
   std::cout << "LLVM:\n" << llvm << "\n";
   
-  // Get the main kernel section only (there is the oracle LLVM section as well)
-  llvm = llvm.substr(llvm.find("@test_kernel"));
+  // Get the main kernel section only 
+  llvm = llvm.substr(llvm.find("@__internal_mlir_test_kernel"));
   const auto last = llvm.find_first_of("}");
   llvm = llvm.substr(0, last + 1);
   std::cout << "LLVM:\n" << llvm << "\n";
   // Only a single Rx remains (combine all angles)
   EXPECT_EQ(countSubstring(llvm, "__quantum__qis"), 1);
   EXPECT_EQ(countSubstring(llvm, "__quantum__qis__rx"), 1);
+}
+
+TEST(qasm3PassManagerTester, checkLoopUnrollTrotter) {
+  // Unroll the loop:
+  // Trotter decompose
+  const std::string src = R"#(OPENQASM 3;
+include "stdgates.inc";
+qubit qq[2];
+for i in [0:100] {
+    h qq;
+    cx qq[0], qq[1];
+    rx(0.0123) qq[1];
+    cx qq[0], qq[1];
+    h qq;
+}
+)#";
+  auto llvm =
+      qcor::mlir_compile(src, "test_kernel", qcor::OutputType::LLVMIR, false);
+  std::cout << "LLVM:\n" << llvm << "\n";
+  
+  // Get the main kernel section only 
+  llvm = llvm.substr(llvm.find("@__internal_mlir_test_kernel"));
+  const auto last = llvm.find_first_of("}");
+  llvm = llvm.substr(0, last + 1);
+  std::cout << "LLVM:\n" << llvm << "\n";
+  // Only a single Rx remains (combine all angles)
+  // 2 Hadamard before + 1 CX before
+  // 2 Hadamard after + 1 CX after
+  EXPECT_EQ(countSubstring(llvm, "__quantum__qis"), 7);
+  EXPECT_EQ(countSubstring(llvm, "__quantum__qis__rx"), 1);
+  EXPECT_EQ(countSubstring(llvm, "__quantum__qis__h"), 4);
+  EXPECT_EQ(countSubstring(llvm, "__quantum__qis__cnot"), 2);
 }
 
 int main(int argc, char **argv) {

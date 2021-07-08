@@ -22,6 +22,7 @@ void SimplifyQubitExtractPass::runOnOperation() {
                      std::unordered_map<int64_t, mlir::Value>>
       extract_qubit_map;
 
+  // Map const qubit extract to its first extract
   getOperation().walk([&](mlir::quantum::ExtractQubitOp op) {
     mlir::Value idx_val = op.idx();
     mlir::Value qreg = op.qreg();
@@ -46,50 +47,62 @@ void SimplifyQubitExtractPass::runOnOperation() {
             previous_qreg_extract[index_const] = op.qbit();
           } else {
             mlir::Value previous_extract = previous_qreg_extract[index_const];
-            previous_extract.dump();
-            const std::function<mlir::Value(mlir::Value)> get_last_use =
-                [&get_last_use](mlir::Value var) -> mlir::Value {
-              if (var.hasOneUse()) {
-                auto use = *var.user_begin();
-                auto next_inst =
-                    dyn_cast_or_null<mlir::quantum::ValueSemanticsInstOp>(use);
-                if (next_inst) {
-                  if (next_inst.qubits().size() == 1) {
-                    return get_last_use(*next_inst.result_begin());
-                  } else {
-                    assert(next_inst.qubits().size() == 2);
-                    // std::cout << "Two qubit gate use\n";
-                    // Need to determine which operand this value is used
-                    // i.e. map to the corresponding output
-                    for (size_t i = 0; i < next_inst.qubits().size(); ++i) {
-                      mlir::Value operand = next_inst.qubits()[i];
-                      if (operand == var) {
-                        // std::cout << "Find operand: " << i << "\n";
-                        return get_last_use(next_inst.result()[i]);
-                      }
-                    }
-                    // Something wrong, cannot match the operand of 2-q
-                    // ValueSemanticsInstOp
-                    __builtin_unreachable();
-                    assert(false);
-                    return var;
-                  }
-                } else {
-                  return var;
-                }
-              } else {
-                // No other use (last)
-                // std::cout << "Last use\n";
-                // var.dump();
-                return var;
-              }
-            };
-
-            mlir::Value last_use = get_last_use(previous_extract);
-            op.qbit().replaceAllUsesWith(last_use);
+            op.qbit().replaceAllUsesWith(previous_extract);
           }
         }
       }
+    }
+  });
+
+  // Fix up the SSA chain
+  // Mini symbol table to track all SSA values.
+  std::unordered_map<void *, void *> ssa_var_to_root;
+  std::unordered_map<void *, mlir::Value> root_ssa_var_to_last_use;
+  getOperation().walk([&](mlir::quantum::ValueSemanticsInstOp op) {
+    if (op.qubits().size() == 1) {
+      mlir::Value operand = op.qubits()[0];
+      void *operand_ptr = operand.getAsOpaquePointer();
+      if (ssa_var_to_root.find(operand_ptr) == ssa_var_to_root.end()) {
+        ssa_var_to_root[operand_ptr] = operand_ptr;
+        assert(root_ssa_var_to_last_use.find(operand_ptr) ==
+               root_ssa_var_to_last_use.end());
+        root_ssa_var_to_last_use[operand_ptr] = op.result()[0];
+        ssa_var_to_root[op.result()[0].getAsOpaquePointer()] = operand_ptr;
+      } else {
+        // Match SSA operand:
+        void *root_value_ptr = ssa_var_to_root[operand_ptr];
+        assert(root_ssa_var_to_last_use.find(root_value_ptr) !=
+               root_ssa_var_to_last_use.end());
+
+        // Fix up the input operand and update the last output
+        op.qubitsMutable().assign(root_ssa_var_to_last_use[root_value_ptr]);
+        ssa_var_to_root[op.result()[0].getAsOpaquePointer()] = root_value_ptr;
+        root_ssa_var_to_last_use[root_value_ptr] = op.result()[0];
+      }
+    } else {
+      assert(op.qubits().size() == 2);
+      std::vector<mlir::Value> new_operands{op.qubits()[0], op.qubits()[1]};
+      for (int i = 0; i < 2; ++i) {
+        mlir::Value operand = op.qubits()[i];
+        void *operand_ptr = operand.getAsOpaquePointer();
+        if (ssa_var_to_root.find(operand_ptr) == ssa_var_to_root.end()) {
+          ssa_var_to_root[operand_ptr] = operand_ptr;
+          assert(root_ssa_var_to_last_use.find(operand_ptr) ==
+                 root_ssa_var_to_last_use.end());
+          root_ssa_var_to_last_use[operand_ptr] = op.result()[i];
+          ssa_var_to_root[op.result()[i].getAsOpaquePointer()] = operand_ptr;
+        } else {
+          // Match SSA operand:
+          // Fix up the input operand and update the last output
+          void *root_value_ptr = ssa_var_to_root[operand_ptr];
+          assert(root_ssa_var_to_last_use.find(root_value_ptr) !=
+                 root_ssa_var_to_last_use.end());
+          new_operands[i] = root_ssa_var_to_last_use[root_value_ptr];
+          ssa_var_to_root[op.result()[i].getAsOpaquePointer()] = root_value_ptr;
+          root_ssa_var_to_last_use[root_value_ptr] = op.result()[i];
+        }
+      }
+      op.qubitsMutable().assign(llvm::makeArrayRef(new_operands));
     }
   });
 }
