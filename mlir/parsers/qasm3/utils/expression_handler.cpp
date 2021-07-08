@@ -1224,6 +1224,7 @@ antlrcpp::Any qasm3_expression_generator::visitExpressionTerminator(
       qubit_exp_generator.visit(expression);
       operands.push_back(qubit_exp_generator.current_value);
     }
+
     auto call_op =
         builder
             .create<mlir::CallOp>(location, func, llvm::makeArrayRef(operands))

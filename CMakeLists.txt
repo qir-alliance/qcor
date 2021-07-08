@@ -61,6 +61,7 @@ add_subdirectory(handlers)
 add_subdirectory(runtime)
 add_subdirectory(tools)
 add_subdirectory(lib)
+add_subdirectory(scripts/debian)
 
 if (NOT ${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
   if (NOT MLIR_DIR) 
@@ -105,7 +106,7 @@ set(CPACK_PACKAGE_VERSION_MINOR "${MINOR_VERSION}")
 set(CPACK_PACKAGE_VERSION_PATCH "${PATCH_VERSION}")
 set(CPACK_PACKAGE_FILE_NAME "${CMAKE_PROJECT_NAME}-${MAJOR_VERSION}.${MINOR_VERSION}.${PATCH_VERSION}")
 set(CPACK_SOURCE_PACKAGE_FILE_NAME "${CMAKE_PROJECT_NAME}-${MAJOR_VERSION}.${MINOR_VERSION}.${PATCH_VERSION}")
-set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA "${CMAKE_SOURCE_DIR}/scripts/debian/postinst")
+set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA "${CMAKE_BINARY_DIR}/scripts/debian/postinst")
 
 #dependencies for this service menu
 if (${QCOR_CPACK_DEB_PLATFORM} STREQUAL "bionic")

@@ -74,10 +74,6 @@ int main(int argc, char **argv) {
   mlir::MLIRContext &context = *(mlir_gen_result.mlir_context);
   std::vector<std::string> &unique_function_names =
       mlir_gen_result.unique_function_names;
-  if (emitAction == Action::DumpMLIR) {
-    module->dump();
-    return 0;
-  }
 
   // Create the PassManager for lowering to LLVM MLIR and run it
   mlir::PassManager pm(&context);
@@ -87,6 +83,19 @@ int main(int argc, char **argv) {
     // Add optimization passes
     qcor::configureOptimizationPasses(pm);
   }
+
+  if (emitAction == Action::DumpMLIR) {
+    if (qoptimizations) {
+      auto module_op = (*module).getOperation();
+      if (mlir::failed(pm.run(module_op))) {
+        std::cout << "Pass Manager Failed\n";
+        return 1;
+      }
+    }
+    module->dump();
+    return 0;
+  }
+  
   // Lower MLIR to LLVM
   pm.addPass(std::make_unique<qcor::QuantumToLLVMLoweringPass>(
       qoptimizations, unique_function_names));
