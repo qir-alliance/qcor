@@ -209,6 +209,56 @@ for i in [0:100] {
   EXPECT_EQ(countSubstring(llvm, "__quantum__qis__cnot"), 2);
 }
 
+TEST(qasm3PassManagerTester, checkLoopUnrollWithInline) {
+  // Unroll the loop and inline
+  // Trotter decompose
+  // Note: using the inv (adjoint) modifier is not supported
+  // since it is a runtime feature...
+  // hence, we need to make the adjoint explicit.
+  const std::string src = R"#(OPENQASM 3;
+include "stdgates.inc";
+def cnot_ladder() qubit[4]:q {
+  h q[0];
+  h q[1];
+  cx q[0], q[1];
+  cx q[1], q[2];
+  cx q[2], q[3];
+}
+
+def cnot_ladder_inv() qubit[4]:q {
+  cx q[2], q[3];
+  cx q[1], q[2];
+  cx q[0], q[1];
+  h q[1];
+  h q[0];
+}
+
+qubit q[4];
+double theta = 0.01;
+for i in [0:100] {
+  cnot_ladder q;
+  rz(theta) q[3];
+  cnot_ladder_inv q;
+}
+)#";
+  auto llvm =
+      qcor::mlir_compile(src, "test_kernel", qcor::OutputType::LLVMIR, false);
+  std::cout << "LLVM:\n" << llvm << "\n";
+  
+  // Get the main kernel section only 
+  llvm = llvm.substr(llvm.find("@__internal_mlir_test_kernel"));
+  const auto last = llvm.find_first_of("}");
+  llvm = llvm.substr(0, last + 1);
+  std::cout << "LLVM:\n" << llvm << "\n";
+  // Only a single Rz remains (combine all angles)
+  // 2 Hadamard before + 3 CX before
+  // 2 Hadamard after + 3 CX after
+  EXPECT_EQ(countSubstring(llvm, "__quantum__qis"), 11);
+  EXPECT_EQ(countSubstring(llvm, "__quantum__qis__rz"), 1);
+  EXPECT_EQ(countSubstring(llvm, "__quantum__qis__h"), 4);
+  EXPECT_EQ(countSubstring(llvm, "__quantum__qis__cnot"), 6);
+}
+
 int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);
   auto ret = RUN_ALL_TESTS();
