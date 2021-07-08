@@ -11,7 +11,7 @@
 
 - Circuit with an Identity sequence: repeating CNOT gates (no optimization), examining the expectation calculation (theoretical = 1.0) with and without noise mitigation. CLI option to enable noise mitigation on any backend (simulator and IBM)
 
-- Sweeping VQE ansatz: showing the energy values with and without noise mitigation.
+- [Skipped] Sweeping VQE ansatz: showing the energy values with and without noise mitigation.
 
 ## Notes:
 
