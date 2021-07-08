@@ -1,3 +1,6 @@
+/// QCOR IR compile and execution on backends:
+/// "Write once run all"
+
 /// Simulator
 /// $qcor -qpu qpp ghz.cpp 
 
@@ -14,6 +17,8 @@
 /// QPU (11 qubits)
 /// qcor -qpu ionq:qpu ghz.cpp
 
+
+/// Entangled state preparation:
 __qpu__ void ghz(qreg q) {
   H(q[0]);
 

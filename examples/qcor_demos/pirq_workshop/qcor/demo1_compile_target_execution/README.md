@@ -20,9 +20,9 @@
 
 - Execution: state-vector (`qpp`); noisy (`aer`); IBM; IonQ. Show QObj (IBMQ portal) to demonstate native gate set mapping (e.g. H -> rz and sx decomposition)
 
-- Advance: increase number of qubits (~50) => MPS simulation (TNQVM); choose IBM pulse-mode (submitting pulses to IBM)
+- Choose IBM pulse-mode (submitting pulses to IBM)
 
-- Python binding: equivalent kernel expressed in Python (qjit)
+- Python binding: `ghz.py` - QCOR IR from Qiskit
 
 - IonQ: Create `.ionq_config` with 
 
