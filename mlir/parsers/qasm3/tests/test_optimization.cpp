@@ -259,6 +259,51 @@ for i in [0:100] {
   EXPECT_EQ(countSubstring(llvm, "__quantum__qis__cnot"), 6);
 }
 
+TEST(qasm3PassManagerTester, checkAffineLoopRevert) {
+  // Check loop with negative step:
+  const std::string src = R"#(OPENQASM 3;
+include "stdgates.inc";
+def cnot_ladder() qubit[4]:q {
+  h q;
+  for i in [0:3] {
+    cx q[i], q[i + 1];
+  }
+}
+
+def cnot_ladder_inv() qubit[4]:q {
+  for i in [3:-1:0] {
+    cx q[i-1], q[i];
+  }
+  
+  h q;
+}
+
+qubit q[4];
+double theta = 0.01;
+for i in [0:100] {
+  cnot_ladder q;
+  rz(theta) q[3];
+  cnot_ladder_inv q;
+}
+)#";
+  auto llvm =
+      qcor::mlir_compile(src, "test_kernel", qcor::OutputType::LLVMIR, false);
+  std::cout << "LLVM:\n" << llvm << "\n";
+  
+  // Get the main kernel section only 
+  llvm = llvm.substr(llvm.find("@__internal_mlir_test_kernel"));
+  const auto last = llvm.find_first_of("}");
+  llvm = llvm.substr(0, last + 1);
+  std::cout << "LLVM:\n" << llvm << "\n";
+  // Only a single Rz remains (combine all angles)
+  // 4 Hadamard before + 3 CX before
+  // 4 Hadamard after + 3 CX after
+  EXPECT_EQ(countSubstring(llvm, "__quantum__qis"), 15);
+  EXPECT_EQ(countSubstring(llvm, "__quantum__qis__rz"), 1);
+  EXPECT_EQ(countSubstring(llvm, "__quantum__qis__h"), 8);
+  EXPECT_EQ(countSubstring(llvm, "__quantum__qis__cnot"), 6);
+}
+
 int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);
   auto ret = RUN_ALL_TESTS();

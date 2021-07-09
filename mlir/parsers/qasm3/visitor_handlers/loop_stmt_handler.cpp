@@ -9,19 +9,50 @@ namespace {
 /// Creates a single affine "for" loop, iterating from lbs to ubs with
 /// the given step.
 /// to construct the body of the loop and is passed the induction variable.
-void affineLoopBuilder(mlir::ValueRange lbs, mlir::ValueRange ubs, int64_t step,
+void affineLoopBuilder(mlir::Value lbs_val, mlir::Value ubs_val, int64_t step,
                        std::function<void(mlir::Value)> bodyBuilderFn,
                        mlir::OpBuilder &builder, mlir::Location &loc) {
-  // Create the actual loop
-  builder.create<mlir::AffineForOp>(
-      loc, lbs, builder.getMultiDimIdentityMap(lbs.size()), ubs,
-      builder.getMultiDimIdentityMap(ubs.size()), step, llvm::None,
-      [&](mlir::OpBuilder &nestedBuilder, mlir::Location nestedLoc,
-          mlir::Value iv, mlir::ValueRange itrArgs) {
-        mlir::OpBuilder::InsertionGuard guard(nestedBuilder);
-        bodyBuilderFn(iv);
-        nestedBuilder.create<mlir::AffineYieldOp>(nestedLoc);
-      });
+  // Note: Affine for loop only accepts **positive** step:
+  // The stride, represented by step, is a positive constant integer which
+  // defaults to “1” if not present.
+  assert(step != 0);
+  if (step > 0) {
+    mlir::ValueRange lbs(lbs_val);
+    mlir::ValueRange ubs(ubs_val);
+    // Create the actual loop
+    builder.create<mlir::AffineForOp>(
+        loc, lbs, builder.getMultiDimIdentityMap(lbs.size()), ubs,
+        builder.getMultiDimIdentityMap(ubs.size()), step, llvm::None,
+        [&](mlir::OpBuilder &nestedBuilder, mlir::Location nestedLoc,
+            mlir::Value iv, mlir::ValueRange itrArgs) {
+          mlir::OpBuilder::InsertionGuard guard(nestedBuilder);
+          bodyBuilderFn(iv);
+          nestedBuilder.create<mlir::AffineYieldOp>(nestedLoc);
+        });
+  } else {
+    // Negative step:
+    // a -> b step c (minus)
+    // -a -> -b step c (plus) and minus the loop var
+    mlir::Value minus_one = builder.create<mlir::ConstantOp>(
+        loc, mlir::IntegerAttr::get(lbs_val.getType(), -1));
+    lbs_val = builder.create<mlir::MulIOp>(loc, lbs_val, minus_one).result();
+    ubs_val = builder.create<mlir::MulIOp>(loc, ubs_val, minus_one).result();
+    mlir::ValueRange lbs(lbs_val);
+    mlir::ValueRange ubs(ubs_val);
+    builder.create<mlir::AffineForOp>(
+        loc, lbs, builder.getMultiDimIdentityMap(lbs.size()), ubs,
+        builder.getMultiDimIdentityMap(ubs.size()), -step, llvm::None,
+        [&](mlir::OpBuilder &nestedBuilder, mlir::Location nestedLoc,
+            mlir::Value iv, mlir::ValueRange itrArgs) {
+          mlir::OpBuilder::InsertionGuard guard(nestedBuilder);
+          mlir::Value minus_one_idx = nestedBuilder.create<mlir::ConstantOp>(
+              nestedLoc, mlir::IntegerAttr::get(iv.getType(), -1));
+          bodyBuilderFn(
+              nestedBuilder.create<mlir::MulIOp>(nestedLoc, iv, minus_one_idx)
+                  .result());
+          nestedBuilder.create<mlir::AffineYieldOp>(nestedLoc);
+        });
+  }
 }
 } // namespace
 namespace qcor {

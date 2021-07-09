@@ -444,8 +444,13 @@ antlrcpp::Any qasm3_expression_generator::visitAdditiveExpression(
         }
 
         createOp<mlir::SubFOp>(location, lhs, rhs);
-      } else if (lhs.getType().isa<mlir::IntegerType>() &&
-                 rhs.getType().isa<mlir::IntegerType>()) {
+      } else if ((lhs.getType().isa<mlir::IntegerType>() ||
+                  lhs.getType().isa<mlir::IndexType>()) &&
+                 (rhs.getType().isa<mlir::IntegerType>() ||
+                  rhs.getType().isa<mlir::IndexType>())) {
+        if (lhs.getType() != rhs.getType()) {
+          rhs = builder.create<mlir::IndexCastOp>(location, lhs.getType(), rhs);
+        }
         createOp<mlir::SubIOp>(location, lhs, rhs).result();
       } else {
         printErrorMessage("Could not perform subtraction, incompatible types: ",
