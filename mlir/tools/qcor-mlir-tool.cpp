@@ -75,7 +75,10 @@ int main(int argc, char **argv) {
 
   llvm::cl::ParseCommandLineOptions(argc, argv,
                                     "qcor quantum assembly compiler\n");
-  bool qoptimizations = mlir_quantum_opt;
+  // If any *clang* optimization is requested, turn on quantum optimization as
+  // well.
+  bool qoptimizations =
+      mlir_quantum_opt || OptLevelO1 || OptLevelO2 || OptLevelO3;
   std::string input_func_name = "";
   if (!mlir_specified_func_name.empty()) {
     input_func_name = mlir_specified_func_name;
