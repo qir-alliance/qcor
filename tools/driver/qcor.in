@@ -93,6 +93,14 @@ def generate_qsc_build_command(target_name, src_dir, input_files, qdk_ver, build
 def main(argv=None):
     compiler = '@CLANG_EXECUTABLE@'
     verbose=False
+
+    if '--verbose' in sys.argv[1:]:
+        verbose=True
+        sys.argv.remove('--verbose')
+    if '-v' in sys.argv[1:]:
+        verbose=True
+        sys.argv.remove('-v')
+
     keep_bit_code_files = False
     baseLibs = ['-rdynamic', '-Wl,-rpath,@XACC_ROOT@/lib:@CMAKE_INSTALL_PREFIX@/lib:@LLVM_INSTALL_PREFIX@/lib:@CMAKE_INSTALL_PREFIX@/clang-plugins',
                 '-L', '@CMAKE_INSTALL_PREFIX@/lib', '-lqcor', '-lqrt', '-lqcor-jit', '-lqcor-quasimo',
@@ -104,7 +112,8 @@ def main(argv=None):
     baseIncludes = ['-I', '@XACC_ROOT@/include/xacc', '-I', '@CMAKE_INSTALL_PREFIX@/include/qcor',
                     '-I', '@XACC_ROOT@/include/quantum/gate', '-I', '@XACC_ROOT@/include/eigen']
     if '-internal-no-pch' in sys.argv[1:]:
-        print('ignoring pch...')
+        if verbose:
+            print('[qcor-exec] Ignoring pre-compiled-header...')
         sys.argv.remove('-internal-no-pch')
         defaultFlags = [
             '-std=c++17', '-fplugin=@CMAKE_INSTALL_PREFIX@/clang-plugins/libqcor-syntax-handler@CMAKE_SHARED_LIBRARY_SUFFIX@']
@@ -122,7 +131,7 @@ def main(argv=None):
 
     if '-rebuild-pch' in sys.argv[1:]:
         if verbose:
-            print('[qcor-exec] Rebuilding pre-compiled header qcor_lang_ext.hpp.')
+            print('[qcor-exec] Rebuilding pre-compiled header for qcor_lang_ext.hpp.')
 
         result = subprocess.run([compiler, '-std=c++17', '-x', 'c++-header', '@CMAKE_INSTALL_PREFIX@/include/qcor/qcor_lang_ext.hpp',
                                  '-o', '@CMAKE_INSTALL_PREFIX@/include/qcor/qcor_lang_ext.hpp.pch'] + baseIncludes, check=True)
@@ -213,13 +222,6 @@ def main(argv=None):
             os.remove(os.getenv('HOME') + '/.qjit/qjit_cache.json')
             print('removing {}/.qjit/qjit_cache.json'.format(os.getenv('HOME')))
         exit(0)
-
-    if '--verbose' in sys.argv[1:]:
-        verbose=True
-        sys.argv.remove('--verbose')
-    if '-v' in sys.argv[1:]:
-        verbose=True
-        sys.argv.remove('-v')
 
     if '-set-credentials' in sys.argv[1:]:
         idx = sys.argv.index('-set-credentials')
