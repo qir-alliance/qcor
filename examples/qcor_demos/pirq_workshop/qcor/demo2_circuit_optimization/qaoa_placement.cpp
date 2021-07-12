@@ -36,7 +36,7 @@ __qpu__ void qaoa_maxcut(qreg q, std::vector<double> gamma,
 int main(int argc, char **argv) {
   auto q = qalloc(5);
   // Ring graph
-  std::vector<std::pair<int, int>> graph{{0, 1}, {1, 2}, {2, 3}, {3, 4}};
+  std::vector<std::pair<int, int>> graph{{0, 1}, {1, 2}, {2, 3}, {3, 4}, {4, 0}};
   // One step
   int p = 1;
   std::vector<double> gammas{1.0};
