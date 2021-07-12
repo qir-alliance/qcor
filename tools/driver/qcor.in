@@ -93,23 +93,26 @@ def generate_qsc_build_command(target_name, src_dir, input_files, qdk_ver, build
 def main(argv=None):
     compiler = '@CLANG_EXECUTABLE@'
     verbose=False
-    keep_bit_code_files=False
+    keep_bit_code_files = False
     baseLibs = ['-rdynamic', '-Wl,-rpath,@XACC_ROOT@/lib:@CMAKE_INSTALL_PREFIX@/lib:@LLVM_INSTALL_PREFIX@/lib:@CMAKE_INSTALL_PREFIX@/clang-plugins',
-                            '-L', '@CMAKE_INSTALL_PREFIX@/lib','-lqcor', '-lqrt', '-lqcor-jit', '-lqcor-quasimo',
+                '-L', '@CMAKE_INSTALL_PREFIX@/lib', '-lqcor', '-lqrt', '-lqcor-jit', '-lqcor-quasimo',
                              '-L', '@XACC_ROOT@/lib', '-lxacc', '-lCppMicroServices', '-lxacc-quantum-gate',
-                            '-lxacc-pauli', '-lxacc-fermion', '-lpthread']
+                '-lxacc-pauli', '-lxacc-fermion', '-lpthread']
     if '@CMAKE_SYSTEM_NAME@' != 'Darwin':
         baseLibs += ['-lqir-qrt']
-        
-    baseIncludes = ['-I', '@XACC_ROOT@/include/xacc', '-I', '@CMAKE_INSTALL_PREFIX@/include/qcor', '-I', '@XACC_ROOT@/include/quantum/gate', '-I', '@XACC_ROOT@/include/eigen']
+
+    baseIncludes = ['-I', '@XACC_ROOT@/include/xacc', '-I', '@CMAKE_INSTALL_PREFIX@/include/qcor',
+                    '-I', '@XACC_ROOT@/include/quantum/gate', '-I', '@XACC_ROOT@/include/eigen']
     if '-internal-no-pch' in sys.argv[1:]:
         print('ignoring pch...')
         sys.argv.remove('-internal-no-pch')
-        defaultFlags = ['-std=c++17', '-fplugin=@CMAKE_INSTALL_PREFIX@/clang-plugins/libqcor-syntax-handler@CMAKE_SHARED_LIBRARY_SUFFIX@']
+        defaultFlags = [
+            '-std=c++17', '-fplugin=@CMAKE_INSTALL_PREFIX@/clang-plugins/libqcor-syntax-handler@CMAKE_SHARED_LIBRARY_SUFFIX@']
     else:
-        defaultFlags = ['-std=c++17', '-include', '@CMAKE_INSTALL_PREFIX@/include/qcor/qcor_lang_ext.hpp', '-fplugin=@CMAKE_INSTALL_PREFIX@/clang-plugins/libqcor-syntax-handler@CMAKE_SHARED_LIBRARY_SUFFIX@']
+        defaultFlags = ['-std=c++17', '-include', '@CMAKE_INSTALL_PREFIX@/include/qcor/qcor_lang_ext.hpp',
+                        '-fplugin=@CMAKE_INSTALL_PREFIX@/clang-plugins/libqcor-syntax-handler@CMAKE_SHARED_LIBRARY_SUFFIX@']
 
-    extra_headers = '@QCOR_EXTRA_HEADERS@'.replace('"','')
+    extra_headers = '@QCOR_EXTRA_HEADERS@'.replace('"', '')
     qs_qir_gen_dll = '@QIR_GEN_DLL@'
 
     for path in extra_headers.split(';'):
@@ -117,6 +120,14 @@ def main(argv=None):
         if path:
             baseIncludes += ['-I', path]
 
+    if '-rebuild-pch' in sys.argv[1:]:
+        if verbose:
+            print('[qcor-exec] Rebuilding pre-compiled header qcor_lang_ext.hpp.')
+
+        result = subprocess.run([compiler, '-std=c++17', '-x', 'c++-header', '@CMAKE_INSTALL_PREFIX@/include/qcor/qcor_lang_ext.hpp',
+                                 '-o', '@CMAKE_INSTALL_PREFIX@/include/qcor/qcor_lang_ext.hpp.pch'] + baseIncludes, check=True)
+        exit(0)
+    
     # This flag is primarily for our testers to point to the 
     # qcor syntax handler before make install is called
     if '-internal-syntax-handler-plugin-path' in sys.argv[1:]:
@@ -157,6 +168,7 @@ def main(argv=None):
         parser.add_argument('-version', metavar='', help='returns the current qcor build version.')
         parser.add_argument('-pythonpath', metavar='', help='print the correct PYTHONPATH to leverage qcor and xacc python API.')
         parser.add_argument('-keep-llvm-file', metavar='', help='keep intermediate LLVM files.')
+        parser.add_argument('-rebuild-pch', metavar='', help='Build the pre-compiled header for the qcor language extension to speed up compile times.')
         parser.add_argument('-print-final-submission', metavar='', help='print the final quantum circuit for backend submission (ignored in FTQC).')
         # FIXME ADD NO FAST COMPILE FLAG (TURN OFF PCH, MAINLY FOR BENCHMARK COMPARISONS)
         
