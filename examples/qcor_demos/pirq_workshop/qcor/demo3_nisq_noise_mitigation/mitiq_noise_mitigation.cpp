@@ -22,10 +22,16 @@ int main(int argc, char *argv[]) {
   // Parse number of CX cycles:
   if (argc == 2) {
     CX_depth = std::stoi(argv[1]);
+    if (CX_depth % 2 != 0) {
+      std::cerr << "CNOT depth must be an even number.\n";
+      return -1;
+    }
   }
   qreg q = qalloc(2);
   // noisy_zero::print_kernel(q, CX_depth);
   noisy_zero(q, CX_depth);
   // q.print();
-  std::cout << "CX depth: " << CX_depth << "; Expectation: " << q.exp_val_z() << "\n";
+  std::cout << "CX depth: " << CX_depth << "; Expectation: " << q.exp_val_z()
+            << "\n";
+  return 0;
 }
