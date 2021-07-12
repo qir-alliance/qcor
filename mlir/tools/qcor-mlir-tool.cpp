@@ -39,6 +39,18 @@ cl::opt<bool> mlir_quantum_opt(
 cl::opt<std::string> mlir_specified_func_name(
     "internal-func-name", cl::desc("qcor provided function name"));
 
+static cl::opt<bool>
+    OptLevelO0("O0", cl::desc("Optimization level 0. Similar to clang -O0. "));
+
+static cl::opt<bool>
+    OptLevelO1("O1", cl::desc("Optimization level 1. Similar to clang -O1. "));
+
+static cl::opt<bool>
+    OptLevelO2("O2", cl::desc("Optimization level 2. Similar to clang -O2. "));
+
+static cl::opt<bool>
+    OptLevelO3("O3", cl::desc("Optimization level 3. Similar to clang -O3. "));
+
 namespace {
 enum Action { None, DumpMLIR, DumpMLIRLLVM, DumpLLVMIR };
 }
@@ -63,7 +75,10 @@ int main(int argc, char **argv) {
 
   llvm::cl::ParseCommandLineOptions(argc, argv,
                                     "qcor quantum assembly compiler\n");
-  bool qoptimizations = mlir_quantum_opt;
+  // If any *clang* optimization is requested, turn on quantum optimization as
+  // well.
+  bool qoptimizations =
+      mlir_quantum_opt || OptLevelO1 || OptLevelO2 || OptLevelO3;
   std::string input_func_name = "";
   if (!mlir_specified_func_name.empty()) {
     input_func_name = mlir_specified_func_name;
@@ -118,7 +133,10 @@ int main(int argc, char **argv) {
   // Optimize the LLVM IR
   llvm::InitializeNativeTarget();
   llvm::InitializeNativeTargetAsmPrinter();
-  auto optPipeline = mlir::makeOptimizingTransformer(3, 0, nullptr);
+  const unsigned optLevel =
+      OptLevelO3 ? 3 : (OptLevelO2 ? 2 : (OptLevelO1 ? 1 : 0));
+  // std::cout << "Opt level: " << optLevel << "\n";
+  auto optPipeline = mlir::makeOptimizingTransformer(optLevel, 0, nullptr);
   if (auto err = optPipeline(llvmModule.get())) {
     llvm::errs() << "Failed to optimize LLVM IR " << err << "\n";
     return -1;
