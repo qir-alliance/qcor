@@ -317,7 +317,10 @@ antlrcpp::Any qasm3_visitor::visitQuantumGateCall(
 
           auto qubit_type =
               get_custom_opaque_type("Qubit", builder.getContext());
-
+          if (!qbit.getType().isa<mlir::IntegerType>()) {
+            qbit = builder.create<mlir::IndexCastOp>(
+                location, builder.getI64Type(), qbit);
+          }
           value = builder.create<mlir::quantum::ExtractQubitOp>(
               location, qubit_type, qubits, qbit);
           if (!symbol_table.has_symbol(qbit_var_name + idx_str))
@@ -337,6 +340,12 @@ antlrcpp::Any qasm3_visitor::visitQuantumGateCall(
               value = builder.create<mlir::ZeroExtendIOp>(location, value,
                                                           builder.getI64Type());
             }
+
+            if (!value.getType().isa<mlir::IntegerType>()) {
+              value = builder.create<mlir::IndexCastOp>(
+                  location, builder.getI64Type(), value);
+            }
+
             value = builder.create<mlir::quantum::ExtractQubitOp>(
                 location, qubit_type, qubits, value);
             if (!symbol_table.has_symbol(qbit_var_name + idx_str))

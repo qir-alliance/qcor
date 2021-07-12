@@ -29,9 +29,10 @@ struct QuantumInlinerInterface : public DialectInlinerInterface {
   // FIXME: there is a weird error when qalloc is inlined at MLIR level
   // hence, just allow VSOp to be inlined for the timebeing.
   // i.e. all quantum subroutines that only contain VSOp's can be inlined.
-  bool isLegalToInline(Operation *op, Region *regione, bool,
+  bool isLegalToInline(Operation *op, Region *region, bool,
                        BlockAndValueMapping &) const final {
-    if (dyn_cast_or_null<mlir::quantum::ValueSemanticsInstOp>(op)) {
+    if (dyn_cast_or_null<mlir::quantum::ValueSemanticsInstOp>(op) ||
+        dyn_cast_or_null<mlir::quantum::ExtractQubitOp>(op)) {
       return true;
     }
 

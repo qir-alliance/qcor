@@ -462,6 +462,22 @@ def main(argv=None):
         if '--q-optimize' in sys.argv[1:]:
             sys.argv.remove('--q-optimize')
             extra_args.append('--q-optimize')
+        # Parse clang -Ox optimization level:
+        opt_level_options = ['-O0', '-O1', '-O2', '-O3'] 
+        for opt_level_option in opt_level_options:
+            if opt_level_option in sys.argv[1:]:
+                # Forward to mlir tool
+                extra_args.append(opt_level_option)
+
+        # Some options that we want to pass on to mlir tool
+        # (a subset of --help that we think is useful)
+        mlir_forward_options = ['--pass-timing', '--print-ir-after-all', '--print-ir-after-change', '--print-ir-before-all']
+        for mlir_forward_option in mlir_forward_options:
+            if mlir_forward_option in sys.argv[1:]:
+                # Forward to mlir tool
+                extra_args.append(mlir_forward_option)
+                # and remove from the main qcor args
+                sys.argv.remove(mlir_forward_option)
 
         if '--emit-mlir' in sys.argv[1:]:
             result = subprocess.run(['@CMAKE_INSTALL_PREFIX@/bin/qcor-mlir-tool',
