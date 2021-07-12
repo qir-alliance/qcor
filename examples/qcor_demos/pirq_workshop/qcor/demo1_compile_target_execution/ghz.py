@@ -3,7 +3,27 @@
 
 from qcor import qjit, qalloc
 
-# Import from Qiskit qiskit_circuit
+# GHZ kernel expressed as QCOR's qjit
+# from qcor import qreg, set_shots
+# @qjit
+# def ghz(q : qreg):
+#   H(q[0])
+#   for i in range(q.size() - 1):
+#     CX(q[i], q[i + 1])
+  
+#   for i in range(q.size()):
+#     Measure(q[i])
+
+# # Allocate 3 qubits
+# q = qalloc(3)
+
+# # Run the bell experiment
+# set_shots(1024)
+# ghz(q)
+# q.print()
+
+
+# Or, import the IR from a Qiskit's QuantumCircuit
 import qiskit
 
 # Generate 3-qubit GHZ state with Qiskit
