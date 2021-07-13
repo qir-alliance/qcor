@@ -5,6 +5,64 @@ using symbol_table_t = exprtk::symbol_table<double>;
 using expression_t = exprtk::expression<double>;
 using parser_t = exprtk::parser<double>;
 
+namespace {
+/// Creates a single affine "for" loop, iterating from lbs to ubs with
+/// the given step.
+/// to construct the body of the loop and is passed the induction variable.
+void affineLoopBuilder(mlir::Value lbs_val, mlir::Value ubs_val, int64_t step,
+                       std::function<void(mlir::Value)> bodyBuilderFn,
+                       mlir::OpBuilder &builder, mlir::Location &loc) {
+  if (!ubs_val.getType().isa<mlir::IndexType>()) {
+    ubs_val =
+        builder.create<mlir::IndexCastOp>(loc, builder.getIndexType(), ubs_val);
+  }
+  if (!lbs_val.getType().isa<mlir::IndexType>()) {
+    lbs_val =
+        builder.create<mlir::IndexCastOp>(loc, builder.getIndexType(), lbs_val);
+  }
+  // Note: Affine for loop only accepts **positive** step:
+  // The stride, represented by step, is a positive constant integer which
+  // defaults to “1” if not present.
+  assert(step != 0);
+  if (step > 0) {
+    mlir::ValueRange lbs(lbs_val);
+    mlir::ValueRange ubs(ubs_val);
+    // Create the actual loop
+    builder.create<mlir::AffineForOp>(
+        loc, lbs, builder.getMultiDimIdentityMap(lbs.size()), ubs,
+        builder.getMultiDimIdentityMap(ubs.size()), step, llvm::None,
+        [&](mlir::OpBuilder &nestedBuilder, mlir::Location nestedLoc,
+            mlir::Value iv, mlir::ValueRange itrArgs) {
+          mlir::OpBuilder::InsertionGuard guard(nestedBuilder);
+          bodyBuilderFn(iv);
+          nestedBuilder.create<mlir::AffineYieldOp>(nestedLoc);
+        });
+  } else {
+    // Negative step:
+    // a -> b step c (minus)
+    // -a -> -b step c (plus) and minus the loop var
+    mlir::Value minus_one = builder.create<mlir::ConstantOp>(
+        loc, mlir::IntegerAttr::get(lbs_val.getType(), -1));
+    lbs_val = builder.create<mlir::MulIOp>(loc, lbs_val, minus_one).result();
+    ubs_val = builder.create<mlir::MulIOp>(loc, ubs_val, minus_one).result();
+    mlir::ValueRange lbs(lbs_val);
+    mlir::ValueRange ubs(ubs_val);
+    builder.create<mlir::AffineForOp>(
+        loc, lbs, builder.getMultiDimIdentityMap(lbs.size()), ubs,
+        builder.getMultiDimIdentityMap(ubs.size()), -step, llvm::None,
+        [&](mlir::OpBuilder &nestedBuilder, mlir::Location nestedLoc,
+            mlir::Value iv, mlir::ValueRange itrArgs) {
+          mlir::OpBuilder::InsertionGuard guard(nestedBuilder);
+          mlir::Value minus_one_idx = nestedBuilder.create<mlir::ConstantOp>(
+              nestedLoc, mlir::IntegerAttr::get(iv.getType(), -1));
+          bodyBuilderFn(
+              nestedBuilder.create<mlir::MulIOp>(nestedLoc, iv, minus_one_idx)
+                  .result());
+          nestedBuilder.create<mlir::AffineYieldOp>(nestedLoc);
+        });
+  }
+}
+} // namespace
 namespace qcor {
 antlrcpp::Any qasm3_visitor::visitLoopStatement(
     qasm3Parser::LoopStatementContext* context) {
@@ -215,82 +273,113 @@ antlrcpp::Any qasm3_visitor::visitLoopStatement(
         }
       }
 
-      // Create a new scope for the for loop
-      symbol_table.enter_new_scope();
+      const std::string program_block_str = program_block->getText();
+      // std::cout << "HOWDY:\n" << program_block_str << "\n";
 
-      llvm::ArrayRef<int64_t> shaperef{};
-      auto mem_type = mlir::MemRefType::get(shaperef, a_value.getType());
-      mlir::Value loop_var_memref =
-          builder.create<mlir::AllocaOp>(location, mem_type);
-      builder.create<mlir::StoreOp>(location, a_value, loop_var_memref);
+      // HACK: Currently, we don't handle 'if', 'break', 'continue'
+      // in the Affine for loop yet.
+      if (program_block_str.find("if") == std::string::npos &&
+          program_block_str.find("break") == std::string::npos &&
+          program_block_str.find("continue") == std::string::npos &&
+          // This is equivalent to an "if"
+          program_block_str.find("QCOR_EXPECT_TRUE") == std::string::npos &&
+          // We can only handle nested for loops if the inner one is also an
+          // affine one For now, don't do that since we're not sure.
+          program_block_str.find("for") == std::string::npos &&
+          // While loop is not converted to affine yet.
+          program_block_str.find("while") == std::string::npos) {
+        // Can use Affine for loop....
+        affineLoopBuilder(
+            a_value, b_value, c,
+            [&](mlir::Value loop_var) {
+              // Create a new scope for the for loop
+              symbol_table.enter_new_scope();
+              symbol_table.add_symbol(idx_var_name, loop_var, {}, true);
+              visitChildren(program_block);
+              symbol_table.exit_scope();
+            },
+            builder, location);
+      } else {
+        // Need to use the legacy for loop construction for now...
+        // Create a new scope for the for loop
+        symbol_table.enter_new_scope();
 
-      // Save the current builder point
-      // auto savept = builder.saveInsertionPoint();
-      auto loaded_var = builder.create<mlir::LoadOp>(location, loop_var_memref);
+        llvm::ArrayRef<int64_t> shaperef{};
+        auto mem_type = mlir::MemRefType::get(shaperef, a_value.getType());
+        mlir::Value loop_var_memref =
+            builder.create<mlir::AllocaOp>(location, mem_type);
+        builder.create<mlir::StoreOp>(location, a_value, loop_var_memref);
 
-      symbol_table.add_symbol(idx_var_name, loaded_var, {}, true);
+        // Save the current builder point
+        // auto savept = builder.saveInsertionPoint();
+        auto loaded_var =
+            builder.create<mlir::LoadOp>(location, loop_var_memref);
 
-      // Strategy...
+        symbol_table.add_symbol(idx_var_name, loaded_var, {}, true);
 
-      // We need to create a header block to check that loop var is still valid
-      // it will branch at the end to the body or the exit
+        // Strategy...
 
-      // Then we create the body block, it should branch to the incrementor
-      // block
+        // We need to create a header block to check that loop var is still
+        // valid it will branch at the end to the body or the exit
 
-      // Then we create the incrementor block, it should branch back to header
+        // Then we create the body block, it should branch to the incrementor
+        // block
 
-      // Any downstream children that will create blocks will need to know what
-      // the fallback block for them is, and it should be the incrementor block
-      auto savept = builder.saveInsertionPoint();
-      auto currRegion = builder.getBlock()->getParent();
-      auto headerBlock = builder.createBlock(currRegion, currRegion->end());
-      auto bodyBlock = builder.createBlock(currRegion, currRegion->end());
-      auto incBlock = builder.createBlock(currRegion, currRegion->end());
-      mlir::Block* exitBlock =
-          builder.createBlock(currRegion, currRegion->end());
-      builder.restoreInsertionPoint(savept);
+        // Then we create the incrementor block, it should branch back to header
 
-      builder.create<mlir::BranchOp>(location, headerBlock);
-      builder.setInsertionPointToStart(headerBlock);
+        // Any downstream children that will create blocks will need to know
+        // what the fallback block for them is, and it should be the incrementor
+        // block
+        auto savept = builder.saveInsertionPoint();
+        auto currRegion = builder.getBlock()->getParent();
+        auto headerBlock = builder.createBlock(currRegion, currRegion->end());
+        auto bodyBlock = builder.createBlock(currRegion, currRegion->end());
+        auto incBlock = builder.createBlock(currRegion, currRegion->end());
+        mlir::Block *exitBlock =
+            builder.createBlock(currRegion, currRegion->end());
+        builder.restoreInsertionPoint(savept);
 
-      auto load = builder.create<mlir::LoadOp>(location, loop_var_memref);
-      auto cmp = builder.create<mlir::CmpIOp>(
-          location, c > 0 ? mlir::CmpIPredicate::slt : mlir::CmpIPredicate::sge, load, b_value);
-      builder.create<mlir::CondBranchOp>(location, cmp, bodyBlock, exitBlock);
+        builder.create<mlir::BranchOp>(location, headerBlock);
+        builder.setInsertionPointToStart(headerBlock);
 
-      builder.setInsertionPointToStart(bodyBlock);
-      // body needs to load the loop variable
-      auto x = builder.create<mlir::LoadOp>(location, loop_var_memref);
-      symbol_table.add_symbol(idx_var_name, x, {}, true);
+        auto load = builder.create<mlir::LoadOp>(location, loop_var_memref);
+        auto cmp = builder.create<mlir::CmpIOp>(
+            location,
+            c > 0 ? mlir::CmpIPredicate::slt : mlir::CmpIPredicate::sge, load,
+            b_value);
+        builder.create<mlir::CondBranchOp>(location, cmp, bodyBlock, exitBlock);
 
-      current_loop_exit_block = exitBlock;
+        builder.setInsertionPointToStart(bodyBlock);
+        // body needs to load the loop variable
+        auto x = builder.create<mlir::LoadOp>(location, loop_var_memref);
+        symbol_table.add_symbol(idx_var_name, x, {}, true);
 
-      current_loop_incrementor_block = incBlock;
+        current_loop_exit_block = exitBlock;
 
-      visitChildren(program_block);
+        current_loop_incrementor_block = incBlock;
 
-      current_loop_incrementor_block = nullptr;
-      current_loop_exit_block = nullptr;
+        visitChildren(program_block);
 
-      builder.create<mlir::BranchOp>(location, incBlock);
+        current_loop_incrementor_block = nullptr;
+        current_loop_exit_block = nullptr;
 
-      builder.setInsertionPointToStart(incBlock);
-      auto load_inc = builder.create<mlir::LoadOp>(location, loop_var_memref);
+        builder.create<mlir::BranchOp>(location, incBlock);
 
-      auto add = builder.create<mlir::AddIOp>(location, load_inc, c_value);
+        builder.setInsertionPointToStart(incBlock);
+        auto load_inc = builder.create<mlir::LoadOp>(location, loop_var_memref);
 
+        auto add = builder.create<mlir::AddIOp>(location, load_inc, c_value);
 
-      builder.create<mlir::StoreOp>(location, add, loop_var_memref);
+        builder.create<mlir::StoreOp>(location, add, loop_var_memref);
 
-      builder.create<mlir::BranchOp>(location, headerBlock);
+        builder.create<mlir::BranchOp>(location, headerBlock);
 
-      builder.setInsertionPointToStart(exitBlock);
+        builder.setInsertionPointToStart(exitBlock);
 
-      symbol_table.set_last_created_block(exitBlock);
+        symbol_table.set_last_created_block(exitBlock);
 
-      symbol_table.exit_scope();
-
+        symbol_table.exit_scope();
+      }
     } else {
       printErrorMessage(
           "For loops must be of form 'for i in {SET}' or 'for i in [RANGE]'.");
