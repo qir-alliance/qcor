@@ -439,10 +439,16 @@ def main(argv=None):
         # Run preprocessor to handle any includes
         result = subprocess.check_output(
             [compiler, '-x', 'c++', '-E', '-P', filename]).decode('ascii')
+        
+        has_no_entry_point_pragma = False
+        if '#pragma' in result and 'no_entrypoint' in result:
+            sys.argv.append('-no-entrypoint')
+            has_no_entry_point_pragma = True
+
         # process to single file
         text = 'OPENQASM 3;\n' + \
             '\n'.join([line for line in result.split('\n')
-                       if 'OPENQASM' not in line and len(line) > 0])
+                       if 'OPENQASM' not in line and len(line) > 0 and ('#pragma' not in line and 'no-entrypoint' not in line)])
 
         base_name = os.path.splitext(filename)[0].split(os.path.sep)[-1]
 
@@ -512,7 +518,7 @@ def main(argv=None):
             print('[qcor-exec]: ', '{}'.format(' '.join([llvm_bin_path+'/llc', '-filetype=obj', bc_file_name ])) )
         result = subprocess.run([llvm_bin_path+'/llvm-as', ll_file_name, '-o', bc_file_name ], check=True)
         result = subprocess.run([llvm_bin_path+'/llc', '-filetype=obj', bc_file_name ], check=True)
-        if '-no-entrypoint' in extra_args:
+        if '-no-entrypoint' in extra_args and not has_no_entry_point_pragma:
             exit(0)
 
         sys.argv.remove(filename)
@@ -592,7 +598,7 @@ def main(argv=None):
                 os.remove(bson_file_name)
             except OSError:
                 pass
-    
+   
     for arg in sys.argv[1:]:
         if os.path.isfile(arg) and mimetypes.guess_type(arg)[0] is not None:
             filename = arg

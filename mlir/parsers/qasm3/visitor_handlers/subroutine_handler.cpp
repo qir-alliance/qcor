@@ -33,9 +33,13 @@ antlrcpp::Any qasm3_visitor::visitSubroutineDefinition(
       } else {
         argument_types.push_back(array_type);
         auto designator = quantum_arg->designator()->getText();
-        auto qreg_size =
-            symbol_table.evaluate_constant_integer_expression(designator);
-        arg_attributes.push_back({std::to_string(qreg_size)});
+        if (designator == "[DYNAMIC]") {
+          arg_attributes.push_back({""});
+        } else {
+          auto qreg_size =
+              symbol_table.evaluate_constant_integer_expression(designator);
+          arg_attributes.push_back({std::to_string(qreg_size)});
+        }
       }
 
       arg_names.push_back(quantum_arg->association()->Identifier()->getText());
@@ -106,7 +110,7 @@ antlrcpp::Any qasm3_visitor::visitSubroutineDefinition(
 
   auto main_block = builder.saveInsertionPoint();
 
-  mlir::FuncOp function;
+  mlir::FuncOp function, interop_function;
   if (has_return) {
     auto func_type = builder.getFunctionType(argument_types, return_type);
     auto proto = mlir::FuncOp::create(builder.getUnknownLoc(), subroutine_name,
@@ -161,6 +165,43 @@ antlrcpp::Any qasm3_visitor::visitSubroutineDefinition(
   subroutine_return_statment_added = false;
 
   symbol_table.set_last_created_block(nullptr);
+
+  // Add __interop__ function here so we can invoke from C++.
+  mlir::FunctionType interop_func_type;
+  // QASM3 subroutines have classical args followed by qubit args
+  // for qcor interop, we need qubit/qreg arg first.
+  // FIXME Only do this for subroutines with a single qubit[] array.
+  std::reverse(argument_types.begin(), argument_types.end());
+  if (has_return) {
+    interop_func_type = builder.getFunctionType(argument_types, return_type);
+  } else {
+    interop_func_type = builder.getFunctionType(argument_types, llvm::None);
+  }
+
+  auto interop =
+      mlir::FuncOp::create(builder.getUnknownLoc(),
+                           subroutine_name + "__interop__", interop_func_type);
+  auto& interop_entryBlock = *interop.addEntryBlock();
+  builder.setInsertionPointToStart(&interop_entryBlock);
+
+  std::vector<mlir::BlockArgument> vec_to_reverse;
+  for (int i = 0; i < arguments.size(); i++) {
+    vec_to_reverse.push_back(interop_entryBlock.getArgument(i));
+  }
+  std::reverse(vec_to_reverse.begin(), vec_to_reverse.end());
+
+  auto call_op_interop = builder.create<mlir::CallOp>(
+      builder.getUnknownLoc(), function, llvm::makeArrayRef(vec_to_reverse));
+  if (has_return) {
+    builder.create<mlir::ReturnOp>(builder.getUnknownLoc(),
+                                   call_op_interop.getResults());
+  } else {
+    builder.create<mlir::ReturnOp>(builder.getUnknownLoc());
+  }
+
+  builder.restoreInsertionPoint(main_block);
+
+  m_module.push_back(interop);
   return 0;
 }
 
