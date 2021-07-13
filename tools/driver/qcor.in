@@ -570,8 +570,12 @@ def main(argv=None):
             sys.argv.remove('-qs-runtime')
 
         # Execute qsc build command:
+        if verbose:
+            print('[qcor-exec]: ', build_cmd)
         os.system(build_cmd)
         llvm_bin_path = str(pathlib.Path(compiler).parent)
+        if verbose:
+            print('[qcor-exec]: ', '{}'.format(' '.join([llvm_bin_path+'/llc', '-filetype=obj', bc_file_name ])))
         result = subprocess.run([llvm_bin_path+'/llc', '-filetype=obj', bc_file_name ], check=True)
         sys.argv.remove(filename)
         fileType = None
