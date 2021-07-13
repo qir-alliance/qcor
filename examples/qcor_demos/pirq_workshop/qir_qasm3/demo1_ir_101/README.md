@@ -1,39 +1,34 @@
-# QASM3 MLIR and QIR Simple
+# MLIR+QIR as an IR for Quantum-Classical Computing
 Here we demonstrate the utility of the QIR and MLIR for enabling the development of compilers for available quantum languages. 
-We show simple GHZ and Bell circuits for NISQ and FTQC execution, respectively. 
+
+Our motivation with this demonstration is to show how MLIR+QIR enable the main feature of a robust IR: mapping multiple languages or programming approaches to multiple backends.
+
+Our examples will be simple GHZ and Bell circuits for NISQ and FTQC execution, respectively. 
 
 ## Goals
 
 - Demonstrate the utility of the MLIR and QIR for creating compilers and executable code for available quantum languages.
 
-- Demonstrate write-once, run-on-any available quantum backend. 
+- Demonstrate MLIR as language-level IR for quantum-classical computing (control flow from Standard/Affine, etc.).
+
+- Demonstrate write-once, run-on-any available quantum backend and multiple languages to multiple backends.
 
 - Demonstrate accessibility of MLIR and QIR for available Pythonic circuit construction frameworks. 
 
 ## Outline
 
-GHZ (nisq) and Bell (ftqc) QASM3 codes, compile and run on simulator, IBM, Rigetti (in JupyterLab), IonQ. Walk through generated MLIR and QIR.
-
-- Show pre-written GHZ and Bell QASM3 codes, note how GHZ is written for NISQ execution, while Bell is written for FTQC. 
-
-- Lower GHZ to MLIR, show off the result. Lower GHZ to QIR, show off the result. 
-
-- Lower Bell to MLIR, show off the result. Lower Bell to QIR, show off the result. 
-
-- Compile and run the Bell code on QPP, note qcor -verbose and show the commands being run
-
-- Compile the GHZ code for the IBM backend and execute. Note automated placement. 
-
-
+1. Show the GHZ QASM3 code. Note control flow, variable declarations, gate modifiers, etc.
+2. Compile it to `ghz.x`. 
+3. Immediately run it on perfect backend simulator.
+4. Note we could just as easily run on physical backends. Kick of runs on IBM, IonQ, and Rigetti, all in separate terminals (set name of vscode terminal with 3 split panes).
+5. While these are running, run on a separate new simulator (pick `aer`). Then run on noisy backend from `aer`. 
+6. Now show how all this worked: 
+    - compile the code again with `-v`, show the command line steps. 
+    - Show the progressive lowering. Emit the MLIR code, show it off, its quantum-classical
+    - Show the LLVM/QIR code. 
+7. Now switch to `bell.qasm` and show how using the same language and IR, we can also run in FTQC mode (multi-modal IR and execution model). 
+8. Switch to the Python script to show the audience how all the MLIR/QIR infrastructure just shown can also be generated from Python. Moreover, that Qiskit and Pyquil can also generate MLIR/QIR. Note how `qjit` is the QCOR quantum just-in-time compiler, produces executable functions that enable `mlir()` and `llvm()` methods. 
+9. At any point, go back and check on the physical backend executions. 
 
 ## Notes:
 
-Count how many qvs instructions in the MLIR text
-
-```bash 
-qcor --emit-mlir trotter_decompose.qasm &> out.log && cat out.log | grep 'qvs.' | tee out2.log | wc -l && rm -rf out*.log
-```
-and with optimizations
-```bash
-qcor --q-optimize --emit-mlir trotter_decompose.qasm &> out.log && cat out.log | grep 'qvs.' | tee out2.log | wc -l && rm -rf out*.log
-```

@@ -1,3 +1,5 @@
+// NISQ Mode Execution
+//
 // Compile and run with 
 // qcor ghz.qasm -o ghz.x
 // 

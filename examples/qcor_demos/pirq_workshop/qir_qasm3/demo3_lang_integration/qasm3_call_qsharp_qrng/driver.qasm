@@ -1,3 +1,5 @@
+// qcor -qdk-version 0.17.2106148041-alpha qrng.qs driver.qasm
+// for i in {1..10} ; do ./a.out ; done 
 OPENQASM 3;
 
 // Declare kernel:
@@ -10,4 +12,4 @@ int64_t max_bits = 4;
 int64_t n = QCOR__GenerateRandomInt__body(max_bits);
 
 // Print the random number
-print("[OpenQASM3]Random int: ", n);
+print("[ OpenQASM3 ] Random", max_bits, "bit int =     ", n);

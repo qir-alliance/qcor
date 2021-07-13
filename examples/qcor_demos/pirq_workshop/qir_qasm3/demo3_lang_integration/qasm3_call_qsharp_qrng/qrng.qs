@@ -15,7 +15,7 @@ operation GenerateRandomInt(maxBits: Int): Int {
       }
     }
   }
-  Message($"Random number = {rngNumber}");
+  Message($"Random number from Q# = {rngNumber}");
   return rngNumber;
 }
 }
