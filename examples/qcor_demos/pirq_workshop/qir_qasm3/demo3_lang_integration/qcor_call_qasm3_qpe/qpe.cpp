@@ -1,5 +1,3 @@
-#include <iostream> 
-#include <vector>
 #include "qir_nisq_kernel_utils.hpp"
 
 // Compile:
