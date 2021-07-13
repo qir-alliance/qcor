@@ -23,7 +23,7 @@ def generate_qsc_build_command(target_name, src_dir, input_files, qdk_ver, build
   # run this target:
   root.attrib['DefaultTargets'] = 'PrepareQSharpCompile'
   if qdk_ver is not None:
-    print('Set Microsoft Quantum SDK to version ', qdk_ver)
+    # print('Set Microsoft Quantum SDK to version ', qdk_ver)
     root.attrib['Sdk'] = 'Microsoft.Quantum.Sdk/' + qdk_ver
   propertyGroup = root.find('PropertyGroup')
   # enable QIR generation
@@ -531,6 +531,10 @@ def main(argv=None):
         base_name = os.path.splitext(filename)[0]
 
         qdk_version = None
+        # Check if there is an environment variable:
+        if 'QCOR_QDK_VERSION' in os.environ:
+            qdk_version = os.getenv('QCOR_QDK_VERSION')
+        # CLI switch to override if available:
         if '-qdk-version' in sys.argv[1:]:
             sidx = sys.argv.index('-qdk-version')
             qdk_version = sys.argv[sidx+1]
