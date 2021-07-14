@@ -57,18 +57,18 @@ LogicalResult TupleUnpackOpLowering::matchAndRewrite(
 
   mlir::SmallVector<mlir::Value> unpacked_vals;
   mlir::Value zero_cst = rewriter.create<LLVM::ConstantOp>(
-      location, IntegerType::get(rewriter.getContext(), 64),
+      location, IntegerType::get(rewriter.getContext(), 32),
       rewriter.getIntegerAttr(rewriter.getIndexType(), 0));
   for (size_t idx = 0; idx < tuple_struct_type_list.size(); ++idx) {
     mlir::Value idx_cst = rewriter.create<LLVM::ConstantOp>(
-        location, IntegerType::get(rewriter.getContext(), 64),
+        location, IntegerType::get(rewriter.getContext(), 32),
         rewriter.getIntegerAttr(rewriter.getIndexType(), idx));
     auto field_ptr =
         rewriter
             .create<LLVM::GEPOp>(
                 location,
                 LLVM::LLVMPointerType::get(tuple_struct_type_list[idx]),
-                structPtr, mlir::ArrayRef<mlir::Value>({zero_cst, idx_cst}))
+                structPtr, ArrayRef<Value>({zero_cst, idx_cst}))
             .res();
     auto load_op = rewriter.create<LLVM::LoadOp>(
         location, tuple_struct_type_list[idx], field_ptr);
