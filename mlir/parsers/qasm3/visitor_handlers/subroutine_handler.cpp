@@ -34,12 +34,22 @@ void add_body_wrapper(mlir::OpBuilder &builder, const std::string &func_name,
       builder.getUnknownLoc(), arg_types, arg_tuple);
   auto call_op = builder.create<mlir::CallOp>(builder.getUnknownLoc(),
                                               wrapped_func, unpackOp.result());
+  builder.create<mlir::ReturnOp>(builder.getUnknownLoc());
   moduleOp.push_back(function_op);
-  builder.setInsertionPointToStart(&moduleOp.getRegion().getBlocks().front());
-
+  
+  // Add a function to create the callable wrapper for this kernel
+  auto create_callable_func_type = builder.getFunctionType({}, callable_type);
+  const std::string create_callable_fn_name = func_name + "__callable";
+  auto create_callable_func_proto =
+      mlir::FuncOp::create(builder.getUnknownLoc(), create_callable_fn_name, create_callable_func_type);
+  mlir::FuncOp create_callable_function_op(create_callable_func_proto);
+  auto &create_callable_entryBlock = *create_callable_function_op.addEntryBlock();
+  builder.setInsertionPointToStart(&create_callable_entryBlock);
   auto callable_create_op = builder.create<mlir::quantum::CreateCallableOp>(
       builder.getUnknownLoc(), callable_type,
       builder.getSymbolRefAttr(function_op));
+  builder.create<mlir::ReturnOp>(builder.getUnknownLoc(), callable_create_op.callable());
+  moduleOp.push_back(create_callable_function_op);
   builder.restoreInsertionPoint(main_block);
 }
 }; // namespace

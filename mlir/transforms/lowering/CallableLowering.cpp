@@ -84,6 +84,77 @@ LogicalResult TupleUnpackOpLowering::matchAndRewrite(
 LogicalResult CreateCallableOpLowering::matchAndRewrite(
     Operation *op, ArrayRef<Value> operands,
     ConversionPatternRewriter &rewriter) const {
+  ModuleOp parentModule = op->getParentOfType<ModuleOp>();
+  auto location = parentModule->getLoc();
+  auto context = parentModule->getContext();
+  auto create_callable_op = cast<mlir::quantum::CreateCallableOp>(op);  
+  // Signature: void (%Tuple*, %Tuple*, %Tuple*)
+  auto tuple_type =
+      LLVM::LLVMPointerType::get(get_quantum_type("Tuple", context));
+  // typedef void (*CallableEntryType)(TuplePtr, TuplePtr, TuplePtr);
+  // typedef void (*CaptureCallbackType)(TuplePtr, int32_t);
+  auto callable_entry_ftype = LLVM::LLVMFunctionType::get(
+      LLVM::LLVMVoidType::get(context),
+      llvm::ArrayRef<Type>{tuple_type, tuple_type, tuple_type}, false);
+  auto capture_callback_ftype = LLVM::LLVMFunctionType::get(
+      LLVM::LLVMVoidType::get(context),
+      llvm::ArrayRef<Type>{tuple_type,
+                           IntegerType::get(rewriter.getContext(), 32)},
+      false);
+  FlatSymbolRefAttr symbol_ref =
+      SymbolRefAttr::get(create_callable_op.functors(), context);
+  // mlir::Value func_ptr = rewriter.create<LLVM::AddressOfOp>(
+  //     location, LLVM::LLVMPointerType::get(callable_entry_ftype), symbol_ref)
+  auto callable_entry_fn_array_type = LLVM::LLVMArrayType::get(
+      LLVM::LLVMPointerType::get(callable_entry_ftype), 4);
+  auto callback_fn_array_type = LLVM::LLVMArrayType::get(
+      LLVM::LLVMPointerType::get(capture_callback_ftype), 2);
+  auto save_pt = rewriter.saveInsertionPoint();
+  rewriter.setInsertionPointToStart(&parentModule.getRegion().getBlocks().front());
+  const std::string functor_array_name =
+      create_callable_op.functors().str() + "__Qops";
+  auto fPtr_array = ArrayAttr::get({symbol_ref, symbol_ref, symbol_ref, symbol_ref} , context);
+  auto fPtr_array_const_global = rewriter.create<LLVM::GlobalOp>(
+      location, callable_entry_fn_array_type, /*isConstant=*/true, LLVM::Linkage::Internal,
+      functor_array_name.c_str(), fPtr_array);
+  rewriter.restoreInsertionPoint(save_pt);
+  
+  auto callable_return_type =
+      LLVM::LLVMPointerType::get(get_quantum_type("Callable", context));
+  FlatSymbolRefAttr qir_symbol_ref;
+  if (parentModule.lookupSymbol<LLVM::LLVMFuncOp>(qir_create_callable)) {
+    qir_symbol_ref = SymbolRefAttr::get(qir_create_callable, context);
+  } else {
+    // Callable *
+    // __quantum__rt__callable_create(Callable::CallableEntryType *ft,
+    //                           Callable::CaptureCallbackType *callbacks,
+    //                           TuplePtr capture)
+    auto create_callable_ftype = LLVM::LLVMFunctionType::get(
+        callable_return_type,
+        llvm::ArrayRef<Type>{LLVM::LLVMPointerType::get(callable_entry_fn_array_type),
+                             LLVM::LLVMPointerType::get(callback_fn_array_type),
+                             tuple_type},
+        false);
+
+    // Insert the function declaration
+    PatternRewriter::InsertionGuard insertGuard(rewriter);
+    rewriter.setInsertionPointToStart(parentModule.getBody());
+    rewriter.create<LLVM::LLVMFuncOp>(
+        parentModule->getLoc(), qir_create_callable, create_callable_ftype);
+    qir_symbol_ref = mlir::SymbolRefAttr::get(qir_create_callable, context);
+  }
+  
+  mlir::Value callable_entry_nullPtr = rewriter.create<LLVM::NullOp>(
+      location, LLVM::LLVMPointerType::get(callable_entry_fn_array_type));
+  mlir::Value callbacks_nullPtr = rewriter.create<LLVM::NullOp>(
+      location, LLVM::LLVMPointerType::get(callback_fn_array_type));
+  mlir::Value tuple_nullPtr =
+      rewriter.create<LLVM::NullOp>(location, tuple_type);
+  auto createCallableCallOp = rewriter.create<mlir::CallOp>(
+      location, qir_symbol_ref, callable_return_type,
+      ArrayRef<Value>(
+          {callable_entry_nullPtr, callbacks_nullPtr, tuple_nullPtr}));
+  rewriter.replaceOp(op, createCallableCallOp.getResult(0));
   return success();
 }
 } // namespace qcor

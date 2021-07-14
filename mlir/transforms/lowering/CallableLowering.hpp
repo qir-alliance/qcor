@@ -17,6 +17,8 @@ public:
 class CreateCallableOpLowering : public ConversionPattern {
 protected:
 public:
+  inline static const std::string qir_create_callable =
+      "__quantum__rt__callable_create";
   explicit CreateCallableOpLowering(MLIRContext *context)
       : ConversionPattern(mlir::quantum::CreateCallableOp::getOperationName(),
                           1, context) {}
