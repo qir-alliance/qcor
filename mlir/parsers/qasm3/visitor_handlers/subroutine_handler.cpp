@@ -85,35 +85,66 @@ void add_callable_gen(mlir::OpBuilder &builder, const std::string &func_name,
     assert(arguments.size() == 3);
     mlir::Value arg_tuple = arguments[1];
     auto fn_type = wrapped_func.getType().cast<mlir::FunctionType>();
-    // Unpack to Array + Tuple (Array = controlled bits)
-    // { Array + { Body Tuple } }
-    // FIXME: currently, we can only handle single-qubit control
-    // TODO: update EndCtrlURegion to take an array of qubits.
-    mlir::TypeRange arg_types({array_type, tuple_type});
-    auto unpackOp = builder.create<mlir::quantum::TupleUnpackOp>(
-        builder.getUnknownLoc(), arg_types, arg_tuple);
-    mlir::FuncOp body_wrapper = all_wrapper_funcs[0];
-    mlir::Value control_array = unpackOp.result()[0];
-    mlir::Value body_arg_tuple = unpackOp.result()[1];
+    // !IMPORTANT! The argument tuple will be flattened *iff* 
+    // there is only one argument.
+    // i.e. { Array, SingleArg}
+    if (wrapped_func.getType().cast<mlir::FunctionType>().getInputs().size() ==
+        1) {
+      mlir::TypeRange arg_types(
+          {array_type,
+           wrapped_func.getType().cast<mlir::FunctionType>().getInputs()[0]});
+      auto unpackOp = builder.create<mlir::quantum::TupleUnpackOp>(
+          builder.getUnknownLoc(), arg_types, arg_tuple);
+      mlir::Value control_array = unpackOp.result()[0];
+      mlir::Value single_func_arg = unpackOp.result()[1];
+      mlir::Value qubit_idx = builder.create<mlir::ConstantOp>(
+          builder.getUnknownLoc(),
+          mlir::IntegerAttr::get(builder.getI64Type(), 0));
+      mlir::Value ctrl_qubit = builder.create<mlir::quantum::ExtractQubitOp>(
+          builder.getUnknownLoc(), qubit_type, control_array, qubit_idx);
 
-    // Extract the control qubit:
-    mlir::Value qubit_idx = builder.create<mlir::ConstantOp>(
-        builder.getUnknownLoc(),
-        mlir::IntegerAttr::get(builder.getI64Type(), 0));
-    mlir::Value ctrl_qubit = builder.create<mlir::quantum::ExtractQubitOp>(
-        builder.getUnknownLoc(), qubit_type, control_array, qubit_idx);
+      // Call the function wrapped in StartCtrlURegion/EndCtrlURegion
+      builder.create<mlir::quantum::StartCtrlURegion>(builder.getUnknownLoc());
 
-    // Call the body wrapped in StartCtrlURegion/EndCtrlURegion
-    builder.create<mlir::quantum::StartCtrlURegion>(builder.getUnknownLoc());
-    auto call_op = builder.create<mlir::CallOp>(
-        builder.getUnknownLoc(), body_wrapper,
-        llvm::ArrayRef<mlir::Value>(
-            {arguments[0], body_arg_tuple, arguments[2]}));
-    builder.create<mlir::quantum::EndCtrlURegion>(builder.getUnknownLoc(),
-                                                  ctrl_qubit);
-    builder.create<mlir::ReturnOp>(builder.getUnknownLoc());
-    moduleOp.push_back(function_op);
-    all_wrapper_funcs.emplace_back(function_op);
+      builder.create<mlir::CallOp>(builder.getUnknownLoc(), wrapped_func,
+                                   single_func_arg);
+
+      builder.create<mlir::quantum::EndCtrlURegion>(builder.getUnknownLoc(),
+                                                    ctrl_qubit);
+      builder.create<mlir::ReturnOp>(builder.getUnknownLoc());
+      moduleOp.push_back(function_op);
+      all_wrapper_funcs.emplace_back(function_op);
+    } else {
+      // Unpack to Array + Tuple (Array = controlled bits)
+      // { Array + { Body Tuple } }
+      // FIXME: currently, we can only handle single-qubit control
+      // TODO: update EndCtrlURegion to take an array of qubits.
+      mlir::TypeRange arg_types({array_type, tuple_type});
+      auto unpackOp = builder.create<mlir::quantum::TupleUnpackOp>(
+          builder.getUnknownLoc(), arg_types, arg_tuple);
+      mlir::FuncOp body_wrapper = all_wrapper_funcs[0];
+      mlir::Value control_array = unpackOp.result()[0];
+      mlir::Value body_arg_tuple = unpackOp.result()[1];
+
+      // Extract the control qubit:
+      mlir::Value qubit_idx = builder.create<mlir::ConstantOp>(
+          builder.getUnknownLoc(),
+          mlir::IntegerAttr::get(builder.getI64Type(), 0));
+      mlir::Value ctrl_qubit = builder.create<mlir::quantum::ExtractQubitOp>(
+          builder.getUnknownLoc(), qubit_type, control_array, qubit_idx);
+
+      // Call the body wrapped in StartCtrlURegion/EndCtrlURegion
+      builder.create<mlir::quantum::StartCtrlURegion>(builder.getUnknownLoc());
+      auto call_op = builder.create<mlir::CallOp>(
+          builder.getUnknownLoc(), body_wrapper,
+          llvm::ArrayRef<mlir::Value>(
+              {arguments[0], body_arg_tuple, arguments[2]}));
+      builder.create<mlir::quantum::EndCtrlURegion>(builder.getUnknownLoc(),
+                                                    ctrl_qubit);
+      builder.create<mlir::ReturnOp>(builder.getUnknownLoc());
+      moduleOp.push_back(function_op);
+      all_wrapper_funcs.emplace_back(function_op);
+    }
   }
   {
     // Controlled Adjoint wrapper:
