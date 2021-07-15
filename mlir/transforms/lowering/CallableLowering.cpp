@@ -43,6 +43,11 @@ LogicalResult TupleUnpackOpLowering::matchAndRewrite(
                    "Qubit") {
       tuple_struct_type_list.push_back(
           LLVM::LLVMPointerType::get(get_quantum_type("Qubit", context)));
+    } else if (result.getType().isa<mlir::OpaqueType>() &&
+               result.getType().cast<mlir::OpaqueType>().getTypeData() ==
+                   "Tuple") {
+      tuple_struct_type_list.push_back(
+          LLVM::LLVMPointerType::get(get_quantum_type("Tuple", context)));
     } else if (result.getType().isa<mlir::FloatType>()) {
       tuple_struct_type_list.push_back(mlir::FloatType::getF64(context));
     } else if (result.getType().isa<mlir::IntegerType>()) {
@@ -106,8 +111,7 @@ LogicalResult CreateCallableOpLowering::matchAndRewrite(
       llvm::ArrayRef<Type>{tuple_type,
                            IntegerType::get(rewriter.getContext(), 32)},
       false);
-  FlatSymbolRefAttr symbol_ref =
-      SymbolRefAttr::get(create_callable_op.functors(), context);
+  
   auto callable_entry_fn_array_type = LLVM::LLVMArrayType::get(
       LLVM::LLVMPointerType::get(callable_entry_ftype), 4);
   auto callback_fn_array_type = LLVM::LLVMArrayType::get(
@@ -122,20 +126,30 @@ LogicalResult CreateCallableOpLowering::matchAndRewrite(
       value_1_const,
       /*alignment=*/0);
 
+   
+  const std::string kernel_name = create_callable_op.functors().str();
+  const std::string BODY_WRAPPER_NAME = kernel_name + "__body__wrapper";
+  const std::string ADJOINT_WRAPPER_NAME = kernel_name + "__adj__wrapper";
+  const std::string CTRL_WRAPPER_NAME = kernel_name + "__ctl__wrapper";
+  const std::string CTRL_ADJOINT_WRAPPER_NAME = kernel_name + "__ctladj__wrapper";
+
   const std::vector<mlir::Value> functor_ptr_values{
       // Base
       rewriter.create<LLVM::AddressOfOp>(
           location, LLVM::LLVMPointerType::get(callable_entry_ftype),
-          symbol_ref),
+          SymbolRefAttr::get(BODY_WRAPPER_NAME.c_str(), context)),
       // Adjoint
-      rewriter.create<LLVM::NullOp>(
-          location, LLVM::LLVMPointerType::get(callable_entry_ftype)),
+      rewriter.create<LLVM::AddressOfOp>(
+          location, LLVM::LLVMPointerType::get(callable_entry_ftype),
+          SymbolRefAttr::get(ADJOINT_WRAPPER_NAME.c_str(), context)),
       // Controlled
-      rewriter.create<LLVM::NullOp>(
-          location, LLVM::LLVMPointerType::get(callable_entry_ftype)),
+      rewriter.create<LLVM::AddressOfOp>(
+          location, LLVM::LLVMPointerType::get(callable_entry_ftype),
+          SymbolRefAttr::get(CTRL_WRAPPER_NAME.c_str(), context)),
       // Controlled Adjoint
-      rewriter.create<LLVM::NullOp>(
-          location, LLVM::LLVMPointerType::get(callable_entry_ftype)),
+      rewriter.create<LLVM::AddressOfOp>(
+          location, LLVM::LLVMPointerType::get(callable_entry_ftype),
+          SymbolRefAttr::get(CTRL_ADJOINT_WRAPPER_NAME.c_str(), context)),
   };
 
   mlir::Value zero_index = rewriter.create<LLVM::ConstantOp>(
