@@ -456,10 +456,19 @@ def main(argv=None):
         bc_file_name = base_name + '.bc'
         object_file_name = base_name+'.o'
         extra_args = ['-internal-func-name', base_name]
+        has_cpp_driver = False
         if '-no-entrypoint' in sys.argv[1:]:
             sys.argv.remove('-no-entrypoint')
             extra_args.append('-no-entrypoint')
-        
+        else:
+            # Check if there is a accompanying .cpp file in the list of files:
+            # Assume no entry point in this case as well
+            for arg in sys.argv[1:]:
+                if os.path.isfile(arg) and os.path.splitext(arg)[1] == '.cpp':
+                    extra_args.append('-no-entrypoint')
+                    has_cpp_driver = True
+                    break
+
         # FIXME: define pass-mamanegement CLI options for qcor
         if '--q-optimize' in sys.argv[1:]:
             sys.argv.remove('--q-optimize')
@@ -512,7 +521,7 @@ def main(argv=None):
             print('[qcor-exec]: ', '{}'.format(' '.join([llvm_bin_path+'/llc', '-filetype=obj', bc_file_name ])) )
         result = subprocess.run([llvm_bin_path+'/llvm-as', ll_file_name, '-o', bc_file_name ], check=True)
         result = subprocess.run([llvm_bin_path+'/llc', '-filetype=obj', bc_file_name ], check=True)
-        if '-no-entrypoint' in extra_args:
+        if ('-no-entrypoint' in extra_args) and (not has_cpp_driver):
             exit(0)
 
         sys.argv.remove(filename)

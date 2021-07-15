@@ -36,12 +36,17 @@ LogicalResult TupleUnpackOpLowering::matchAndRewrite(
   for (const auto &result : tuple_unpack_op.result()) {
     if (result.getType().isa<mlir::OpaqueType>() &&
         result.getType().cast<mlir::OpaqueType>().getTypeData() == "Array") {
-      auto array_type =
-          LLVM::LLVMPointerType::get(get_quantum_type("Array", context));
-      tuple_struct_type_list.push_back(array_type);
+      tuple_struct_type_list.push_back(
+          LLVM::LLVMPointerType::get(get_quantum_type("Array", context)));
+    } else if (result.getType().isa<mlir::OpaqueType>() &&
+               result.getType().cast<mlir::OpaqueType>().getTypeData() ==
+                   "Qubit") {
+      tuple_struct_type_list.push_back(
+          LLVM::LLVMPointerType::get(get_quantum_type("Qubit", context)));
     } else if (result.getType().isa<mlir::FloatType>()) {
-      auto float_type = mlir::FloatType::getF64(context);
-      tuple_struct_type_list.push_back(float_type);
+      tuple_struct_type_list.push_back(mlir::FloatType::getF64(context));
+    } else if (result.getType().isa<mlir::IntegerType>()) {
+      tuple_struct_type_list.push_back(mlir::IntegerType::get(context, 64));
     }
   }
 
