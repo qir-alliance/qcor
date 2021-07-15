@@ -37,8 +37,9 @@ class OpenQasmV3MLIRGenerator : public qcor::QuantumMLIRGenerator {
                           std::vector<std::string> arg_var_names,
                           std::vector<std::string> var_attributes,
                           mlir::Type return_type);
-  void initialize_mlirgen(bool add_entry_point = true,
-                          const std::string file_name = "") override;
+  void initialize_mlirgen(
+      bool add_entry_point = true, const std::string file_name = "",
+      std::map<std::string, std::string> extra_quantum_args = {}) override;
   void mlirgen(const std::string &src) override;
   void finalize_mlirgen() override;
 };

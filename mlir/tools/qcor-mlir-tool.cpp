@@ -29,6 +29,11 @@ static cl::opt<std::string> inputFilename(cl::Positional,
                                           cl::desc("<input openqasm file>"),
                                           cl::init("-"),
                                           cl::value_desc("filename"));
+
+static cl::opt<std::string> qpu("qpu", cl::desc("The quantum coprocessor to compile to."));
+static cl::opt<std::string> qrt("qrt", cl::desc("The quantum execution mode: ftqc or nisq."));
+static cl::opt<std::string> shots("shots", cl::desc("The number of shots for nisq mode execution."));
+
 cl::opt<bool> noEntryPoint("no-entrypoint",
                            cl::desc("Do not add main() to compiled output."));
 
@@ -83,8 +88,21 @@ int main(int argc, char **argv) {
   if (!mlir_specified_func_name.empty()) {
     input_func_name = mlir_specified_func_name;
   }
+
+  // Check for extra quantum compiler flags. 
+  std::map<std::string,std::string> extra_args;
+  if (!qpu.empty()) {
+    extra_args.insert({"qpu", qpu});
+  }
+  if (!qrt.empty()) {
+    extra_args.insert({"qrt", qrt});
+  }
+  if (!shots.empty()) {
+    extra_args.insert({"shots", shots});
+  }
+  
   auto mlir_gen_result =
-      qcor::util::mlir_gen(inputFilename, !noEntryPoint, input_func_name);
+      qcor::util::mlir_gen(inputFilename, !noEntryPoint, input_func_name, extra_args);
   mlir::OwningModuleRef &module = *(mlir_gen_result.module_ref);
   mlir::MLIRContext &context = *(mlir_gen_result.mlir_context);
   std::vector<std::string> &unique_function_names =

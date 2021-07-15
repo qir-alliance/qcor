@@ -311,6 +311,7 @@ def main(argv=None):
     sHandlerArgs = []
     # Get the QPU Backend
     accName = ''
+    qrtName = ''
     if '-qpu' in sys.argv[1:]:
         config_file = ''
         if '-qpu-config' in sys.argv[1:]:
@@ -477,6 +478,18 @@ def main(argv=None):
                 # Forward to mlir tool
                 extra_args.append(opt_level_option)
 
+        if len(accName):
+            extra_args.append('-qpu')
+            extra_args.append(accName)
+
+        if len(qrtName):
+            extra_args.append('-qrt')
+            extra_args.append(qrtName)
+
+        if shots:
+            extra_args.append('-shots')
+            extra_args.append(shots)
+            
         # Some options that we want to pass on to mlir tool
         # (a subset of --help that we think is useful)
         mlir_forward_options = ['--pass-timing', '--print-ir-after-all', '--print-ir-after-change', '--print-ir-before-all']
@@ -488,6 +501,10 @@ def main(argv=None):
                 sys.argv.remove(mlir_forward_option)
 
         if '--emit-mlir' in sys.argv[1:]:
+            if verbose:
+                print('[qcor-exec]: {}'.format(' '.join(['@CMAKE_INSTALL_PREFIX@/bin/qcor-mlir-tool',
+                                     '-emit=mlir', temp_file_name] + extra_args)))
+
             result = subprocess.run(['@CMAKE_INSTALL_PREFIX@/bin/qcor-mlir-tool',
                                      '-emit=mlir', temp_file_name] + extra_args, check=True)
             os.remove(temp_file_name)

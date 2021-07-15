@@ -262,8 +262,10 @@ void OpenQasmMLIRGenerator::visit(Program &prog) {
       builder.setInsertionPointToStart(&entryBlock);
 
       auto main_args = main_entry_block->getArguments();
-      builder.create<mlir::quantum::QRTInitOp>(builder.getUnknownLoc(),
-                                               main_args[0], main_args[1]);
+      llvm::ArrayRef<mlir::Attribute> tmp{};
+      builder.create<mlir::quantum::QRTInitOp>(
+          builder.getUnknownLoc(), main_args[0], main_args[1],
+          mlir::ArrayAttr::get(tmp, builder.getContext()));
 
       // call the function from main, run finalize, and return 0
       builder.create<mlir::CallOp>(builder.getUnknownLoc(), function2);
@@ -306,8 +308,9 @@ void OpenQasmMLIRGenerator::visit(Program &prog) {
   prog.foreach_stmt([this](auto &stmt) { stmt.accept(*this); });
 }
 
-void OpenQasmMLIRGenerator::initialize_mlirgen(bool _add_entry_point,
-                                               const std::string function) {
+void OpenQasmMLIRGenerator::initialize_mlirgen(
+    bool _add_entry_point, const std::string function,
+    std::map<std::string, std::string> extra_quantum_args) {
   file_name = function;
   add_entry_point = _add_entry_point;
 }

@@ -45,8 +45,9 @@ void OpenQasmV3MLIRGenerator::initialize_mlirgen(
   return;
 }
 
-void OpenQasmV3MLIRGenerator::initialize_mlirgen(bool _add_entry_point,
-                                                 const std::string function) {
+void OpenQasmV3MLIRGenerator::initialize_mlirgen(
+    bool _add_entry_point, const std::string function,
+    std::map<std::string, std::string> extra_quantum_args) {
   file_name = function;
   add_entry_point = _add_entry_point;
 
@@ -76,6 +77,16 @@ void OpenQasmV3MLIRGenerator::initialize_mlirgen(bool _add_entry_point,
       std::vector<mlir::Type> arg_types_vec{int_type, argv_type};
       auto func_type =
           builder.getFunctionType(llvm::makeArrayRef(arg_types_vec), int_type);
+
+      std::vector<mlir::Attribute> main_attrs;
+      for (auto &[k, v] : extra_quantum_args) {
+        main_attrs.push_back(mlir::StringAttr::get(k, builder.getContext()));
+        main_attrs.push_back(mlir::StringAttr::get(v, builder.getContext()));
+      }
+
+      mlir::ArrayRef<mlir::Attribute> extra_args_attr =
+          llvm::makeArrayRef(main_attrs);
+
       auto proto =
           mlir::FuncOp::create(builder.getUnknownLoc(), "main", func_type);
       mlir::FuncOp function(proto);
@@ -84,17 +95,15 @@ void OpenQasmV3MLIRGenerator::initialize_mlirgen(bool _add_entry_point,
       builder.setInsertionPointToStart(&entryBlock);
 
       auto main_args = main_entry_block->getArguments();
-      builder.create<mlir::quantum::QRTInitOp>(builder.getUnknownLoc(),
-                                               main_args[0], main_args[1]);
+      builder.create<mlir::quantum::QRTInitOp>(
+          builder.getUnknownLoc(), main_args[0], main_args[1],
+          mlir::ArrayAttr::get(extra_args_attr, builder.getContext()));
 
       // call the function from main, run finalize, and return 0
       auto call_internal =
           builder.create<mlir::CallOp>(builder.getUnknownLoc(), function2);
       builder.create<mlir::quantum::QRTFinalizeOp>(builder.getUnknownLoc());
 
-      // auto integer_attr = mlir::IntegerAttr::get(builder.getI32Type(), 0);
-      // mlir::Value ret_zero = builder.create<mlir::ConstantOp>(
-      //     builder.getUnknownLoc(), integer_attr);
       builder.create<mlir::ReturnOp>(builder.getUnknownLoc(),
                                      call_internal.getResult(0));
       m_module.push_back(function);

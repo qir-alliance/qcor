@@ -119,10 +119,10 @@ def DeallocOp : QuantumOp<"dealloc", []> {
 }
 
 def QRTInitOp : QuantumOp<"init", []> {
-    let arguments = (ins AnyI32:$argc, ArgvType:$argv);
+    let arguments = (ins AnyI32:$argc, ArgvType:$argv, OptionalAttr<StrArrayAttr>:$extra_args);
     let results = (outs);
     let printer = [{  auto op = *this;
-  p << "q.init(" << op.getOperands() << ")"; }];
+  p << "q.init(" << op.getOperands() << ") " << op.extra_argsAttr(); }];
 }
 
 def QRTFinalizeOp : QuantumOp<"finalize", []> {

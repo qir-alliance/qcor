@@ -33,7 +33,10 @@ antlrcpp::Any qasm3_visitor::visitSubroutineDefinition(
       } else {
         argument_types.push_back(array_type);
         auto designator = quantum_arg->designator()->getText();
-        if (designator == "[DYNAMIC]") {
+        auto stripped = designator.substr(1, designator.length() - 2);
+        if (std::find(arg_names.begin(), arg_names.end(), stripped) !=
+                arg_names.end() ||
+            stripped == "DYNAMIC") {
           arg_attributes.push_back({""});
         } else {
           auto qreg_size =

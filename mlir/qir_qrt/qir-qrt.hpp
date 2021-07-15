@@ -30,6 +30,7 @@ void initialize();
 
 // Initialize/Finalize/Config API
 // __attribute__((constructor)) void __init_qir_qrt(int argc, char** argv);
+void __quantum__rt__set_config_parameter(int8_t* key, int8_t* value);
 void __quantum__rt__initialize(int argc, int8_t **argv);
 void __quantum__rt__finalize();
 void __quantum__rt__set_external_qreg(qreg *q);

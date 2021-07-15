@@ -7,7 +7,7 @@ OPENQASM 3;
 #pragma no_entrypoint;
 
 // Inverse QFT subroutine on n_counting qubits
-def inverse_qft(int[64]:nc) qubit[DYNAMIC]:qq {
+def inverse_qft(int[64]:nc) qubit[nc]:qq {
     for i in [0:nc/2] {
         swap qq[i], qq[nc-i-1];
     }
