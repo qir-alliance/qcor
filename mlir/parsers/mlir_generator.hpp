@@ -7,6 +7,7 @@
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/Verifier.h"
+#include <map>
 
 namespace qcor {
 class QuantumMLIRGenerator {
@@ -28,7 +29,7 @@ class QuantumMLIRGenerator {
   // introducing any initialization operations before
   // generation of the rest of the mlir code.
   virtual void initialize_mlirgen(bool add_entry_point = true,
-                                  const std::string file_name = "") = 0;
+                                  const std::string file_name = "", std::map<std::string, std::string> extra_quantum_args = {}) = 0;
 
   // This method can be implemented by subclasses to map a
   // quantum code in a subclass-specific source language to

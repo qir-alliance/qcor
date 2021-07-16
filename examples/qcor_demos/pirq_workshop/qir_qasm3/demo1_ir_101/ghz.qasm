@@ -31,9 +31,10 @@
 // qcor --emit-mlir ghz.qasm
 // qcor --emit-llvm ghz.qasm
 
+
 OPENQASM 3;
 
-const n_qubits = 8;
+const n_qubits = 3;
 
 qubit q[n_qubits];
 

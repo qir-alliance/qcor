@@ -1,6 +1,7 @@
 #include "qir-qrt.hpp"
 
 #include <alloca.h>
+#include <regex>
 
 #include "config_file_parser.hpp"
 #include "qcor_config.hpp"
@@ -71,11 +72,26 @@ qcor::qreg qalloc(const uint64_t size) {
   return qcor::qreg(size);
 }
 }  // namespace qcor
+std::vector<std::string> config_tracker;
+
+void __quantum__rt__set_config_parameter(int8_t *key, int8_t *value) {
+  std::string casted_key (reinterpret_cast<char *>(key));
+  std::string casted_value (reinterpret_cast<char *>(value));
+
+  if (casted_key == "qpu") {
+    qpu_name = casted_value;
+  } else if (casted_key == "qrt") {
+    mode = casted_value == "nisq" ? QRT_MODE::NISQ : QRT_MODE::FTQC;
+  } else if (casted_key == "shots") {
+    shots = std::stoi(casted_value);
+  }
+
+}
 
 void __quantum__rt__initialize(int argc, int8_t **argv) {
   char **casted = reinterpret_cast<char **>(argv);
   std::vector<std::string> args(casted, casted + argc);
-  mode = QRT_MODE::FTQC;
+  // mode = QRT_MODE::FTQC;
   for (size_t i = 0; i < args.size(); i++) {
     auto arg = args[i];
     if (arg == "-qpu") {

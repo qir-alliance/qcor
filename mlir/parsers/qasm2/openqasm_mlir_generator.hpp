@@ -14,6 +14,7 @@
 #include "Quantum/QuantumOps.h"
 #include "transformations/desugar.hpp"
 #include "transformations/inline.hpp"
+#include <map>
 
 using namespace staq::ast;
 
@@ -38,8 +39,9 @@ class OpenQasmMLIRGenerator : public qcor::QuantumMLIRGenerator,
  public:
   OpenQasmMLIRGenerator(mlir::MLIRContext &context)
       : QuantumMLIRGenerator(context) {}
-  void initialize_mlirgen(bool add_entry_point = true,
-                          const std::string file_name = "") override;
+  void initialize_mlirgen(
+      bool add_entry_point = true, const std::string file_name = "",
+      std::map<std::string, std::string> extra_quantum_args = {}) override;
   void mlirgen(const std::string &src) override;
   void finalize_mlirgen() override;
 
