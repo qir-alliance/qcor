@@ -449,7 +449,7 @@ def main(argv=None):
         # process to single file
         text = 'OPENQASM 3;\n' + \
             '\n'.join([line for line in result.split('\n')
-                       if 'OPENQASM' not in line and len(line) > 0 and ('#pragma' not in line and 'no-entrypoint' not in line)])
+                       if 'OPENQASM' not in line and len(line) > 0 and (not ('#pragma' in line and 'no_entrypoint' in line))])
 
         base_name = os.path.splitext(filename)[0].split(os.path.sep)[-1]
 

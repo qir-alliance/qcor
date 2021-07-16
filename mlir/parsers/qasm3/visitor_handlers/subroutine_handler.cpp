@@ -168,6 +168,8 @@ void add_callable_gen(mlir::OpBuilder &builder, const std::string &func_name,
   }
 
   // Add a function to create the callable wrapper for this kernel
+  // Naming convention: <Kernel Name>__callable()
+  // Returns a Callable* wrapping the underlying kernel (via the above 4 functors) 
   auto create_callable_func_type = builder.getFunctionType({}, callable_type);
   const std::string create_callable_fn_name = func_name + "__callable";
   auto create_callable_func_proto =
@@ -392,8 +394,12 @@ antlrcpp::Any qasm3_visitor::visitSubroutineDefinition(
 
   m_module.push_back(interop);
 
-  // TODO: add a compile switch to enable/disable this export:
-  add_callable_gen(builder, subroutine_name, m_module, function);
+  // There is a #pragma {export;} directive above this kernel
+  // generate the export function.
+  if (export_subroutine_as_callable) {
+    add_callable_gen(builder, subroutine_name, m_module, function);
+    export_subroutine_as_callable = false;
+  }
   return 0;
 }
 
