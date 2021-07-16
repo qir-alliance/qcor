@@ -147,7 +147,10 @@ int main(int argc, char **argv) {
   // Now lower MLIR to LLVM IR
   llvm::LLVMContext llvmContext;
   auto llvmModule = mlir::translateModuleToLLVMIR(*module, llvmContext);
-
+  if (!llvmModule) {
+    llvm::errs() << "Failed to emit LLVM IR\n";
+    return -1;
+  }
   // Optimize the LLVM IR
   llvm::InitializeNativeTarget();
   llvm::InitializeNativeTargetAsmPrinter();

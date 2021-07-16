@@ -1,8 +1,196 @@
 #include "qasm3_visitor.hpp"
 
+namespace {
+// Helper to generate a QIR callable wrapper for a QASM3 subroutine:
+// A Callable is constructed from a functor table (array of size 4)
+// for body (base), adjoint, controlled, and controlled adjoint functors
+// that all have signature of void(Tuple, Tuple, Tuple).
+// This method generates those 4 wrappers as well as the function to construct
+// the Callable.
+void add_callable_gen(mlir::OpBuilder &builder, const std::string &func_name,
+                      mlir::ModuleOp &moduleOp, mlir::FuncOp &wrapped_func) {
+  auto context = builder.getContext();
+  auto main_block = builder.saveInsertionPoint();
+  mlir::Identifier dialect = mlir::Identifier::get("quantum", context);
+  llvm::StringRef tuple_type_name("Tuple");
+  auto tuple_type = mlir::OpaqueType::get(context, dialect, tuple_type_name);
+  llvm::StringRef array_type_name("Array");
+  auto array_type = mlir::OpaqueType::get(context, dialect, array_type_name);
+  llvm::StringRef callable_type_name("Callable");
+  auto callable_type =
+      mlir::OpaqueType::get(context, dialect, callable_type_name);
+  llvm::StringRef qubit_type_name("Qubit");
+  auto qubit_type = mlir::OpaqueType::get(context, dialect, qubit_type_name);
+
+  const std::vector<mlir::Type> argument_types{tuple_type, tuple_type,
+                                               tuple_type};
+  auto func_type = builder.getFunctionType(argument_types, llvm::None);
+  const std::string BODY_WRAPPER_SUFFIX = "__body__wrapper";
+  const std::string ADJOINT_WRAPPER_SUFFIX = "__adj__wrapper";
+  const std::string CTRL_WRAPPER_SUFFIX = "__ctl__wrapper";
+  const std::string CTRL_ADJOINT_WRAPPER_SUFFIX = "__ctladj__wrapper";
+
+  std::vector<mlir::FuncOp> all_wrapper_funcs;
+  {
+    // Body wrapper:
+    const std::string wrapper_fn_name = func_name + BODY_WRAPPER_SUFFIX;
+    mlir::FuncOp function_op(mlir::FuncOp::create(builder.getUnknownLoc(),
+                                                  wrapper_fn_name, func_type));
+    function_op.setVisibility(mlir::SymbolTable::Visibility::Private);
+    auto &entryBlock = *function_op.addEntryBlock();
+    builder.setInsertionPointToStart(&entryBlock);
+    auto arguments = entryBlock.getArguments();
+    assert(arguments.size() == 3);
+    mlir::Value arg_tuple = arguments[1];
+    auto fn_type = wrapped_func.getType().cast<mlir::FunctionType>();
+    mlir::TypeRange arg_types(fn_type.getInputs());
+    auto unpackOp = builder.create<mlir::quantum::TupleUnpackOp>(
+        builder.getUnknownLoc(), arg_types, arg_tuple);
+    auto call_op = builder.create<mlir::CallOp>(
+        builder.getUnknownLoc(), wrapped_func, unpackOp.result());
+    builder.create<mlir::ReturnOp>(builder.getUnknownLoc());
+    moduleOp.push_back(function_op);
+    all_wrapper_funcs.emplace_back(function_op);
+  }
+
+  {
+    // Adjoint wrapper:
+    const std::string wrapper_fn_name = func_name + ADJOINT_WRAPPER_SUFFIX;
+    mlir::FuncOp function_op(mlir::FuncOp::create(builder.getUnknownLoc(),
+                                                  wrapper_fn_name, func_type));
+    function_op.setVisibility(mlir::SymbolTable::Visibility::Private);
+    auto &entryBlock = *function_op.addEntryBlock();
+    builder.setInsertionPointToStart(&entryBlock);
+    // Wrap the call to the body wrapperin StartAdjointURegion and
+    // EndAdjointURegion
+    builder.create<mlir::quantum::StartAdjointURegion>(builder.getUnknownLoc());
+    mlir::FuncOp body_wrapper = all_wrapper_funcs[0];
+    // Forward tuple arguments to the body (will unpack there)
+    auto call_op = builder.create<mlir::CallOp>(
+        builder.getUnknownLoc(), body_wrapper, entryBlock.getArguments());
+    builder.create<mlir::quantum::EndAdjointURegion>(builder.getUnknownLoc());
+    builder.create<mlir::ReturnOp>(builder.getUnknownLoc());
+    moduleOp.push_back(function_op);
+    all_wrapper_funcs.emplace_back(function_op);
+  }
+  {
+    // Controlled wrapper:
+    const std::string wrapper_fn_name = func_name + CTRL_WRAPPER_SUFFIX;
+    mlir::FuncOp function_op(mlir::FuncOp::create(builder.getUnknownLoc(),
+                                                  wrapper_fn_name, func_type));
+    function_op.setVisibility(mlir::SymbolTable::Visibility::Private);
+    auto &entryBlock = *function_op.addEntryBlock();
+    builder.setInsertionPointToStart(&entryBlock);
+    auto arguments = entryBlock.getArguments();
+    assert(arguments.size() == 3);
+    mlir::Value arg_tuple = arguments[1];
+    auto fn_type = wrapped_func.getType().cast<mlir::FunctionType>();
+    // !IMPORTANT! The argument tuple will be flattened *iff* 
+    // there is only one argument.
+    // i.e. { Array, SingleArg}
+    if (wrapped_func.getType().cast<mlir::FunctionType>().getInputs().size() ==
+        1) {
+      mlir::TypeRange arg_types(
+          {array_type,
+           wrapped_func.getType().cast<mlir::FunctionType>().getInputs()[0]});
+      auto unpackOp = builder.create<mlir::quantum::TupleUnpackOp>(
+          builder.getUnknownLoc(), arg_types, arg_tuple);
+      mlir::Value control_array = unpackOp.result()[0];
+      mlir::Value single_func_arg = unpackOp.result()[1];
+      mlir::Value qubit_idx = builder.create<mlir::ConstantOp>(
+          builder.getUnknownLoc(),
+          mlir::IntegerAttr::get(builder.getI64Type(), 0));
+      mlir::Value ctrl_qubit = builder.create<mlir::quantum::ExtractQubitOp>(
+          builder.getUnknownLoc(), qubit_type, control_array, qubit_idx);
+
+      // Call the function wrapped in StartCtrlURegion/EndCtrlURegion
+      builder.create<mlir::quantum::StartCtrlURegion>(builder.getUnknownLoc());
+
+      builder.create<mlir::CallOp>(builder.getUnknownLoc(), wrapped_func,
+                                   single_func_arg);
+
+      builder.create<mlir::quantum::EndCtrlURegion>(builder.getUnknownLoc(),
+                                                    ctrl_qubit);
+      builder.create<mlir::ReturnOp>(builder.getUnknownLoc());
+      moduleOp.push_back(function_op);
+      all_wrapper_funcs.emplace_back(function_op);
+    } else {
+      // Unpack to Array + Tuple (Array = controlled bits)
+      // { Array + { Body Tuple } }
+      // FIXME: currently, we can only handle single-qubit control
+      // TODO: update EndCtrlURegion to take an array of qubits.
+      mlir::TypeRange arg_types({array_type, tuple_type});
+      auto unpackOp = builder.create<mlir::quantum::TupleUnpackOp>(
+          builder.getUnknownLoc(), arg_types, arg_tuple);
+      mlir::FuncOp body_wrapper = all_wrapper_funcs[0];
+      mlir::Value control_array = unpackOp.result()[0];
+      mlir::Value body_arg_tuple = unpackOp.result()[1];
+
+      // Extract the control qubit:
+      mlir::Value qubit_idx = builder.create<mlir::ConstantOp>(
+          builder.getUnknownLoc(),
+          mlir::IntegerAttr::get(builder.getI64Type(), 0));
+      mlir::Value ctrl_qubit = builder.create<mlir::quantum::ExtractQubitOp>(
+          builder.getUnknownLoc(), qubit_type, control_array, qubit_idx);
+
+      // Call the body wrapped in StartCtrlURegion/EndCtrlURegion
+      builder.create<mlir::quantum::StartCtrlURegion>(builder.getUnknownLoc());
+      auto call_op = builder.create<mlir::CallOp>(
+          builder.getUnknownLoc(), body_wrapper,
+          llvm::ArrayRef<mlir::Value>(
+              {arguments[0], body_arg_tuple, arguments[2]}));
+      builder.create<mlir::quantum::EndCtrlURegion>(builder.getUnknownLoc(),
+                                                    ctrl_qubit);
+      builder.create<mlir::ReturnOp>(builder.getUnknownLoc());
+      moduleOp.push_back(function_op);
+      all_wrapper_funcs.emplace_back(function_op);
+    }
+  }
+  {
+    // Controlled Adjoint wrapper:
+    const std::string wrapper_fn_name = func_name + CTRL_ADJOINT_WRAPPER_SUFFIX;
+    mlir::FuncOp function_op(mlir::FuncOp::create(builder.getUnknownLoc(),
+                                                  wrapper_fn_name, func_type));
+    function_op.setVisibility(mlir::SymbolTable::Visibility::Private);
+    auto &entryBlock = *function_op.addEntryBlock();
+    builder.setInsertionPointToStart(&entryBlock);
+    // Wrap the call to the ctrl wrapper wrapped in StartAdjointURegion and
+    // EndAdjointURegion
+    builder.create<mlir::quantum::StartAdjointURegion>(builder.getUnknownLoc());
+    mlir::FuncOp ctrl_wrapper = all_wrapper_funcs[2];
+    // Forward tuple arguments to the controlled (will unpack there)
+    auto call_op = builder.create<mlir::CallOp>(
+        builder.getUnknownLoc(), ctrl_wrapper, entryBlock.getArguments());
+    builder.create<mlir::quantum::EndAdjointURegion>(builder.getUnknownLoc());
+    builder.create<mlir::ReturnOp>(builder.getUnknownLoc());
+    moduleOp.push_back(function_op);
+    all_wrapper_funcs.emplace_back(function_op);
+  }
+
+  // Add a function to create the callable wrapper for this kernel
+  // Naming convention: <Kernel Name>__callable()
+  // Returns a Callable* wrapping the underlying kernel (via the above 4 functors) 
+  auto create_callable_func_type = builder.getFunctionType({}, callable_type);
+  const std::string create_callable_fn_name = func_name + "__callable";
+  auto create_callable_func_proto =
+      mlir::FuncOp::create(builder.getUnknownLoc(), create_callable_fn_name,
+                           create_callable_func_type);
+  mlir::FuncOp create_callable_function_op(create_callable_func_proto);
+  auto &create_callable_entryBlock =
+      *create_callable_function_op.addEntryBlock();
+  builder.setInsertionPointToStart(&create_callable_entryBlock);
+  auto callable_create_op = builder.create<mlir::quantum::CreateCallableOp>(
+      builder.getUnknownLoc(), callable_type,
+      builder.getSymbolRefAttr(wrapped_func));
+  builder.create<mlir::ReturnOp>(builder.getUnknownLoc(),
+                                 callable_create_op.callable());
+  moduleOp.push_back(create_callable_function_op);
+  builder.restoreInsertionPoint(main_block);
+}
+}; // namespace
 namespace qcor {
 antlrcpp::Any qasm3_visitor::visitSubroutineDefinition(
-    qasm3Parser::SubroutineDefinitionContext* context) {
+    qasm3Parser::SubroutineDefinitionContext *context) {
   // : 'def' Identifier ( LPAREN classicalArgumentList? RPAREN )?
   //   quantumArgumentList? returnSignature? subroutineBlock
 
@@ -140,7 +328,7 @@ antlrcpp::Any qasm3_visitor::visitSubroutineDefinition(
     return 0;
   }
 
-  auto& entryBlock = *function.addEntryBlock();
+  auto &entryBlock = *function.addEntryBlock();
   builder.setInsertionPointToStart(&entryBlock);
 
   symbol_table.enter_new_scope();
@@ -184,7 +372,7 @@ antlrcpp::Any qasm3_visitor::visitSubroutineDefinition(
   auto interop =
       mlir::FuncOp::create(builder.getUnknownLoc(),
                            subroutine_name + "__interop__", interop_func_type);
-  auto& interop_entryBlock = *interop.addEntryBlock();
+  auto &interop_entryBlock = *interop.addEntryBlock();
   builder.setInsertionPointToStart(&interop_entryBlock);
 
   std::vector<mlir::BlockArgument> vec_to_reverse;
@@ -205,11 +393,18 @@ antlrcpp::Any qasm3_visitor::visitSubroutineDefinition(
   builder.restoreInsertionPoint(main_block);
 
   m_module.push_back(interop);
+
+  // There is a #pragma {export;} directive above this kernel
+  // generate the export function.
+  if (export_subroutine_as_callable) {
+    add_callable_gen(builder, subroutine_name, m_module, function);
+    export_subroutine_as_callable = false;
+  }
   return 0;
 }
 
 antlrcpp::Any qasm3_visitor::visitReturnStatement(
-    qasm3Parser::ReturnStatementContext* context) {
+    qasm3Parser::ReturnStatementContext *context) {
   is_return_stmt = true;
   auto location = get_location(builder, file_name, context);
 
@@ -223,7 +418,7 @@ antlrcpp::Any qasm3_visitor::visitReturnStatement(
     // Actually return value if it is a bit[],
     // load and return if it is a bit
 
-    if (current_function_return_type) {  // this means it is a subroutine
+    if (current_function_return_type) { // this means it is a subroutine
       if (!current_function_return_type.isa<mlir::MemRefType>()) {
         if (current_function_return_type.isa<mlir::IntegerType>() &&
             current_function_return_type.getIntOrFloatBitWidth() == 1) {
@@ -240,7 +435,7 @@ antlrcpp::Any qasm3_visitor::visitReturnStatement(
           }
         } else {
           value =
-              builder.create<mlir::LoadOp>(location, value);  //, zero_index);
+              builder.create<mlir::LoadOp>(location, value); //, zero_index);
         }
       } else {
         printErrorMessage("We do not return memrefs from subroutines.",
@@ -273,4 +468,4 @@ antlrcpp::Any qasm3_visitor::visitReturnStatement(
   subroutine_return_statment_added = true;
   return 0;
 }
-}  // namespace qcor
+} // namespace qcor

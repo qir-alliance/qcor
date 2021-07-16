@@ -8,7 +8,8 @@ bool isOpaqueTypeWithName(mlir::Type type, std::string dialect,
   if (type.isa<mlir::OpaqueType>() && dialect == "quantum") {
     if (type_name == "Qubit" || type_name == "Result" || type_name == "Array" ||
         type_name == "ArgvType" || type_name == "QregType" ||
-        type_name == "StringType") {
+        type_name == "StringType" || type_name == "Tuple" ||
+        type_name == "Callable") {
       return true;
     }
   }
