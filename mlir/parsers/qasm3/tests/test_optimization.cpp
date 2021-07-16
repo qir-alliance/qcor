@@ -32,6 +32,30 @@ cx q[0], q[1];
   EXPECT_TRUE(llvm.find("__quantum__qis") == std::string::npos);
 }
 
+TEST(qasm3PassManagerTester, checkResetSimplification) {
+  const std::string src = R"#(OPENQASM 3;
+include "qelib1.inc";
+qubit q[2];
+
+reset q[0];
+x q[1];
+reset q[0];
+)#";
+  auto llvm =
+      qcor::mlir_compile(src, "test_kernel", qcor::OutputType::LLVMIR, false);
+  std::cout << "LLVM:\n" << llvm << "\n";
+
+  // Get the main kernel section only
+  llvm = llvm.substr(llvm.find("@__internal_mlir_test_kernel"));
+  const auto last = llvm.find_first_of("}");
+  llvm = llvm.substr(0, last + 1);
+  std::cout << "LLVM:\n" << llvm << "\n";
+  // One reset and one X:
+  EXPECT_EQ(countSubstring(llvm, "__quantum__qis"), 2);
+  EXPECT_EQ(countSubstring(llvm, "__quantum__qis__x"), 1);
+  EXPECT_EQ(countSubstring(llvm, "__quantum__qis__reset"), 1);
+}
+
 TEST(qasm3PassManagerTester, checkRotationMerge) {
   const std::string src = R"#(OPENQASM 3;
 include "qelib1.inc";
