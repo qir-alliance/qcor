@@ -37,8 +37,8 @@ QCOR_EXPECT_TRUE(m1[5] == 0);
 
 // Test 2: Alias by slice:
 // 0, 1, 2, 3 (inclusive)
-let myreg1 = q[0:3];
-x myreg1;
+let myreg_1 = q[0:3];
+x myreg_1;
 // Measure all qubits
 bit m2[6];
 m2 = measure q;
@@ -57,8 +57,8 @@ QCOR_EXPECT_TRUE(m2[5] == 0);
 reset q;
 
 // Range with step size (0, 2, 4)
-let myreg2 = q[0:2:5];
-x myreg2;
+let myreg_2 = q[0:2:5];
+x myreg_2;
 // Measure all qubits
 bit m3[6];
 m3 = measure q;
@@ -77,8 +77,8 @@ QCOR_EXPECT_TRUE(m3[5] == 0);
 reset q;
 // Range with negative step:
 // 4, 3, 2
-let myreg3 = q[4:-1:2];
-x myreg3;
+let myreg_3 = q[4:-1:2];
+x myreg_3;
 // Measure all qubits
 bit m4[6];
 m4 = measure q;
@@ -97,8 +97,8 @@ QCOR_EXPECT_TRUE(m4[5] == 0);
 reset q;
 // Range with start = stop
 // This is q[5]
-let myreg4 = q[5:5];
-x myreg4;
+let myreg_4 = q[5:5];
+x myreg_4;
 // Measure all qubits
 bit m5[6];
 m5 = measure q;

@@ -196,8 +196,10 @@ antlrcpp::Any qasm3_visitor::visitAliasStatement(
                 slice_size_calc(orig_size, range_start, range_step, range_stop);
             // std::cout << "Adding symbol 2 " << in_aliasName << "\n";
             for (int dest_idx = 0; dest_idx < new_size; ++dest_idx) {
-              const int source_idx = range_start + dest_idx * range_step;
-
+              const int64_t range_start_pos =
+                  range_start >= 0 ? range_start : orig_size + range_start;
+              const int source_idx = range_start_pos + dest_idx * range_step;
+              assert(source_idx >= 0);
               // Put the *alias* qubit (alias-name + index) into the symbol
               // table: mapped to the original qubit:
               const std::string alias_qubit_var_name =
@@ -288,6 +290,7 @@ antlrcpp::Any qasm3_visitor::visitAliasStatement(
             mlir::Value source_qreg_value = dest_idx < first_reg_size
                                                 ? first_reg_symbol
                                                 : second_reg_symbol;
+            assert(source_idx >= 0);
             // Put the *alias* qubit (alias-name + index) into the symbol
             // table: mapped to the original qubit:
             const std::string alias_qubit_var_name =

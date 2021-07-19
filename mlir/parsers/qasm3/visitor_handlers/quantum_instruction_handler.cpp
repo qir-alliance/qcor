@@ -58,8 +58,7 @@ void qasm3_visitor::createInstOps_HandleBroadcast(
         auto qubit_type = get_custom_opaque_type("Qubit", builder.getContext());
 
         auto extract_value = get_or_extract_qubit(
-            qreg_names[0], i, location, symbol_table, builder,
-            "__mlir__qasm3__expand__bcast_single_inst_");
+            qreg_names[0], i, location, symbol_table, builder);
 
         std::vector<mlir::Type> ret_types;
         for (auto q : qbit_values) {
