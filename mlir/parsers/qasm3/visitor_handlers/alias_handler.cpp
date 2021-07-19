@@ -195,6 +195,30 @@ antlrcpp::Any qasm3_visitor::visitAliasStatement(
             const auto new_size =
                 slice_size_calc(orig_size, range_start, range_step, range_stop);
             // std::cout << "Adding symbol 2 " << in_aliasName << "\n";
+            for (int dest_idx = 0; dest_idx < new_size; ++dest_idx) {
+              const int source_idx = range_start + dest_idx * range_step;
+
+              // Put the *alias* qubit (alias-name + index) into the symbol
+              // table: mapped to the original qubit:
+              const std::string alias_qubit_var_name =
+                  in_aliasName + std::to_string(dest_idx);
+              const std::string original_qubit_var_name =
+                  allocated_variable + std::to_string(source_idx);
+              if (!symbol_table.has_symbol(original_qubit_var_name)) {
+                // This original qubit has never been extracted...
+                // Just create an extract and cache to the symbol table
+                mlir::Value original_qubit_val =
+                    builder.create<mlir::quantum::ExtractQubitOp>(
+                        location, qubit_type, allocated_symbol,
+                        get_or_create_constant_integer_value(
+                            source_idx, location, builder.getI64Type(),
+                            symbol_table, builder));
+                symbol_table.add_symbol(original_qubit_var_name,
+                                        original_qubit_val);
+              }
+              symbol_table.add_symbol_ref_alias(original_qubit_var_name,
+                                                alias_qubit_var_name);
+            }
 
             symbol_table.add_symbol(in_aliasName, array_slice,
                                     {std::to_string(new_size)});
@@ -253,6 +277,38 @@ antlrcpp::Any qasm3_visitor::visitAliasStatement(
           // first_reg_size
           //           << "] with " << rhs_temp_var << "[" << second_reg_size
           //           << "] -> " << in_aliasName << "[" << new_size << "].\n";
+
+          // Add the qubit alias for the concatenated registers:
+          for (int dest_idx = 0; dest_idx < new_size; ++dest_idx) {
+            const std::string source_reg_name =
+                dest_idx < first_reg_size ? lhs_temp_var : rhs_temp_var;
+            const int source_idx = dest_idx < first_reg_size
+                                       ? dest_idx
+                                       : (dest_idx - first_reg_size);
+            mlir::Value source_qreg_value = dest_idx < first_reg_size
+                                                ? first_reg_symbol
+                                                : second_reg_symbol;
+            // Put the *alias* qubit (alias-name + index) into the symbol
+            // table: mapped to the original qubit:
+            const std::string alias_qubit_var_name =
+                in_aliasName + std::to_string(dest_idx);
+            const std::string original_qubit_var_name =
+                source_reg_name + std::to_string(source_idx);
+            if (!symbol_table.has_symbol(original_qubit_var_name)) {
+              // This original qubit has never been extracted...
+              // Just create an extract and cache to the symbol table
+              mlir::Value original_qubit_val =
+                  builder.create<mlir::quantum::ExtractQubitOp>(
+                      location, qubit_type, source_qreg_value,
+                      get_or_create_constant_integer_value(
+                          source_idx, location, builder.getI64Type(),
+                          symbol_table, builder));
+              symbol_table.add_symbol(original_qubit_var_name,
+                                      original_qubit_val);
+            }
+            symbol_table.add_symbol_ref_alias(original_qubit_var_name,
+                                              alias_qubit_var_name);
+          }
 
           symbol_table.add_symbol(in_aliasName, array_concat,
                                   {std::to_string(new_size)});
