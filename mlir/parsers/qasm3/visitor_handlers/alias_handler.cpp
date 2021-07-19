@@ -89,6 +89,24 @@ antlrcpp::Any qasm3_visitor::visitAliasStatement(
                   builder);
               auto src_idx = get_or_create_constant_integer_value(
                   idx, location, builder.getI64Type(), symbol_table, builder);
+
+              // Put the *alias* qubit (alias-name + index) into the symbol
+              // table: mapped to the original qubit:
+              const std::string alias_qubit_var_name =
+                  in_aliasName + std::to_string(counter);
+              const std::string original_qubit_var_name =
+                  allocated_variable + std::to_string(idx);
+              if (!symbol_table.has_symbol(original_qubit_var_name)) {
+                // This original qubit has never been extracted...
+                // Just create an extract and cache to the symbol table
+                mlir::Value original_qubit_val =
+                    builder.create<mlir::quantum::ExtractQubitOp>(
+                        location, qubit_type, allocated_symbol, src_idx);
+                symbol_table.add_symbol(original_qubit_var_name,
+                                        original_qubit_val);
+              }
+              symbol_table.add_symbol_ref_alias(original_qubit_var_name,
+                                                alias_qubit_var_name);
               ++counter;
 
               builder.create<mlir::quantum::AssignQubitOp>(
