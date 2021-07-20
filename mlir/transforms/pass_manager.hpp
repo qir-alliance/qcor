@@ -30,7 +30,8 @@ void configureOptimizationPasses(mlir::PassManager &passManager) {
     // Simple Identity pair removals
     passManager.addPass(std::make_unique<SingleQubitIdentityPairRemovalPass>());
     passManager.addPass(std::make_unique<CNOTIdentityPairRemovalPass>());
-
+    passManager.addPass(std::make_unique<DuplicateResetRemovalPass>());
+    
     // Rotation merging
     passManager.addPass(std::make_unique<RotationMergingPass>());
     // General gate sequence re-synthesize

@@ -29,4 +29,13 @@ struct CNOTIdentityPairRemovalPass
   void runOnOperation() final;
   CNOTIdentityPairRemovalPass() {}
 };
+
+// Remove duplicate reset:
+// 2 consecutive resets on a single qubit line => remove one.
+struct DuplicateResetRemovalPass
+    : public PassWrapper<DuplicateResetRemovalPass, OperationPass<ModuleOp>> {
+  void getDependentDialects(DialectRegistry &registry) const override;
+  void runOnOperation() final;
+  DuplicateResetRemovalPass() {}
+};
 } // namespace qcor

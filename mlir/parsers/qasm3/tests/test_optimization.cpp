@@ -32,6 +32,30 @@ cx q[0], q[1];
   EXPECT_TRUE(llvm.find("__quantum__qis") == std::string::npos);
 }
 
+TEST(qasm3PassManagerTester, checkResetSimplification) {
+  const std::string src = R"#(OPENQASM 3;
+include "qelib1.inc";
+qubit q[2];
+
+reset q[0];
+x q[1];
+reset q[0];
+)#";
+  auto llvm =
+      qcor::mlir_compile(src, "test_kernel", qcor::OutputType::LLVMIR, false);
+  std::cout << "LLVM:\n" << llvm << "\n";
+
+  // Get the main kernel section only
+  llvm = llvm.substr(llvm.find("@__internal_mlir_test_kernel"));
+  const auto last = llvm.find_first_of("}");
+  llvm = llvm.substr(0, last + 1);
+  std::cout << "LLVM:\n" << llvm << "\n";
+  // One reset and one X:
+  EXPECT_EQ(countSubstring(llvm, "__quantum__qis"), 2);
+  EXPECT_EQ(countSubstring(llvm, "__quantum__qis__x"), 1);
+  EXPECT_EQ(countSubstring(llvm, "__quantum__qis__reset"), 1);
+}
+
 TEST(qasm3PassManagerTester, checkRotationMerge) {
   const std::string src = R"#(OPENQASM 3;
 include "qelib1.inc";
@@ -302,6 +326,63 @@ for i in [0:100] {
   EXPECT_EQ(countSubstring(llvm, "__quantum__qis__rz"), 1);
   EXPECT_EQ(countSubstring(llvm, "__quantum__qis__h"), 8);
   EXPECT_EQ(countSubstring(llvm, "__quantum__qis__cnot"), 6);
+}
+
+TEST(qasm3PassManagerTester, checkQubitArrayAlias) {
+  {
+    // Check SSA value chain with alias
+    // h-t-h == rx (t is equiv. to rz)
+    const std::string src = R"#(OPENQASM 3;
+include "qelib1.inc";
+
+qubit q[6];
+let my_reg = q[1, 3, 5];
+
+h q[1];
+t my_reg[0];
+h q[1];
+)#";
+    auto llvm =
+        qcor::mlir_compile(src, "test_kernel", qcor::OutputType::LLVMIR, false);
+    std::cout << "LLVM:\n" << llvm << "\n";
+
+    // Get the main kernel section only (there is the oracle LLVM section as
+    // well)
+    llvm = llvm.substr(llvm.find("@__internal_mlir_test_kernel"));
+    const auto last = llvm.find_first_of("}");
+    llvm = llvm.substr(0, last + 1);
+    std::cout << "LLVM:\n" << llvm << "\n";
+    EXPECT_EQ(countSubstring(llvm, "__quantum__qis"), 1);
+    // One Rx
+    EXPECT_EQ(countSubstring(llvm, "__quantum__qis__rx"), 1);
+  }
+
+  {
+    // Check optimization can work with alias array
+    const std::string src = R"#(OPENQASM 3;
+include "qelib1.inc";
+
+qubit q[4];
+let first_and_last_qubit = q[0] || q[3];
+
+cx q[0], q[3];
+cx first_and_last_qubit[0], first_and_last_qubit[1];
+)#";
+    auto llvm =
+        qcor::mlir_compile(src, "test_kernel", qcor::OutputType::LLVMIR, false);
+    std::cout << "LLVM:\n" << llvm << "\n";
+
+    // Get the main kernel section only (there is the oracle LLVM section as
+    // well)
+    llvm = llvm.substr(llvm.find("@__internal_mlir_test_kernel"));
+    const auto last = llvm.find_first_of("}");
+    llvm = llvm.substr(0, last + 1);
+    std::cout << "LLVM:\n" << llvm << "\n";
+    // Cancel all => No gates, extract, or alloc/dealloc:
+    EXPECT_EQ(countSubstring(llvm, "__quantum__qis"), 0);
+    // Make sure all runtime (alias construction) functions are removed as well.
+    EXPECT_EQ(countSubstring(llvm, "__quantum__"), 0);
+  }
 }
 
 int main(int argc, char **argv) {
