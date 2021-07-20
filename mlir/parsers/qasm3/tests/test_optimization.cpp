@@ -380,6 +380,8 @@ cx first_and_last_qubit[0], first_and_last_qubit[1];
     std::cout << "LLVM:\n" << llvm << "\n";
     // Cancel all => No gates, extract, or alloc/dealloc:
     EXPECT_EQ(countSubstring(llvm, "__quantum__qis"), 0);
+    // Make sure all runtime (alias construction) functions are removed as well.
+    EXPECT_EQ(countSubstring(llvm, "__quantum__"), 0);
   }
 }
 
