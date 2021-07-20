@@ -177,7 +177,7 @@ mlir::Type convertQasm3Type(qasm3::qasm3Parser::ClassicalTypeContext* ctx,
     auto start = type.find_first_of("[");
     int64_t bit_size;
     if (start == std::string::npos) {
-      bit_size = 32;
+      bit_size = type.find("64_t") == std::string::npos ? 32 : 64;
     } else {
       auto finish = type.find_first_of("]");
       auto idx_str = type.substr(start + 1, finish - start - 1);

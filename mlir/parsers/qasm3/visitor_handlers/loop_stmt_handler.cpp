@@ -342,7 +342,18 @@ antlrcpp::Any qasm3_visitor::visitLoopStatement(
         builder.create<mlir::BranchOp>(location, headerBlock);
         builder.setInsertionPointToStart(headerBlock);
 
-        auto load = builder.create<mlir::LoadOp>(location, loop_var_memref);
+        mlir::Value load = builder.create<mlir::LoadOp>(location, loop_var_memref);
+
+        if (load.getType().getIntOrFloatBitWidth() <
+            b_value.getType().getIntOrFloatBitWidth()) {
+          load =
+              builder.create<mlir::ZeroExtendIOp>(location, load, b_value.getType());
+        } else if (b_value.getType().getIntOrFloatBitWidth() <
+                   load.getType().getIntOrFloatBitWidth()) {
+          b_value =
+              builder.create<mlir::ZeroExtendIOp>(location, b_value, load.getType());
+        }
+
         auto cmp = builder.create<mlir::CmpIOp>(
             location,
             c > 0 ? mlir::CmpIPredicate::slt : mlir::CmpIPredicate::sge, load,

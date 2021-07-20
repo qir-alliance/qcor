@@ -1,6 +1,21 @@
 #!/usr/bin/env python3
 import argparse, sys, os, glob, subprocess, mimetypes, re, pathlib
 
+class bcolors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKCYAN = '\033[96m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+
+def info(msg):
+    print('{}[qcor-exec]{} {}{}'.format(bcolors.BOLD+bcolors.OKBLUE,
+                                       bcolors.ENDC+bcolors.BOLD, msg, bcolors.ENDC))
+
 # Helper to generate Q# build config by running the SDK
 # Input: the source file directory where the build
 # csproj will be saved to.
@@ -113,7 +128,7 @@ def main(argv=None):
                     '-I', '@XACC_ROOT@/include/quantum/gate', '-I', '@XACC_ROOT@/include/eigen']
     if '-internal-no-pch' in sys.argv[1:]:
         if verbose:
-            print('[qcor-exec] Ignoring pre-compiled-header...')
+            info('Ignoring pre-compiled-header...')
         sys.argv.remove('-internal-no-pch')
         defaultFlags = [
             '-std=c++17', '-fplugin=@CMAKE_INSTALL_PREFIX@/clang-plugins/libqcor-syntax-handler@CMAKE_SHARED_LIBRARY_SUFFIX@']
@@ -131,7 +146,7 @@ def main(argv=None):
 
     if '-rebuild-pch' in sys.argv[1:]:
         if verbose:
-            print('[qcor-exec] Rebuilding pre-compiled header for qcor_lang_ext.hpp.')
+            info('Rebuilding pre-compiled header for qcor_lang_ext.hpp.')
 
         result = subprocess.run([compiler, '-std=c++17', '-x', 'c++-header', '@CMAKE_INSTALL_PREFIX@/include/qcor/qcor_lang_ext.hpp',
                                  '-o', '@CMAKE_INSTALL_PREFIX@/include/qcor/qcor_lang_ext.hpp.pch'] + baseIncludes, check=True)
@@ -490,7 +505,11 @@ def main(argv=None):
         if shots:
             extra_args.append('-shots')
             extra_args.append(shots)
-            
+
+        if '-verbose-error' in sys.argv[1:]:
+            extra_args.append('-verbose-error')
+            sys.argv.remove('-verbose-error')
+
         # Some options that we want to pass on to mlir tool
         # (a subset of --help that we think is useful)
         mlir_forward_options = ['--pass-timing', '--print-ir-after-all', '--print-ir-after-change', '--print-ir-before-all']
@@ -503,7 +522,7 @@ def main(argv=None):
 
         if '--emit-mlir' in sys.argv[1:]:
             if verbose:
-                print('[qcor-exec]: {}'.format(' '.join(['@CMAKE_INSTALL_PREFIX@/bin/qcor-mlir-tool',
+                info('{}'.format(' '.join(['@CMAKE_INSTALL_PREFIX@/bin/qcor-mlir-tool',
                                      '-emit=mlir', temp_file_name] + extra_args)))
 
             result = subprocess.run(['@CMAKE_INSTALL_PREFIX@/bin/qcor-mlir-tool',
@@ -529,11 +548,11 @@ def main(argv=None):
         # Rename the output
         os.rename('__tmp__'+ll_file_name, ll_file_name)
         if verbose:
-            print(
-                '[qcor-exec]: ', '@CMAKE_INSTALL_PREFIX@/bin/qcor-mlir-tool {}'.format(filename))
-            print('[qcor-exec]: ', '{}'.format(' '.join([llvm_bin_path +
+            info(
+                '{}'.format('@CMAKE_INSTALL_PREFIX@/bin/qcor-mlir-tool {}'.format(filename)))
+            info('{}'.format(' '.join([llvm_bin_path +
                                                          '/llvm-as', ll_file_name, '-o', bc_file_name])))
-            print('[qcor-exec]: ', '{}'.format(' '.join([llvm_bin_path+'/llc', '-filetype=obj', bc_file_name ])) )
+            info('{}'.format(' '.join([llvm_bin_path+'/llc', '-filetype=obj', bc_file_name ])) )
         result = subprocess.run([llvm_bin_path+'/llvm-as', ll_file_name, '-o', bc_file_name ], check=True)
         result = subprocess.run([llvm_bin_path+'/llc', '-filetype=obj', bc_file_name ], check=True)
         if '-no-entrypoint' in extra_args and not has_no_entry_point_pragma:
@@ -599,11 +618,11 @@ def main(argv=None):
 
         # Execute qsc build command:
         if verbose:
-            print('[qcor-exec]: ', build_cmd)
+            info('{}'.format(build_cmd))
         os.system(build_cmd)
         llvm_bin_path = str(pathlib.Path(compiler).parent)
         if verbose:
-            print('[qcor-exec]: ', '{}'.format(' '.join([llvm_bin_path+'/llc', '-filetype=obj', bc_file_name ])))
+            info('{}'.format(' '.join([llvm_bin_path+'/llc', '-filetype=obj', bc_file_name ])))
         result = subprocess.run([llvm_bin_path+'/llc', '-filetype=obj', bc_file_name ], check=True)
         sys.argv.remove(filename)
         fileType = None
@@ -659,7 +678,7 @@ def main(argv=None):
 
 
         if verbose:
-            print('[qcor-exec]: ', ' '.join([c for c in commands]))
+            info('{}'.format(' '.join([c for c in commands])))
 
         try:
             result = subprocess.run(commands, check=True)
@@ -677,7 +696,7 @@ def main(argv=None):
                 commands += baseLibs + sys.argv[1:]
 
             if verbose:
-                print('[qcor-exec]: ', ' '.join([c for c in commands]))
+                info('{}'.format(' '.join([c for c in commands])))
 
             try:
                 result = subprocess.run(commands, check=True)
@@ -687,14 +706,16 @@ def main(argv=None):
                 return e.returncode
         else:
             print('invalid command line arguments for qcor:')
-            print('source file name and type:', (None if filename == '' else filename), ',', (None if fileType == '' else fileType))
-            if verbose: print('current args: ', sys.argv)
+            print('source file name and type:', (None if filename ==
+                                                 '' else filename), ',', (None if fileType == '' else fileType))
+            if verbose:
+                print('current args: ', sys.argv)
             exit(1)
     else:
         # This is a .o file, so execute the link phase
-        commands = [compiler] + baseLibs + sys.argv[1:]
+        commands = [compiler, '-Wno-unused-command-line-argument'] + baseLibs + sys.argv[1:]
         if verbose:
-            print('[qcor-exec]: ', ' '.join([c for c in commands]))
+            info('{}'.format(' '.join([c for c in commands])))
         try:
             result = subprocess.run(commands, check=True)
         except subprocess.CalledProcessError as e:
@@ -703,18 +724,13 @@ def main(argv=None):
             return e.returncode
 
     return 0
-
+ 
 
 if __name__ == "__main__":
-    # import cProfile, pstats, io
-    # from pstats import SortKey
-    # pr = cProfile.Profile()
-    # pr.enable()
-    # main()
-    # pr.disable()
-    # s = io.StringIO()
-    # sortby = SortKey.CUMULATIVE
-    # ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
-    # ps.print_stats()
-    # print(s.getvalue())
-    sys.exit(main())
+    r = 0
+    try:
+        r = main()
+        sys.exit(r)
+    except Exception as e:
+        if r != 0 or e != None:
+            print(bcolors.BOLD+bcolors.FAIL+'[qcor-exec] fatal error.'+bcolors.ENDC)

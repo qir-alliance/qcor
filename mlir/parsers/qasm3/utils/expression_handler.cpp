@@ -695,39 +695,19 @@ antlrcpp::Any qasm3_expression_generator::visitMultiplicativeExpression(
         } else if (!rhs.getType().isa<mlir::FloatType>()) {
           rhs = builder.create<mlir::SIToFPOp>(location, rhs, lhs.getType());
         }
-
-        // if (!lhs.getType().isa<mlir::FloatType>()) {
-        //   if (auto op = lhs.getDefiningOp<mlir::ConstantOp>()) {
-        //     auto value = op.getValue()
-        //                      .cast<mlir::IntegerAttr>()
-        //                      .getValue()
-        //                      .getLimitedValue();
-        //     lhs = builder.create<mlir::ConstantOp>(
-        //         location, mlir::FloatAttr::get(rhs.getType(),
-        //         (double)value));
-        //   } else {
-        //     printErrorMessage(
-        //         "Must cast lhs to float, but it is not constant.");
-        //   }
-        // } else if (!rhs.getType().isa<mlir::FloatType>()) {
-        //   if (auto op = rhs.getDefiningOp<mlir::ConstantOp>()) {
-        //     auto value = op.getValue()
-        //                      .cast<mlir::IntegerAttr>()
-        //                      .getValue()
-        //                      .getLimitedValue();
-        //     rhs = builder.create<mlir::ConstantOp>(
-        //         location, mlir::FloatAttr::get(lhs.getType(),
-        //         (double)value));
-        //   } else {
-        //     printErrorMessage(
-        //         "Must cast rhs to float, but it is not constant.", ctx, {lhs,
-        //         rhs});
-        //   }
-        // }
-
         createOp<mlir::DivFOp>(location, lhs, rhs);
       } else if (lhs.getType().isa<mlir::IntegerType>() &&
                  rhs.getType().isa<mlir::IntegerType>()) {
+        
+        if (lhs.getType().getIntOrFloatBitWidth() <
+            rhs.getType().getIntOrFloatBitWidth()) {
+          lhs =
+              builder.create<mlir::ZeroExtendIOp>(location, lhs, rhs.getType());
+        } else if (rhs.getType().getIntOrFloatBitWidth() <
+                   lhs.getType().getIntOrFloatBitWidth()) {
+          rhs =
+              builder.create<mlir::ZeroExtendIOp>(location, rhs, lhs.getType());
+        }
         createOp<mlir::SignedDivIOp>(location, lhs, rhs);
       } else {
         printErrorMessage("Could not perform division, incompatible types: ",

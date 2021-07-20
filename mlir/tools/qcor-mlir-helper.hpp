@@ -30,30 +30,40 @@ struct MlirGenerationResult {
   MlirGenerationResult(std::unique_ptr<mlir::MLIRContext> &&in_mlir_context,
                        SourceLanguage in_source_language,
                        const std::vector<std::string> &in_unique_function_names,
-                       std::unique_ptr<mlir::OwningModuleRef> &&in_module_ref)
+                       std::unique_ptr<mlir::OwningModuleRef> &&in_module_ref,
+                       bool verbose_error = false)
       : mlir_context(std::move(in_mlir_context)),
         source_language(in_source_language),
         unique_function_names(in_unique_function_names),
         module_ref(std::move(in_module_ref)) {
     // Set the DiagnosticEngine handler
     DiagnosticEngine &engine = (*mlir_context).getDiagEngine();
+
     // Handle the reported diagnostic.
     // Return success to signal that the diagnostic has either been fully
     // processed, or failure if the diagnostic should be propagated to the
     // previous handlers.
-    engine.registerHandler([&](Diagnostic &diag) -> LogicalResult {
-      std::cout << "Dumping Module after error.\n";
-      (*module_ref)->dump();
-      for (auto &n : diag.getNotes()) {
-        std::string s;
-        llvm::raw_string_ostream os(s);
-        n.print(os);
-        os.flush();
-        std::cout << "DiagnosticEngine Note: " << s << "\n";
-      }
-      bool should_propagate_diagnostic = true;
-      return failure(should_propagate_diagnostic);
-    });
+    engine.registerHandler(
+        [&, verbose_error](Diagnostic &diag) -> LogicalResult {
+          if (verbose_error) {
+            std::cout << "[qcor-mlir] Dumping Module after error.\n";
+            (*module_ref)->dump();
+          }
+          std::string BOLD = "\033[1m";
+          std::string RED = "\033[91m";
+          std::string CLEAR = "\033[0m";
+
+          for (auto &n : diag.getNotes()) {
+            std::string s;
+            llvm::raw_string_ostream os(s);
+            n.print(os);
+            os.flush();
+            std::cout << BOLD << RED << "[qcor-mlir] Reported Error: " << s << "\n"
+                      << CLEAR;
+          }
+          bool should_propagate_diagnostic = true;
+          return failure(should_propagate_diagnostic);
+        });
   }
   ~MlirGenerationResult() {}
 };
@@ -106,7 +116,8 @@ MlirGenerationResult mlir_gen(
                add_entry_point, extra_quantum_args);
 
   return MlirGenerationResult(std::move(context), src_type,
-                              unique_function_names, std::move(module));
+                              unique_function_names, std::move(module),
+                              extra_quantum_args.count("verbose_error"));
 }
 
 MlirGenerationResult mlir_gen(

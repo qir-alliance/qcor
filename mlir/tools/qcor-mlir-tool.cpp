@@ -30,9 +30,12 @@ static cl::opt<std::string> inputFilename(cl::Positional,
                                           cl::init("-"),
                                           cl::value_desc("filename"));
 
-static cl::opt<std::string> qpu("qpu", cl::desc("The quantum coprocessor to compile to."));
-static cl::opt<std::string> qrt("qrt", cl::desc("The quantum execution mode: ftqc or nisq."));
-static cl::opt<std::string> shots("shots", cl::desc("The number of shots for nisq mode execution."));
+static cl::opt<std::string> qpu(
+    "qpu", cl::desc("The quantum coprocessor to compile to."));
+static cl::opt<std::string> qrt(
+    "qrt", cl::desc("The quantum execution mode: ftqc or nisq."));
+static cl::opt<std::string> shots(
+    "shots", cl::desc("The number of shots for nisq mode execution."));
 
 cl::opt<bool> noEntryPoint("no-entrypoint",
                            cl::desc("Do not add main() to compiled output."));
@@ -44,17 +47,20 @@ cl::opt<bool> mlir_quantum_opt(
 cl::opt<std::string> mlir_specified_func_name(
     "internal-func-name", cl::desc("qcor provided function name"));
 
-static cl::opt<bool>
-    OptLevelO0("O0", cl::desc("Optimization level 0. Similar to clang -O0. "));
+static cl::opt<bool> verbose_error(
+    "verbose-error", cl::desc("Printout the full MLIR Module on error."));
 
-static cl::opt<bool>
-    OptLevelO1("O1", cl::desc("Optimization level 1. Similar to clang -O1. "));
+static cl::opt<bool> OptLevelO0(
+    "O0", cl::desc("Optimization level 0. Similar to clang -O0. "));
 
-static cl::opt<bool>
-    OptLevelO2("O2", cl::desc("Optimization level 2. Similar to clang -O2. "));
+static cl::opt<bool> OptLevelO1(
+    "O1", cl::desc("Optimization level 1. Similar to clang -O1. "));
 
-static cl::opt<bool>
-    OptLevelO3("O3", cl::desc("Optimization level 3. Similar to clang -O3. "));
+static cl::opt<bool> OptLevelO2(
+    "O2", cl::desc("Optimization level 2. Similar to clang -O2. "));
+
+static cl::opt<bool> OptLevelO3(
+    "O3", cl::desc("Optimization level 3. Similar to clang -O3. "));
 
 namespace {
 enum Action { None, DumpMLIR, DumpMLIRLLVM, DumpLLVMIR };
@@ -89,8 +95,8 @@ int main(int argc, char **argv) {
     input_func_name = mlir_specified_func_name;
   }
 
-  // Check for extra quantum compiler flags. 
-  std::map<std::string,std::string> extra_args;
+  // Check for extra quantum compiler flags.
+  std::map<std::string, std::string> extra_args;
   if (!qpu.empty()) {
     extra_args.insert({"qpu", qpu});
   }
@@ -100,9 +106,13 @@ int main(int argc, char **argv) {
   if (!shots.empty()) {
     extra_args.insert({"shots", shots});
   }
-  
-  auto mlir_gen_result =
-      qcor::util::mlir_gen(inputFilename, !noEntryPoint, input_func_name, extra_args);
+
+  if (verbose_error) {
+    extra_args.insert({"verbose_error", ""});
+  }
+
+  auto mlir_gen_result = qcor::util::mlir_gen(inputFilename, !noEntryPoint,
+                                              input_func_name, extra_args);
   mlir::OwningModuleRef &module = *(mlir_gen_result.module_ref);
   mlir::MLIRContext &context = *(mlir_gen_result.mlir_context);
   std::vector<std::string> &unique_function_names =
@@ -111,6 +121,10 @@ int main(int argc, char **argv) {
   // Create the PassManager for lowering to LLVM MLIR and run it
   mlir::PassManager pm(&context);
   applyPassManagerCLOptions(pm);
+
+  std::string BOLD = "\033[1m";
+  std::string RED = "\033[91m";
+  std::string CLEAR = "\033[0m";
 
   if (qoptimizations) {
     // Add optimization passes
@@ -121,21 +135,25 @@ int main(int argc, char **argv) {
     if (qoptimizations) {
       auto module_op = (*module).getOperation();
       if (mlir::failed(pm.run(module_op))) {
-        std::cout << "Pass Manager Failed\n";
+        std::cout << BOLD << RED
+                  << "[qcor-mlir-tool] Language-to-MLIR lowering failed.\n"
+                  << CLEAR;
         return 1;
       }
     }
     module->dump();
     return 0;
   }
-  
+
   // Lower MLIR to LLVM
   pm.addPass(std::make_unique<qcor::QuantumToLLVMLoweringPass>(
       qoptimizations, unique_function_names));
 
   auto module_op = (*module).getOperation();
   if (mlir::failed(pm.run(module_op))) {
-    std::cout << "Pass Manager Failed\n";
+    std::cout << BOLD << RED
+              << "[qcor-mlir-tool] MLIR-to-LLVM_MLIR lowering failed.\n"
+              << CLEAR;
     return 1;
   }
 
@@ -148,7 +166,9 @@ int main(int argc, char **argv) {
   llvm::LLVMContext llvmContext;
   auto llvmModule = mlir::translateModuleToLLVMIR(*module, llvmContext);
   if (!llvmModule) {
-    llvm::errs() << "Failed to emit LLVM IR\n";
+    std::cout << BOLD << RED
+              << "[qcor-mlir-tool] MLIR_LLVM-to-LLVM_IR lowering failed.\n"
+              << CLEAR;
     return -1;
   }
   // Optimize the LLVM IR
@@ -159,7 +179,8 @@ int main(int argc, char **argv) {
   // std::cout << "Opt level: " << optLevel << "\n";
   auto optPipeline = mlir::makeOptimizingTransformer(optLevel, 0, nullptr);
   if (auto err = optPipeline(llvmModule.get())) {
-    llvm::errs() << "Failed to optimize LLVM IR " << err << "\n";
+    llvm::errs() << BOLD << RED << "Failed to optimize LLVM IR " << err << "\n"
+                 << CLEAR;
     return -1;
   }
 
