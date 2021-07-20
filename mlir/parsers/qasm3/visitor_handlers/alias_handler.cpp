@@ -93,9 +93,9 @@ antlrcpp::Any qasm3_visitor::visitAliasStatement(
               // Put the *alias* qubit (alias-name + index) into the symbol
               // table: mapped to the original qubit:
               const std::string alias_qubit_var_name =
-                  in_aliasName + std::to_string(counter);
+                  symbol_table.array_qubit_symbol_name(in_aliasName, counter);
               const std::string original_qubit_var_name =
-                  allocated_variable + std::to_string(idx);
+                  symbol_table.array_qubit_symbol_name(allocated_variable, idx);
               if (!symbol_table.has_symbol(original_qubit_var_name)) {
                 // This original qubit has never been extracted...
                 // Just create an extract and cache to the symbol table
@@ -194,6 +194,8 @@ antlrcpp::Any qasm3_visitor::visitAliasStatement(
             };
             const auto new_size =
                 slice_size_calc(orig_size, range_start, range_step, range_stop);
+            symbol_table.add_symbol(in_aliasName, array_slice,
+                                    {std::to_string(new_size)});
             // std::cout << "Adding symbol 2 " << in_aliasName << "\n";
             for (int dest_idx = 0; dest_idx < new_size; ++dest_idx) {
               const int64_t range_start_pos =
@@ -203,9 +205,10 @@ antlrcpp::Any qasm3_visitor::visitAliasStatement(
               // Put the *alias* qubit (alias-name + index) into the symbol
               // table: mapped to the original qubit:
               const std::string alias_qubit_var_name =
-                  in_aliasName + std::to_string(dest_idx);
+                  symbol_table.array_qubit_symbol_name(in_aliasName, dest_idx);
               const std::string original_qubit_var_name =
-                  allocated_variable + std::to_string(source_idx);
+                  symbol_table.array_qubit_symbol_name(allocated_variable,
+                                                       source_idx);
               if (!symbol_table.has_symbol(original_qubit_var_name)) {
                 // This original qubit has never been extracted...
                 // Just create an extract and cache to the symbol table
@@ -221,9 +224,6 @@ antlrcpp::Any qasm3_visitor::visitAliasStatement(
               symbol_table.add_symbol_ref_alias(original_qubit_var_name,
                                                 alias_qubit_var_name);
             }
-
-            symbol_table.add_symbol(in_aliasName, array_slice,
-                                    {std::to_string(new_size)});
           } else {
             printErrorMessage("Could not parse the alias statement.",
                               in_indexIdentifierContext);
@@ -275,6 +275,8 @@ antlrcpp::Any qasm3_visitor::visitAliasStatement(
               builder.create<mlir::quantum::ArrayConcatOp>(
                   location, array_type, first_reg_symbol, second_reg_symbol);
           const auto new_size = first_reg_size + second_reg_size;
+          symbol_table.add_symbol(in_aliasName, array_concat,
+                                  {std::to_string(new_size)});
           // std::cout << "Concatenate " << lhs_temp_var << "[" <<
           // first_reg_size
           //           << "] with " << rhs_temp_var << "[" << second_reg_size
@@ -294,9 +296,10 @@ antlrcpp::Any qasm3_visitor::visitAliasStatement(
             // Put the *alias* qubit (alias-name + index) into the symbol
             // table: mapped to the original qubit:
             const std::string alias_qubit_var_name =
-                in_aliasName + std::to_string(dest_idx);
+                symbol_table.array_qubit_symbol_name(in_aliasName, dest_idx);
             const std::string original_qubit_var_name =
-                source_reg_name + std::to_string(source_idx);
+                symbol_table.array_qubit_symbol_name(source_reg_name,
+                                                     source_idx);
             if (!symbol_table.has_symbol(original_qubit_var_name)) {
               // This original qubit has never been extracted...
               // Just create an extract and cache to the symbol table
@@ -312,9 +315,6 @@ antlrcpp::Any qasm3_visitor::visitAliasStatement(
             symbol_table.add_symbol_ref_alias(original_qubit_var_name,
                                               alias_qubit_var_name);
           }
-
-          symbol_table.add_symbol(in_aliasName, array_concat,
-                                  {std::to_string(new_size)});
         } else {
           printErrorMessage("Could not parse the alias statement.",
                             in_indexIdentifierContext);

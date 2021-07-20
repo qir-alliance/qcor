@@ -72,7 +72,7 @@ mlir::Value get_or_extract_qubit(const std::string &qreg_name,
                                  const std::size_t idx, mlir::Location location,
                                  ScopedSymbolTable &symbol_table,
                                  mlir::OpBuilder &builder) {
-  auto key = qreg_name + std::to_string(idx);
+  auto key = symbol_table.array_qubit_symbol_name(qreg_name, idx);
   if (symbol_table.has_symbol(key)) {
     return symbol_table.get_symbol(key);  // global_symbol_table[key];
   } else {

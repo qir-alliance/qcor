@@ -299,10 +299,12 @@ antlrcpp::Any qasm3_visitor::visitQuantumGateCall(
     if (idx_identifier->LBRACKET()) {
       // this is a qubit indexed from an array
       auto idx_str = idx_identifier->expressionList()->expression(0)->getText();
+      const auto qubit_symbol_name =
+          symbol_table.array_qubit_symbol_name(qbit_var_name, idx_str);
       mlir::Value value;
       try {
-        if (symbol_table.has_symbol(qbit_var_name + idx_str)) {
-          value = symbol_table.get_symbol(qbit_var_name + idx_str);
+        if (symbol_table.has_symbol(qubit_symbol_name)) {
+          value = symbol_table.get_symbol(qubit_symbol_name);
         } else {
           // try catch is on this std::stoi(), if idx_str is not an integer,
           // then we drop out and try to evaluate the expression.
@@ -322,8 +324,8 @@ antlrcpp::Any qasm3_visitor::visitQuantumGateCall(
           }
           value = builder.create<mlir::quantum::ExtractQubitOp>(
               location, qubit_type, qubits, qbit);
-          if (!symbol_table.has_symbol(qbit_var_name + idx_str))
-            symbol_table.add_symbol(qbit_var_name + idx_str, value);
+          if (!symbol_table.has_symbol(qubit_symbol_name))
+            symbol_table.add_symbol(qubit_symbol_name, value);
         } else {
           qasm3_expression_generator exp_generator(builder, symbol_table,
                                                    file_name, qubit_type);
@@ -347,14 +349,14 @@ antlrcpp::Any qasm3_visitor::visitQuantumGateCall(
 
             value = builder.create<mlir::quantum::ExtractQubitOp>(
                 location, qubit_type, qubits, value);
-            if (!symbol_table.has_symbol(qbit_var_name + idx_str))
-              symbol_table.add_symbol(qbit_var_name + idx_str, value);
+            if (!symbol_table.has_symbol(qubit_symbol_name))
+              symbol_table.add_symbol(qubit_symbol_name, value);
           }
         }
       }
 
       qbit_values.push_back(value);
-      qubit_symbol_table_keys.push_back(qbit_var_name + idx_str);
+      qubit_symbol_table_keys.push_back(qubit_symbol_name);
 
     } else {
       // this is a qubit

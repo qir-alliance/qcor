@@ -408,6 +408,19 @@ class ScopedSymbolTable {
     return current_scope >= 1 ? current_scope - 1 : 0;
   }
 
+  // Util to construct a symbol name for qubit within an array (qreg)
+  // This is to make sure we have a consitent symbol naming convention (for SSA tracking).
+  std::string array_qubit_symbol_name(const std::string &qreg_name,
+                                      const std::string &index_str) {
+    // Sanity check: we should have added the qreg var to the symbol table.
+    assert(has_symbol(qreg_name));
+    // Use '%' separator to prevent name clashes with user-defined variables
+    return qreg_name + '%' + index_str;
+  }
+  std::string array_qubit_symbol_name(const std::string &qreg_name, int index) {
+    return array_qubit_symbol_name(qreg_name, std::to_string(index));
+  }
+
   ~ScopedSymbolTable() {}
 };
 }  // namespace qcor
