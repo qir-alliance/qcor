@@ -150,21 +150,39 @@ antlrcpp::Any qasm3_visitor::visitQuantumGateDefinition(
   // from this custom gate definition
   std::vector<mlir::Value> result_qubit_vals;
   for (auto arg : entryBlock.getArguments()) {
-    auto users = arg.getUsers();
-    mlir::Value last_user;
-    if (!users.empty()) {
-      last_user = (*users.begin())->getResult(0);
+    mlir::Value last_user = arg;
+    auto users = last_user.getUsers();
+
+    while (!users.empty()) {
+      // Get the first and only user
+      auto only_user = *users.begin();
+
+      // figure out which operand idx last_user 
+      // corresponds to
+      int idx = -1;
+      for (auto op : only_user->getOperands()) {
+        idx++;
+        if (op == last_user) {
+          break;
+        }
+      }
+
+      // set the new last user as the correct 
+      // return value of the user
+      last_user = (*users.begin())->getResult(idx);
       users = last_user.getUsers();
     }
     result_qubit_vals.push_back(last_user);
   }
 
-  // std::cout << "GATE " << gate_call_name << " has " << result_qubit_vals.size() << " to return.\n";
+  // std::cout << "GATE " << gate_call_name << " has " << result_qubit_vals.size()
+  //           << " to return.\n";
   // for (auto v : result_qubit_vals) {
   //   v.dump();
   // }
 
-  builder.create<mlir::ReturnOp>(builder.getUnknownLoc(), llvm::makeArrayRef(result_qubit_vals));
+  builder.create<mlir::ReturnOp>(builder.getUnknownLoc(),
+                                 llvm::makeArrayRef(result_qubit_vals));
 
   m_module.push_back(function);
 

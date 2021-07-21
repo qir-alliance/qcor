@@ -12,8 +12,6 @@ antlrcpp::Any qasm3_visitor::visitCompute_action_stmt(
   builder.create<mlir::quantum::ComputeUnMarkerOp>(location);
   visit(context->action_block);
 
-  std::cout << context->getText() << "\n";
-
   builder.create<mlir::quantum::ComputeMarkerOp>(location);
   builder.create<mlir::quantum::StartAdjointURegion>(location);
   visit(context->compute_block);
