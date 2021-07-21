@@ -50,6 +50,9 @@ cl::opt<std::string> mlir_specified_func_name(
 static cl::opt<bool> verbose_error(
     "verbose-error", cl::desc("Printout the full MLIR Module on error."));
 
+static cl::opt<bool> print_final_submission(
+    "print-final-submission", cl::desc("Print the XACC IR representation for submitted quantum code."));
+
 static cl::opt<bool> OptLevelO0(
     "O0", cl::desc("Optimization level 0. Similar to clang -O0. "));
 
@@ -109,6 +112,10 @@ int main(int argc, char **argv) {
 
   if (verbose_error) {
     extra_args.insert({"verbose_error", ""});
+  }
+
+  if (print_final_submission) {
+    extra_args.insert({"print_final_submission", ""});
   }
 
   auto mlir_gen_result = qcor::util::mlir_gen(inputFilename, !noEntryPoint,

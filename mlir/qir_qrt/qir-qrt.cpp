@@ -84,6 +84,9 @@ void __quantum__rt__set_config_parameter(int8_t *key, int8_t *value) {
     mode = casted_value == "nisq" ? QRT_MODE::NISQ : QRT_MODE::FTQC;
   } else if (casted_key == "shots") {
     shots = std::stoi(casted_value);
+  } else if (casted_key == "print_final_submission") {
+    std::cout << "ADDING PRINT FINAL SUBMISSION\n";
+    ::__print_final_submission = true;
   }
 
 }

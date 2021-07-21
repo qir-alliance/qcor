@@ -169,7 +169,7 @@ antlrcpp::Any qasm3_visitor::visitQuantumGateDefinition(
 
       // set the new last user as the correct 
       // return value of the user
-      last_user = (*users.begin())->getResult(idx);
+      last_user = only_user->getResult(idx);
       users = last_user.getUsers();
     }
     result_qubit_vals.push_back(last_user);

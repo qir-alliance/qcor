@@ -48,7 +48,7 @@ gate test22 q, r, s, v {
         h r;
         h s;
         h v;
-        cnot q, r;
+        ctrl @ x q, r; // compiler translates to cnot
         cnot r, s;
         cnot s, v;
     } action {
@@ -64,7 +64,7 @@ ctrl @ test22 ww, qq, rr, ss, vv;
   auto llvm = qcor::mlir_compile(src, "test", qcor::OutputType::LLVMIR, true);
   std::cout << "LLVM:\n" << llvm << "\n";
   // 2 rxs, 6 hs, 6 cnots, 1 rz + decls == 19
-  //   EXPECT_EQ(countSubstring(llvm, "__quantum__qis"), 19);
+  EXPECT_EQ(countSubstring(llvm, "__quantum__qis"), 19);
 }
 
 int main(int argc, char **argv) {
