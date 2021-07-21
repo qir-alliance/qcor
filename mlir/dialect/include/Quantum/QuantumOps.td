@@ -73,18 +73,24 @@ def EndCtrlURegion : QuantumOp<"end_ctrl_u_region", []> {
   let arguments = (ins QubitType:$ctrl_qubit);
   let results = (outs);
   let printer = [{  auto op = *this;
-  p << "} (ctrl_bit = " << op.ctrl_qubit() << ")";
+  p << "} (ctrl_bit = " << op.ctrl_qubit() << ") // END CTRL";
   }];
 }
 
 def StartAdjointURegion : QuantumOp<"start_adj_u_region", []> {
   let arguments = (ins);
   let results = (outs);
+  let printer = [{
+  p << "q.adj_region {";
+  }];
 }
 
 def EndAdjointURegion : QuantumOp<"end_adj_u_region", []> {
   let arguments = (ins);
   let results = (outs);
+  let printer = [{
+  p << "} // END ADJOINT";
+  }];
 }
 
 def StartPowURegion : QuantumOp<"start_pow_u_region", []> {
@@ -95,6 +101,22 @@ def StartPowURegion : QuantumOp<"start_pow_u_region", []> {
 def EndPowURegion : QuantumOp<"end_pow_u_region", []> {
   let arguments = (ins AnyI64:$pow);
   let results = (outs);
+}
+
+def ComputeMarkerOp : QuantumOp<"compute_marker", []> {
+  let arguments = (ins);
+  let results = (outs);
+  let printer = [{
+  p << "q.mark_compute {";
+  }];
+}
+
+def ComputeUnMarkerOp : QuantumOp<"compute_unmarker", []> {
+  let arguments = (ins);
+  let results = (outs);
+  let printer = [{
+  p << "} // END COMPUTE";
+  }];
 }
 
 def InstOp : QuantumOp<"inst", [AttrSizedOperandSegments]> {

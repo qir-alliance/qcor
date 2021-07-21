@@ -41,6 +41,10 @@ public:
     return visitChildren(ctx);
   }
 
+  virtual antlrcpp::Any visitCompute_action_stmt(qasm3Parser::Compute_action_stmtContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
   virtual antlrcpp::Any visitQcor_test_statement(qasm3Parser::Qcor_test_statementContext *ctx) override {
     return visitChildren(ctx);
   }

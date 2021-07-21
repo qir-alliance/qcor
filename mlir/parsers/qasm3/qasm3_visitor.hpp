@@ -109,6 +109,9 @@ class qasm3_visitor : public qasm3::qasm3BaseVisitor {
   antlrcpp::Any visitAliasStatement(
       qasm3Parser::AliasStatementContext* context) override;
 
+  // Visit the compute-action-uncompute expression
+  antlrcpp::Any visitCompute_action_stmt(qasm3Parser::Compute_action_stmtContext *context) override;
+
   antlrcpp::Any visitQcor_test_statement(
       qasm3Parser::Qcor_test_statementContext* context) override {
     auto location = get_location(builder, file_name, context);

@@ -356,6 +356,10 @@ void __quantum__rt__end_adj_u_region() {
   return;
 }
 
+
+void __quantum__rt__mark_compute() {::quantum::qrt_impl->__begin_mark_segment_as_compute();}
+void __quantum__rt__unmark_compute() {::quantum::qrt_impl->__end_mark_segment_as_compute();}
+
 void __quantum__rt__start_ctrl_u_region() {
   // Cache the current runtime into the stack if not already.
   if (internal_runtimes.empty()) {

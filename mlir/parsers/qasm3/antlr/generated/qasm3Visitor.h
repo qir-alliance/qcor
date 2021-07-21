@@ -32,6 +32,8 @@ public:
 
     virtual antlrcpp::Any visitStatement(qasm3Parser::StatementContext *context) = 0;
 
+    virtual antlrcpp::Any visitCompute_action_stmt(qasm3Parser::Compute_action_stmtContext *context) = 0;
+
     virtual antlrcpp::Any visitQcor_test_statement(qasm3Parser::Qcor_test_statementContext *context) = 0;
 
     virtual antlrcpp::Any visitQuantumDeclarationStatement(qasm3Parser::QuantumDeclarationStatementContext *context) = 0;

@@ -22,6 +22,7 @@
 #include "lowering/StdAtanOpLowering.hpp"
 #include "lowering/ValueSemanticsInstOpLowering.hpp"
 #include "lowering/CallableLowering.hpp"
+#include "lowering/ComputeMarkerLowering.hpp"
 
 namespace qcor {
 mlir::Type get_quantum_type(std::string type, mlir::MLIRContext *context) {
@@ -111,6 +112,8 @@ void QuantumToLLVMLoweringPass::runOnOperation() {
   patterns.insert<EndPowURegionOpLowering>(&getContext());
   patterns.insert<StartAdjointURegionOpLowering>(&getContext());
   patterns.insert<EndAdjointURegionOpLowering>(&getContext());
+  patterns.insert<ComputeMarkerOpLowering>(&getContext());
+  patterns.insert<ComputeUnMarkerOpLowering>(&getContext());
   patterns.insert<StartCtrlURegionOpLowering>(&getContext());
   patterns.insert<EndCtrlURegionOpLowering>(&getContext());
   patterns.insert<TupleUnpackOpLowering>(&getContext());
