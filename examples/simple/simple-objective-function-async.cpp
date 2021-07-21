@@ -5,8 +5,13 @@
 // qcor -qpu qpp simple-objective-function-async.cpp
 // ./a.out
 
-// for _XACC_MUTEX
-#include "xacc.hpp"
+// for _QCOR_MUTEX
+#include "qcor_config.hpp"
+#ifdef _QCOR_MUTEX
+#include <mutex>
+#include <future>
+#include <thread>
+#endif
 
 __qpu__ void ansatz(qreg q, double theta) {
   X(q[0]);
@@ -15,10 +20,10 @@ __qpu__ void ansatz(qreg q, double theta) {
 }
 
 int main(int argc, char **argv) {
-#ifdef _XACC_MUTEX
-    std::cout << "_XACC_MUTEX is defined: execute taskInitiate asynchronously" << std::endl;
+#ifdef _QCOR_MUTEX
+    std::cout << "_QCOR_MUTEX is defined: execute taskInitiate asynchronously" << std::endl;
 #else
-    std::cout << "_XACC_MUTEX is NOT defined: execute taskInitiate sequentially" << std::endl;
+    std::cout << "_QCOR_MUTEX is NOT defined: execute taskInitiate sequentially" << std::endl;
 #endif
   // Allocate 2 qubits
   auto q1 = qalloc(2);
@@ -37,46 +42,31 @@ int main(int argc, char **argv) {
 
   // Create the ObjectiveFunction, here we want to run VQE
   // need to provide ansatz, Operator, and qreg
-  auto objective1 = createObjectiveFunction(
-      ansatz, H1, q1, n_variational_params1,
-      {{"gradient-strategy", "parameter-shift"}});
-  auto objective2 = createObjectiveFunction(
-      ansatz, H2, q2, n_variational_params2,
-      {{"gradient-strategy", "parameter-shift"}});
+  auto objective1 = createObjectiveFunction(ansatz, H1, q1, n_variational_params1,
+                                            {{"gradient-strategy", "central"}, {"step", 1e-3}});
+  auto objective2 = createObjectiveFunction(ansatz, H2, q2, n_variational_params2,
+                                            {{"gradient-strategy", "central"}, {"step", 1e-3}});
 
   // Create the Optimizer.
   auto optimizer1 = createOptimizer("nlopt", {{"nlopt-optimizer", "l-bfgs"}});
   auto optimizer2 = createOptimizer("nlopt", {{"nlopt-optimizer", "l-bfgs"}});
 
-#ifdef _XACC_MUTEX
-  // Launch the Optimization Task with taskInitiate
-  auto handle1 = taskInitiate(objective1, optimizer1);
+#ifdef _QCOR_MUTEX
+  // Launch the two optimizations asynchronously
+  auto handle1 = std::async(std::launch::async, [=]() -> std::pair<double, std::vector<double>> { return optimizer1->optimize(objective1); });
+  auto handle2 = std::async(std::launch::async, [=]() -> std::pair<double, std::vector<double>> { return optimizer2->optimize(objective2); });
+
   // Go do other work...
-  auto handle2 = taskInitiate(objective2, optimizer2);
 
   // Query results when ready.
-  auto results1 = sync(handle1);
-  auto results2 = sync(handle2);
+  auto [opt_val1, opt_params1] = handle1.get();
+  auto [opt_val2, opt_params2] = handle2.get();
 #else
-  // Launch the Optimization Task with taskInitiate
-  auto handle1 = taskInitiate(objective1, optimizer1);
-  // Query results when ready.
-  auto results1 = sync(handle1);
-
-  // Launch the Optimization Task with taskInitiate
-  auto handle2 = taskInitiate(objective2, optimizer2);
-  // Query results when ready.
-  auto results2 = sync(handle2);
+  // Launch the two optimizations sequentially
+  auto [opt_val1, opt_params1] = optimizer1->optimize(objective1);
+  auto [opt_val2, opt_params2] = optimizer2->optimize(objective2);
 #endif
-  printf("vqe-energy from taskInitiate1 = %f\n", results1.opt_val);
-  printf("vqe-energy from taskInitiate2 = %f\n", results2.opt_val);
-
-  printf("From objetive1\n");
-  for (auto &x : linspace(-constants::pi, constants::pi, 20)) {
-    std::cout << x << ", " << (*objective1)({x}) << "\n";
-  }
-  printf("From objetive2\n");
-  for (auto &x : linspace(-constants::pi, constants::pi, 20)) {
-    std::cout << x << ", " << (*objective2)({x}) << "\n";
-  }
+  qcor_expect(std::abs(opt_val1 + 1.74886) < 0.1);
+  qcor_expect(std::abs(opt_val2 + 1.74886) < 0.1);
+  
 }

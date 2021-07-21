@@ -6,11 +6,18 @@
 #include "xacc.hpp"
 #include "xacc_internal_compiler.hpp"
 #include "xacc_service.hpp"
+// for _QCOR_MUTEX
+#include "qcor_config.hpp"
+
+#ifdef _QCOR_MUTEX
+#include <mutex>
+#pragma message ("_QCOR_MUTEX is ON")
+#endif
 
 namespace qcor {
 
 namespace __internal__ {
-#ifdef _XACC_MUTEX
+#ifdef _QCOR_MUTEX
 extern std::mutex qcor_xacc_init_lock;
 #endif
 }
@@ -80,7 +87,7 @@ Optimizer::OptimizerImpl *Optimizer::operator->() {
 
 std::shared_ptr<Optimizer> createOptimizer(const std::string &type,
                                            xacc::HeterogeneousMap &&options) {
-#ifdef _XACC_MUTEX
+#ifdef _QCOR_MUTEX
   std::lock_guard<std::mutex> lock(__internal__::qcor_xacc_init_lock);
 #endif
   if (!xacc::isInitialized())

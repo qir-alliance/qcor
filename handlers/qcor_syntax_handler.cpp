@@ -12,10 +12,12 @@
 
 using namespace clang;
 
-// for _XACC_MUTEX
-#include "xacc.hpp"
-#ifdef _XACC_MUTEX
-#pragma message("_XACC_MUTEX is ON")
+// for _QCOR_MUTEX
+#include "qcor_config.hpp"
+
+#ifdef _QCOR_MUTEX
+#include <mutex>
+#pragma message ("_QCOR_MUTEX is ON")
 #endif
 
 namespace qcor {
@@ -183,7 +185,7 @@ void QCORSyntaxHandler::GetReplacement(
 
   // declare protected operator()() method
   OS << "protected:\n";
-#ifdef _XACC_MUTEX
+#ifdef _QCOR_MUTEX
   OS << "static std::recursive_mutex& getMutex() {\n";
   OS << "static std::recursive_mutex m;\n";
   OS << "return m;\n";
@@ -195,7 +197,7 @@ void QCORSyntaxHandler::GetReplacement(
     OS << ", " << program_arg_types[i] << " " << program_parameters[i];
   }
   OS << ") {\n";
-#ifdef _XACC_MUTEX
+#ifdef _QCOR_MUTEX
   OS << "std::lock_guard<std::recursive_mutex> lock(getMutex());\n";
 #endif
   OS << "if (!parent_kernel) {\n";
@@ -302,7 +304,7 @@ void QCORSyntaxHandler::GetReplacement(
   // Destructor definition
   OS << "virtual ~" << kernel_name << "() {\n";
   OS << "if (disable_destructor) {return;}\n";
-#ifdef _XACC_MUTEX
+#ifdef _QCOR_MUTEX
   OS << "std::lock_guard<std::recursive_mutex> lock(getMutex());\n";
 #endif
   OS << "auto [" << program_parameters[0];
@@ -543,6 +545,9 @@ void QCORSyntaxHandler::AddToPredefines(llvm::raw_string_ostream &OS) {
     OS << "#include \"qcor.hpp\"\n";
     OS << "using namespace qcor;\n";
     OS << "using namespace xacc::internal_compiler;\n";
+#ifdef _QCOR_MUTEX
+    OS << "#include <mutex>\n";
+#endif
   }
 }
 

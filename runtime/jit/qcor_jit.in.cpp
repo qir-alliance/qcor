@@ -52,6 +52,13 @@
 #include "qrt.hpp"
 #include "xacc.hpp"
 #include "xacc_internal_compiler.hpp"
+// for _QCOR_MUTEX
+#include "qcor_config.hpp"
+
+#ifdef _QCOR_MUTEX
+#include <mutex>
+#pragma message ("_QCOR_MUTEX is ON")
+#endif
 
 using namespace llvm;
 using namespace llvm::orc;
@@ -64,7 +71,7 @@ using namespace llvm::orc;
 namespace qcor {
 
 namespace __internal__ {
-#ifdef _XACC_MUTEX
+#ifdef _QCOR_MUTEX
 std::mutex qcor_qjit_lock;
 #endif
 }
@@ -406,7 +413,7 @@ class LLVMJIT {
 };
 
 QJIT::QJIT() {
-#ifdef _XACC_MUTEX
+#ifdef _QCOR_MUTEX
   std::lock_guard<std::mutex> l(__internal__::qcor_qjit_lock);
 #endif
   // if tmp directory doesnt exist create it
@@ -437,7 +444,7 @@ QJIT::QJIT() {
   }
 }
 void QJIT::write_cache() {
-#ifdef _XACC_MUTEX
+#ifdef _QCOR_MUTEX
   std::lock_guard<std::mutex> l(__internal__::qcor_qjit_lock);
 #endif
 
@@ -471,7 +478,7 @@ QJIT::~QJIT() { write_cache(); }
 
 void QJIT::jit_compile(std::unique_ptr<llvm::Module> m,
                        std::vector<std::string> extra_shared_lib_paths) {
-#ifdef _XACC_MUTEX
+#ifdef _QCOR_MUTEX
   std::lock_guard<std::mutex> l(__internal__::qcor_qjit_lock);
 #endif
   std::vector<std::string> seen_functions;
@@ -502,7 +509,7 @@ void QJIT::jit_compile(const std::string &code,
                        const std::vector<std::string> &kernel_dependency,
                        const std::string &extra_functions_src,
                        std::vector<std::string> extra_headers) {
-#ifdef _XACC_MUTEX
+#ifdef _QCOR_MUTEX
   std::lock_guard<std::mutex> l(__internal__::qcor_qjit_lock);
 #endif
   // Run the Syntax Handler to get the kernel name and

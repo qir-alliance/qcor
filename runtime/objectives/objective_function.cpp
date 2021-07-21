@@ -2,15 +2,23 @@
 #include "xacc.hpp"
 #include "xacc_service.hpp"
 #include "xacc_internal_compiler.hpp"
+// for _QCOR_MUTEX
+#include "qcor_config.hpp"
+
+#ifdef _QCOR_MUTEX
+#include <mutex>
+#pragma message ("_QCOR_MUTEX is ON")
+#endif
+
 namespace qcor {
 namespace __internal__ {
 
-#ifdef _XACC_MUTEX
+#ifdef _QCOR_MUTEX
 std::mutex qcor_xacc_init_lock;
 #endif
 
 std::shared_ptr<ObjectiveFunction> get_objective(const std::string &type) {
-#ifdef _XACC_MUTEX
+#ifdef _QCOR_MUTEX
   std::lock_guard<std::mutex> lock(qcor_xacc_init_lock);
 #endif
   if (!xacc::isInitialized())

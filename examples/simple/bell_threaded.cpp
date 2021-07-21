@@ -1,5 +1,9 @@
-// for _XACC_MUTEX
-#include "xacc.hpp"
+// for _QCOR_MUTEX
+#include "qcor_config.hpp"
+#ifdef _QCOR_MUTEX
+#include <mutex>
+#include <thread>
+#endif
 
 // Define the bell kernel
 __qpu__ void bell(qreg q) {
@@ -24,14 +28,14 @@ void foo() {
 }
 
 int main(int argc, char **argv) {
-#ifdef _XACC_MUTEX
-    std::cout << "_XACC_MUTEX is defined: multi-threding execution" << std::endl;
+#ifdef _QCOR_MUTEX
+    std::cout << "_QCOR_MUTEX is defined: multi-threding execution" << std::endl;
     std::thread t0(foo);
     std::thread t1(foo);
     t0.join();
     t1.join();
 #else
-    std::cout << "_XACC_MUTEX is NOT defined: sequential execution" << std::endl;
+    std::cout << "_QCOR_MUTEX is NOT defined: sequential execution" << std::endl;
     foo();
     foo();
 #endif
