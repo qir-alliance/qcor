@@ -194,6 +194,7 @@ def main(argv=None):
         parser.add_argument('-keep-llvm-file', metavar='', help='keep intermediate LLVM files.')
         parser.add_argument('-rebuild-pch', metavar='', help='Build the pre-compiled header for the qcor language extension to speed up compile times.')
         parser.add_argument('-print-final-submission', metavar='', help='print the final quantum circuit for backend submission (ignored in FTQC).')
+        parser.add_argument('-print-csp-source', metavar='', help='print the result of the Clang Syntax Handler.')
         # FIXME ADD NO FAST COMPILE FLAG (TURN OFF PCH, MAINLY FOR BENCHMARK COMPARISONS)
         
         # Q# options to be passed to the Q# QIR generator:
@@ -367,7 +368,12 @@ def main(argv=None):
         sys.argv += ['-D__internal__qcor__compile__shots=\"'+str(shots)+'\"']
         sHandlerArgs += ['-Xclang', '-plugin-arg-qcor-args', '-Xclang', '-shots', '-Xclang', '-plugin-arg-qcor-args', '-Xclang', shots]
 
-    if verbose:
+    csp_source_print = False
+    if '-print-csp-source' in sys.argv[1:]:
+        csp_source_print=True
+        sys.argv.remove('-print-csp-source')
+  
+    if csp_source_print:
         sHandlerArgs += ['-Xclang', '-plugin-arg-qcor-args', '-Xclang', '-qcor-verbose']
 
     # Optimization level for flattened (runtime) kernel
