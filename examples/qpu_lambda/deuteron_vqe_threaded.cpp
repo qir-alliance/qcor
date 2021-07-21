@@ -25,18 +25,17 @@ void foo() {
     CX(q[1], q[0]);
   });
 
-  OptFunction opt_function(
-      [&](std::vector<double> x) { return ansatz.observe(H, qalloc(2), x[0]); },
-      1);
-
-  OptFunction opt_function_vec(
+   ObjectiveFunction opt_function_vec(
       [&](std::vector<double> x) {
         return ansatz_take_vec.observe(H, qalloc(2), x);
       },
       1);
 
+  // Show off optimize from ObjectiveFunction rvalue
   auto optimizer = createOptimizer("nlopt");
-  auto [ground_energy, opt_params] = optimizer->optimize(opt_function);
+  auto [ground_energy, opt_params] = optimizer->optimize(ObjectiveFunction(
+      [&](std::vector<double> x) { return ansatz.observe(H, qalloc(2), x[0]); },
+      1));
   print("Energy: ", ground_energy);
   qcor_expect(std::abs(ground_energy + 1.74886) < 0.1);
 
