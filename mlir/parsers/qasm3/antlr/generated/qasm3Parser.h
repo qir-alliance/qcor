@@ -928,6 +928,8 @@ public:
     virtual size_t getRuleIndex() const override;
     antlr4::tree::TerminalNode *LBRACE();
     antlr4::tree::TerminalNode *RBRACE();
+    std::vector<Compute_action_stmtContext *> compute_action_stmt();
+    Compute_action_stmtContext* compute_action_stmt(size_t i);
     std::vector<QuantumStatementContext *> quantumStatement();
     QuantumStatementContext* quantumStatement(size_t i);
     std::vector<QuantumLoopContext *> quantumLoop();

@@ -211,7 +211,7 @@ quantumGateSignature
     ;
 
 quantumBlock
-    : LBRACE ( quantumStatement | quantumLoop )* RBRACE
+    : LBRACE ( compute_action_stmt | quantumStatement | quantumLoop )* RBRACE
     ;
 
 // loops containing only quantum statements allowed in gates
