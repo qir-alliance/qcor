@@ -444,10 +444,6 @@ def main(argv=None):
     if '@QCOR_APPEND_PLUGIN_PATH@':
         sys.argv += ['-D__internal__qcor__compile__plugin__path=\"@QCOR_APPEND_PLUGIN_PATH@\"']
     
-    if '-print-final-submission' in sys.argv[1:]:
-        sys.argv.remove('-print-final-submission')
-        sys.argv += ['-D__internal__qcor__print__final__submission']
-
     # Get the filename we are compiling or the object file
     filename = ''
     fileType = ''
@@ -515,6 +511,9 @@ def main(argv=None):
         if '-verbose-error' in sys.argv[1:]:
             extra_args.append('-verbose-error')
             sys.argv.remove('-verbose-error')
+
+        if '-print-final-submission' in sys.argv[1:]:
+            extra_args.append('-print-final-submission')
 
         # Some options that we want to pass on to mlir tool
         # (a subset of --help that we think is useful)
@@ -641,7 +640,7 @@ def main(argv=None):
                 os.remove(bson_file_name)
             except OSError:
                 pass
-    
+
     for arg in sys.argv[1:]:
         if os.path.isfile(arg) and mimetypes.guess_type(arg)[0] is not None:
             filename = arg
@@ -665,6 +664,10 @@ def main(argv=None):
             fileType = 'text/x-c++src'
             filename = arg
             break
+
+    if '-print-final-submission' in sys.argv[1:]:
+        sys.argv.remove('-print-final-submission')
+        sys.argv += ['-D__internal__qcor__print__final__submission']
 
     # If it is a C++ file
     if fileType != None and 'text/x-c' in fileType:

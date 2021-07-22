@@ -1,5 +1,6 @@
 #include "gtest/gtest.h"
 #include "qcor_mlir_api.hpp"
+#include <fstream>
 
 namespace {
 // returns count of non-overlapping occurrences of 'sub' in 'str'
@@ -59,12 +60,25 @@ gate test22 q, r, s, v {
 ctrl @ test22 ww, qq, rr, ss, vv;
 
 )#";
-  std::cout << qcor::mlir_compile(src, "test", qcor::OutputType::MLIR, true)
-            << "\n";
+
   auto llvm = qcor::mlir_compile(src, "test", qcor::OutputType::LLVMIR, true);
   std::cout << "LLVM:\n" << llvm << "\n";
   // 2 rxs, 6 hs, 6 cnots, 1 rz + decls == 19
   EXPECT_EQ(countSubstring(llvm, "__quantum__qis"), 19);
+
+  // Execute and assert we have the single CRZ
+  std::string tmp_filename = "__tmp__ctrl_test.xacc";
+  qcor::execute(src, "test", 3, {{"qrt", "nisq"}, {"print_final_submission", tmp_filename}});
+  std::ifstream ifs(tmp_filename);
+  std::string content( (std::istreambuf_iterator<char>(ifs) ),
+                       (std::istreambuf_iterator<char>()    ) );
+  
+  EXPECT_EQ(countSubstring(content, "CNOT"), 6);
+  EXPECT_EQ(countSubstring(content, "H"), 6);
+  EXPECT_EQ(countSubstring(content, "Rx"), 2);
+  EXPECT_EQ(countSubstring(content, "CRZ"), 1);
+  
+  std::remove(tmp_filename.c_str());
 }
 
 int main(int argc, char **argv) {

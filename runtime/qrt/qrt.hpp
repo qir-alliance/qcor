@@ -239,6 +239,8 @@ extern void apply_decorators(const std::string &decorator_cmdline_string);
 extern std::string __qrt_env;
 // Print final CompositeInstruction for backend submission
 extern bool __print_final_submission;
+extern std::string __print_final_submission_filename;
+
 // Execute the pass manager on the provided kernel.
 // If none provided, execute the pass manager on the current QRT kernel.
 void execute_pass_manager(
