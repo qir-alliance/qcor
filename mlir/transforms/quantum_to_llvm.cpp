@@ -21,6 +21,8 @@
 #include "lowering/SetQregOpLowering.hpp"
 #include "lowering/StdAtanOpLowering.hpp"
 #include "lowering/ValueSemanticsInstOpLowering.hpp"
+#include "lowering/CallableLowering.hpp"
+#include "lowering/ComputeMarkerLowering.hpp"
 
 namespace qcor {
 mlir::Type get_quantum_type(std::string type, mlir::MLIRContext *context) {
@@ -44,8 +46,12 @@ struct QuantumLLVMTypeConverter : public LLVMTypeConverter {
       return LLVM::LLVMPointerType::get(get_quantum_type("qreg", context));
     } else if (type.getTypeData() == "Array") {
       return LLVM::LLVMPointerType::get(get_quantum_type("Array", context));
+    } else if (type.getTypeData() == "Callable") {
+      return LLVM::LLVMPointerType::get(get_quantum_type("Callable", context));
+    } else if (type.getTypeData() == "Tuple") {
+      return LLVM::LLVMPointerType::get(get_quantum_type("Tuple", context));
     }
-    std::cout << "ERROR WE DONT KNOW WAHT THIS TYPE IS\n";
+    std::cout << "ERROR WE DONT KNOW WHAT THIS TYPE IS\n";
     exit(0);
     return mlir::IntegerType::get(context, 64);
   }
@@ -70,6 +76,9 @@ void QuantumToLLVMLoweringPass::runOnOperation() {
 
   // Lower arctan correctly
   patterns.insert<StdAtanOpLowering>(&getContext());
+  // Affine to Standard
+  populateAffineToStdConversionPatterns(patterns, &getContext());
+  populateLoopToStdConversionPatterns(patterns, &getContext());
 
   // Add Standard to LLVM
   populateStdToLLVMConversionPatterns(typeConverter, patterns);
@@ -103,8 +112,12 @@ void QuantumToLLVMLoweringPass::runOnOperation() {
   patterns.insert<EndPowURegionOpLowering>(&getContext());
   patterns.insert<StartAdjointURegionOpLowering>(&getContext());
   patterns.insert<EndAdjointURegionOpLowering>(&getContext());
+  patterns.insert<ComputeMarkerOpLowering>(&getContext());
+  patterns.insert<ComputeUnMarkerOpLowering>(&getContext());
   patterns.insert<StartCtrlURegionOpLowering>(&getContext());
   patterns.insert<EndCtrlURegionOpLowering>(&getContext());
+  patterns.insert<TupleUnpackOpLowering>(&getContext());
+  patterns.insert<CreateCallableOpLowering>(&getContext());
 
   // We want to completely lower to LLVM, so we use a `FullConversion`. This
   // ensures that only legal operations will remain after the conversion.

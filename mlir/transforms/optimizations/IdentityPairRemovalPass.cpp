@@ -130,4 +130,47 @@ void CNOTIdentityPairRemovalPass::runOnOperation() {
     op.erase();
   }
 }
+
+void DuplicateResetRemovalPass::getDependentDialects(
+    DialectRegistry &registry) const {
+  registry.insert<LLVM::LLVMDialect>();
+}
+
+void DuplicateResetRemovalPass::runOnOperation() {
+  // Walk the operations within the function.
+  std::vector<mlir::quantum::ValueSemanticsInstOp> deadOps;
+  getOperation().walk([&](mlir::quantum::ValueSemanticsInstOp op) {
+    if (std::find(deadOps.begin(), deadOps.end(), op) != deadOps.end()) {
+      // Skip this op since it was deleted (forward search)
+      return;
+    }
+    auto inst_name = op.name();
+    
+    if (inst_name != "reset") {
+      return;
+    }
+
+    auto return_value = *op.result().begin();
+    if (return_value.hasOneUse()) {
+      // get that one user
+      auto user = *return_value.user_begin();
+      // cast to a inst op
+      if (auto next_inst =
+              dyn_cast_or_null<mlir::quantum::ValueSemanticsInstOp>(user)) {
+        if (next_inst.name().str() == "reset") {
+          // Two resets in a row:
+          // Chain the input -> output and mark this second reset to delete:
+          (*next_inst.result_begin())
+              .replaceAllUsesWith(next_inst.getOperand(0));
+          deadOps.emplace_back(next_inst);
+        }
+      }
+    }
+  });
+
+  for (auto &op : deadOps) {
+    op->dropAllUses();
+    op.erase();
+  }
+}
 } // namespace qcor

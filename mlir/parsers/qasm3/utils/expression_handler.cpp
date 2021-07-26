@@ -122,6 +122,10 @@ antlrcpp::Any qasm3_expression_generator::visitTerminal(
           current_value = builder.create<mlir::ZeroExtendIOp>(
               location, current_value, builder.getI64Type());
         }
+        if (!current_value.getType().isa<mlir::IntegerType>()) {
+          current_value = builder.create<mlir::IndexCastOp>(
+              location, builder.getI64Type(), current_value);
+        }
         update_current_value(builder.create<mlir::quantum::ExtractQubitOp>(
             location, get_custom_opaque_type("Qubit", builder.getContext()),
             indexed_variable_value, current_value));
@@ -404,8 +408,10 @@ antlrcpp::Any qasm3_expression_generator::visitAdditiveExpression(
         }
 
         createOp<mlir::AddFOp>(location, lhs, rhs);
-      } else if (lhs.getType().isa<mlir::IntegerType>() &&
-                 rhs.getType().isa<mlir::IntegerType>()) {
+      } else if ((lhs.getType().isa<mlir::IntegerType>() ||
+                  lhs.getType().isa<mlir::IndexType>()) &&
+                 (rhs.getType().isa<mlir::IntegerType>() ||
+                  rhs.getType().isa<mlir::IndexType>())) {
         if (lhs.getType().getIntOrFloatBitWidth() <
             rhs.getType().getIntOrFloatBitWidth()) {
           lhs =
@@ -415,6 +421,10 @@ antlrcpp::Any qasm3_expression_generator::visitAdditiveExpression(
             lhs.getType().getIntOrFloatBitWidth()) {
           rhs =
               builder.create<mlir::ZeroExtendIOp>(location, rhs, lhs.getType());
+        }
+
+        if (lhs.getType() != rhs.getType()) {
+          rhs = builder.create<mlir::IndexCastOp>(location, lhs.getType(), rhs);
         }
         createOp<mlir::AddIOp>(location, lhs, rhs).result();
       } else {
@@ -434,8 +444,13 @@ antlrcpp::Any qasm3_expression_generator::visitAdditiveExpression(
         }
 
         createOp<mlir::SubFOp>(location, lhs, rhs);
-      } else if (lhs.getType().isa<mlir::IntegerType>() &&
-                 rhs.getType().isa<mlir::IntegerType>()) {
+      } else if ((lhs.getType().isa<mlir::IntegerType>() ||
+                  lhs.getType().isa<mlir::IndexType>()) &&
+                 (rhs.getType().isa<mlir::IntegerType>() ||
+                  rhs.getType().isa<mlir::IndexType>())) {
+        if (lhs.getType() != rhs.getType()) {
+          rhs = builder.create<mlir::IndexCastOp>(location, lhs.getType(), rhs);
+        }
         createOp<mlir::SubIOp>(location, lhs, rhs).result();
       } else {
         printErrorMessage("Could not perform subtraction, incompatible types: ",
@@ -680,39 +695,19 @@ antlrcpp::Any qasm3_expression_generator::visitMultiplicativeExpression(
         } else if (!rhs.getType().isa<mlir::FloatType>()) {
           rhs = builder.create<mlir::SIToFPOp>(location, rhs, lhs.getType());
         }
-
-        // if (!lhs.getType().isa<mlir::FloatType>()) {
-        //   if (auto op = lhs.getDefiningOp<mlir::ConstantOp>()) {
-        //     auto value = op.getValue()
-        //                      .cast<mlir::IntegerAttr>()
-        //                      .getValue()
-        //                      .getLimitedValue();
-        //     lhs = builder.create<mlir::ConstantOp>(
-        //         location, mlir::FloatAttr::get(rhs.getType(),
-        //         (double)value));
-        //   } else {
-        //     printErrorMessage(
-        //         "Must cast lhs to float, but it is not constant.");
-        //   }
-        // } else if (!rhs.getType().isa<mlir::FloatType>()) {
-        //   if (auto op = rhs.getDefiningOp<mlir::ConstantOp>()) {
-        //     auto value = op.getValue()
-        //                      .cast<mlir::IntegerAttr>()
-        //                      .getValue()
-        //                      .getLimitedValue();
-        //     rhs = builder.create<mlir::ConstantOp>(
-        //         location, mlir::FloatAttr::get(lhs.getType(),
-        //         (double)value));
-        //   } else {
-        //     printErrorMessage(
-        //         "Must cast rhs to float, but it is not constant.", ctx, {lhs,
-        //         rhs});
-        //   }
-        // }
-
         createOp<mlir::DivFOp>(location, lhs, rhs);
       } else if (lhs.getType().isa<mlir::IntegerType>() &&
                  rhs.getType().isa<mlir::IntegerType>()) {
+        
+        if (lhs.getType().getIntOrFloatBitWidth() <
+            rhs.getType().getIntOrFloatBitWidth()) {
+          lhs =
+              builder.create<mlir::ZeroExtendIOp>(location, lhs, rhs.getType());
+        } else if (rhs.getType().getIntOrFloatBitWidth() <
+                   lhs.getType().getIntOrFloatBitWidth()) {
+          rhs =
+              builder.create<mlir::ZeroExtendIOp>(location, rhs, lhs.getType());
+        }
         createOp<mlir::SignedDivIOp>(location, lhs, rhs);
       } else {
         printErrorMessage("Could not perform division, incompatible types: ",

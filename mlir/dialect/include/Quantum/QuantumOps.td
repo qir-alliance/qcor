@@ -11,6 +11,8 @@ def ArrayType : OpaqueType<"quantum", "Array", "opaque array type">;
 def ArgvType : OpaqueType<"quantum", "ArgvType", "opaque argv type">;
 def QregType : OpaqueType<"quantum", "QregType", "opaque qreg type">;
 def StringType : OpaqueType<"quantum", "StringType", "opaque string type">;
+def TupleType : OpaqueType<"quantum", "Tuple", "opaque tuple type">;
+def CallableType : OpaqueType<"quantum", "Callable", "opaque callable type">;
 
 def QallocOp : QuantumOp<"qalloc", []> {
     let arguments = (ins AnyI64Attr:$size, StrAttr:$name);
@@ -26,6 +28,9 @@ def QallocOp : QuantumOp<"qalloc", []> {
 def QaliasArrayAllocOp : QuantumOp<"createQubitArray", []> {
     let arguments = (ins AnyI64Attr:$size, StrAttr:$name);
     let results = (outs ArrayType:$qubits);
+    let printer = [{  auto op = *this;
+  p << "q.createArray(" << op.size() << ") { name = " << op.name() << " }";
+  p << " : " << op.qubits().getType(); }];
 }
 
 def ExtractQubitOp : QuantumOp<"qextract", []> {
@@ -39,6 +44,9 @@ def ExtractQubitOp : QuantumOp<"qextract", []> {
 def GeneralArrayExtractOp : QuantumOp<"array_extract", []> {
     let arguments = (ins ArrayType:$array, AnyInteger:$idx);
     let results = (outs AnyType:$element);
+    let printer = [{  auto op = *this;
+  p << "q.array_extract(" << op.getOperands() << ")";
+  p << " : " << op.element().getType(); }];
 }
 
 // Assign a qubit pointer (specified by the Qubit array and index) to an alias pointer. 
@@ -46,17 +54,27 @@ def GeneralArrayExtractOp : QuantumOp<"array_extract", []> {
 def AssignQubitOp : QuantumOp<"qassign", []> {
     let arguments = (ins ArrayType:$dest_qreg, AnyInteger:$dest_idx, ArrayType:$src_qreg, AnyInteger:$src_idx);
     let results = (outs);
+    let printer = [{  auto op = *this;
+  p << "q.qassign " << op.src_qreg() << "[" << op.src_idx() << "] -> " << op.dest_qreg() << "[" << op.dest_idx() << "]";}];
 }
 
 // Extract array slice
 def ArraySliceOp : QuantumOp<"qarray_slice", []> {
     let arguments = (ins ArrayType:$qreg, Variadic<I64>:$slice_range);
     let results = (outs ArrayType:$array_slice);
+    let printer = [{  auto op = *this;
+  p << "q.qarray_slice (" << op.getOperands() << ")";
+  p << " : " << op.array_slice().getType();
+  }];
 }
 // Array Concatenation
 def ArrayConcatOp : QuantumOp<"qarray_concat", []> {
     let arguments = (ins ArrayType:$qreg1, ArrayType:$qreg2);
     let results = (outs ArrayType:$concat_array);
+    let printer = [{  auto op = *this;
+  p << "q.qarray_concat (" << op.getOperands() << ")";
+  p << " : " << op.concat_array().getType();
+  }];
 }
 
 def StartCtrlURegion : QuantumOp<"start_ctrl_u_region", []> {
@@ -71,28 +89,57 @@ def EndCtrlURegion : QuantumOp<"end_ctrl_u_region", []> {
   let arguments = (ins QubitType:$ctrl_qubit);
   let results = (outs);
   let printer = [{  auto op = *this;
-  p << "} (ctrl_bit = " << op.ctrl_qubit() << ")";
+  p << "} (ctrl_bit = " << op.ctrl_qubit() << ") // END CTRL";
   }];
 }
 
 def StartAdjointURegion : QuantumOp<"start_adj_u_region", []> {
   let arguments = (ins);
   let results = (outs);
+  let printer = [{
+  p << "q.adj_region {";
+  }];
 }
 
 def EndAdjointURegion : QuantumOp<"end_adj_u_region", []> {
   let arguments = (ins);
   let results = (outs);
+  let printer = [{
+  p << "} // END ADJOINT";
+  }];
 }
 
 def StartPowURegion : QuantumOp<"start_pow_u_region", []> {
   let arguments = (ins);
   let results = (outs);
+  let printer = [{  
+    p << "q.pow_u_region {";
+  }];
 }
 
 def EndPowURegion : QuantumOp<"end_pow_u_region", []> {
   let arguments = (ins AnyI64:$pow);
   let results = (outs);
+  let printer = [{  
+    auto op = *this;
+    p << "} (pow = " << op.pow() << ") // END POWER";
+  }];
+}
+
+def ComputeMarkerOp : QuantumOp<"compute_marker", []> {
+  let arguments = (ins);
+  let results = (outs);
+  let printer = [{
+  p << "q.mark_compute {";
+  }];
+}
+
+def ComputeUnMarkerOp : QuantumOp<"compute_unmarker", []> {
+  let arguments = (ins);
+  let results = (outs);
+  let printer = [{
+  p << "} // END COMPUTE";
+  }];
 }
 
 def InstOp : QuantumOp<"inst", [AttrSizedOperandSegments]> {
@@ -119,10 +166,10 @@ def DeallocOp : QuantumOp<"dealloc", []> {
 }
 
 def QRTInitOp : QuantumOp<"init", []> {
-    let arguments = (ins AnyI32:$argc, ArgvType:$argv);
+    let arguments = (ins AnyI32:$argc, ArgvType:$argv, OptionalAttr<StrArrayAttr>:$extra_args);
     let results = (outs);
     let printer = [{  auto op = *this;
-  p << "q.init(" << op.getOperands() << ")"; }];
+  p << "q.init(" << op.getOperands() << ") " << op.extra_argsAttr(); }];
 }
 
 def QRTFinalizeOp : QuantumOp<"finalize", []> {
@@ -170,6 +217,21 @@ def IntegerCastOp : QuantumOp<"integerCast", []> {
     let results = (outs AnyInteger:$output);
     let printer = [{  auto op = *this;
   p << "q.integerCast" << "(" << op.input() << ") : " << op.output().getType(); }];
+}
+
+// Unpack a Tuple
+def TupleUnpackOp : QuantumOp<"tupleUnpack", []> {
+    let arguments = (ins TupleType:$tuple);
+    let results = (outs Variadic<AnyType>:$result);
+    let printer = [{  auto op = *this;
+  p << "q.tupleUnpack" << "(" << op.tuple() << ") : " << op.result().getType(); }];
+}
+
+def CreateCallableOp : QuantumOp<"createCallable", []> {
+    let arguments = (ins FlatSymbolRefAttr:$functors);
+    let results = (outs CallableType:$callable);
+    let printer = [{  auto op = *this;
+  p << "q.createCallable" << "(" << op.functors() << ") : " << op.callable().getType(); }];
 }
 
 #endif // Quantum_OPS

@@ -1,5 +1,8 @@
 #include <Eigen/Dense>
 #include <Utils.hpp>
+#include <fstream>
+#include <unistd.h>
+#include <stdio.h>
 
 #include "CommonGates.hpp"
 #include "FermionOperator.hpp"
@@ -368,6 +371,11 @@ class NISQ : public ::quantum::QuantumRuntime,
     } else {
       if (__print_final_submission) {
         std::cout << "SUBMIT:\n" << program->toString() << "\n";
+        if (!__print_final_submission_filename.empty()) {
+          std::ofstream os(__print_final_submission_filename);
+          os << program->toString();
+          os.close();
+        }
       }
       xacc::internal_compiler::execute(
           buffer, program->as_xacc());
@@ -398,9 +406,13 @@ class NISQ : public ::quantum::QuantumRuntime,
 
     if (__print_final_submission) {
       std::cout << "SUBMIT:\n" << program->toString() << "\n";
+      if (!__print_final_submission_filename.empty()) {
+        std::ofstream os(__print_final_submission_filename);
+        os << program->toString();
+        os.close();
+      }
     }
-    xacc::internal_compiler::execute(
-        buffers, nBuffers, program->as_xacc());
+    xacc::internal_compiler::execute(buffers, nBuffers, program->as_xacc());
   }
 
   void set_current_program(std::shared_ptr<CompositeInstruction> p) override {

@@ -68,11 +68,11 @@ mlir::Type get_custom_opaque_type(const std::string& type,
   return mlir::OpaqueType::get(context, dialect, type_name);
 }
 
-mlir::Value get_or_extract_qubit(const std::string& qreg_name,
+mlir::Value get_or_extract_qubit(const std::string &qreg_name,
                                  const std::size_t idx, mlir::Location location,
-                                 ScopedSymbolTable& symbol_table,
-                                 mlir::OpBuilder& builder, std::string prepended_st_name) {
-  auto key = prepended_st_name + qreg_name + std::to_string(idx);
+                                 ScopedSymbolTable &symbol_table,
+                                 mlir::OpBuilder &builder) {
+  auto key = symbol_table.array_qubit_symbol_name(qreg_name, idx);
   if (symbol_table.has_symbol(key)) {
     return symbol_table.get_symbol(key);  // global_symbol_table[key];
   } else {
@@ -177,7 +177,7 @@ mlir::Type convertQasm3Type(qasm3::qasm3Parser::ClassicalTypeContext* ctx,
     auto start = type.find_first_of("[");
     int64_t bit_size;
     if (start == std::string::npos) {
-      bit_size = 32;
+      bit_size = type.find("64_t") == std::string::npos ? 32 : 64;
     } else {
       auto finish = type.find_first_of("]");
       auto idx_str = type.substr(start + 1, finish - start - 1);

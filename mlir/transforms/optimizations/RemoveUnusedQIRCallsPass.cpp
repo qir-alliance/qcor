@@ -40,6 +40,71 @@ void RemoveUnusedQIRCallsPass::runOnOperation() {
   }
   deadOps.clear();
 
+  // Strategy for alias construction clean-up:
+  // In general, we must trim the alias construction from bottom up:
+  // i.e. array concatenation (||) must be check (for no use) first then remove
+  // if the resulting array is unused. This can then free up the two left and
+  // right operands for potential clean-up (by checking for no use).
+
+  // Remove any qubit array concat/create that has no use:
+  // (from qubit array aliasing)
+  getOperation().walk([&](mlir::quantum::ArrayConcatOp op) {
+    // ArrayConcatOp has no use
+    if (op.concat_array().use_empty()) {
+      deadOps.emplace_back(op.getOperation());
+    }
+  });
+  for (auto &op : deadOps) {
+    op->dropAllUses();
+    op->erase();
+  }
+  deadOps.clear();
+
+  getOperation().walk([&](mlir::quantum::ArraySliceOp op) {
+    // ArraySliceOp has no use
+    if (op.array_slice().use_empty()) {
+      deadOps.emplace_back(op.getOperation());
+    }
+  });
+  for (auto &op : deadOps) {
+    op->dropAllUses();
+    op->erase();
+  }
+  deadOps.clear();
+
+  // Remove alias array construction that has no use:
+  // i.e. createQubitArray then qassign but no other uses:
+  getOperation().walk([&](mlir::quantum::QaliasArrayAllocOp op) {
+    // QaliasArrayAllocOp has no use except qassign 
+    // i.e. we construct the alias array but not using it
+    bool allUsesAreQassign = true;
+
+    for (auto user_iter = op.qubits().user_begin();
+         user_iter != op.qubits().user_end(); ++user_iter) {
+      auto user = *user_iter;
+      // cast to a AssignQubitOp; break if not a AssignQubitOp
+      if (!dyn_cast_or_null<mlir::quantum::AssignQubitOp>(user)) {
+        allUsesAreQassign = false;
+        break;
+      }
+    }
+
+    if (allUsesAreQassign) {
+      deadOps.emplace_back(op.getOperation());
+      for (auto user_iter = op.qubits().user_begin();
+           user_iter != op.qubits().user_end(); ++user_iter) {
+        auto user = *user_iter;
+        auto assignOp = dyn_cast_or_null<mlir::quantum::AssignQubitOp>(user);
+        deadOps.emplace_back(assignOp.getOperation());
+      }
+    }
+  });
+  for (auto &op : deadOps) {
+    op->dropAllUses();
+    op->erase();
+  }
+  deadOps.clear();
+
   getOperation().walk([&](mlir::quantum::QallocOp op) {
     // QallocOp returns a qubit array, if it
     // only has one user, then that user must be
@@ -56,5 +121,20 @@ void RemoveUnusedQIRCallsPass::runOnOperation() {
     op->dropAllUses();
     op->erase();
   }
+  deadOps.clear();
+
+  // Run another round of ConstantOp trimming
+  // (potentially realizable after the above optimizations)
+  getOperation().walk([&](mlir::ConstantOp op) {
+    // ConstantOp has no use
+    if (op.getResult().use_empty()) {
+      deadOps.emplace_back(op.getOperation());
+    }
+  });
+  for (auto &op : deadOps) {
+    op->dropAllUses();
+    op->erase();
+  }
+  deadOps.clear();
 }
 } // namespace qcor

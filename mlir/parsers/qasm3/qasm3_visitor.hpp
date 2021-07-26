@@ -109,6 +109,9 @@ class qasm3_visitor : public qasm3::qasm3BaseVisitor {
   antlrcpp::Any visitAliasStatement(
       qasm3Parser::AliasStatementContext* context) override;
 
+  // Visit the compute-action-uncompute expression
+  antlrcpp::Any visitCompute_action_stmt(qasm3Parser::Compute_action_stmtContext *context) override;
+
   antlrcpp::Any visitQcor_test_statement(
       qasm3Parser::Qcor_test_statementContext* context) override {
     auto location = get_location(builder, file_name, context);
@@ -167,7 +170,19 @@ class qasm3_visitor : public qasm3::qasm3BaseVisitor {
 
     return 0;
   }
-
+  
+  antlrcpp::Any visitPragma(qasm3Parser::PragmaContext *ctx) override {
+    // Handle the #pragma { export; } directive
+    // Mark the export bool flag so that the later sub-routine handler will pick it up.
+    if (ctx->statement().size() == 1 && ctx->statement(0)->getText() == "export;") {
+      // The handler needs to reset this flag after handling the sub-routine.
+      assert(!export_subroutine_as_callable);
+      export_subroutine_as_callable = true;
+      return 0;
+    } else {
+      return visitChildren(ctx);
+    }
+  }
  protected:
   // Reference to the MLIR OpBuilder and ModuleOp
   // this MLIRGen task
@@ -188,6 +203,9 @@ class qasm3_visitor : public qasm3::qasm3BaseVisitor {
   // return statement for subroutines
   bool subroutine_return_statment_added = false;
   bool is_return_stmt = false;
+  // Flag to indicate that we should add a callable export
+  // for the next subroutine. 
+  bool export_subroutine_as_callable = false;
   // Keep track of expected subroutine return type
   mlir::Type current_function_return_type;
 

@@ -32,6 +32,30 @@ cx q[0], q[1];
   EXPECT_TRUE(llvm.find("__quantum__qis") == std::string::npos);
 }
 
+TEST(qasm3PassManagerTester, checkResetSimplification) {
+  const std::string src = R"#(OPENQASM 3;
+include "qelib1.inc";
+qubit q[2];
+
+reset q[0];
+x q[1];
+reset q[0];
+)#";
+  auto llvm =
+      qcor::mlir_compile(src, "test_kernel", qcor::OutputType::LLVMIR, false);
+  std::cout << "LLVM:\n" << llvm << "\n";
+
+  // Get the main kernel section only
+  llvm = llvm.substr(llvm.find("@__internal_mlir_test_kernel"));
+  const auto last = llvm.find_first_of("}");
+  llvm = llvm.substr(0, last + 1);
+  std::cout << "LLVM:\n" << llvm << "\n";
+  // One reset and one X:
+  EXPECT_EQ(countSubstring(llvm, "__quantum__qis"), 2);
+  EXPECT_EQ(countSubstring(llvm, "__quantum__qis__x"), 1);
+  EXPECT_EQ(countSubstring(llvm, "__quantum__qis__reset"), 1);
+}
+
 TEST(qasm3PassManagerTester, checkRotationMerge) {
   const std::string src = R"#(OPENQASM 3;
 include "qelib1.inc";
@@ -150,6 +174,215 @@ cx q[0], q[1];
   EXPECT_EQ(countSubstring(llvm, "__quantum__rt__array_get_element_ptr_1d"), 0);
   EXPECT_EQ(countSubstring(llvm, "__quantum__rt__qubit_allocate_array"), 0);
   EXPECT_EQ(countSubstring(llvm, "__quantum__rt__qubit_release_array"), 0);
+}
+
+TEST(qasm3PassManagerTester, checkLoopUnroll) {
+  // Unroll the loop:
+  // cancel all X gates; combine rx
+  const std::string src = R"#(OPENQASM 3;
+include "stdgates.inc";
+qubit q[2];
+for i in [0:10] {
+    x q[0];
+    rx(0.123) q[1];
+}
+)#";
+  auto llvm =
+      qcor::mlir_compile(src, "test_kernel", qcor::OutputType::LLVMIR, false);
+  std::cout << "LLVM:\n" << llvm << "\n";
+  
+  // Get the main kernel section only 
+  llvm = llvm.substr(llvm.find("@__internal_mlir_test_kernel"));
+  const auto last = llvm.find_first_of("}");
+  llvm = llvm.substr(0, last + 1);
+  std::cout << "LLVM:\n" << llvm << "\n";
+  // Only a single Rx remains (combine all angles)
+  EXPECT_EQ(countSubstring(llvm, "__quantum__qis"), 1);
+  EXPECT_EQ(countSubstring(llvm, "__quantum__qis__rx"), 1);
+}
+
+TEST(qasm3PassManagerTester, checkLoopUnrollTrotter) {
+  // Unroll the loop:
+  // Trotter decompose
+  const std::string src = R"#(OPENQASM 3;
+include "stdgates.inc";
+qubit qq[2];
+for i in [0:100] {
+    h qq;
+    cx qq[0], qq[1];
+    rx(0.0123) qq[1];
+    cx qq[0], qq[1];
+    h qq;
+}
+)#";
+  auto llvm =
+      qcor::mlir_compile(src, "test_kernel", qcor::OutputType::LLVMIR, false);
+  std::cout << "LLVM:\n" << llvm << "\n";
+  
+  // Get the main kernel section only 
+  llvm = llvm.substr(llvm.find("@__internal_mlir_test_kernel"));
+  const auto last = llvm.find_first_of("}");
+  llvm = llvm.substr(0, last + 1);
+  std::cout << "LLVM:\n" << llvm << "\n";
+  // Only a single Rx remains (combine all angles)
+  // 2 Hadamard before + 1 CX before
+  // 2 Hadamard after + 1 CX after
+  EXPECT_EQ(countSubstring(llvm, "__quantum__qis"), 7);
+  EXPECT_EQ(countSubstring(llvm, "__quantum__qis__rx"), 1);
+  EXPECT_EQ(countSubstring(llvm, "__quantum__qis__h"), 4);
+  EXPECT_EQ(countSubstring(llvm, "__quantum__qis__cnot"), 2);
+}
+
+TEST(qasm3PassManagerTester, checkLoopUnrollWithInline) {
+  // Unroll the loop and inline
+  // Trotter decompose
+  // Note: using the inv (adjoint) modifier is not supported
+  // since it is a runtime feature...
+  // hence, we need to make the adjoint explicit.
+  const std::string src = R"#(OPENQASM 3;
+include "stdgates.inc";
+def cnot_ladder() qubit[4]:q {
+  h q[0];
+  h q[1];
+  cx q[0], q[1];
+  cx q[1], q[2];
+  cx q[2], q[3];
+}
+
+def cnot_ladder_inv() qubit[4]:q {
+  cx q[2], q[3];
+  cx q[1], q[2];
+  cx q[0], q[1];
+  h q[1];
+  h q[0];
+}
+
+qubit q[4];
+double theta = 0.01;
+for i in [0:100] {
+  cnot_ladder q;
+  rz(theta) q[3];
+  cnot_ladder_inv q;
+}
+)#";
+  auto llvm =
+      qcor::mlir_compile(src, "test_kernel", qcor::OutputType::LLVMIR, false);
+  std::cout << "LLVM:\n" << llvm << "\n";
+  
+  // Get the main kernel section only 
+  llvm = llvm.substr(llvm.find("@__internal_mlir_test_kernel"));
+  const auto last = llvm.find_first_of("}");
+  llvm = llvm.substr(0, last + 1);
+  std::cout << "LLVM:\n" << llvm << "\n";
+  // Only a single Rz remains (combine all angles)
+  // 2 Hadamard before + 3 CX before
+  // 2 Hadamard after + 3 CX after
+  EXPECT_EQ(countSubstring(llvm, "__quantum__qis"), 11);
+  EXPECT_EQ(countSubstring(llvm, "__quantum__qis__rz"), 1);
+  EXPECT_EQ(countSubstring(llvm, "__quantum__qis__h"), 4);
+  EXPECT_EQ(countSubstring(llvm, "__quantum__qis__cnot"), 6);
+}
+
+TEST(qasm3PassManagerTester, checkAffineLoopRevert) {
+  // Check loop with negative step:
+  const std::string src = R"#(OPENQASM 3;
+include "stdgates.inc";
+def cnot_ladder() qubit[4]:q {
+  h q;
+  for i in [0:3] {
+    cx q[i], q[i + 1];
+  }
+}
+
+def cnot_ladder_inv() qubit[4]:q {
+  for i in [3:-1:0] {
+    cx q[i-1], q[i];
+  }
+  
+  h q;
+}
+
+qubit q[4];
+double theta = 0.01;
+for i in [0:100] {
+  cnot_ladder q;
+  rz(theta) q[3];
+  cnot_ladder_inv q;
+}
+)#";
+  auto llvm =
+      qcor::mlir_compile(src, "test_kernel", qcor::OutputType::LLVMIR, false);
+  std::cout << "LLVM:\n" << llvm << "\n";
+  
+  // Get the main kernel section only 
+  llvm = llvm.substr(llvm.find("@__internal_mlir_test_kernel"));
+  const auto last = llvm.find_first_of("}");
+  llvm = llvm.substr(0, last + 1);
+  std::cout << "LLVM:\n" << llvm << "\n";
+  // Only a single Rz remains (combine all angles)
+  // 4 Hadamard before + 3 CX before
+  // 4 Hadamard after + 3 CX after
+  EXPECT_EQ(countSubstring(llvm, "__quantum__qis"), 15);
+  EXPECT_EQ(countSubstring(llvm, "__quantum__qis__rz"), 1);
+  EXPECT_EQ(countSubstring(llvm, "__quantum__qis__h"), 8);
+  EXPECT_EQ(countSubstring(llvm, "__quantum__qis__cnot"), 6);
+}
+
+TEST(qasm3PassManagerTester, checkQubitArrayAlias) {
+  {
+    // Check SSA value chain with alias
+    // h-t-h == rx (t is equiv. to rz)
+    const std::string src = R"#(OPENQASM 3;
+include "qelib1.inc";
+
+qubit q[6];
+let my_reg = q[1, 3, 5];
+
+h q[1];
+t my_reg[0];
+h q[1];
+)#";
+    auto llvm =
+        qcor::mlir_compile(src, "test_kernel", qcor::OutputType::LLVMIR, false);
+    std::cout << "LLVM:\n" << llvm << "\n";
+
+    // Get the main kernel section only (there is the oracle LLVM section as
+    // well)
+    llvm = llvm.substr(llvm.find("@__internal_mlir_test_kernel"));
+    const auto last = llvm.find_first_of("}");
+    llvm = llvm.substr(0, last + 1);
+    std::cout << "LLVM:\n" << llvm << "\n";
+    EXPECT_EQ(countSubstring(llvm, "__quantum__qis"), 1);
+    // One Rx
+    EXPECT_EQ(countSubstring(llvm, "__quantum__qis__rx"), 1);
+  }
+
+  {
+    // Check optimization can work with alias array
+    const std::string src = R"#(OPENQASM 3;
+include "qelib1.inc";
+
+qubit q[4];
+let first_and_last_qubit = q[0] || q[3];
+
+cx q[0], q[3];
+cx first_and_last_qubit[0], first_and_last_qubit[1];
+)#";
+    auto llvm =
+        qcor::mlir_compile(src, "test_kernel", qcor::OutputType::LLVMIR, false);
+    std::cout << "LLVM:\n" << llvm << "\n";
+
+    // Get the main kernel section only (there is the oracle LLVM section as
+    // well)
+    llvm = llvm.substr(llvm.find("@__internal_mlir_test_kernel"));
+    const auto last = llvm.find_first_of("}");
+    llvm = llvm.substr(0, last + 1);
+    std::cout << "LLVM:\n" << llvm << "\n";
+    // Cancel all => No gates, extract, or alloc/dealloc:
+    EXPECT_EQ(countSubstring(llvm, "__quantum__qis"), 0);
+    // Make sure all runtime (alias construction) functions are removed as well.
+    EXPECT_EQ(countSubstring(llvm, "__quantum__"), 0);
+  }
 }
 
 int main(int argc, char **argv) {

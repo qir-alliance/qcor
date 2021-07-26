@@ -30,6 +30,7 @@ void initialize();
 
 // Initialize/Finalize/Config API
 // __attribute__((constructor)) void __init_qir_qrt(int argc, char** argv);
+void __quantum__rt__set_config_parameter(int8_t* key, int8_t* value);
 void __quantum__rt__initialize(int argc, int8_t **argv);
 void __quantum__rt__finalize();
 void __quantum__rt__set_external_qreg(qreg *q);
@@ -67,6 +68,7 @@ void __quantum__rt__qubit_release_array(Array *q);
 void __quantum__rt__qubit_release(Qubit *q);
 Qubit *__quantum__rt__qubit_allocate();
 
+// EXTRA API For QCOR QIR Implementation...
 void __quantum__rt__start_ctrl_u_region();
 void __quantum__rt__end_ctrl_u_region(Qubit *ctrl_qubit);
 // Multi-control
@@ -76,6 +78,10 @@ void __quantum__rt__start_adj_u_region();
 void __quantum__rt__end_adj_u_region();
 void __quantum__rt__start_pow_u_region();
 void __quantum__rt__end_pow_u_region(int64_t power);
+
+void __quantum__rt__mark_compute();
+void __quantum__rt__unmark_compute();
+// -------
 
 // Array API
 // Create an array

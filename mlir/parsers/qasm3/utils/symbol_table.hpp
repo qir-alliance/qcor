@@ -11,7 +11,102 @@
 #include "mlir/IR/BuiltinTypes.h"
 
 namespace qcor {
-using SymbolTable = std::map<std::string, mlir::Value>;
+// using SymbolTable = std::map<std::string, mlir::Value>;
+struct SymbolTable {
+  std::map<std::string, mlir::Value>::iterator begin() {
+    return var_name_to_value.begin();
+  }
+  std::map<std::string, mlir::Value>::iterator end() {
+    return var_name_to_value.end();
+  }
+
+  // Check if we have this symbol:
+  // If this is a *root* (master) symbol, backed by a mlir::Value
+  // or this is an alias (by reference), normally only for Qubits (SSA values)
+  bool has_symbol(const std::string &var_name) {
+    if (var_name_to_value.find(var_name) != var_name_to_value.end()) {
+      return true;
+    }
+    const auto alias_name_check_iter =
+        ref_var_name_to_orig_var_name.find(var_name);
+    if (alias_name_check_iter != ref_var_name_to_orig_var_name.end()) {
+      const std::string &original_var_name = alias_name_check_iter->second;
+      return var_name_to_value.find(original_var_name) !=
+             var_name_to_value.end();
+    }
+    return false;
+  }
+
+  // Add a reference alias, i.e. the two variable names are bound
+  // to a single mlir::Value.
+  // Note: chaining of aliasing is traced to the root var name:
+  // e.g. we can support a, b (refers to a), then c refers to b.
+  void add_alias(const std::string &orig_var_name,
+                 const std::string &alias_var_name) {
+    if (ref_var_name_to_orig_var_name.find(orig_var_name) !=
+        ref_var_name_to_orig_var_name.end()) {
+      // The original var name is an alias itself...
+      const std::string &root_var_name =
+          ref_var_name_to_orig_var_name[orig_var_name];
+      ref_var_name_to_orig_var_name[alias_var_name] = root_var_name;
+    } else {
+      assert(var_name_to_value.find(orig_var_name) != var_name_to_value.end());
+      ref_var_name_to_orig_var_name[alias_var_name] = orig_var_name;
+    }
+  }
+
+  // Get the symbol (mlir::Value) taking into account potential alias chaining.
+  mlir::Value get_symbol(const std::string &var_name) {
+    auto iter = var_name_to_value.find(var_name);
+    if (iter != var_name_to_value.end()) {
+      return iter->second;
+    }
+
+    auto alias_iter = ref_var_name_to_orig_var_name.find(var_name);
+    if (alias_iter != ref_var_name_to_orig_var_name.end()) {
+      const std::string &root_var_name = alias_iter->second;
+      assert(var_name_to_value.find(root_var_name) != var_name_to_value.end());
+      return var_name_to_value[root_var_name];
+    }
+    printErrorMessage("Unknown symbol '" + var_name + "'.");
+    return mlir::Value();
+  }
+
+  void add_or_update_symbol(const std::string &var_name, mlir::Value value) {
+    var_name_to_value[var_name] = value;
+  }
+
+  // Compatible w/ a raw map (assuming the variable is original/root)
+  mlir::Value &operator[](const std::string &var_name) {
+    return var_name_to_value[var_name];
+  }
+
+  mlir::Value &at(const std::string &var_name) {
+    return var_name_to_value.at(var_name);
+  }
+
+  void insert(const std::pair<std::string, mlir::Value> &new_var) {
+    var_name_to_value.insert(new_var);
+  }
+
+  std::map<std::string, mlir::Value>::iterator
+  find(const std::string &var_name) {
+    return var_name_to_value.find(var_name);
+  }
+
+  std::map<std::string, mlir::Value>::size_type
+  count(const std::string &var_name) const {
+    return var_name_to_value.count(var_name);
+  }
+
+private:
+  std::map<std::string, mlir::Value> var_name_to_value;
+  // By reference var name aliasing map:
+  // track a variable name representing references to the original mlir::Value,
+  // e.g. qubit aliasing from slicing.
+  std::unordered_map<std::string, std::string> ref_var_name_to_orig_var_name;
+};
+
 using ConstantIntegerTable =
     std::map<std::pair<std::uint64_t, int>, mlir::Value>;
 
@@ -186,14 +281,22 @@ class ScopedSymbolTable {
   }
 
   bool has_symbol(const std::string variable_name, const std::size_t scope) {
-    for (int i = scope; i >= 0; i--) {  // nasty bug, auto instead of int...
-      if (!scoped_symbol_tables[i].empty() &&
-          scoped_symbol_tables[i].count(variable_name)) {
+    for (int i = scope; i >= 0; i--) { // nasty bug, auto instead of int...
+      if (scoped_symbol_tables[i].has_symbol(variable_name)) {
         return true;
       }
     }
 
     return false;
+  }
+
+  void add_symbol_ref_alias(const std::string &orig_variable_name,
+                            const std::string &alias_ref_variable_name) {
+    // Sanity check for debug
+    assert(has_symbol(orig_variable_name));
+    assert(!has_symbol(alias_ref_variable_name));
+    scoped_symbol_tables[current_scope].add_alias(orig_variable_name,
+                                                  alias_ref_variable_name);
   }
 
   SymbolTable& get_global_symbol_table() { return scoped_symbol_tables[0]; }
@@ -227,8 +330,8 @@ class ScopedSymbolTable {
   mlir::Value get_symbol(const std::string variable_name,
                          const std::size_t scope) {
     for (auto i = scope; i >= 0; i--) {
-      if (scoped_symbol_tables[i].count(variable_name)) {
-        return scoped_symbol_tables[i][variable_name];
+      if (scoped_symbol_tables[i].has_symbol(variable_name)) {
+        return scoped_symbol_tables[i].get_symbol(variable_name);
       }
     }
 
@@ -303,6 +406,19 @@ class ScopedSymbolTable {
   // return the parent scope
   std::size_t get_parent_scope() {
     return current_scope >= 1 ? current_scope - 1 : 0;
+  }
+
+  // Util to construct a symbol name for qubit within an array (qreg)
+  // This is to make sure we have a consitent symbol naming convention (for SSA tracking).
+  std::string array_qubit_symbol_name(const std::string &qreg_name,
+                                      const std::string &index_str) {
+    // Sanity check: we should have added the qreg var to the symbol table.
+    assert(has_symbol(qreg_name));
+    // Use '%' separator to prevent name clashes with user-defined variables
+    return qreg_name + '%' + index_str;
+  }
+  std::string array_qubit_symbol_name(const std::string &qreg_name, int index) {
+    return array_qubit_symbol_name(qreg_name, std::to_string(index));
   }
 
   ~ScopedSymbolTable() {}

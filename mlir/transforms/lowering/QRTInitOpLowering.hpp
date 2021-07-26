@@ -7,6 +7,8 @@ protected:
   // Constant string for runtime function name
   inline static const std::string qir_qrt_initialize =
       "__quantum__rt__initialize";
+  inline static const std::string qir_qrt_set_config =
+      "__quantum__rt__set_config_parameter";
   // Rudimentary symbol table, seen variables
   std::map<std::string, mlir::Value> &variables;
 

@@ -91,11 +91,11 @@ const std::string mlir_compile(const std::string &src,
 }
 
 int execute(const std::string &src, const std::string &kernel_name,
-            int opt_level) {
+            int opt_level, std::map<std::string, std::string> extra_args) {
   mlir::registerAsmPrinterCLOptions();
   mlir::registerMLIRContextCLOptions();
 
-  auto mlir_gen_result = qcor::util::mlir_gen(src, kernel_name, true);
+  auto mlir_gen_result = qcor::util::mlir_gen(src, kernel_name, true, extra_args);
   mlir::OwningModuleRef &module = *(mlir_gen_result.module_ref);
   mlir::MLIRContext &context = *(mlir_gen_result.mlir_context);
   std::vector<std::string> &unique_function_names =

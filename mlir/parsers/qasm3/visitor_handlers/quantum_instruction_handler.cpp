@@ -57,9 +57,8 @@ void qasm3_visitor::createInstOps_HandleBroadcast(
       for (int i = 0; i < n; i++) {
         auto qubit_type = get_custom_opaque_type("Qubit", builder.getContext());
 
-        auto extract_value = get_or_extract_qubit(
-            qreg_names[0], i, location, symbol_table, builder,
-            "__mlir__qasm3__expand__bcast_single_inst_");
+        auto extract_value = get_or_extract_qubit(qreg_names[0], i, location,
+                                                  symbol_table, builder);
 
         std::vector<mlir::Type> ret_types;
         for (auto q : qbit_values) {
@@ -300,10 +299,12 @@ antlrcpp::Any qasm3_visitor::visitQuantumGateCall(
     if (idx_identifier->LBRACKET()) {
       // this is a qubit indexed from an array
       auto idx_str = idx_identifier->expressionList()->expression(0)->getText();
+      const auto qubit_symbol_name =
+          symbol_table.array_qubit_symbol_name(qbit_var_name, idx_str);
       mlir::Value value;
       try {
-        if (symbol_table.has_symbol(qbit_var_name + idx_str)) {
-          value = symbol_table.get_symbol(qbit_var_name + idx_str);
+        if (symbol_table.has_symbol(qubit_symbol_name)) {
+          value = symbol_table.get_symbol(qubit_symbol_name);
         } else {
           // try catch is on this std::stoi(), if idx_str is not an integer,
           // then we drop out and try to evaluate the expression.
@@ -317,11 +318,14 @@ antlrcpp::Any qasm3_visitor::visitQuantumGateCall(
 
           auto qubit_type =
               get_custom_opaque_type("Qubit", builder.getContext());
-
+          if (!qbit.getType().isa<mlir::IntegerType>()) {
+            qbit = builder.create<mlir::IndexCastOp>(
+                location, builder.getI64Type(), qbit);
+          }
           value = builder.create<mlir::quantum::ExtractQubitOp>(
               location, qubit_type, qubits, qbit);
-          if (!symbol_table.has_symbol(qbit_var_name + idx_str))
-            symbol_table.add_symbol(qbit_var_name + idx_str, value);
+          if (!symbol_table.has_symbol(qubit_symbol_name))
+            symbol_table.add_symbol(qubit_symbol_name, value);
         } else {
           qasm3_expression_generator exp_generator(builder, symbol_table,
                                                    file_name, qubit_type);
@@ -337,16 +341,22 @@ antlrcpp::Any qasm3_visitor::visitQuantumGateCall(
               value = builder.create<mlir::ZeroExtendIOp>(location, value,
                                                           builder.getI64Type());
             }
+
+            if (!value.getType().isa<mlir::IntegerType>()) {
+              value = builder.create<mlir::IndexCastOp>(
+                  location, builder.getI64Type(), value);
+            }
+
             value = builder.create<mlir::quantum::ExtractQubitOp>(
                 location, qubit_type, qubits, value);
-            if (!symbol_table.has_symbol(qbit_var_name + idx_str))
-              symbol_table.add_symbol(qbit_var_name + idx_str, value);
+            if (!symbol_table.has_symbol(qubit_symbol_name))
+              symbol_table.add_symbol(qubit_symbol_name, value);
           }
         }
       }
 
       qbit_values.push_back(value);
-      qubit_symbol_table_keys.push_back(qbit_var_name + idx_str);
+      qubit_symbol_table_keys.push_back(qubit_symbol_name);
 
     } else {
       // this is a qubit
@@ -433,6 +443,69 @@ antlrcpp::Any qasm3_visitor::visitQuantumGateCall(
     } else if (top.first == EndAction::EndAdjU) {
       builder.create<mlir::quantum::EndAdjointURegion>(location);
     } else if (top.first == EndAction::EndCtrlU) {
+      auto& ops_up_to_now = builder.getBlock()->getOperations();
+
+      // From here to line 505, we attempt to replace trivial 
+      // ctrl segments with known intrinsic quantum instructions, i.e.
+      // q.ctrl_region {
+      // %2 = qvs.x(%1)
+      // } (ctrl_bit = %0) // END CTRL
+      // with 
+      // %3:2 = qvs.cnot(%0, %1)
+      // in order to simplify downstream optimizations
+      //
+      // First reverse iterate from latest op added to the first StartCtrlURegionOp
+      // Keep track of all ops that are touched
+      mlir::Operation* start_ctrl;
+      std::vector<mlir::Operation*> ops_to_control;
+      for (auto iter = ops_up_to_now.rbegin(); iter != ops_up_to_now.rend();
+           ++iter) {
+        auto& op = *iter;
+        if (mlir::dyn_cast_or_null<mlir::quantum::StartCtrlURegion>(&op)) {
+          start_ctrl = &op;
+          break;
+        }
+        ops_to_control.push_back(&op);
+      }
+
+      // If there is one op only in that region, we can optimize it away easily
+      if (ops_to_control.size() == 1) {
+        // Trivial ctrl block, replace with ctrl instruction
+        if (auto inst_op =
+                mlir::dyn_cast_or_null<mlir::quantum::ValueSemanticsInstOp>(
+                    ops_to_control[0])) {
+          // For now, only handle ctrl-x, will add more later
+          if (inst_op.name().str() == "x") {
+            auto operands = inst_op.qubits();
+            std::vector<mlir::Value> new_qbits{ctrl_bit, operands[0]};
+
+            auto params = inst_op.params();
+            auto name = inst_op.name();
+
+            ops_to_control[0]->dropAllReferences();
+            ops_to_control[0]->dropAllUses();
+            ops_up_to_now.remove(*start_ctrl);
+            ops_up_to_now.remove(*ops_to_control[0]);
+
+            auto new_inst = builder.create<mlir::quantum::ValueSemanticsInstOp>(
+                location,
+                llvm::makeArrayRef(
+                    std::vector<mlir::Type>{qubit_type, qubit_type}),
+                builder.getStringAttr("cnot"), llvm::makeArrayRef(new_qbits),
+                params);
+
+            auto return_vals = new_inst.result();
+            int i = 0;
+            for (auto result : return_vals) {
+              symbol_table.replace_symbol(qbit_values[i], result);
+              i++;
+            }
+            action_and_extrainfo.pop();
+            continue;
+          }
+        }
+      }
+
       builder.create<mlir::quantum::EndCtrlURegion>(location, ctrl_bit);
     }
     action_and_extrainfo.pop();
@@ -663,16 +736,16 @@ antlrcpp::Any qasm3_visitor::visitSubroutineCall(
               context, {variable_value});
         }
 
-        auto shape = variable_value.getType()
-                             .cast<mlir::MemRefType>().getShape();
+        auto shape =
+            variable_value.getType().cast<mlir::MemRefType>().getShape();
         if (!shape.empty() && shape[0] == 1) {
-
           variable_value = builder.create<mlir::LoadOp>(
               location, variable_value,
               get_or_create_constant_index_value(0, location, 64, symbol_table,
                                                  builder));
-        }else if (shape.empty()) {
-          variable_value = builder.create<mlir::LoadOp>(location, variable_value);
+        } else if (shape.empty()) {
+          variable_value =
+              builder.create<mlir::LoadOp>(location, variable_value);
         }
       }
 

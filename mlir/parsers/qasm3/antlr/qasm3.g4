@@ -29,6 +29,7 @@ globalStatement
     | pragma
     ;
 
+
 statement
     : expressionStatement
     | assignmentStatement
@@ -40,6 +41,11 @@ statement
     | quantumStatement
     | returnStatement
     | qcor_test_statement
+    | compute_action_stmt
+    ;
+
+compute_action_stmt
+    : 'compute' compute_block=programBlock 'action' action_block=programBlock 
     ;
 
 qcor_test_statement 
@@ -205,7 +211,7 @@ quantumGateSignature
     ;
 
 quantumBlock
-    : LBRACE ( quantumStatement | quantumLoop )* RBRACE
+    : LBRACE ( compute_action_stmt | quantumStatement | quantumLoop )* RBRACE
     ;
 
 // loops containing only quantum statements allowed in gates

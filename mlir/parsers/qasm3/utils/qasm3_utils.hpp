@@ -46,10 +46,10 @@ std::vector<std::string> split(const std::string& s, char delim);
 mlir::Type get_custom_opaque_type(const std::string& type,
                                   mlir::MLIRContext* context);
 
-mlir::Value get_or_extract_qubit(const std::string& qreg_name,
+mlir::Value get_or_extract_qubit(const std::string &qreg_name,
                                  const std::size_t idx, mlir::Location location,
-                                 ScopedSymbolTable& symbol_table,
-                                 mlir::OpBuilder& builder, std::string prepended_st_name = "");
+                                 ScopedSymbolTable &symbol_table,
+                                 mlir::OpBuilder &builder);
 
 mlir::Value get_or_create_constant_integer_value(
     const std::size_t idx, mlir::Location location, mlir::Type int_like_type,

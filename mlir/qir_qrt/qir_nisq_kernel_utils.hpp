@@ -89,3 +89,41 @@
 // - Argument translation is not currently supported: i.e. can only handle
 // simple types: int, double; not vectors.
 // - Max number of arguments: 8 (add more macros if needed)
+
+
+#define qcor_import_qasm3_kernel(...)                                         \
+  GET_MACRO(_0, ##__VA_ARGS__, qcor_import_qasm3_kernel_var,                  \
+            qcor_import_qasm3_kernel_no_var, unknown)                         \
+  (__VA_ARGS__)
+
+// Note: By convention, the Q# LLVM func name has the __body suffix:
+// Strategy: define a __qpu__ function which call the LLVM func.
+#define qcor_import_qasm3_kernel_var(OPERATION_NAME, ...)                     \
+  extern "C" void OPERATION_NAME##__interop__(::Array *, __VA_ARGS__);              \
+  __qpu__ void OPERATION_NAME(                                                 \
+      qreg q ARGS_LIST_FOR_FUNC_SIGNATURE(__VA_ARGS__)) {                      \
+    auto m_qubits = new ::Array(q.size());                                     \
+    for (int i = 0; i < q.size(); ++i) {                                       \
+      auto qubit = Qubit::create(q[i].second);                                 \
+      int8_t *arrayPtr = (*m_qubits)[i];                                       \
+      auto qubitPtr = reinterpret_cast<Qubit **>(arrayPtr);                    \
+      (*qubitPtr) = qubit;                                                     \
+    }                                                                          \
+    OPERATION_NAME##__interop__(m_qubits ARGS_LIST_FOR_FUNC_INVOKE(__VA_ARGS__));   \
+    delete m_qubits;                                                           \
+  }
+
+#define qcor_import_qasm3_kernel_no_var(OPERATION_NAME)                       \
+  extern "C" void OPERATION_NAME##__interop__(::Array *);                           \
+  __qpu__ void OPERATION_NAME(qreg q) {                                        \
+    auto m_qubits = new ::Array(q.size());                                     \
+    for (int i = 0; i < q.size(); ++i) {                                       \
+      auto qubit = Qubit::create(q[i].second);                                 \
+      int8_t *arrayPtr = (*m_qubits)[i];                                       \
+      auto qubitPtr = reinterpret_cast<Qubit **>(arrayPtr);                    \
+      (*qubitPtr) = qubit;                                                     \
+    }                                                                          \
+    OPERATION_NAME##__interop__(m_qubits);                                          \
+    delete m_qubits;                                                           \
+  }
+  

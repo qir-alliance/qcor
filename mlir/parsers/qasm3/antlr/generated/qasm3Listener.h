@@ -34,6 +34,9 @@ public:
   virtual void enterStatement(qasm3Parser::StatementContext *ctx) = 0;
   virtual void exitStatement(qasm3Parser::StatementContext *ctx) = 0;
 
+  virtual void enterCompute_action_stmt(qasm3Parser::Compute_action_stmtContext *ctx) = 0;
+  virtual void exitCompute_action_stmt(qasm3Parser::Compute_action_stmtContext *ctx) = 0;
+
   virtual void enterQcor_test_statement(qasm3Parser::Qcor_test_statementContext *ctx) = 0;
   virtual void exitQcor_test_statement(qasm3Parser::Qcor_test_statementContext *ctx) = 0;
 
