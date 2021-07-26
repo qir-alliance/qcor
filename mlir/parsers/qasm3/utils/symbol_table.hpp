@@ -221,7 +221,11 @@ class ScopedSymbolTable {
     return ret;
   }
 
+  // Eval a const int expression (throw if failed)
   int64_t evaluate_constant_integer_expression(const std::string expr);
+  // Returns null if this expression cannot be const-eval to an integer value.
+  std::optional<int64_t>
+  try_evaluate_constant_integer_expression(const std::string expr);
 
   mlir::FuncOp get_seen_function(const std::string name) {
     if (!seen_functions.count(name)) {

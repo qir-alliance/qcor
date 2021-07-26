@@ -26,7 +26,8 @@ void ScopedSymbolTable::replace_symbol(mlir::Value old_value,
   }
 }
 
-int64_t ScopedSymbolTable::evaluate_constant_integer_expression(
+std::optional<int64_t>
+ScopedSymbolTable::try_evaluate_constant_integer_expression(
     const std::string expr_str) {
   auto all_constants = get_constant_integer_variables();
   std::vector<std::string> variable_names;
@@ -36,7 +37,7 @@ int64_t ScopedSymbolTable::evaluate_constant_integer_expression(
     variable_values.push_back(v);
   }
 
-  for (auto& [name, global_value] : global_constants) {
+  for (auto &[name, global_value] : global_constants) {
     if (global_constant_memref_types.count(name) &&
         global_constant_memref_types[name].isa<mlir::IntegerType>()) {
       variable_names.push_back(name);
@@ -58,7 +59,22 @@ int64_t ScopedSymbolTable::evaluate_constant_integer_expression(
   if (parser.compile(expr_str, expr)) {
     ref = expr.value();
   } else {
-    printErrorMessage("Failed to evaluate cnostant integer expression: " +
+    // Cannot eval to a const int.
+    return std::nullopt;
+  }
+
+  return (int64_t)ref;
+}
+
+int64_t ScopedSymbolTable::evaluate_constant_integer_expression(
+    const std::string expr_str) {
+  const std::optional<int64_t> try_eval =
+      try_evaluate_constant_integer_expression(expr_str);
+  double ref = 0.0;
+  if (try_eval.has_value()) {
+    ref = try_eval.value();
+  } else {
+    printErrorMessage("Failed to evaluate constant integer expression: " +
                       expr_str + ". Must be a constant integer type.");
   }
 
