@@ -230,23 +230,42 @@ antlrcpp::Any qasm3_visitor::visitLoopStatement(
           c_value = get_or_create_constant_integer_value(c, location, int_type,
                                                          symbol_table, builder);
 
-      qasm3_expression_generator exp_generator(builder, symbol_table,
-                                               file_name);
-      exp_generator.visit(range->expression(0));
-      a_value = exp_generator.current_value;
-      if (a_value.getType().isa<mlir::MemRefType>()) {
-        a_value = builder.create<mlir::LoadOp>(location, a_value);
+      const auto const_eval_a_val =
+          symbol_table.try_evaluate_constant_integer_expression(
+              range->expression(0)->getText());
+      if (const_eval_a_val.has_value()) {
+        // std::cout << "A val = " << const_eval_a_val.value() << "\n";
+        a_value = get_or_create_constant_integer_value(const_eval_a_val.value(),
+                                                       location, int_type,
+                                                       symbol_table, builder);
+      } else {
+        qasm3_expression_generator exp_generator(builder, symbol_table,
+                                                 file_name);
+        exp_generator.visit(range->expression(0));
+        a_value = exp_generator.current_value;
+        if (a_value.getType().isa<mlir::MemRefType>()) {
+          a_value = builder.create<mlir::LoadOp>(location, a_value);
+        }
       }
 
       if (n_expr == 3) {
-        qasm3_expression_generator exp_generator(builder, symbol_table,
-                                                 file_name);
-        exp_generator.visit(range->expression(2));
-        b_value = exp_generator.current_value;
-        if (b_value.getType().isa<mlir::MemRefType>()) {
-          b_value = builder.create<mlir::LoadOp>(location, b_value);
+        const auto const_eval_b_val =
+          symbol_table.try_evaluate_constant_integer_expression(
+              range->expression(2)->getText());
+        if (const_eval_b_val.has_value()) {
+          // std::cout << "B val = " << const_eval_b_val.value() << "\n";
+          b_value = get_or_create_constant_integer_value(
+              const_eval_b_val.value(), location, int_type, symbol_table,
+              builder);
+        } else {
+          qasm3_expression_generator exp_generator(builder, symbol_table,
+                                                   file_name);
+          exp_generator.visit(range->expression(2));
+          b_value = exp_generator.current_value;
+          if (b_value.getType().isa<mlir::MemRefType>()) {
+            b_value = builder.create<mlir::LoadOp>(location, b_value);
+          }
         }
-
         if (symbol_table.has_symbol(range->expression(1)->getText())) {
           printErrorMessage("You must provide loop step as a constant value.",
                             context);
@@ -264,12 +283,22 @@ antlrcpp::Any qasm3_visitor::visitLoopStatement(
         }
 
       } else {
-        qasm3_expression_generator exp_generator(builder, symbol_table,
-                                                 file_name);
-        exp_generator.visit(range->expression(1));
-        b_value = exp_generator.current_value;
-        if (b_value.getType().isa<mlir::MemRefType>()) {
-          b_value = builder.create<mlir::LoadOp>(location, b_value);
+        const auto const_eval_b_val =
+            symbol_table.try_evaluate_constant_integer_expression(
+                range->expression(1)->getText());
+        if (const_eval_b_val.has_value()) {
+          // std::cout << "B val = " << const_eval_b_val.value() << "\n";
+          b_value = get_or_create_constant_integer_value(
+              const_eval_b_val.value(), location, int_type, symbol_table,
+              builder);
+        } else {
+          qasm3_expression_generator exp_generator(builder, symbol_table,
+                                                   file_name);
+          exp_generator.visit(range->expression(1));
+          b_value = exp_generator.current_value;
+          if (b_value.getType().isa<mlir::MemRefType>()) {
+            b_value = builder.create<mlir::LoadOp>(location, b_value);
+          }
         }
       }
 

@@ -385,6 +385,58 @@ cx first_and_last_qubit[0], first_and_last_qubit[1];
   }
 }
 
+TEST(qasm3PassManagerTester, checkConstEvalLoopUnroll) {
+  {
+    // Unroll the loop with const vars as loop bounds
+    const std::string src = R"#(OPENQASM 3;
+include "stdgates.inc";
+
+const n = 3;
+qubit qb;
+
+for i in [0:2*n] {
+ x qb;
+}
+)#";
+    auto llvm =
+        qcor::mlir_compile(src, "test_kernel", qcor::OutputType::LLVMIR, false);
+    std::cout << "LLVM:\n" << llvm << "\n";
+
+    // Get the main kernel section only
+    llvm = llvm.substr(llvm.find("@__internal_mlir_test_kernel"));
+    const auto last = llvm.find_first_of("}");
+    llvm = llvm.substr(0, last + 1);
+    std::cout << "LLVM:\n" << llvm << "\n";
+    // Cancel all
+    EXPECT_EQ(countSubstring(llvm, "__quantum__qis"), 0);
+  }
+
+  {
+    // Unroll the loop with const vars as loop bounds
+    const std::string src = R"#(OPENQASM 3;
+include "stdgates.inc";
+
+const n = 3;
+qubit qb;
+
+for i in [0:2*n + 1] {
+ x qb;
+}
+)#";
+    auto llvm =
+        qcor::mlir_compile(src, "test_kernel1", qcor::OutputType::LLVMIR, false);
+    std::cout << "LLVM:\n" << llvm << "\n";
+
+    // Get the main kernel section only
+    llvm = llvm.substr(llvm.find("@__internal_mlir_test_kernel1"));
+    const auto last = llvm.find_first_of("}");
+    llvm = llvm.substr(0, last + 1);
+    std::cout << "LLVM:\n" << llvm << "\n";
+    // One X gate left
+    EXPECT_EQ(countSubstring(llvm, "__quantum__qis__x"), 1);
+  }
+}
+
 int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);
   auto ret = RUN_ALL_TESTS();
