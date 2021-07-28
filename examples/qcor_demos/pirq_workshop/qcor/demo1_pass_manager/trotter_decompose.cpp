@@ -14,20 +14,21 @@ int main(int argc, char **argv) {
   auto qbits = qalloc(2);
   // Multi-term Hamiltonian
   auto H = X(0) * X(1) + Z(0) + Z(1);
-  // Default params:
-  double dt = 0.01;
-  int nbSteps = 100;
 
   // Parse user-supplied params (if any)
-  std::vector<std::string> arguments(argv + 1, argv + argc);
-  for (int i = 0; i < arguments.size(); i++) {
-    if (arguments[i] == "-dt") {
-      dt = std::stod(arguments[i + 1]);
-    }
-    if (arguments[i] == "-steps") {
-      nbSteps = std::stoi(arguments[i + 1]);
-    }
-  }
+  // dt: Trotter time step size
+  // steps: number of steps
+  argparse::ArgumentParser program(argv[0]);
+  program.add_argument("-dt").default_value(0.01).action(
+      [](const std::string &value) { return std::stod(value); });
+  program.add_argument("-steps").default_value(100).action(
+      [](const std::string &value) { return std::stoi(value); });
+  program.parse_args(argc, argv);
+
+  // Get runtime params (if any)
+  const double dt = program.get<double>("-dt");
+  const int nbSteps = program.get<int>("-steps");
+
   std::cout << "Trotter for dt = " << dt << "; steps = " << nbSteps << "\n";
   trotter_evolve(qbits, H, dt, nbSteps);
 }
