@@ -13,20 +13,92 @@ Here we demonstrate the utility of the QIR for enabling the integration of code 
 
 - Demonstrate OpenQASM3-calls-Q#
 
-## Outline
+- Demonstrate Q#-calls-OpenQASM3
 
-1. Start off with the phase estimation example whereby qcor calls a Q# inverse quantum fourier transform function. Show off the code (both files), and `qir_nisq_kernel_utils.hpp` enabling one to decorate a Q# function with a qcor `QuantumKernel`.
-2. Compile the code (use alpha version and in VERBOSE mode), passing the Q# file and the QCOR driver cpp file. Note the command line calls.
-3. Run the executable, noting the correct result, and that the Q# code printed Hello World. 
-4. Show the lowered `qft.qs` LLVM file, point to the `QCOR__IQFT__body` function. Note how in C++ we can mark a function as `extern`. 
-5. Move to the qcor-to-qasm3 code...
-6. ...
-7. Move to the qasm3-calls-Q# code, a quantum random number generator in Q#, called from OpenQASM3 code. Note how we use `kernel` keyword in the language to mark function as `extern`. Show off the Q# code. 
-8. Compile and run (run multiple times to show random numbers)
+- Demonstrate QCOR calls Qiskit
 
-## NOTES
+## Notes
 
 ```bash
 export QCOR_QDK_VERSION=0.17.2106148041-alpha
 export LD_LIBRARY_PATH=$HOME/.nuget/packages/libllvm.runtime.ubuntu.20.04-x64/11.0.0/runtimes/ubuntu.20.04-x64/native
+```
+
+## Outline
+
+### Demo 1, QCOR Calls Q# QPE
+
+- Walk through `qft.qs`, walk through `qpe.cpp`
+
+- Compile it all together into a single executable / show with -v / run
+
+```bash
+qcor qft.qs qpe.cpp -shots 100 -v 
+./a.out
+```
+- Show the generated QIR from Q#
+```bash
+code qir/qft.ll
+```
+
+### Demo 2, QCOR Calls OpenQASM3 QPE
+
+- Note we could do the same thing with OpenQASM3, walk through both codes
+
+- Compile it all together with -v / run
+```bash
+qcor iqft.qasm qpe.cpp -shots 100 -v
+```
+- Show the MLIR generated, show the LLVM QIR generated
+```bash
+qcor --emit-mlir iqft.qasm
+qcor --emit-llvm iqft.qasm
+```
+
+### Demo 3, OpenQASM3 calls Q#, QRNG
+
+- Show the Q# and QASM3 codes, talk through them
+
+- Compile them together with -v / run
+```bash
+qcor qrng.qs driver.qasm -v 
+./a.out
+```
+- Run a few times to show the randomness
+```bash
+for i in {1..10} ; do ./a.out ; done
+``` 
+- highlight the QIR and MLIR code
+```bash
+qcor --emit-mlir driver.qasm
+qcor --emit-llvm driver.qasm
+code qir/qrng.ll
+```
+
+### Demo 4, Q# call OpenQASM3
+
+- Show the Q# and QASM3 code. Note the ability to pass Callables
+
+- Compile with -v, run
+```bash 
+qcor op_takes_callable.qs kernel.qasm driver.cpp -v
+./a.out
+```
+
+- Show the QIR generated
+```bash
+qcor --emit-mlir kernel.qasm
+qcor --emit-llvm kernel.qasm
+code qir/op_takes_callable.ll
+```
+
+### Demo 5, QCOR call Qiskit
+
+- Show the python code, note how we map Qiskit to QIR, write to file
+- Show the QCOR code, importing the correctly named function
+- Compile and run with -v
+```bash
+python3 iqft.py
+qcor -c iqft.ll -o iqft.o
+qcor iqft.o -shots 100 qpe.cpp
 ```
