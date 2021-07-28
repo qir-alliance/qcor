@@ -19,7 +19,7 @@ mlir = qcor_kernel.mlir(q)
 print(mlir)
 
 # Convert to QIR and print
-qir = qcor_kernel.qir(q)
+qir = qcor_kernel.qir(q, opt=3)
 print(qir)
 
 from pyquil import Program
@@ -33,7 +33,7 @@ p += MEASURE(0, ro[0])
 p += MEASURE(1, ro[1])
 
 # This requires rigetti/quilc docker image
-qcor_kernel_pyquil = qjit(p)
+qcor_kernel_pyquil = qjit(p, opt=3)
 r = qalloc(2)
 
 # Convert to MLIR and print
