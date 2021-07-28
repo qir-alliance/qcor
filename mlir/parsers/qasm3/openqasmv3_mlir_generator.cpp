@@ -110,6 +110,8 @@ void OpenQasmV3MLIRGenerator::initialize_mlirgen(
       function_names.push_back("main");
     }
 
+    m_module.push_back(function2);
+
     if (!extra_quantum_args.count("qiskit_compat")) {
       std::vector<mlir::Type> arg_types_vec3{qreg_type};
       auto func_type3 = builder.getFunctionType(
@@ -132,7 +134,6 @@ void OpenQasmV3MLIRGenerator::initialize_mlirgen(
       m_module.push_back(function3);
     } 
 
-    m_module.push_back(function2);
     function_names.push_back("__internal_mlir_" + file_name);
     function_names.push_back(file_name);
 
