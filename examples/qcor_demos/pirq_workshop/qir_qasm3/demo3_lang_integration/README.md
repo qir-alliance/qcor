@@ -24,3 +24,9 @@ Here we demonstrate the utility of the QIR for enabling the integration of code 
 7. Move to the qasm3-calls-Q# code, a quantum random number generator in Q#, called from OpenQASM3 code. Note how we use `kernel` keyword in the language to mark function as `extern`. Show off the Q# code. 
 8. Compile and run (run multiple times to show random numbers)
 
+## NOTES
+
+```bash
+export QCOR_QDK_VERSION=0.17.2106148041-alpha
+export LD_LIBRARY_PATH=$HOME/.nuget/packages/libllvm.runtime.ubuntu.20.04-x64/11.0.0/runtimes/ubuntu.20.04-x64/native
+```

@@ -1,27 +1,19 @@
-#include <qcor_qft>
+#include "qir_nisq_kernel_utils.hpp"
 
-// QPE Problem
-// In this example, we demonstrate a simple QPE algorithm, i.e.
-// i.e. Oracle(|State>) = exp(i*Phase)*|State>
-// and we need to estimate that Phase value.
-// The Oracle in this case is a T gate and the eigenstate is |1>
-// i.e. T|1> = exp(i*pi/4)|1>
-// We use 3 counting bits => totally 4 qubits.
+// Compile:
+// qcor qft.qs qpe.cpp -shots 1024 -print-final-submission
 
-// Our qpe kernel requires oracles with 
-// the following signature.
+qcor_import_qsharp_kernel(QCOR__IQFT);
+
+// Typedef for the Oracle Kernel Function
 using QPEOracleSignature = KernelSignature<qubit>;
 
 __qpu__ void qpe(qreg q, QPEOracleSignature oracle) {
   // Extract the counting qubits and the state qubit
   auto counting_qubits = q.extract_range({0,3});
-  // could also do this...
-  // auto counting_qubits = q.extract_qubits({0,1,2});
   auto state_qubit = q[3];
-
   // Put it in |1> eigenstate
   X(state_qubit);
-
   // Create uniform superposition on all 3 qubits
   H(counting_qubits);
 
@@ -34,18 +26,20 @@ __qpu__ void qpe(qreg q, QPEOracleSignature oracle) {
   }
 
   // Run Inverse QFT on counting qubits
-  iqft(counting_qubits);
+  // Using the Q# Kernel (wrapped as a QCOR kernel)
+  QCOR__IQFT(counting_qubits);
 
   // Measure the counting qubits
   Measure(counting_qubits);
 }
 
-// Oracle I want to consider
+// Oracle to consider
 __qpu__ void oracle(qubit q) { T(q); }
 
 int main(int argc, char **argv) {
   auto q = qalloc(4);
-  qpe::print_kernel(q,oracle);
+  qpe::print_kernel(q, oracle);
+  // Run
   qpe(q, oracle);
   q.print();
 }

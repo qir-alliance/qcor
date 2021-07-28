@@ -72,6 +72,25 @@ Eigen::Matrix2cd getGateMat(const qop_t &in_op) {
     return result;
   };
 
+  static const auto u3_mat = [](const std::vector<double> &in_params) {
+    assert(in_params.size() == 3);
+    auto in_theta = in_params[0];
+    auto in_phi = in_params[1];
+    auto in_lambda = in_params[2];
+
+    Eigen::Matrix2cd result = Eigen::MatrixXcd::Zero(2, 2);
+
+    // qpp::cmat gateMat(2, 2);
+    result << std::cos(in_theta / 2.0),
+        -std::exp(std::complex<double>(0, in_lambda)) *
+            std::sin(in_theta / 2.0),
+        std::exp(std::complex<double>(0, in_phi)) * std::sin(in_theta / 2.0),
+        std::exp(std::complex<double>(0, in_phi + in_lambda)) *
+            std::cos(in_theta / 2.0);
+
+    return result;
+  };
+
   static const std::unordered_map<std::string, Eigen::Matrix2cd>
       GateMatrixCache = {{"x", X_mat},           {"y", Y_mat},
                          {"z", Z_mat},           {"h", H_mat},
@@ -92,6 +111,10 @@ Eigen::Matrix2cd getGateMat(const qop_t &in_op) {
   if (gateName == "rz") {
     return rz_mat(gateParams);
   }
+  if (gateName == "u3") {
+    return u3_mat(gateParams);
+  }
+
   throw std::runtime_error("Unknown single qubit gate: " + gateName);
   return Eigen::MatrixXcd::Zero(2, 2);
 }

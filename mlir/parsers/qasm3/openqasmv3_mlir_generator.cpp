@@ -110,27 +110,29 @@ void OpenQasmV3MLIRGenerator::initialize_mlirgen(
       function_names.push_back("main");
     }
 
-    std::vector<mlir::Type> arg_types_vec3{qreg_type};
-    auto func_type3 = builder.getFunctionType(
-        llvm::makeArrayRef(arg_types_vec3), builder.getI32Type());
-    auto proto3 =
-        mlir::FuncOp::create(builder.getUnknownLoc(), file_name, func_type3);
-    mlir::FuncOp function3(proto3);
+    if (!extra_quantum_args.count("qiskit_compat")) {
+      std::vector<mlir::Type> arg_types_vec3{qreg_type};
+      auto func_type3 = builder.getFunctionType(
+          llvm::makeArrayRef(arg_types_vec3), builder.getI32Type());
+      auto proto3 =
+          mlir::FuncOp::create(builder.getUnknownLoc(), file_name, func_type3);
+      mlir::FuncOp function3(proto3);
 
-    auto tmp = function3.addEntryBlock();
-    builder.setInsertionPointToStart(tmp);
-    builder.create<mlir::quantum::SetQregOp>(builder.getUnknownLoc(),
-                                             tmp->getArguments()[0]);
-    auto call_internal =
-        builder.create<mlir::CallOp>(builder.getUnknownLoc(), function2);
-    builder.create<mlir::quantum::QRTFinalizeOp>(builder.getUnknownLoc());
-    builder.create<mlir::ReturnOp>(
-        builder.getUnknownLoc(),
-        llvm::ArrayRef<mlir::Value>(call_internal.getResult(0)));
-    builder.setInsertionPointToStart(save_main_entry_block);
+      auto tmp = function3.addEntryBlock();
+      builder.setInsertionPointToStart(tmp);
+      builder.create<mlir::quantum::SetQregOp>(builder.getUnknownLoc(),
+                                               tmp->getArguments()[0]);
+      auto call_internal =
+          builder.create<mlir::CallOp>(builder.getUnknownLoc(), function2);
+      builder.create<mlir::quantum::QRTFinalizeOp>(builder.getUnknownLoc());
+      builder.create<mlir::ReturnOp>(
+          builder.getUnknownLoc(),
+          llvm::ArrayRef<mlir::Value>(call_internal.getResult(0)));
+      builder.setInsertionPointToStart(save_main_entry_block);
+      m_module.push_back(function3);
+    } 
 
     m_module.push_back(function2);
-    m_module.push_back(function3);
     function_names.push_back("__internal_mlir_" + file_name);
     function_names.push_back(file_name);
 

@@ -472,6 +472,16 @@ def main(argv=None):
             '\n'.join([line for line in result.split('\n')
                        if 'OPENQASM' not in line and len(line) > 0 and (not ('#pragma' in line and 'no_entrypoint' in line))])
 
+        # process #pragma export; -> #pragma { export };
+        if '#pragma' in text and 'export' in text:
+            new_text = ''
+            for line in text.split('\n'):
+                if '#pragma' in line and '{' not in line:
+                    new_text += '#pragma { export; }\n'
+                    continue
+                new_text+=line+'\n'
+            text = new_text 
+
         base_name = os.path.splitext(filename)[0].split(os.path.sep)[-1]
 
         # Write to a temporary file
@@ -726,7 +736,7 @@ def main(argv=None):
             exit(1)
     else:
         # This is a .o file, so execute the link phase
-        commands = [compiler, '-Wno-unused-command-line-argument'] + baseLibs + sys.argv[1:]
+        commands = [compiler, '-Wno-unused-command-line-argument', '-Wno-override-module'] + baseLibs + sys.argv[1:]
         if verbose:
             info('{}'.format(' '.join([c for c in commands])))
         try:

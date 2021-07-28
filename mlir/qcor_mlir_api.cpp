@@ -26,12 +26,12 @@ namespace qcor {
 const std::string mlir_compile(const std::string &src,
                                const std::string &kernel_name,
                                const OutputType &output_type,
-                               bool add_entry_point, int opt_level) {
+                               bool add_entry_point, int opt_level, std::map<std::string,std::string> extra_args) {
   mlir::registerAsmPrinterCLOptions();
   mlir::registerMLIRContextCLOptions();
 
   auto mlir_gen_result =
-      qcor::util::mlir_gen(src, kernel_name, add_entry_point);
+      qcor::util::mlir_gen(src, kernel_name, add_entry_point, extra_args);
   mlir::OwningModuleRef &module = *(mlir_gen_result.module_ref);
   mlir::MLIRContext &context = *(mlir_gen_result.mlir_context);
   std::vector<std::string> &unique_function_names =
@@ -48,7 +48,9 @@ const std::string mlir_compile(const std::string &src,
 
   // Create the PassManager for lowering to LLVM MLIR and run it
   mlir::PassManager pm(&context);
-  qcor::configureOptimizationPasses(pm);
+  if (opt_level > 0) {
+    qcor::configureOptimizationPasses(pm);
+  }
   pm.addPass(std::make_unique<qcor::QuantumToLLVMLoweringPass>(
       true, unique_function_names));
   auto module_op = (*module).getOperation();

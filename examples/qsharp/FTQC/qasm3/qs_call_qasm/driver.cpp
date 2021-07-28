@@ -14,12 +14,12 @@
 
 // QASM3 function wrapping the quantum sub-routine as a QIR Callable
 extern "C" ::Callable* qasm_x__callable(); 
+
 // Q# functions:
-// Apply an op to all qubits using the ApplyToEachCA util of Q#
-extern "C" void QCOR__ApplyKernelToEachQubit__body(::Callable *);
 // Apply Controlled version of a Callable (X gate in QASM3)
 // This will just be a Bell experiment.
 extern "C" void QCOR__ApplyControlledKernel__body(::Callable *);
+
 int main() {
   // Get the callable (QASM3)
   auto qasm3_callable = qasm_x__callable();

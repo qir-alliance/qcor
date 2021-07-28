@@ -1,29 +1,12 @@
 // NISQ Mode Execution
 //
-// Compile and run with 
-// qcor ghz.qasm -o ghz.x
-// 
-// Run on QPP (perfect simulator)
-// ./ghz.x -qrt nisq -shots 1000
+// Compile and run on qpp 
+// qcor ghz.qasm -o ghz.x -qrt nisq -shots 1000
+// ./ghz.x 
 //
-// Kick off Hardware Executions (will have to wait, kick off in parallel)
-//
-// Show on real hardware (IBM)
-// ./ghz.x -qpu ibm:ibmq_sydney -qrt nisq -shots 1000
-//
-// Show on IonQ QPU
-// ./ghz.x -qpu ionq:qpu -qrt nisq -shots 1000
-//
-// (In meantime, show of execution on simulators)
-//
-// Show on IonQ remote simulator
-// ./ghz.x -qpu ionq -qrt nisq -shots 1000
-//
-// Show on IBM remote simulator
-// ./ghz.x -qpu ibm -qrt nisq -shots 1000
-// 
 // Show on local aer with noisy backend
-// ./ghz.x -qpu aer:ibmq_sydney -qrt nisq -shots 100
+// qcor ghz.qasm -o ghz.x -qrt nisq -shots 100 -qpu aer:ibmq_sydney
+// ./ghz.x 
 //
 // (Now Show off how this works, MLIR + QIR)
 //

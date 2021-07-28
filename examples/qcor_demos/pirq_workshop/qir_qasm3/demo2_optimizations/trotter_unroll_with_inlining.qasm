@@ -1,10 +1,10 @@
 // Show off quantum optimizations induced by Loop Unrolling + Inlining
 //
 // Show unoptimized (note the affine.for)
-// qcor --emit-mlir trotter_unroll_simple.qasm
+// qcor --emit-mlir trotter_unroll_with_inlining.qasm
 // 
 // Show optimized mlir (note affine.for removed)
-// qcor --emit-mlir --q-optimize simple_opts.qasm
+// qcor --emit-mlir trotter_unroll_with_inlining.qasm -O3
 //
 // Show unoptimized LLVM/QIR
 // qcor --emit-llvm -O0 simple_opts.qasm

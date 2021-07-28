@@ -28,7 +28,7 @@ int main() {
   // QCOR__ApplyKernelToEachQubit__body(qasm3_callable);
 
   // Run Bell experiment:
-  constexpr int COUNT = 100;
+  constexpr int COUNT = 50;
   std::cout << "Apply controlled functor(Bell test):\n";
   for (int i = 0; i < COUNT; ++i) {
     std::cout << "Run " << i + 1 << ":\n";

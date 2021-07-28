@@ -1,9 +1,11 @@
 #include "qir_nisq_kernel_utils.hpp"
+#include "qcor.hpp"
 
 // Compile:
-// qcor -qdk-version 0.17.2106148041-alpha qft.qs qpe.cpp -shots 1024 -print-final-submission
+// qcor iqft.o qpe.cpp -shots 1024 
 using QPEOracleSignature = KernelSignature<qubit>;
-qcor_import_qsharp_kernel(QCOR__IQFT);
+
+qcor_import_qasm3_kernel(py_qiskit_iqft);
 
 __qpu__ void qpe(qreg q, QPEOracleSignature oracle) {
   // Extract the counting qubits and the state qubit
@@ -11,6 +13,7 @@ __qpu__ void qpe(qreg q, QPEOracleSignature oracle) {
   auto state_qubit = q[3];
   // Put it in |1> eigenstate
   X(state_qubit);
+  
   // Create uniform superposition on all 3 qubits
   H(counting_qubits);
 
@@ -22,9 +25,8 @@ __qpu__ void qpe(qreg q, QPEOracleSignature oracle) {
     }
   }
 
-  // Run Inverse QFT on counting qubits
-  // Using the Q# Kernel (wrapped as a QCOR kernel)
-  QCOR__IQFT(counting_qubits);
+  // Run Inverse QFT on counting qubits from qiskit
+  py_qiskit_iqft(counting_qubits);
 
   // Measure the counting qubits
   Measure(counting_qubits);
@@ -35,7 +37,6 @@ __qpu__ void oracle(qubit q) { T(q); }
 
 int main(int argc, char **argv) {
   auto q = qalloc(4);
-  qpe::print_kernel(q, oracle);
   // Run
   qpe(q, oracle);
   q.print();

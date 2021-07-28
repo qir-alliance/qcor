@@ -225,6 +225,7 @@ class qjit(object):
         # also get corresponding xacc Compiler
         qasm_str_gen, xacc_compiler = self.__get__qasm__generator__(python_data)
         qasm_str = qasm_str_gen()
+        qasm_str = qasm_str.replace('cp', 'cu1')
 
         # generate unique function name, based on 
         # src hash so we get JIT cache benefit
@@ -728,23 +729,62 @@ class qjit(object):
     def adjoint(self, *args):
         assert False, 'This is an internal API call and will be translated to C++ via the QJIT.\nIt can only be called from within another quantum kernel.'
 
+    def __internal_update_openqasm_qiskit_compat__(self, open_qasm_str, kernel_name):
+        new_code = 'def {} qubit[{}]:{} {{\n'
+        q_name = ''
+        for line in open_qasm_str.split('\n'):
+            if 'qreg' in line:
+                q_name = line.split(' ')[1].split('[')[0]
+                q_size = line.split(' ')[1].split('[')[1][:-2]
+                continue
+            if 'creg' in line:
+                continue 
+            if 'include' in line:
+                continue
+            if 'OPENQASM' in line:
+                continue
+            new_code += '  {}\n'.format(line)
+        new_code += "}}"
+        new_code = 'OPENQASM 3;\n' + new_code.format(kernel_name, q_size, q_name)
+        return new_code
+
     def mlir(self, *args, **kwargs):
-        assert len(args) == len(self.arg_names), "Cannot generate MLIR, you did not provided the correct concrete kernel arguments."
-        open_qasm_str = self.openqasm(*args).replace('OPENQASM 2.0', 'OPENQASM 3')
-        return openqasm_to_mlir(open_qasm_str, self.kernel_name(), 
-                        kwargs['add_entry_point'] if 'add_entry_point' in kwargs else True)
-    
+        assert len(args) == len(
+            self.arg_names), "Cannot generate MLIR, you did not provided the correct concrete kernel arguments."
+        open_qasm_str = self.openqasm(
+            *args).replace('OPENQASM 2.0', 'OPENQASM 3')
+        if 'qiskit_compat' in kwargs and kwargs['qiskit_compat']:
+            open_qasm_str = self.__internal_update_openqasm_qiskit_compat__(
+                open_qasm_str, kwargs['kernel_name'] if 'kernel_name' in kwargs else self.kernel_name())
+
+        return openqasm_to_mlir(open_qasm_str, self.kernel_name() if 'kernel_name' not in kwargs else kwargs['kernel_name'],
+                                kwargs['add_entry_point'] if 'add_entry_point' in kwargs else True, kwargs['opt'] if 'opt' in kwargs else 0, kwargs['qiskit_compat'] if 'qiskit_compat' in kwargs else False)
+
     def llvm_mlir(self, *args, **kwargs):
-        assert len(args) == len(self.arg_names), "Cannot generate LLVM MLIR, you did not provided the correct concrete kernel arguments."
-        open_qasm_str = self.openqasm(*args).replace('OPENQASM 2.0', 'OPENQASM 3')
-        return openqasm_to_llvm_mlir(open_qasm_str, self.kernel_name(), 
-                        kwargs['add_entry_point'] if 'add_entry_point' in kwargs else True)
+        assert len(args) == len(
+            self.arg_names), "Cannot generate LLVM MLIR, you did not provided the correct concrete kernel arguments."
+        open_qasm_str = self.openqasm(
+            *args).replace('OPENQASM 2.0', 'OPENQASM 3')
+        if 'qiskit_compat' in kwargs and kwargs['qiskit_compat']:
+            open_qasm_str = self.__internal_update_openqasm_qiskit_compat__(
+                open_qasm_str, kwargs['kernel_name'] if 'kernel_name' in kwargs else self.kernel_name())
+            open_qasm_str.replace('u3', 'U')
+
+        return openqasm_to_llvm_mlir(open_qasm_str, self.kernel_name() if 'kernel_name' not in kwargs else kwargs['kernel_name'],
+                                     kwargs['add_entry_point'] if 'add_entry_point' in kwargs else True, kwargs['opt'] if 'opt' in kwargs else 0, kwargs['qiskit_compat'] if 'qiskit_compat' in kwargs else False)
 
     def llvm_ir(self, *args, **kwargs):
-        assert len(args) == len(self.arg_names), "Cannot generate LLVM IR, you did not provided the correct concrete kernel arguments."
-        open_qasm_str = self.openqasm(*args).replace('OPENQASM 2.0', 'OPENQASM 3')
-        return openqasm_to_llvm_ir(open_qasm_str, self.kernel_name(), 
-                        kwargs['add_entry_point'] if 'add_entry_point' in kwargs else True)
+        assert len(args) == len(
+            self.arg_names), "Cannot generate LLVM IR, you did not provided the correct concrete kernel arguments."
+        open_qasm_str = self.openqasm(
+            *args).replace('OPENQASM 2.0', 'OPENQASM 3')
+        # print(open_qasm_str)
+        if 'qiskit_compat' in kwargs and kwargs['qiskit_compat']:
+            open_qasm_str = self.__internal_update_openqasm_qiskit_compat__(
+                open_qasm_str, kwargs['kernel_name'] if 'kernel_name' in kwargs else self.kernel_name())
+
+        return openqasm_to_llvm_ir(open_qasm_str, self.kernel_name() if 'kernel_name' not in kwargs else kwargs['kernel_name'],
+                                   kwargs['add_entry_point'] if 'add_entry_point' in kwargs else True, kwargs['opt'] if 'opt' in kwargs else 0, kwargs['qiskit_compat'] if 'qiskit_compat' in kwargs else False)
 
     def qir(self, *args, **kwargs):
         return self.llvm_ir(*args, **kwargs)
