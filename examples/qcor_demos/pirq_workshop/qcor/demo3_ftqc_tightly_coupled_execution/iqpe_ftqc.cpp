@@ -4,10 +4,12 @@
 /// Execute: 
 /// ./a.out
 
+// To show XACC IR execution (FTQC): add -print-final-submission option
+
 
 // Iterative Quantum Phase Estimation:
 // Only use 2 qubits to achieve 4-bit accuracy (normally require 5 qubits)
-// The oracle is a -5*pi/8 pHase rotation;
+// The oracle is a -5*pi/8 phase rotation;
 __qpu__ void oracle(qubit q) {
   auto angle = -5.0 * M_PI / 8.0;
   U1(q, angle);

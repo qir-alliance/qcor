@@ -1,6 +1,9 @@
 /// qaoa_placement.cpp: Topology placement example
-/// qcor -qpu ibm:ibmq_paris  qaoa_placement.cpp -print-final-submission
-
+/// Using the default placement:
+/// qcor -qpu aer:ibmq_guadalupe  qaoa_placement.cpp -print-final-submission
+/// Change the placement:
+/// qcor -qpu aer:ibmq_guadalupe -placement enfield qaoa_placement.cpp -print-final-submission
+/// Can add -opt 1 to further combine single-qubit gates (mixer terms).
 __qpu__ void qaoa_maxcut(qreg q, std::vector<double> gamma,
                   std::vector<double> beta,
                   std::vector<std::pair<int, int>> graph_edges) {
@@ -26,12 +29,14 @@ __qpu__ void qaoa_maxcut(qreg q, std::vector<double> gamma,
       exp_i_theta(q, beta[step], ref_ham_term);
     }
   }
+
+  Measure(q);
 }
 
 int main(int argc, char **argv) {
   auto q = qalloc(5);
   // Ring graph
-  std::vector<std::pair<int, int>> graph{{0, 1}, {1, 2}, {2, 3}, {3, 4}};
+  std::vector<std::pair<int, int>> graph{{0, 1}, {1, 2}, {2, 3}, {3, 4}, {4, 0}};
   // One step
   int p = 1;
   std::vector<double> gammas{1.0};

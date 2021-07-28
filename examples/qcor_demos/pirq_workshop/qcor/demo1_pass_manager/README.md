@@ -14,9 +14,6 @@
 
 - Trotter circuit (e.g., 2-3 qubits): print gate count before and after optimization; examine the results (e.g. expectations and simulation runtime with and without optimization). 
 
-- Topology placement: QAOA (max-cut) circuits => hardware mapping. 
-
-- Noise-aware mapping: Bell test (H-CX); select an IBM backend with more qubits; should pick the pair with low CX error rate.
-
+- [Skipped] Topology placement: QAOA (max-cut) circuits => hardware mapping. 
 
 
