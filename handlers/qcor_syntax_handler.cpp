@@ -321,12 +321,13 @@ void QCORSyntaxHandler::GetReplacement(
   OS << "return;\n";
   OS << "}\n";
 
-  OS << "xacc::internal_compiler::execute_pass_manager();\n";
   OS << "if (optimize_only) {\n";
+  OS << "xacc::internal_compiler::execute_pass_manager();\n";
   OS << "return;\n";
   OS << "}\n";
 
   OS << "if (is_callable) {\n";
+  OS << "xacc::internal_compiler::execute_pass_manager();\n";
   if (bufferNames.size() > 1) {
     OS << "xacc::AcceleratorBuffer * buffers[" << bufferNames.size() << "] = {";
     OS << bufferNames[0] << ".results()";
