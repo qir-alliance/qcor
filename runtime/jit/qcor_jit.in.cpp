@@ -715,6 +715,9 @@ std::shared_ptr<qcor::CompositeInstruction> QJIT::extract_composite_with_hetmap(
       (void (*)(std::shared_ptr<qcor::CompositeInstruction>,
                 xacc::HeterogeneousMap &))f_ptr;
   kernel_functor(composite, args);
+  // Same logic as C++ print_kernel,
+  // applied runtime passes before printing out the kernel:
+  xacc::internal_compiler::execute_pass_manager();
   return composite;
 }
 
