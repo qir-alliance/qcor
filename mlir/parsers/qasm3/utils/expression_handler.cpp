@@ -1206,7 +1206,16 @@ antlrcpp::Any qasm3_expression_generator::visitExpressionTerminator(
         qasm3_expression_generator param_exp_generator(builder, symbol_table,
                                                        file_name);
         param_exp_generator.visit(expression);
-        operands.push_back(param_exp_generator.current_value);
+        auto arg = param_exp_generator.current_value;
+        if (arg.getType().isa<mlir::MemRefType>()) {
+          auto element_type =
+              arg.getType().cast<mlir::MemRefType>().getElementType();
+          if (!(element_type.isa<mlir::IntegerType>() &&
+                element_type.getIntOrFloatBitWidth() == 1)) {
+            arg = builder.create<mlir::LoadOp>(location, arg);
+          }
+        }
+        operands.push_back(arg);
       }
 
       // Here we add all global variables
