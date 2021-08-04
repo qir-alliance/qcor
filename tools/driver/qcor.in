@@ -736,7 +736,11 @@ def main(argv=None):
             exit(1)
     else:
         # This is a .o file, so execute the link phase
-        commands = [compiler, '-Wno-unused-command-line-argument', '-Wno-override-module'] + baseLibs + sys.argv[1:]
+        commands = [compiler]
+        if len(extra_flags):
+            commands += extra_flags
+        commands += ['-Wno-unused-command-line-argument', '-Wno-override-module'] + baseLibs + sys.argv[1:]
+
         if verbose:
             info('{}'.format(' '.join([c for c in commands])))
         try:
