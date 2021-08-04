@@ -135,6 +135,32 @@ TEST(XASMTokenCollectorTester, checkReset) {
   EXPECT_TRUE(ss.str().find("quantum::reset(q[0]);") != std::string::npos);
 }
 
+TEST(XASMTokenCollectorTester, checkCharLiterals) {
+  LexerHelper helper;
+
+  auto [tokens, PP] = helper.Lex(
+      "if (c == '1') {\nCNOT(q[0],q[1]);\n}\n"
+      "std::cout << \"wow a single quote: \" << '\\'';\n");
+
+  clang::CachedTokens cached;
+  for (auto &t : tokens) {
+    cached.push_back(t);
+  }
+
+  std::stringstream ss;
+  auto xasm_tc = xacc::getService<qcor::TokenCollector>("xasm");
+  xasm_tc->collect(*PP.get(), cached, {"q"}, ss);
+  std::cout << "heres the test\n";
+  std::cout << ss.str() << "\n";
+
+  EXPECT_EQ(R"#(if ( c == '1' ) { 
+quantum::cnot(q[0], q[1]);
+} 
+std :: cout << "wow a single quote: " << '\'' ; 
+)#",
+            ss.str());
+}
+
 int main(int argc, char **argv) {
   std::string xacc_config_install_dir = std::string(XACC_INSTALL_DIR);
   std::string qcor_root = std::string(QCOR_INSTALL_DIR);

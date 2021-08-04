@@ -69,6 +69,7 @@ exp
    | string
    | real
    | INT
+   | CHAR
    | 'pi'
    | exp '&&' exp
    | exp '||' exp
@@ -112,6 +113,11 @@ REAL
 
 INT
    : ('0'..'9')+
+   ;
+
+CHAR
+   : '\'' ~ ['] '\''
+   | '\'\\\'\''
    ;
 
 STRING
