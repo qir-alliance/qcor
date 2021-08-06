@@ -51,3 +51,17 @@ docker run_macosx_mojave_bottles:
   - ssh mojave-ci "PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin bash run_bottle_build.sh $AIDEQC_ACCESS_TOKEN"
   - docker stop $id && docker rm -v $id
   allow_failure: true
+
+docker run_docker_deploy:
+  stage: deploy
+  only:
+    - schedules
+  script:
+  - cd docker/ci/alpine/qcor && docker build -t qcor/cli . --no-cache
+  - cd ../code-server && docker build -t qcor/qcor . --no-cache
+  - echo "$REGISTRY_PASSWORD" | docker login -u qcor --password-stdin
+  - docker push qcor/cli
+  - docker push qcor/qcor
+  - docker system prune -f
+  - docker rmi -f qcor/qcor qcor/cli
+  allow_failure: true

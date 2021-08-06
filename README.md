@@ -9,42 +9,30 @@
 QCOR is a C++ language extension and associated compiler implementation
 for hybrid quantum-classical programming.
 
-Documentation
--------------
+## Documentation
 
-* [Website and Documentation](https://aide-qc.github.io/deploy)
-* [Doxygen Documentation](https://ornl-qci.github.io/qcor-api-docs/)
+* [Documentation and User Guides](https://aide-qc.github.io/deploy)
+* [Doxygen API Docs](https://ornl-qci.github.io/qcor-api-docs/)
 
-Install
--------
-To install `qcor` run the following command from your terminal 
+## Installation
+To install the `qcor` nightly binaries (for Mac OS X and Linux x86_64) run the following command from your terminal 
 ```bash
 /bin/bash -c "$(curl -fsSL https://aide-qc.github.io/deploy/install.sh)"
 ```
 To use the Python API, be sure to set your `PYTHONPATH`. 
-For more details, see [here](https://aide-qc.github.io/deploy/getting_started/).
+For more details, see the [full installation documentation page](https://aide-qc.github.io/deploy/getting_started/).
 
-Nightly docker images are also available that serve up a [Theia IDE](https://theia-ide.org/) on port 3000. To use this image, run 
-```bash
-docker run --security-opt seccomp=unconfined --init -it -p 3000:3000 qcor/qcor
-```
-and navigate to ``https://localhost:3000`` in your browser to open the IDE and get started with QCOR. 
+### Docker Images
 
-For any method of installation, a good way to test your install is to copy and paste the following into your terminal 
+Nightly docker images are also available that serve up a [VSCode IDE](https://github.com/cdr/code-server) on port 8080. To use this image, run 
 ```bash
-printf "__qpu__ void f(qreg q) {
-  H(q[0]);
-  Measure(q[0]);
-}
-int main() {
-  auto q = qalloc(1);
-  f(q);
-  q.print();
-}  " | qcor -qpu qpp -shots 1024 -o test -x c++ -
+docker run -it -p 8080:8080 qcor/qcor
 ```
-and then run 
+and navigate to ``https://localhost:8080`` in your browser to open the IDE and get started with QCOR. 
+
+Alternatively, you could use the `qcor/cli` image providing simple command-line access to the `qcor` compiler. 
 ```bash
-./test
+docker run -it qcor/cli
 ```
 
 ## Cite QCOR 
