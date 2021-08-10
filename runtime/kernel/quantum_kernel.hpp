@@ -45,6 +45,10 @@ void print_kernel(KernelSignature<Args...> &kernelCallable, std::ostream &os,
 template <typename... Args>
 std::size_t n_instructions(KernelSignature<Args...> &kernelCallable,
                            Args... args);
+template <typename... Args>
+void print_native_code(KernelSignature<Args...> &kernelCallable,
+                       std::ostream &os, HeterogeneousMap options,
+                       Args... args);
 }  // namespace internal
 
 // The QuantumKernel represents the super-class of all qcor
@@ -111,6 +115,7 @@ class QuantumKernel {
   }
 
   // Static method for printing this kernel as a flat qasm string
+  // (logical gate-level XACC IR)
   static void print_kernel(std::ostream &os, Args... args) {
     Derived derived(args...);
     KernelSignature<Args...> callable(derived);
@@ -118,6 +123,27 @@ class QuantumKernel {
   }
 
   static void print_kernel(Args... args) { print_kernel(std::cout, args...); }
+
+  // Print the native code (backend qpu execution code)
+  // i.e., in the native gateset of the Accelerator
+  static void print_native_code(std::ostream &os, Args... args) {
+    Derived derived(args...);
+    KernelSignature<Args...> callable(derived);
+    return internal::print_kernel<Args...>(callable, os, {}, args...);
+  }
+  static void print_native_code(Args... args) {
+    return print_native_code(std::cout, args...);
+  }
+  // Provide extra options as a HetMap
+  static void print_native_code(std::ostream &os, HeterogeneousMap options,
+                                Args... args) {
+    Derived derived(args...);
+    KernelSignature<Args...> callable(derived);
+    return internal::print_kernel<Args...>(callable, os, options, args...);
+  }
+  static void print_native_code(HeterogeneousMap options, Args... args) {
+    return print_native_code(std::cout, options, args...);
+  }
 
   // Static method to query how many instructions are in this kernel
   static std::size_t n_instructions(Args... args) {
@@ -1093,6 +1119,17 @@ std::size_t n_instructions(KernelSignature<Args...> &kernelCallable,
   auto tempKernel = qcor::__internal__::create_composite("temp_count_insts");
   kernelCallable(tempKernel, args...);
   return tempKernel->nInstructions();
+}
+
+template <typename... Args>
+void print_native_code(KernelSignature<Args...> &kernelCallable,
+                       std::ostream &os, HeterogeneousMap options,
+                       Args... args) {
+  auto tempKernel = qcor::__internal__::create_composite("temp_print");
+  kernelCallable(tempKernel, args...);
+  // Apply optimization + QPU placement
+  xacc::internal_compiler::execute_pass_manager(tempKernel);
+  os << xacc::internal_compiler::get_native_code(tempKernel, options) << "\n";
 }
 }  // namespace internal
 }  // namespace qcor
