@@ -245,7 +245,8 @@ extern std::string __print_final_submission_filename;
 // If none provided, execute the pass manager on the current QRT kernel.
 void execute_pass_manager(
     std::shared_ptr<qcor::CompositeInstruction> optional_composite = nullptr);
-
+std::string get_native_code(std::shared_ptr<qcor::CompositeInstruction> program,
+                            xacc::HeterogeneousMap options);
 } // namespace internal_compiler
 } // namespace xacc
 namespace qcor {

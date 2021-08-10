@@ -757,6 +757,20 @@ PYBIND11_MODULE(_pyqcor, m) {
           [](qcor::QJIT &qjit, const std::string &kernel_name) {
             return qjit.get_kernel_function_ptr(kernel_name);
           },
+          "")
+      .def(
+          "get_native_code",
+          [](qcor::QJIT &qjit, const std::string name, KernelArgDict args, PyHeterogeneousMap options = {}) {
+            xacc::HeterogeneousMap m;
+            for (auto &item : args) {
+              KernelArgDictToHeterogeneousMap vis(m, item.first);
+              mpark::visit(vis, item.second);
+            }
+            auto program = qjit.extract_composite_with_hetmap(name, m);
+            xacc::internal_compiler::execute_pass_manager(program);
+            return xacc::internal_compiler::get_native_code(
+                program, heterogeneousMapConvert(options));
+          },
           "");
 
   py::class_<qcor::ObjectiveFunction, std::shared_ptr<qcor::ObjectiveFunction>>(
