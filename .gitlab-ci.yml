@@ -59,9 +59,11 @@ docker run_docker_deploy:
   script:
   - cd docker/ci/alpine/qcor && docker build -t qcor/cli . --no-cache
   - cd ../code-server && docker build -t qcor/qcor . --no-cache
+  - cd ../qsharp-code-server && docker build -t qcor/qsharp-qcor . --no-cache
   - echo "$REGISTRY_PASSWORD" | docker login -u qcor --password-stdin
   - docker push qcor/cli
   - docker push qcor/qcor
+  - docker push qcor/qsharp-qcor
   - docker system prune -f
   - docker rmi -f qcor/qcor qcor/cli
   allow_failure: true
