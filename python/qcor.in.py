@@ -713,6 +713,13 @@ class qjit(object):
         """
         print(self.extract_composite(*args).toString())
 
+    def print_native_code(self, *args, **kwargs):
+        """
+        Print the native code targeting the Accelerator backend
+        """
+        args_dict = self.construct_arg_dict(*args)
+        print(self._qjit.get_native_code(self.function.__name__, args_dict, kwargs))
+
     def n_instructions(self, *args):
         """
         Return the number of quantum instructions in this kernel. 

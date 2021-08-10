@@ -84,6 +84,11 @@ void apply_decorators(const std::string &decorator_cmdline_string) {
       xacc::getAcceleratorDecorator(decorator_cmdline_string, get_qpu());
   xacc::internal_compiler::qpu = decorator;
 }
+
+std::string get_native_code(std::shared_ptr<qcor::CompositeInstruction> program,
+                            xacc::HeterogeneousMap options) {
+  return get_qpu()->getNativeCode(program->as_xacc(), options);
+}
 }  // namespace internal_compiler
 }  // namespace xacc
 namespace quantum {
