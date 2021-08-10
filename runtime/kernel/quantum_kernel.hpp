@@ -753,6 +753,27 @@ class _qpu_lambda {
   }
 
   template <typename... FunctionArgs>
+  void print_native_code(std::ostream &os, FunctionArgs... args) {
+    KernelSignature<FunctionArgs...> callable(*this);
+    return internal::print_native_code<FunctionArgs...>(callable, os, args...);
+  }
+  template <typename... FunctionArgs>
+  void print_native_code(FunctionArgs... args) {
+    return print_native_code(std::cout, args...);
+  }
+  template <typename... FunctionArgs>
+  void print_native_code(std::ostream &os, HeterogeneousMap options,
+                         FunctionArgs... args) {
+    KernelSignature<FunctionArgs...> callable(*this);
+    return internal::print_native_code<FunctionArgs...>(callable, os, options,
+                                                        args...);
+  }
+  template <typename... FunctionArgs>
+  void print_native_code(HeterogeneousMap options, FunctionArgs... args) {
+    return print_native_code(std::cout, options, args...);
+  }
+
+  template <typename... FunctionArgs>
   std::size_t n_instructions(FunctionArgs... args) {
     KernelSignature<FunctionArgs...> callable(*this);
     return internal::n_instructions<FunctionArgs...>(callable, args...);
@@ -878,6 +899,20 @@ class KernelSignature {
   }
 
   void print_kernel(Args... args) { print_kernel(std::cout, args...); }
+
+  void print_native_code(std::ostream &os, Args... args) {
+    return internal::print_native_code<Args...>(*this, os, args...);
+  }
+  void print_native_code(Args... args) {
+    return print_native_code(std::cout, args...);
+  }
+  void print_native_code(std::ostream &os, HeterogeneousMap options,
+                         Args... args) {
+    return internal::print_native_code<Args...>(*this, os, options, args...);
+  }
+  void print_native_code(HeterogeneousMap options, Args... args) {
+    return print_native_code(std::cout, options, args...);
+  }
 
   std::size_t n_instructions(Args... args) {
     return internal::n_instructions<Args...>(*this, args...);
