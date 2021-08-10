@@ -61,6 +61,7 @@ add_qcor_compile_and_exe_test(multi_ctrl_test ctrl-gates/multiple_controls.cpp)
 add_qcor_compile_and_exe_test(qrt_obj_func_simple simple/simple-objective-function.cpp)
 add_qcor_compile_and_exe_test(qrt_kernel_autograd_simple simple/gradients_optimization.cpp)
 add_qcor_compile_and_exe_test(qrt_bell_ctrl bell/bell_control.cpp)
+add_qcor_compile_and_exe_test(qrt_print_native_code simple/print_native_code.cpp)
 
 # Lambda tests
 add_qcor_compile_and_exe_test(qrt_qpu_lambda_simple qpu_lambda/lambda_test.cpp)

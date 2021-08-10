@@ -129,7 +129,7 @@ class QuantumKernel {
   static void print_native_code(std::ostream &os, Args... args) {
     Derived derived(args...);
     KernelSignature<Args...> callable(derived);
-    return internal::print_kernel<Args...>(callable, os, {}, args...);
+    return internal::print_native_code<Args...>(callable, os, {}, args...);
   }
   static void print_native_code(Args... args) {
     return print_native_code(std::cout, args...);
@@ -139,7 +139,7 @@ class QuantumKernel {
                                 Args... args) {
     Derived derived(args...);
     KernelSignature<Args...> callable(derived);
-    return internal::print_kernel<Args...>(callable, os, options, args...);
+    return internal::print_native_code<Args...>(callable, os, options, args...);
   }
   static void print_native_code(HeterogeneousMap options, Args... args) {
     return print_native_code(std::cout, options, args...);
@@ -619,7 +619,7 @@ class _qpu_lambda {
       jit_src.insert(end, restore_string.str());
     }
 
-    std::cout << "JITSRC:\n" << jit_src << "\n";
+    // std::cout << "JITSRC:\n" << jit_src << "\n";
     // JIT Compile, storing the function pointers
     qjit.jit_compile(jit_src);
   }
@@ -755,7 +755,7 @@ class _qpu_lambda {
   template <typename... FunctionArgs>
   void print_native_code(std::ostream &os, FunctionArgs... args) {
     KernelSignature<FunctionArgs...> callable(*this);
-    return internal::print_native_code<FunctionArgs...>(callable, os, args...);
+    return internal::print_native_code<FunctionArgs...>(callable, os, {}, args...);
   }
   template <typename... FunctionArgs>
   void print_native_code(FunctionArgs... args) {
@@ -901,7 +901,7 @@ class KernelSignature {
   void print_kernel(Args... args) { print_kernel(std::cout, args...); }
 
   void print_native_code(std::ostream &os, Args... args) {
-    return internal::print_native_code<Args...>(*this, os, args...);
+    return internal::print_native_code<Args...>(*this, os, {}, args...);
   }
   void print_native_code(Args... args) {
     return print_native_code(std::cout, args...);
