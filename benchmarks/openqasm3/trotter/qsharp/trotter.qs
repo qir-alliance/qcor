@@ -9,47 +9,7 @@ namespace Benchmark.Heisenberg {
     // an Heisenberg model: 
     //     H ≔ - J Σ'ᵢⱼ Zᵢ Zⱼ - hX Σᵢ Xᵢ
     // where the primed summation Σ' is taken only over nearest-neighbors.
-
-    operation _Heisenberg1DTrotterUnitaries(nSites : Int, hXCoupling : Double, jCoupling : Double, idxHamiltonian : Int, stepSize : Double, qubits : Qubit[])
-    : Unit
-    is Adj + Ctl {
-        // when idxHamiltonian is in [0, nSites - 1], apply transverse field "hx"
-        // when idxHamiltonian is in [nSites, 2 * nSites - 1], apply Heisenberg coupling "jC"
-        if (idxHamiltonian <= nSites - 1) {
-            Exp([PauliX], (-1.0 * hXCoupling) * stepSize, [qubits[idxHamiltonian]]);
-        } 
-        else {
-            Exp([PauliZ, PauliZ], (-1.0 * jCoupling) * stepSize, qubits[idxHamiltonian % nSites .. (idxHamiltonian + 1) % nSites]);
-        }
-    }
-
-    // The input to the Trotterization control structure has a type
-    // (Int, ((Int, Double, Qubit[]) => () is Adj + Ctl))
-    // The first parameter Int is the number of terms in the Hamiltonian
-    // The first parameter in ((Int, Double, Qubit[])) is an index to a term
-    // in the Hamiltonian
-    // The second parameter in ((Int, Double, Qubit[])) is the stepsize
-    // The third parameter in  ((Int, Double, Qubit[])) are the qubits the
-    // Hamiltonian acts on.
-    // Let us create this type from Heisenberg1DTrotterUnitariesImpl by partial
-    // applications.
-    function Heisenberg1DTrotterUnitaries(nSites : Int, hXCoupling : Double, jCoupling : Double)
-    : (Int, ((Int, Double, Qubit[]) => Unit is Adj + Ctl)) {
-        let nTerms = 2 * nSites - 1;
-        return (nTerms, _Heisenberg1DTrotterUnitaries(nSites, hXCoupling, jCoupling, _, _, _));
-    }
-
-    // We now invoke the Trotterization control structure. This requires two
-    // additional parameters -- the trotterOrder, which determines the order
-    // the Trotter decompositions, and the trotterStepSize, which determines
-    // the duration of time-evolution of a single Trotter step.
-    function Heisenberg1DTrotterEvolution(nSites : Int, hXCoupling : Double, jCoupling : Double, trotterOrder : Int, trotterStepSize : Double)
-    : (Qubit[] => Unit is Adj + Ctl) {
-        let op = Heisenberg1DTrotterUnitaries(nSites, hXCoupling, jCoupling);
-        return DecomposedIntoTimeStepsCA(op, trotterOrder)(trotterStepSize, _);
-    }
-
-    operation HeisenbergTrotterEvolve(nSites : Int, simulationTime : Double, trotterOrder : Int, trotterStepSize : Double) : Unit {
+    operation HeisenbergTrotterEvolve(nSites : Int, simulationTime : Double, trotterStepSize : Double) : Unit {
         // We pick arbitrary values for the X and J couplings
         let hXCoupling = 1.0;
         let jCoupling = 1.0;
@@ -66,7 +26,13 @@ namespace Benchmark.Heisenberg {
         use qubits = Qubit[nSites];
         // We then evolve for some time
         for idxStep in 0 .. steps - 1 {
-            Heisenberg1DTrotterEvolution(nSites, hXCoupling, jCoupling, trotterOrder, trotterStepSizeResized)(qubits);
+            for i in 0 .. nSites - 1 {
+                Exp([PauliX], (-1.0 * hXCoupling) * trotterStepSizeResized, [qubits[i]]);
+            }
+            for i in 0 .. nSites - 2 {
+                Exp([PauliZ, PauliZ], (-1.0 * jCoupling) * trotterStepSizeResized, qubits[i .. (i + 1)]);
+            }
+            
         }
     }
 
@@ -74,6 +40,6 @@ namespace Benchmark.Heisenberg {
     // to be equivalent to OpenQASM3
     @EntryPoint()
     operation CircuitGen() : Unit {
-        HeisenbergTrotterEvolve(5, 1.0, 1, 0.01);
+        HeisenbergTrotterEvolve(50, 1.0, 0.01);
     }
 }
