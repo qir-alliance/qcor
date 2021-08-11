@@ -53,7 +53,7 @@ def trotter_circ(q, exp_args, n_steps):
       qc += PauliTrotterEvolution().convert(EvolvedOp(sub_op)).to_circuit()
   return qc
 
-n_qubits = [5, 10, 20, 50, 100]
+n_qubits = [5, 10, 20, 30, 40, 50]
 nbSteps = 100
 
 for nbQubits in n_qubits:

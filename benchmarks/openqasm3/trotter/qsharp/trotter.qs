@@ -49,8 +49,7 @@ namespace Benchmark.Heisenberg {
         return DecomposedIntoTimeStepsCA(op, trotterOrder)(trotterStepSize, _);
     }
 
-    @EntryPoint()
-    operation HeisenbergTrotterEvolve (nSites : Int, simulationTime : Double, trotterOrder : Int, trotterStepSize : Double) : Unit {
+    operation HeisenbergTrotterEvolve(nSites : Int, simulationTime : Double, trotterOrder : Int, trotterStepSize : Double) : Unit {
         // We pick arbitrary values for the X and J couplings
         let hXCoupling = 1.0;
         let jCoupling = 1.0;
@@ -71,4 +70,10 @@ namespace Benchmark.Heisenberg {
         }
     }
 
+    // Entry point: we allow the Q# program to have full information (compile-time) about the number of qubits, steps, etc.
+    // to be equivalent to OpenQASM3
+    @EntryPoint()
+    operation CircuitGen() : Unit {
+        HeisenbergTrotterEvolve(5, 1.0, 1, 0.01);
+    }
 }
