@@ -2,9 +2,11 @@ from qiskit.aqua.operators import (X, Y, Z, I, CX, H, ListOp, CircuitOp, Zero, E
                                    EvolvedOp, PauliTrotterEvolution, QDrift, Trotter, Suzuki)
 from qiskit import QuantumRegister, ClassicalRegister, QuantumCircuit
 from qiskit.compiler import transpile
+from statistics import mean, stdev
 
 import warnings
 warnings.filterwarnings('ignore', category=DeprecationWarning)
+n_runs = 10
 
 import time
 def X_op(idxs, n_qubits):
@@ -57,16 +59,20 @@ n_qubits = [5, 10, 20, 30, 40, 50]
 nbSteps = 100
 
 for nbQubits in n_qubits:
-  ham_op = heisenberg_ham(nbQubits)
-  q = QuantumRegister(nbQubits, 'q')
-  start = time.time()
-  comp = trotter_circ(q, ham_op.oplist, nbSteps)
-  comp = transpile(comp, optimization_level=3)
-  end = time.time()
-  ops_count = comp.count_ops()
-  num_gates = 0
-  # Count gates except identity
-  for gate_name in ops_count:
-    if gate_name != "id":
-      num_gates += ops_count[gate_name]
-  print("n_qubits =", nbQubits, "; n instructions =", num_gates, "; Kernel eval time:", end - start, " [secs]")
+  data = []
+  for run_id in range(n_runs):  
+    ham_op = heisenberg_ham(nbQubits)
+    q = QuantumRegister(nbQubits, 'q')
+    start = time.time()
+    comp = trotter_circ(q, ham_op.oplist, nbSteps)
+    comp = transpile(comp, optimization_level=3)
+    end = time.time()
+    data.append(end - start)
+    #ops_count = comp.count_ops()
+    # num_gates = 0
+    # # Count gates except identity
+    # for gate_name in ops_count:
+    #   if gate_name != "id":
+    #     num_gates += ops_count[gate_name]
+    #print("n_qubits =", nbQubits, "; n instructions =", num_gates, "; Kernel eval time:", end - start, " [secs]")
+  print('n_qubits =', nbQubits, '; Elapsed time =', mean(data), '+/-', stdev(data),  '[secs]')
