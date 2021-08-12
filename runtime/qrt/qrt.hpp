@@ -26,6 +26,7 @@ class QuantumRuntime : public xacc::Identifiable {
 
 public:
   virtual void initialize(const std::string kernel_name) = 0;
+  virtual void finalize() {};
   virtual void __begin_mark_segment_as_compute() = 0;
   virtual void __end_mark_segment_as_compute() = 0;
   virtual bool isComputeSection() = 0;
@@ -115,6 +116,7 @@ extern std::unordered_map<
     kernel_signatures_in_translation_unit;
 
 void initialize(const std::string qpu_name, const std::string kernel_name);
+void finalize();
 void set_shots(int shots);
 int get_shots();
 void set_backend(std::string accelerator_name);

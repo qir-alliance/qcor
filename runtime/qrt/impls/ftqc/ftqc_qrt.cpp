@@ -11,6 +11,7 @@
 #include "xacc.hpp"
 #include "xacc_internal_compiler.hpp"
 #include "xacc_service.hpp"
+#include "tracer/ResourcesTracerAccelerator.hpp"
 using namespace cppmicroservices;
 
 namespace {
@@ -279,6 +280,13 @@ private:
     }
   }
 
+  virtual void finalize() override {
+    if (std::dynamic_pointer_cast<qcor::TracerAccelerator>(qpu)) {
+      std::dynamic_pointer_cast<qcor::TracerAccelerator>(qpu)
+          ->printResourcesEstimationReport();
+    }
+  }
+
 private:
   bool mark_as_compute = false;
   // Are we in a instruction collection mode?
@@ -302,6 +310,8 @@ public:
   void Start(BundleContext context) {
     auto xt = std::make_shared<qcor::FTQC>();
     context.RegisterService<quantum::QuantumRuntime>(xt);
+    context.RegisterService<xacc::Accelerator>(
+        std::make_shared<qcor::TracerAccelerator>());
   }
   void Stop(BundleContext /*context*/) {}
 };

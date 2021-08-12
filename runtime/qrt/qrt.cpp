@@ -123,6 +123,12 @@ void initialize(const std::string qpu_name, const std::string kernel_name) {
   qrt_impl->initialize(kernel_name);
 }
 
+void finalize() {
+  // We should have called initialize
+  assert(qrt_impl);
+  qrt_impl->finalize();
+}
+
 void set_backend(std::string accelerator_name, const int shots) {
   xacc::internal_compiler::compiler_InitializeXACC(accelerator_name.c_str());
   set_shots(shots);
