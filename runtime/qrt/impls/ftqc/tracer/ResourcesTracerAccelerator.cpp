@@ -1,6 +1,8 @@
 #include "ResourcesTracerAccelerator.hpp"
 #include <iomanip>
 #include <random>
+#include "xacc_service.hpp"
+
 using namespace xacc;
 namespace qcor {
 void TracerAccelerator::initialize(const HeterogeneousMap &params) {
@@ -62,8 +64,7 @@ void TracerAccelerator::printResourcesEstimationReport() {
   // Currently, simply print gate count:
   std::cout << "Resources Estimation Result:\n";
   std::cout << "Number of qubit required: " << qubit_idxs.size() << "\n";
-  std::cout << "Gate Count Report: \n";
-  size_t totalNumberGates = 0;
+  size_t totalNumberGates = 0, totalCtrlOperations = 0;
   std::stringstream stream;
   const size_t nbColumns = 2;
   const size_t columnWidth = 8;
@@ -81,10 +82,28 @@ void TracerAccelerator::printResourcesEstimationReport() {
     stream << std::setw(8) << count << " |\n";
   };
 
+  auto insts = xacc::getServices<xacc::Instruction>();
+  std::vector<std::string> two_qubit_names;
+  for (auto inst : insts) {
+    if (inst->nRequiredBits() > 1) {
+      two_qubit_names.push_back(inst->name());
+    }
+  }
+
+  // Print each row, and count total number of instructions, and 
+  // count any 2 qubit control operations.
   for (const auto &[gateName, count] : gateNameToCount) {
     printEachRow(gateName, count);
+    totalNumberGates += count;
+    if (xacc::container::contains(two_qubit_names, gateName)) {
+      totalCtrlOperations += count;
+    }
   }
+
   stream << std::string(totalWidth, '-') << "\n";
+  std::cout << "Total Gates: " << totalNumberGates << "\n";
+  std::cout << "Total Control Operations: " << totalCtrlOperations << "\n";
+  std::cout << "Gate Count Report: \n";
   std::cout << stream.str();
 }
 } // namespace qcor
