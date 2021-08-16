@@ -523,6 +523,9 @@ void __quantum__rt__finalize() {
     xacc::internal_compiler::execute_pass_manager();
     ::quantum::submit(global_qreg.get());
   }
+  
+  // QRT finalization
+  ::quantum::finalize();
 }
 
 bool __quantum__rt__result_equal(Result *res, Result *comp) {

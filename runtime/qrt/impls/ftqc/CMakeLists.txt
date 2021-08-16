@@ -12,7 +12,7 @@
 # *******************************************************************************/
 set(LIBRARY_NAME qcor-ftqc-qrt)
 
-file(GLOB SRC *.cpp)
+file(GLOB SRC *.cpp tracer/*.cpp)
 
 usfunctiongetresourcesource(TARGET ${LIBRARY_NAME} OUT SRC)
 usfunctiongeneratebundleinit(TARGET ${LIBRARY_NAME} OUT SRC)
