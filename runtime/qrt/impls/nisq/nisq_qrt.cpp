@@ -134,9 +134,26 @@ class NISQ : public ::quantum::QuantumRuntime,
 
   void reset(const qubit &qidx) override { one_qubit_inst("Reset", qidx); }
 
-  bool mz(const qubit &qidx) override {
-    one_qubit_inst("Measure", qidx);
-    return false;
+  bool mz(const qubit &qidx,
+          std::pair<std::string, size_t> *optional_creg) override {
+    if (optional_creg) {
+      // Create a measure instruction which has a specific classical assigment.
+      // This is needed for proper NISQ's native code generation (e.g.,
+      // OpenQASM2)
+      // e.g., control the creg (name and index) so that we can refer to later
+      // such as if statements.
+      auto [creg_name, bit_idx] = *optional_creg;
+      auto meas =
+          std::make_shared<xacc::quantum::Measure>(qidx.second, bit_idx);
+      meas->setBufferNames({qidx.first, creg_name});
+      // Cannot have measurement in compute segment (not reversible)
+      assert(!mark_as_compute);
+      program->addInstruction(meas);
+      return false;
+    } else {
+      one_qubit_inst("Measure", qidx);
+      return false;
+    }
   }
 
   void cnot(const qubit &src_idx, const qubit &tgt_idx) override {

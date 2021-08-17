@@ -51,7 +51,13 @@ public:
   // Reset
   virtual void reset(const qubit &qidx) = 0;
   // Measure-Z
-  virtual bool mz(const qubit &qidx) = 0;
+  // Optionally retrieve the classical register bit name storing the bit result.
+  // Rationale: in NISQ mode, whereby the bool value is not available when this
+  // function executed, we can assign the *specific* classical reg name to hold
+  // the measurement. This is required so that we can refer to this creg in
+  // later NISQ-mode if statement if needed.
+  virtual bool mz(const qubit &qidx,
+                  std::pair<std::string, size_t> *optional_creg = nullptr) = 0;
 
   // Common two-qubit gates.
   virtual void cnot(const qubit &src_idx, const qubit &tgt_idx) = 0;

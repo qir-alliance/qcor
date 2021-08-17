@@ -392,7 +392,26 @@ void __quantum__qis__reset__body(Qubit *q) { __quantum__qis__reset(q); }
 void __quantum__qis__applyifelseintrinsic__body(Result *r,
                                                 Callable *clb_on_zero,
                                                 Callable *clb_on_one) {
-  std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
+  if (verbose)
+    std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
+
+  // Get the runtime
+  if (mode == QRT_MODE::NISQ) {
+    if (verbose)
+      std::cout << "NISQ mode If statement generation\n";
+    // TODO: need a way to cast infer the creg name.....
+  } else {
+    assert(r);
+    if (*r) {
+      if (clb_on_one) {
+        clb_on_one->invoke(nullptr, nullptr);
+      }
+    } else {
+      if (clb_on_zero) {
+        clb_on_zero->invoke(nullptr, nullptr);
+      }
+    }
+  }
 }
 void __quantum__qis__applyconditionallyintrinsic__body(
     Array *rs1, Array *rs2, Callable *clb_on_equal,
