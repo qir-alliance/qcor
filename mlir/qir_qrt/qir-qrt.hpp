@@ -25,7 +25,16 @@ extern std::string qpu_name;
 // Global register instance.
 extern std::shared_ptr<xacc::AcceleratorBuffer> global_qreg;
 extern QRT_MODE mode;
-
+// Flag to enable extended NISQ mode runtime
+// Convert conditional to QASM 'If' for submission.
+// Manually enable for the time-being, will eventually make it the default.
+extern bool enable_extended_nisq;
+// In extened NISQ mode, we use dedicated Result* (not ResultZero or ResultOne)
+// to lookup an id to a global classical register.
+// This will link measure to subsequence conditional on the Result*.
+// !!IMPORTANT!! We assume that we only do a Measure -> Store -> Conditional.
+// i.e., manipulating the bit result after Measure is not supported.
+extern std::unordered_map<Result *, size_t> nisq_result_to_creg_idx;
 void initialize();
 
 // Initialize/Finalize/Config API

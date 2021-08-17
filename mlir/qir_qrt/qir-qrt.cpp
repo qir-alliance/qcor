@@ -22,6 +22,9 @@ std::shared_ptr<xacc::Accelerator> qpu;
 std::string qpu_name = "qpp";
 std::string qpu_config = "";
 QRT_MODE mode = QRT_MODE::FTQC;
+// Thien debug: enable this permanently
+bool enable_extended_nisq = true;
+std::unordered_map<Result *, size_t> nisq_result_to_creg_idx = {};
 std::vector<std::unique_ptr<Array>> allocated_arrays;
 // Map of single-qubit allocations,
 // i.e. arrays of size 1.

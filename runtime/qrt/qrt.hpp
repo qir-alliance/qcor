@@ -171,7 +171,8 @@ void u3(qreg qidx, const double theta, const double phi,
         const double lambda);
 
 // Measure-Z and broadcast mz
-bool mz(const qubit &qidx);
+bool mz(const qubit &qidx,
+        std::pair<std::string, size_t> *optional_creg = nullptr);
 void mz(qreg q);
 
 // Common two-qubit gates.

@@ -1,9 +1,10 @@
+#include "CommonGates.hpp"
 #include "qir-qrt-ms-compat.hpp"
 #include "qir-qrt.hpp"
+#include "qrt.hpp"
 #include <iostream>
 #include <math.h>
 #include <stdexcept>
-#include "qrt.hpp"
 
 namespace {
 static std::vector<Pauli> extractPauliIds(Array *paulis) {
@@ -395,11 +396,35 @@ void __quantum__qis__applyifelseintrinsic__body(Result *r,
   if (verbose)
     std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
 
-  // Get the runtime
-  if (mode == QRT_MODE::NISQ) {
+  if (mode == QRT_MODE::NISQ && enable_extended_nisq) {
     if (verbose)
       std::cout << "NISQ mode If statement generation\n";
-    // TODO: need a way to cast infer the creg name.....
+    // NOTE: We use a different pointer value (not the static ResultOne and
+    // ResultZero) in NISQ mode to store the lookup key to look up classical
+    // register id to construct IfStmt IR.
+    if (clb_on_zero || clb_on_one) {
+      assert(r != ResultOne && r != ResultZero);
+      assert(nisq_result_to_creg_idx.find(r) != nisq_result_to_creg_idx.end());
+      // nisq_result_to_creg_idx should have an entry for this Result *
+      const auto bit_idx = nisq_result_to_creg_idx[r];
+      auto current_prog = ::quantum::qrt_impl->get_current_program();
+      auto ifStmt = std::make_shared<xacc::quantum::IfStmt>();
+      ifStmt->setBits({bit_idx});
+      xacc::InstructionParameter creg_name("qir_creg");
+      ifStmt->setParameter(0, creg_name);
+      // Set the NISQ program to the ifStmt
+      ::quantum::qrt_impl->set_current_program(
+          std::make_shared<qcor::CompositeInstruction>(ifStmt));
+      // We don't support else block atm yet.
+      assert(!clb_on_zero);
+      // Execute the callable: this will append NISQ instructions to the IfStmt
+      clb_on_one->invoke(nullptr, nullptr);
+
+      // Add the whole IfStmt to the program
+      current_prog->addInstruction(ifStmt);
+      // Restore the main program.
+      ::quantum::qrt_impl->set_current_program(current_prog);
+    }
   } else {
     assert(r);
     if (*r) {
