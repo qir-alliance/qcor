@@ -234,4 +234,12 @@ def CreateCallableOp : QuantumOp<"createCallable", []> {
   p << "q.createCallable" << "(" << op.functors() << ") : " << op.callable().getType(); }];
 }
 
+def ConditionalOp : QuantumOp<"ifElseOp", []> {
+  let summary = "if-then-else operation conditioned on a quantum Measure";
+  // Must be conditioned on a Result type
+  let arguments = (ins ResultType:$result_bit);
+  let results = (outs Variadic<AnyType>:$results);
+  let regions = (region SizedRegion<1>:$thenRegion, AnyRegion:$elseRegion);
+}
+
 #endif // Quantum_OPS
