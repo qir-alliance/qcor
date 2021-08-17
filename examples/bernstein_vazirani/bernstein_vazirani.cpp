@@ -8,18 +8,21 @@ __qpu__ void bernstein_vazirani(qreg q, std::string &secret_bits) {
     }
 
     // oracle
-    for (int i = 0; i < secret_bits.size(); i++) {
+    for (int i = 0; i <= secret_bits.size(); i++) {
+        if (i == secret_bits.size()) {
+            // Silly condition just to test continue keyword
+            continue;
+        }
+
         if (secret_bits[i] == '1') {
             CX(q[i], q[secret_bits.size()]);
         }
     }
 
-    for (int i = 0; i <= secret_bits.size(); i++) {
-        H(q[i]);
+    H(q);
 
-        if (i < secret_bits.size())
-            Measure(q[i]);
-    }
+    // Use this instead of head() to test that curly braces work
+    Measure(q.extract_range({0, secret_bits.size()}));
 }
 
 int main() {

@@ -29,9 +29,10 @@ cinst
    | '}'
    | exp '(' explist? ')' ';'
    | 'if' '(' explist ')' '{'?
-   | 'else' '(' explist ')' '{'?
+   | 'else' '{'?
    | 'const'? type_name=cpp_type var_name=exp '=' '(' exp '==' exp ')' '?' exp ':' exp ';'
    | 'break' ';'
+   | 'continue' ';'
    | 'return' ';'
    | exp '=' exp ';'
    ;
@@ -63,6 +64,7 @@ exp
    | '-'exp
    | exp '^' exp
    | '(' exp ')'
+   | '{' explist '}'
    | unaryop '(' exp ')'
    | exp '(' explist? ')'
    | exp '[' exp ']'
