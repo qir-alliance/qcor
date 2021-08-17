@@ -135,6 +135,7 @@ void XasmTokenCollector::collect(clang::Preprocessor &PP,
       auto tokenStr = PP.getSpelling(current_token);
       if (Toks[i + 1].is(clang::tok::l_brace)) {
         tokenStr += " { ";
+        i++;
       }
       lines.push_back(tokenStr);
     }
