@@ -3,7 +3,8 @@
 
 include "QuantumDialect.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
-
+include "mlir/Interfaces/ControlFlowInterfaces.td"
+include "mlir/Interfaces/LoopLikeInterface.td"
 
 def QubitType : OpaqueType<"quantum", "Qubit", "opaque qubit type">;
 def ResultType : OpaqueType<"quantum", "Result", "opaque result type">;
@@ -234,12 +235,35 @@ def CreateCallableOp : QuantumOp<"createCallable", []> {
   p << "q.createCallable" << "(" << op.functors() << ") : " << op.callable().getType(); }];
 }
 
-def ConditionalOp : QuantumOp<"ifElseOp", []> {
+def YieldOp : QuantumOp<"yield", [NoSideEffect, Terminator]> {
+  let summary = "conditional termination operation";
+  let arguments = (ins Variadic<AnyType>:$results);
+  let builders = [OpBuilderDAG<(ins), [{ /* nothing to do */ }]>];
+}
+
+def ConditionalOp : QuantumOp<"ifOp", [SingleBlockImplicitTerminator<"YieldOp">, RecursiveSideEffects, NoRegionArguments]> {
   let summary = "if-then-else operation conditioned on a quantum Measure";
   // Must be conditioned on a Result type
   let arguments = (ins ResultType:$result_bit);
   let results = (outs);
   let regions = (region SizedRegion<1>:$thenRegion, AnyRegion:$elseRegion);
+  let skipDefaultBuilders = 1;
+  
+  let skipDefaultBuilders = 1;
+  let builders = [
+    OpBuilderDAG<(ins "Value":$cond, "bool":$withElseRegion)>
+  ];
+
+  let extraClassDeclaration = [{
+    OpBuilder getThenBodyBuilder(OpBuilder::Listener *listener = nullptr) {
+      Block* body = getBody(0);
+      return OpBuilder::atBlockTerminator(body, listener);
+    }
+    OpBuilder getElseBodyBuilder(OpBuilder::Listener *listener = nullptr) {
+      Block* body = getBody(1);
+      return OpBuilder::atBlockTerminator(body, listener);
+    }
+  }];
 }
 
 #endif // Quantum_OPS

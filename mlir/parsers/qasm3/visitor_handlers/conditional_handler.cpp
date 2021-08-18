@@ -10,6 +10,8 @@ namespace {
 // i.e., this serve mainly as a stop-gap before fully-FTQC runtimes become
 // available.
 
+// FIXME: Define a Target Capability setting and make the compiler aware of that.
+
 // Capture binary comparison conditional.
 // Note: currently, only bit-level is modeled.
 // (Some backends, e.g., Honeywell, support a richer set of comparison ops).
@@ -68,15 +70,28 @@ antlrcpp::Any qasm3_visitor::visitBranchingStatement(
   auto bit_check_conditional =
       tryParseSimpleBooleanExpression(*conditional_expr);
   // Currently, we're only support If (not else yet)
-  auto meas_var =
-      symbol_table.try_lookup_meas_result(bit_check_conditional->var_name);
+
   if (bit_check_conditional.has_value() &&
-      context->programBlock().size() == 1 && meas_var.has_value()) {
+      context->programBlock().size() == 1 &&
+      symbol_table.try_lookup_meas_result(bit_check_conditional->var_name)
+          .has_value()) {
     std::cout << "This is a simple Measure check\n";
-    auto nisqIfStmt = builder.create<mlir::quantum::ConditionalOp>(
-        location, meas_var.value());
+    auto meas_var =
+        symbol_table.try_lookup_meas_result(bit_check_conditional->var_name);
+    auto ifOp =
+        builder.create<mlir::quantum::ConditionalOp>(location, meas_var.value(),
+                                                     /*withElseRegion=*/false);
+    auto body_builder = ifOp.getThenBodyBuilder();
+    auto cached_builder = builder;
+    builder = body_builder;
+    visitChildren(context->programBlock(0));
+    builder = cached_builder;
+   
+    // Done
+    return 0;
   }
 
+  // TODO: The below code could be rewritten to an AffineIfOp/SCF::IfOp:
   // Map it to a Value
   qasm3_expression_generator exp_generator(builder, symbol_table, file_name);
   exp_generator.visit(conditional_expr);

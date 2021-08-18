@@ -60,3 +60,29 @@ void QuantumDialect::initialize() {
 //   printer << ")";
 
 // }
+
+//===----------------------------------------------------------------------===//
+// ConditionalOp
+//===----------------------------------------------------------------------===//
+
+void ConditionalOp::build(OpBuilder &builder, OperationState &result, Value cond,
+                 bool withElseRegion) {
+  result.addOperands(cond);
+  OpBuilder::InsertionGuard guard(builder);
+  Region *thenRegion = result.addRegion();
+  builder.createBlock(thenRegion);
+  auto defaultBuilder = [&](OpBuilder &nested, Location loc) {
+    ConditionalOp::ensureTerminator(*nested.getInsertionBlock()->getParent(),
+                                    nested, loc);
+  };
+
+  defaultBuilder(builder, result.location);
+
+  Region *elseRegion = result.addRegion();
+  if (!withElseRegion) {
+    return;
+  }
+
+  builder.createBlock(elseRegion);
+  defaultBuilder(builder, result.location);
+}
