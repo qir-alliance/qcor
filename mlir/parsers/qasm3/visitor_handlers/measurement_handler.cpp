@@ -232,6 +232,8 @@ antlrcpp::Any qasm3_visitor::visitQuantumMeasurementAssignment(
 
       if (bit_value.getType().isa<mlir::MemRefType>() &&
           bit_value.getType().cast<mlir::MemRefType>().getShape().empty()) {
+        // Track the Result* associated with the bit in the Symbol Table
+        symbol_table.add_measure_bit_assignment(bit_value, instop.bit());
         // If the array is a **zero-dimemsion** Memref *without* shape
         // we don't send on the index (probably v = 0).
         // This will fail to validate at the MLIR level (Memref dimension mismatches)

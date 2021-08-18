@@ -144,4 +144,28 @@ void ScopedSymbolTable::evaluate_const_global(const std::string variable_name,
   // add_symbol(variable_name, x, {"const"});
   return;
 }
+
+void ScopedSymbolTable::add_measure_bit_assignment(
+    const mlir::Value &bit_var, const mlir::Value &result_var) {
+  assert(result_var.getType().isa<mlir::OpaqueType>());
+  bit_var_ptr_to_meas_result_var[bit_var.getAsOpaquePointer()] = result_var;
+}
+
+std::optional<mlir::Value>
+ScopedSymbolTable::try_lookup_meas_result(const mlir::Value &bit_var) {
+  const auto iter =
+      bit_var_ptr_to_meas_result_var.find(bit_var.getAsOpaquePointer());
+  if (iter != bit_var_ptr_to_meas_result_var.end()) {
+    return iter->second;
+  }
+  return std::nullopt;
+}
+
+std::optional<mlir::Value>
+ScopedSymbolTable::try_lookup_meas_result(const std::string &bit_var_name) {
+  if (!has_symbol(bit_var_name)) {
+    return std::nullopt;
+  }
+  return try_lookup_meas_result(get_symbol(bit_var_name));
+}
 }  // namespace qcor

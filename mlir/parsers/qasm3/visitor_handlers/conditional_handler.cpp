@@ -2,6 +2,61 @@
 #include "expression_handler.hpp"
 #include "qasm3_visitor.hpp"
 
+namespace {
+// ATM, we don't try to convert everything to the
+// special Quantum If-Then-Else Op.
+// Rather, we aim for very narrow use-case that we're sure
+// that this can be done.
+// i.e., this serve mainly as a stop-gap before fully-FTQC runtimes become
+// available.
+
+// Capture binary comparison conditional.
+// Note: currently, only bit-level is modeled.
+// (Some backends, e.g., Honeywell, support a richer set of comparison ops).
+struct BitComparisonExpression {
+  std::string var_name;
+  bool comparison_value;
+  BitComparisonExpression(const std::string &var, bool val)
+      : var_name(var), comparison_value(val) {}
+};
+
+// Test if this is a simple bit check conditional:
+// e.g.,
+// if (b) or if (b==1), etc.
+std::optional<BitComparisonExpression> tryParseSimpleBooleanExpression(
+    qasm3Parser::BooleanExpressionContext &boolean_expr) {
+  // std::cout << "conditional expr: " << boolean_expr.getText() << "\n";
+  if (boolean_expr.comparsionExpression()) {
+    auto &comp_expr = *(boolean_expr.comparsionExpression());
+    if (comp_expr.expression().size() == 1) {
+      return BitComparisonExpression(comp_expr.expression(0)->getText(), true);
+    }
+    if (comp_expr.expression().size() == 2 && comp_expr.relationalOperator()) {
+      if (comp_expr.relationalOperator()->getText() == "==") {
+        if (comp_expr.expression(1)->getText() == "1") {
+          return BitComparisonExpression(comp_expr.expression(0)->getText(),
+                                         true);
+        } else {
+          return BitComparisonExpression(comp_expr.expression(0)->getText(),
+                                         false);
+        }
+      }
+      if (comp_expr.relationalOperator()->getText() == "!=") {
+        if (comp_expr.expression(1)->getText() == "1") {
+          return BitComparisonExpression(comp_expr.expression(0)->getText(),
+                                         false);
+        } else {
+          return BitComparisonExpression(comp_expr.expression(0)->getText(),
+                                         true);
+        }
+      }
+    }
+  }
+
+  return std::nullopt;
+}
+} // namespace
+
 namespace qcor {
 antlrcpp::Any qasm3_visitor::visitBranchingStatement(
     qasm3Parser::BranchingStatementContext* context) {
@@ -9,6 +64,18 @@ antlrcpp::Any qasm3_visitor::visitBranchingStatement(
 
   // Get the conditional expression
   auto conditional_expr = context->booleanExpression();
+
+  auto bit_check_conditional =
+      tryParseSimpleBooleanExpression(*conditional_expr);
+  // Currently, we're only support If (not else yet)
+  auto meas_var =
+      symbol_table.try_lookup_meas_result(bit_check_conditional->var_name);
+  if (bit_check_conditional.has_value() &&
+      context->programBlock().size() == 1 && meas_var.has_value()) {
+    std::cout << "This is a simple Measure check\n";
+    auto nisqIfStmt = builder.create<mlir::quantum::ConditionalOp>(
+        location, meas_var.value());
+  }
 
   // Map it to a Value
   qasm3_expression_generator exp_generator(builder, symbol_table, file_name);

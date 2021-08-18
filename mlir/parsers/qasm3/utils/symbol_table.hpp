@@ -138,7 +138,13 @@ class ScopedSymbolTable {
   // Map Opaque Ptr of value to key in SymbolTable
   std::map<void*, std::string> replacement_helper;
 
- public:
+  // Map Opaque Ptr of bit value to the originating Result* (from measure)
+  // Note: after Measure, we perform a casting from Result* -> bool.
+  // This map tracks the Result* returns by the measure op
+  // so that we can trace the originating Result*.
+  std::unordered_map<void *, mlir::Value> bit_var_ptr_to_meas_result_var;
+
+public:
   template <typename T>
   T get_global_constant(const std::string variable_name) {
     if (!global_constants.count(variable_name)) {
@@ -425,6 +431,10 @@ class ScopedSymbolTable {
     return array_qubit_symbol_name(qreg_name, std::to_string(index));
   }
 
+  void add_measure_bit_assignment(const mlir::Value &bit_var,
+                                  const mlir::Value &result_var);
+  std::optional<mlir::Value> try_lookup_meas_result(const mlir::Value &bit_var);
+  std::optional<mlir::Value> try_lookup_meas_result(const std::string &bit_var_name);
   ~ScopedSymbolTable() {}
 };
 }  // namespace qcor
