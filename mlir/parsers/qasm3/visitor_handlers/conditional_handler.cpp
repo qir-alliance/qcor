@@ -95,6 +95,21 @@ mlir::Value create_capture_callable_gen(
                                               wrapped_func, unpackOp.result());
   builder.create<mlir::ReturnOp>(builder.getUnknownLoc());
   moduleOp.push_back(function_op);
+  
+  // !! We only ever invoke the body functor, create dummy functors for adj/ctrl
+  for (const auto &suffix :
+       {"__adj__wrapper", "__ctl__wrapper", "__ctladj__wrapper"}) {
+    builder.restoreInsertionPoint(main_block);
+    const std::string temp_fn_name = func_name + suffix;
+    mlir::FuncOp fn_op(
+        mlir::FuncOp::create(builder.getUnknownLoc(), temp_fn_name, func_type));
+    fn_op.setVisibility(mlir::SymbolTable::Visibility::Private);
+    auto &entryBlock = *fn_op.addEntryBlock();
+    builder.setInsertionPointToStart(&entryBlock);
+    builder.create<mlir::ReturnOp>(builder.getUnknownLoc());
+    moduleOp.push_back(fn_op);
+  }
+
   builder.restoreInsertionPoint(main_block);
   auto callable_create_op = builder.create<mlir::quantum::CreateCallableOp>(
       builder.getUnknownLoc(), callable_type,
@@ -132,11 +147,16 @@ antlrcpp::Any qasm3_visitor::visitBranchingStatement(
     std::vector<mlir::Type> argument_types;
     std::vector<std::string> argument_names;
     std::vector<mlir::Value> argument_values;
-
+    // Narrow the list of supported types for tuple unpack...
+    // We don't support all types atm.
     for (auto &[k, v] : all_vars) {
-      argument_names.emplace_back(k);
-      argument_values.emplace_back(v);
-      argument_types.emplace_back(v.getType());
+      // QIR types and Float (rotation angles)
+      if (v.getType().isa<mlir::OpaqueType>() ||
+          v.getType().isa<mlir::FloatType>()) {
+        argument_names.emplace_back(k);
+        argument_values.emplace_back(v);
+        argument_types.emplace_back(v.getType());
+      }
     }
 
     // Use the ANTLR node ptr (hex) as id for this temp. function
@@ -165,6 +185,10 @@ antlrcpp::Any qasm3_visitor::visitBranchingStatement(
     symbol_table.exit_scope();
     symbol_table.add_seen_function(tmp_func_name, function);
     symbol_table.set_last_created_block(nullptr);
+    for (int i = 0; i < arguments.size(); ++i) {
+      symbol_table.replace_symbol(symbol_table.get_symbol(argument_names[i]),
+                                  argument_values[i]);
+    }
     m_module.push_back(function);
 
     auto then_body_callable = create_capture_callable_gen(

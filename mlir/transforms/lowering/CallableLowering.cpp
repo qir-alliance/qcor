@@ -52,6 +52,9 @@ LogicalResult TupleUnpackOpLowering::matchAndRewrite(
       tuple_struct_type_list.push_back(mlir::FloatType::getF64(context));
     } else if (result.getType().isa<mlir::IntegerType>()) {
       tuple_struct_type_list.push_back(mlir::IntegerType::get(context, 64));
+    } else {
+      std::cout << "WE DON'T SUPPORT TUPLE UNPACK FOR THE TYPE\n";
+      exit(0);
     }
   }
 
@@ -97,7 +100,7 @@ LogicalResult CreateCallableOpLowering::matchAndRewrite(
   ModuleOp parentModule = op->getParentOfType<ModuleOp>();
   auto location = parentModule->getLoc();
   auto context = parentModule->getContext();
-  auto create_callable_op = cast<mlir::quantum::CreateCallableOp>(op);  
+  auto create_callable_op = cast<mlir::quantum::CreateCallableOp>(op);
   // Signature: void (%Tuple*, %Tuple*, %Tuple*)
   auto tuple_type =
       LLVM::LLVMPointerType::get(get_quantum_type("Tuple", context));
@@ -111,7 +114,7 @@ LogicalResult CreateCallableOpLowering::matchAndRewrite(
       llvm::ArrayRef<Type>{tuple_type,
                            IntegerType::get(rewriter.getContext(), 32)},
       false);
-  
+
   auto callable_entry_fn_array_type = LLVM::LLVMArrayType::get(
       LLVM::LLVMPointerType::get(callable_entry_ftype), 4);
   auto callback_fn_array_type = LLVM::LLVMArrayType::get(
@@ -126,12 +129,12 @@ LogicalResult CreateCallableOpLowering::matchAndRewrite(
       value_1_const,
       /*alignment=*/0);
 
-   
   const std::string kernel_name = create_callable_op.functors().str();
   const std::string BODY_WRAPPER_NAME = kernel_name + "__body__wrapper";
   const std::string ADJOINT_WRAPPER_NAME = kernel_name + "__adj__wrapper";
   const std::string CTRL_WRAPPER_NAME = kernel_name + "__ctl__wrapper";
-  const std::string CTRL_ADJOINT_WRAPPER_NAME = kernel_name + "__ctladj__wrapper";
+  const std::string CTRL_ADJOINT_WRAPPER_NAME =
+      kernel_name + "__ctladj__wrapper";
 
   const std::vector<mlir::Value> functor_ptr_values{
       // Base
@@ -180,9 +183,9 @@ LogicalResult CreateCallableOpLowering::matchAndRewrite(
     //                           TuplePtr capture)
     auto create_callable_ftype = LLVM::LLVMFunctionType::get(
         callable_return_type,
-        llvm::ArrayRef<Type>{LLVM::LLVMPointerType::get(callable_entry_fn_array_type),
-                             LLVM::LLVMPointerType::get(callback_fn_array_type),
-                             tuple_type},
+        llvm::ArrayRef<Type>{
+            LLVM::LLVMPointerType::get(callable_entry_fn_array_type),
+            LLVM::LLVMPointerType::get(callback_fn_array_type), tuple_type},
         false);
 
     // Insert the function declaration
@@ -192,16 +195,116 @@ LogicalResult CreateCallableOpLowering::matchAndRewrite(
         parentModule->getLoc(), qir_create_callable, create_callable_ftype);
     qir_symbol_ref = mlir::SymbolRefAttr::get(qir_create_callable, context);
   }
-  
+
   // Callbacks and captured tuple ==> null
   mlir::Value callbacks_nullPtr = rewriter.create<LLVM::NullOp>(
       location, LLVM::LLVMPointerType::get(callback_fn_array_type));
-  mlir::Value tuple_nullPtr =
-      rewriter.create<LLVM::NullOp>(location, tuple_type);
+  mlir::Value capture_tuple_ptr = [&]() {
+    if (create_callable_op.captures().empty()) {
+      auto op = rewriter.create<LLVM::NullOp>(location, tuple_type);
+      return op.res();
+    } else {
+      mlir::SmallVector<mlir::Type> tuple_struct_type_list;
+      size_t tuple_size_in_bytes = 0;
+      for (const auto &captured_var : create_callable_op.captures()) {
+        if (captured_var.getType().isa<mlir::OpaqueType>() &&
+            captured_var.getType().cast<mlir::OpaqueType>().getTypeData() ==
+                "Array") {
+          tuple_struct_type_list.push_back(
+              LLVM::LLVMPointerType::get(get_quantum_type("Array", context)));
+          tuple_size_in_bytes += sizeof(void *);
+        } else if (captured_var.getType().isa<mlir::OpaqueType>() &&
+                   captured_var.getType()
+                           .cast<mlir::OpaqueType>()
+                           .getTypeData() == "Qubit") {
+          tuple_struct_type_list.push_back(
+              LLVM::LLVMPointerType::get(get_quantum_type("Qubit", context)));
+          tuple_size_in_bytes += sizeof(void *);
+        } else if (captured_var.getType().isa<mlir::OpaqueType>() &&
+                   captured_var.getType()
+                           .cast<mlir::OpaqueType>()
+                           .getTypeData() == "Tuple") {
+          tuple_struct_type_list.push_back(
+              LLVM::LLVMPointerType::get(get_quantum_type("Tuple", context)));
+          tuple_size_in_bytes += sizeof(void *);
+        } else if (captured_var.getType().isa<mlir::FloatType>()) {
+          tuple_struct_type_list.push_back(mlir::FloatType::getF64(context));
+          tuple_size_in_bytes += sizeof(double);
+        } else if (captured_var.getType().isa<mlir::IntegerType>()) {
+          tuple_struct_type_list.push_back(mlir::IntegerType::get(context, 64));
+          tuple_size_in_bytes += sizeof(int64_t);
+        } else {
+          std::cout << "WE DON'T SUPPORT TUPLE PACK FOR THE TYPE\n";
+          exit(0);
+        }
+      }
+      mlir::Value tuple_size_value = rewriter.create<LLVM::ConstantOp>(
+          location, mlir::IntegerType::get(rewriter.getContext(), 64),
+          rewriter.getIntegerAttr(
+              mlir::IntegerType::get(rewriter.getContext(), 64),
+              tuple_size_in_bytes));
+
+      // Tuple create signature: TuplePtr __quantum__rt__tuple_create(int64_t
+      // size)
+      FlatSymbolRefAttr tuple_create_symbol_ref = [&]() {
+        const std::string qir_tuple_create_fn_name =
+            "__quantum__rt__tuple_create";
+        if (parentModule.lookupSymbol<LLVM::LLVMFuncOp>(
+                qir_tuple_create_fn_name)) {
+          return SymbolRefAttr::get(qir_tuple_create_fn_name, context);
+        } else {
+          auto ftype = LLVM::LLVMFunctionType::get(
+              tuple_type,
+              llvm::ArrayRef<Type>{mlir::IntegerType::get(context, 64)}, false);
+
+          // Insert the function declaration
+          PatternRewriter::InsertionGuard insertGuard(rewriter);
+          rewriter.setInsertionPointToStart(parentModule.getBody());
+          rewriter.create<LLVM::LLVMFuncOp>(parentModule->getLoc(),
+                                            qir_tuple_create_fn_name, ftype);
+          return mlir::SymbolRefAttr::get(qir_tuple_create_fn_name, context);
+        }
+      }();
+      auto createTupleCallOp = rewriter.create<mlir::CallOp>(
+          location, tuple_create_symbol_ref, tuple_type,
+          ArrayRef<Value>({tuple_size_value}));
+      mlir::Value tuplePtr = createTupleCallOp.getResult(0);
+
+      // Store to tuple:
+      auto tuple_struct_type =
+          LLVM::LLVMStructType::getLiteral(context, tuple_struct_type_list);
+      auto structPtr =
+          rewriter
+              .create<LLVM::BitcastOp>(
+                  location, LLVM::LLVMPointerType::get(tuple_struct_type),
+                  tuplePtr)
+              .res();
+
+      mlir::Value zero_cst = rewriter.create<LLVM::ConstantOp>(
+          location, IntegerType::get(rewriter.getContext(), 32),
+          rewriter.getIntegerAttr(rewriter.getIndexType(), 0));
+      for (size_t idx = 0; idx < tuple_struct_type_list.size(); ++idx) {
+        mlir::Value idx_cst = rewriter.create<LLVM::ConstantOp>(
+            location, IntegerType::get(rewriter.getContext(), 32),
+            rewriter.getIntegerAttr(rewriter.getIndexType(), idx));
+        auto field_ptr =
+            rewriter
+                .create<LLVM::GEPOp>(
+                    location,
+                    LLVM::LLVMPointerType::get(tuple_struct_type_list[idx]),
+                    structPtr, ArrayRef<Value>({zero_cst, idx_cst}))
+                .res();
+        auto store_op = rewriter.create<LLVM::StoreOp>(
+            location, create_callable_op.captures()[idx], field_ptr);
+      }
+
+      return tuplePtr;
+    }
+  }();
   auto createCallableCallOp = rewriter.create<mlir::CallOp>(
       location, qir_symbol_ref, callable_return_type,
       ArrayRef<Value>(
-          {callable_entry_fn_array, callbacks_nullPtr, tuple_nullPtr}));
+          {callable_entry_fn_array, callbacks_nullPtr, capture_tuple_ptr}));
   rewriter.replaceOp(op, createCallableCallOp.getResult(0));
   return success();
 }
