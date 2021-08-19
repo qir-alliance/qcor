@@ -239,52 +239,15 @@ def CreateCallableOp : QuantumOp<"createCallable", []> {
     }];
 }
 
-def YieldOp : QuantumOp<"yield", [NoSideEffect, Terminator]> {
-  let summary = "conditional termination operation";
-  let arguments = (ins Variadic<AnyType>:$results);
-  let builders = [OpBuilderDAG<(ins), [{ /* nothing to do */ }]>];
-  let printer = [{ p << "q.yield"; }];
-}
-
-def ConditionalOp : QuantumOp<"ifOp", [SingleBlockImplicitTerminator<"YieldOp">, RecursiveSideEffects, NoRegionArguments]> {
+def ConditionalOp : QuantumOp<"ifOp", []> {
   let summary = "if-then-else operation conditioned on a quantum Measure";
-  // Must be conditioned on a Result type
-  let arguments = (ins ResultType:$result_bit);
+  // Must be conditioned on a Result type (only then clause for now...)
+  let arguments = (ins ResultType:$result_bit, CallableType:$then_callable);
   let results = (outs);
-  let regions = (region SizedRegion<1>:$thenRegion, AnyRegion:$elseRegion);
-  let skipDefaultBuilders = 1;
-  
-  let skipDefaultBuilders = 1;
-  let builders = [
-    OpBuilderDAG<(ins "Value":$cond, "bool":$withElseRegion)>
-  ];
 
-  let extraClassDeclaration = [{
-    OpBuilder getThenBodyBuilder(OpBuilder::Listener *listener = nullptr) {
-      Block* body = getBody(0);
-      return OpBuilder::atBlockTerminator(body, listener);
-    }
-    OpBuilder getElseBodyBuilder(OpBuilder::Listener *listener = nullptr) {
-      Block* body = getBody(1);
-      return OpBuilder::atBlockTerminator(body, listener);
-    }
-  }];
-  
-  let printer = [{  
+  let printer = [{
     auto op = *this;
-    p << "q.If " << op.result_bit();  
-    p.printRegion(op.thenRegion(),
-                /*printEntryBlockArgs=*/false,
-                /*printBlockTerminators=*/false);
-
-    // Print the 'else' regions if it exists and has a block.
-    auto &elseRegion = op.elseRegion();
-    if (!elseRegion.empty()) {
-      p << " else";
-      p.printRegion(elseRegion,
-                  /*printEntryBlockArgs=*/false,
-                  /*printBlockTerminators=*/false);
-    }
+    p << "q.If " << op.result_bit() << " { invoke " << op.then_callable() << "}";
   }];
 }
 

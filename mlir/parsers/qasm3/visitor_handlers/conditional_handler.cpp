@@ -68,19 +68,13 @@ mlir::Value create_capture_callable_gen(
   mlir::Identifier dialect = mlir::Identifier::get("quantum", context);
   llvm::StringRef tuple_type_name("Tuple");
   auto tuple_type = mlir::OpaqueType::get(context, dialect, tuple_type_name);
-  llvm::StringRef array_type_name("Array");
-  auto array_type = mlir::OpaqueType::get(context, dialect, array_type_name);
   llvm::StringRef callable_type_name("Callable");
   auto callable_type =
       mlir::OpaqueType::get(context, dialect, callable_type_name);
-  llvm::StringRef qubit_type_name("Qubit");
-  auto qubit_type = mlir::OpaqueType::get(context, dialect, qubit_type_name);
-
   const std::vector<mlir::Type> argument_types{tuple_type, tuple_type,
                                                tuple_type};
   auto func_type = builder.getFunctionType(argument_types, llvm::None);
   const std::string BODY_WRAPPER_SUFFIX = "__body__wrapper";
-  std::vector<mlir::FuncOp> all_wrapper_funcs;
   // Body wrapper:
   const std::string wrapper_fn_name = func_name + BODY_WRAPPER_SUFFIX;
   mlir::FuncOp function_op(mlir::FuncOp::create(builder.getUnknownLoc(),
@@ -128,9 +122,6 @@ antlrcpp::Any qasm3_visitor::visitBranchingStatement(
     std::cout << "This is a simple Measure check\n";
     auto meas_var =
         symbol_table.try_lookup_meas_result(bit_check_conditional->var_name);
-    auto ifOp =
-        builder.create<mlir::quantum::ConditionalOp>(location, meas_var.value(),
-                                                     /*withElseRegion=*/false);
     
     // Strategy: we wrap the body as a Callable capturing
     // all avaiable variables at the current scope.
@@ -178,13 +169,8 @@ antlrcpp::Any qasm3_visitor::visitBranchingStatement(
 
     auto then_body_callable = create_capture_callable_gen(
         builder, tmp_func_name, m_module, function, argument_values);
-    // Create a call to the function:
-    // FIXME: this should be wrapped as a callable...
-    auto then_body_builder = ifOp.getThenBodyBuilder();
-    auto body_call_op = then_body_builder.create<mlir::CallOp>(
-        then_body_builder.getUnknownLoc(), function,
-        llvm::makeArrayRef(argument_values));
-
+    auto ifOp = builder.create<mlir::quantum::ConditionalOp>(
+        location, meas_var.value(), then_body_callable);
     // Done
     return 0;
   }

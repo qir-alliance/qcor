@@ -418,6 +418,8 @@ void __quantum__qis__applyifelseintrinsic__body(Result *r,
       // We don't support else block atm yet.
       assert(!clb_on_zero);
       // Execute the callable: this will append NISQ instructions to the IfStmt
+      // Important: implicit in this is the fact that the Callable capture the
+      // whole context of the parent scope..
       clb_on_one->invoke(nullptr, nullptr);
 
       // Add the whole IfStmt to the program
