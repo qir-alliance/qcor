@@ -179,6 +179,10 @@ public:
     }
   }
 
+  // Get all visible symbols at the current scope.
+  // Nearer symbols take precedence over further ones (if having the same name)
+  std::unordered_map<std::string, mlir::Value> get_all_visible_symbols();
+
   // Create new scope symbol table
   // will push_back on scoped_symbol_tables;
   void enter_new_scope() {

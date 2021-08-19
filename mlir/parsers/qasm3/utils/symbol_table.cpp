@@ -168,4 +168,18 @@ ScopedSymbolTable::try_lookup_meas_result(const std::string &bit_var_name) {
   }
   return try_lookup_meas_result(get_symbol(bit_var_name));
 }
+
+std::unordered_map<std::string, mlir::Value>
+ScopedSymbolTable::get_all_visible_symbols() {
+  std::unordered_map<std::string, mlir::Value> all_symbols;
+  for (int i = current_scope; i >= 0; i--) {
+    for (auto &[k, v] : scoped_symbol_tables[i]) {
+      // Don't override if seeing duplicated variables.
+      if (all_symbols.find(k) == all_symbols.end()) {
+        all_symbols[k] = v;
+      }
+    }
+  }
+  return all_symbols;
+}
 }  // namespace qcor
