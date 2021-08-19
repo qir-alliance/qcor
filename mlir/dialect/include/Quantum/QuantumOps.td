@@ -229,10 +229,14 @@ def TupleUnpackOp : QuantumOp<"tupleUnpack", []> {
 }
 
 def CreateCallableOp : QuantumOp<"createCallable", []> {
-    let arguments = (ins FlatSymbolRefAttr:$functors);
+    let arguments = (ins FlatSymbolRefAttr:$functors, Variadic<AnyType>:$captures);
     let results = (outs CallableType:$callable);
     let printer = [{  auto op = *this;
-  p << "q.createCallable" << "(" << op.functors() << ") : " << op.callable().getType(); }];
+      p << "q.createCallable" << "(" << op.functors() << ") ";
+      if (!op.captures().empty()) {
+        p << "capture " << op.captures();
+      }
+    }];
 }
 
 def YieldOp : QuantumOp<"yield", [NoSideEffect, Terminator]> {

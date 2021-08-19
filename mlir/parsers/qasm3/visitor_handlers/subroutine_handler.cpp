@@ -181,7 +181,8 @@ void add_callable_gen(mlir::OpBuilder &builder, const std::string &func_name,
   builder.setInsertionPointToStart(&create_callable_entryBlock);
   auto callable_create_op = builder.create<mlir::quantum::CreateCallableOp>(
       builder.getUnknownLoc(), callable_type,
-      builder.getSymbolRefAttr(wrapped_func));
+      builder.getSymbolRefAttr(wrapped_func), /*captures*/
+      llvm::makeArrayRef(std::vector<mlir::Value>{}));
   builder.create<mlir::ReturnOp>(builder.getUnknownLoc(),
                                  callable_create_op.callable());
   moduleOp.push_back(create_callable_function_op);
