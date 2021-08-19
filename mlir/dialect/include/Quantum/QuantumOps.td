@@ -247,7 +247,7 @@ def ConditionalOp : QuantumOp<"ifOp", []> {
 
   let printer = [{
     auto op = *this;
-    p << "q.If " << op.result_bit() << " { invoke " << op.then_callable() << "}";
+    p << "q.If " << op.result_bit() << " { invoke " << op.then_callable() << " }";
   }];
 }
 
