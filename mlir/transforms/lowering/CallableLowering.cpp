@@ -294,8 +294,13 @@ LogicalResult CreateCallableOpLowering::matchAndRewrite(
                     LLVM::LLVMPointerType::get(tuple_struct_type_list[idx]),
                     structPtr, ArrayRef<Value>({zero_cst, idx_cst}))
                 .res();
-        auto store_op = rewriter.create<LLVM::StoreOp>(
-            location, create_callable_op.captures()[idx], field_ptr);
+        auto captured_value = create_callable_op.captures()[idx];
+        if (auto q_op =
+                captured_value
+                    .getDefiningOp<mlir::quantum::ValueSemanticsInstOp>()) {
+          captured_value = q_op.getOperands()[0];
+        }
+        rewriter.create<LLVM::StoreOp>(location, captured_value, field_ptr);
       }
 
       return tuplePtr;
