@@ -424,6 +424,11 @@ void __quantum__qis__applyifelseintrinsic__body(Result *r,
 
       // Add the whole IfStmt to the program
       current_prog->addInstruction(ifStmt);
+
+      // Debug:
+      if (verbose) {
+        std::cout << "Collected If statement: \n" << ifStmt->toString() << "\n";
+      }
       // Restore the main program.
       ::quantum::qrt_impl->set_current_program(current_prog);
     }

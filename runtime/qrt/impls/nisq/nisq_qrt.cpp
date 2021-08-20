@@ -394,6 +394,7 @@ class NISQ : public ::quantum::QuantumRuntime,
           os.close();
         }
       }
+      xacc::storeBuffer(xacc::as_shared_ptr(buffer));
       xacc::internal_compiler::execute(
           buffer, program->as_xacc());
     }
