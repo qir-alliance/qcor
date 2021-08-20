@@ -1,6 +1,19 @@
 OPENQASM 3;
 include "qelib1.inc";
 
+// NISQ-mode lowering to conditional (If) statements
+// Compile targeting nisq runtime and a capable QPU:
+// (1) Qpp simulator (default):
+// qcor -qrt nisq -shots 1024 measure_conditional.qasm -print-final-submission 
+// (2) Aer simulator (inspect the QObj to see the use of "conditional" to control quantum instructions)
+// qcor -qrt nisq -qpu aer -shots 1024 measure_conditional.qasm -print-final-submission 
+// (3) Honeywell: see the OpenQASM2 with if statements.
+// qcor -qrt nisq -qpu honeywell:HQS-LT-S1-APIVAL -shots 1024 measure_conditional.qasm -print-final-submission 
+
+// Expected to get 4 bits (iteratively) of 1011 (or 1101 LSB) = 11(decimal):
+// phi_est = 11/16 (denom = 16 since we have 4 bits)
+// => phi = 2pi * 11/16 = 11pi/8 = 2pi - 5pi/8
+// i.e. we estimate the -5*pi/8 angle...
 qubit q[2];
 const bits_precision = 4;
 bit c[bits_precision];

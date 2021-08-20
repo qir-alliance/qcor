@@ -63,7 +63,7 @@ void OpenQasmV3MLIRGenerator::initialize_mlirgen(
     } else {
       for (const auto &name_to_check : IF_STMT_CAPABLE_QPUS) {
         const auto qpu_name = extra_quantum_args["qpu"];
-        if (name_to_check.rfind(qpu_name, 0) == 0) {
+        if (qpu_name.rfind(name_to_check, 0) == 0) {
           // QPU start with aer, honeywell, etc.
           // (it could have backend name customization after ':')
           enable_qir_apply_ifelse = true;
