@@ -387,7 +387,16 @@ class NISQ : public ::quantum::QuantumRuntime,
       submit(buffer_list.data(), buffer_list.size());
     } else {
       if (__print_final_submission) {
-        std::cout << "SUBMIT:\n" << program->toString() << "\n";
+        std::cout << "==== NISQ JOB SUBMISSION ====\n";
+        const std::string irStr = program->toString();
+        std::cout << "CIRCUIT IR:\n" << irStr << "\n";
+        // Print native code as well
+        const std::string nativeCodeStr =
+            xacc::internal_compiler::qpu->getNativeCode(program->as_xacc());
+        if (nativeCodeStr != irStr) {
+          // Only print if the Accelerator does have native code.
+          std::cout << "QPU Native Code:\n" << nativeCodeStr << "\n";
+        }
         if (!__print_final_submission_filename.empty()) {
           std::ofstream os(__print_final_submission_filename);
           os << program->toString();
