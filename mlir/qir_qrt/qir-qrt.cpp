@@ -131,9 +131,16 @@ void __quantum__rt__initialize(int argc, int8_t **argv) {
   // enable extended nisq mode for a couple of QPU's:
   static const std::vector<std::string> IF_STMT_CAPABLE_QPUS{"qpp", "aer",
                                                              "honeywell"};
-  enable_extended_nisq =
-      (mode == QRT_MODE::NISQ) &&
-      xacc::container::contains(IF_STMT_CAPABLE_QPUS, qpu_name);
+  if (mode == QRT_MODE::NISQ) {
+    for (const auto &name_to_check : IF_STMT_CAPABLE_QPUS)
+      if (qpu_name.rfind(name_to_check, 0) == 0) {
+        // QPU start with aer, honeywell, etc.
+        // (it could have backend name customization after ':')
+        enable_extended_nisq = true;
+        break;
+      }
+  }
+
   initialize();
 }
 
