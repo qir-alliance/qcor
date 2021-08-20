@@ -232,8 +232,10 @@ antlrcpp::Any qasm3_visitor::visitQuantumMeasurementAssignment(
 
       if (bit_value.getType().isa<mlir::MemRefType>() &&
           bit_value.getType().cast<mlir::MemRefType>().getShape().empty()) {
-        // Track the Result* associated with the bit in the Symbol Table
-        symbol_table.add_measure_bit_assignment(bit_value, instop.bit());
+        if (enable_nisq_ifelse) {
+          // Track the Result* associated with the bit in the Symbol Table
+          symbol_table.add_measure_bit_assignment(bit_value, instop.bit());
+        }
         // If the array is a **zero-dimemsion** Memref *without* shape
         // we don't send on the index (probably v = 0).
         // This will fail to validate at the MLIR level (Memref dimension mismatches)
@@ -241,11 +243,13 @@ antlrcpp::Any qasm3_visitor::visitQuantumMeasurementAssignment(
         builder.create<mlir::StoreOp>(location, cast_bit_op.bit_result(),
                                       bit_value);
       } else {
-        if (!symbol_table.has_symbol(indexIdentifierList->getText())) {
-          // Added a measure Result* tracking to the bit array element:
-          // e.g. track var name 'c[1]' -> Result*
-          symbol_table.add_symbol(indexIdentifierList->getText(),
-                                  cast_bit_op.bit_result());
+        if (enable_nisq_ifelse) {
+          if (!symbol_table.has_symbol(indexIdentifierList->getText())) {
+            // Added a measure Result* tracking to the bit array element:
+            // e.g. track var name 'c[1]' -> Result*
+            symbol_table.add_symbol(indexIdentifierList->getText(),
+                                    cast_bit_op.bit_result());
+          }
           symbol_table.add_measure_bit_assignment(cast_bit_op.bit_result(),
                                                   instop.bit());
         }

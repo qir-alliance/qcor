@@ -126,76 +126,79 @@ antlrcpp::Any qasm3_visitor::visitBranchingStatement(
 
   // Get the conditional expression
   auto conditional_expr = context->booleanExpression();
+  // Only consider this codegen strategy if requested (for specific qrt/qpu
+  // target)
+  if (enable_nisq_ifelse) {
+    auto bit_check_conditional =
+        tryParseSimpleBooleanExpression(*conditional_expr);
+    // Currently, we're only support If (not else yet)
+    if (bit_check_conditional.has_value() &&
+        context->programBlock().size() == 1 &&
+        symbol_table.try_lookup_meas_result(bit_check_conditional->var_name)
+            .has_value()) {
+      auto meas_var =
+          symbol_table.try_lookup_meas_result(bit_check_conditional->var_name);
 
-  auto bit_check_conditional =
-      tryParseSimpleBooleanExpression(*conditional_expr);
-  // Currently, we're only support If (not else yet)
-  if (bit_check_conditional.has_value() &&
-      context->programBlock().size() == 1 &&
-      symbol_table.try_lookup_meas_result(bit_check_conditional->var_name)
-          .has_value()) {
-    auto meas_var =
-        symbol_table.try_lookup_meas_result(bit_check_conditional->var_name);
-    
-    // Strategy: we wrap the body as a Callable capturing
-    // all avaiable variables at the current scope.
-    // Note: we could detect which variables are used in the 
-    // conditional block body to be included in the capture.
-    auto all_vars = symbol_table.get_all_visible_symbols();
-    auto main_block = builder.saveInsertionPoint();
-    std::vector<mlir::Type> argument_types;
-    std::vector<std::string> argument_names;
-    std::vector<mlir::Value> argument_values;
-    // Narrow the list of supported types for tuple unpack...
-    // We don't support all types atm.
-    for (auto &[k, v] : all_vars) {
-      // QIR types and Float (rotation angles)
-      if (v.getType().isa<mlir::OpaqueType>() ||
-          v.getType().isa<mlir::FloatType>()) {
-        argument_names.emplace_back(k);
-        argument_values.emplace_back(v);
-        argument_types.emplace_back(v.getType());
+      // Strategy: we wrap the body as a Callable capturing
+      // all avaiable variables at the current scope.
+      // Note: we could detect which variables are used in the
+      // conditional block body to be included in the capture.
+      auto all_vars = symbol_table.get_all_visible_symbols();
+      auto main_block = builder.saveInsertionPoint();
+      std::vector<mlir::Type> argument_types;
+      std::vector<std::string> argument_names;
+      std::vector<mlir::Value> argument_values;
+      // Narrow the list of supported types for tuple unpack...
+      // We don't support all types atm.
+      for (auto &[k, v] : all_vars) {
+        // QIR types and Float (rotation angles)
+        if (v.getType().isa<mlir::OpaqueType>() ||
+            v.getType().isa<mlir::FloatType>()) {
+          argument_names.emplace_back(k);
+          argument_values.emplace_back(v);
+          argument_types.emplace_back(v.getType());
+        }
       }
-    }
 
-    // Use the ANTLR node ptr (hex) as id for this temp. function
-    const auto toString = [](auto *antr_node) {
-      std::stringstream ss;
-      ss << (void *)antr_node;
-      return ss.str();
-    };
-    const std::string tmp_func_name =
-        "if_body_" + toString(context->programBlock(0));
-    auto func_type = builder.getFunctionType(argument_types, llvm::None);
-    auto proto =
-        mlir::FuncOp::create(builder.getUnknownLoc(), tmp_func_name, func_type);
-    mlir::FuncOp function(proto);
-    function.setVisibility(mlir::SymbolTable::Visibility::Private);
-    auto &entryBlock = *function.addEntryBlock();
-    builder.setInsertionPointToStart(&entryBlock);
-    symbol_table.enter_new_scope();
-    auto arguments = entryBlock.getArguments();
-    for (int i = 0; i < arguments.size(); i++) {
-      symbol_table.add_symbol(argument_names[i], arguments[i], {}, true);
-    }
-    visitChildren(context->programBlock(0));
-    builder.create<mlir::ReturnOp>(builder.getUnknownLoc());
-    builder.restoreInsertionPoint(main_block);
-    symbol_table.exit_scope();
-    symbol_table.add_seen_function(tmp_func_name, function);
-    symbol_table.set_last_created_block(nullptr);
-    for (int i = 0; i < arguments.size(); ++i) {
-      symbol_table.replace_symbol(symbol_table.get_symbol(argument_names[i]),
-                                  argument_values[i]);
-    }
-    m_module.push_back(function);
+      // Use the ANTLR node ptr (hex) as id for this temp. function
+      const auto toString = [](auto *antr_node) {
+        std::stringstream ss;
+        ss << (void *)antr_node;
+        return ss.str();
+      };
+      const std::string tmp_func_name =
+          "if_body_" + toString(context->programBlock(0));
+      auto func_type = builder.getFunctionType(argument_types, llvm::None);
+      auto proto = mlir::FuncOp::create(builder.getUnknownLoc(), tmp_func_name,
+                                        func_type);
+      mlir::FuncOp function(proto);
+      function.setVisibility(mlir::SymbolTable::Visibility::Private);
+      auto &entryBlock = *function.addEntryBlock();
+      builder.setInsertionPointToStart(&entryBlock);
+      symbol_table.enter_new_scope();
+      auto arguments = entryBlock.getArguments();
+      for (int i = 0; i < arguments.size(); i++) {
+        symbol_table.add_symbol(argument_names[i], arguments[i], {}, true);
+      }
+      visitChildren(context->programBlock(0));
+      builder.create<mlir::ReturnOp>(builder.getUnknownLoc());
+      builder.restoreInsertionPoint(main_block);
+      symbol_table.exit_scope();
+      symbol_table.add_seen_function(tmp_func_name, function);
+      symbol_table.set_last_created_block(nullptr);
+      for (int i = 0; i < arguments.size(); ++i) {
+        symbol_table.replace_symbol(symbol_table.get_symbol(argument_names[i]),
+                                    argument_values[i]);
+      }
+      m_module.push_back(function);
 
-    auto then_body_callable = create_capture_callable_gen(
-        builder, tmp_func_name, m_module, function, argument_values);
-    auto ifOp = builder.create<mlir::quantum::ConditionalOp>(
-        location, meas_var.value(), then_body_callable);
-    // Done
-    return 0;
+      auto then_body_callable = create_capture_callable_gen(
+          builder, tmp_func_name, m_module, function, argument_values);
+      auto ifOp = builder.create<mlir::quantum::ConditionalOp>(
+          location, meas_var.value(), then_body_callable);
+      // Done
+      return 0;
+    }
   }
 
   // TODO: The below code could be rewritten to an AffineIfOp/SCF::IfOp:
