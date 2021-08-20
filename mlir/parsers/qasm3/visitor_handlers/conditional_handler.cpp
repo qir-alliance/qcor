@@ -134,7 +134,6 @@ antlrcpp::Any qasm3_visitor::visitBranchingStatement(
       context->programBlock().size() == 1 &&
       symbol_table.try_lookup_meas_result(bit_check_conditional->var_name)
           .has_value()) {
-    std::cout << "This is a simple Measure check\n";
     auto meas_var =
         symbol_table.try_lookup_meas_result(bit_check_conditional->var_name);
     

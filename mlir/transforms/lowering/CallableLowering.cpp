@@ -206,24 +206,25 @@ LogicalResult CreateCallableOpLowering::matchAndRewrite(
     } else {
       mlir::SmallVector<mlir::Type> tuple_struct_type_list;
       size_t tuple_size_in_bytes = 0;
+      // Handle the case whereby some types have been converted to LLVM Type (pointers)
+      const auto isQirType = [&](const mlir::Value &val,
+                                 const std::string &qirTypeName) -> bool {
+        return (val.getType().isa<mlir::OpaqueType>() &&
+                val.getType().cast<mlir::OpaqueType>().getTypeData() ==
+                    qirTypeName) ||
+               val.getType() == LLVM::LLVMPointerType::get(
+                                    get_quantum_type(qirTypeName, context));
+      };
       for (const auto &captured_var : create_callable_op.captures()) {
-        if (captured_var.getType().isa<mlir::OpaqueType>() &&
-            captured_var.getType().cast<mlir::OpaqueType>().getTypeData() ==
-                "Array") {
+        if (isQirType(captured_var, "Array")) {
           tuple_struct_type_list.push_back(
               LLVM::LLVMPointerType::get(get_quantum_type("Array", context)));
           tuple_size_in_bytes += sizeof(void *);
-        } else if (captured_var.getType().isa<mlir::OpaqueType>() &&
-                   captured_var.getType()
-                           .cast<mlir::OpaqueType>()
-                           .getTypeData() == "Qubit") {
+        } else if (isQirType(captured_var, "Qubit")) {
           tuple_struct_type_list.push_back(
               LLVM::LLVMPointerType::get(get_quantum_type("Qubit", context)));
           tuple_size_in_bytes += sizeof(void *);
-        } else if (captured_var.getType().isa<mlir::OpaqueType>() &&
-                   captured_var.getType()
-                           .cast<mlir::OpaqueType>()
-                           .getTypeData() == "Tuple") {
+        } else if (isQirType(captured_var, "Tuple")) {
           tuple_struct_type_list.push_back(
               LLVM::LLVMPointerType::get(get_quantum_type("Tuple", context)));
           tuple_size_in_bytes += sizeof(void *);
@@ -235,6 +236,7 @@ LogicalResult CreateCallableOpLowering::matchAndRewrite(
           tuple_size_in_bytes += sizeof(int64_t);
         } else {
           std::cout << "WE DON'T SUPPORT TUPLE PACK FOR THE TYPE\n";
+          create_callable_op.dump();
           exit(0);
         }
       }

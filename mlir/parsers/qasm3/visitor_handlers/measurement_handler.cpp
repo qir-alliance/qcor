@@ -241,6 +241,14 @@ antlrcpp::Any qasm3_visitor::visitQuantumMeasurementAssignment(
         builder.create<mlir::StoreOp>(location, cast_bit_op.bit_result(),
                                       bit_value);
       } else {
+        if (!symbol_table.has_symbol(indexIdentifierList->getText())) {
+          // Added a measure Result* tracking to the bit array element:
+          // e.g. track var name 'c[1]' -> Result*
+          symbol_table.add_symbol(indexIdentifierList->getText(),
+                                  cast_bit_op.bit_result());
+          symbol_table.add_measure_bit_assignment(cast_bit_op.bit_result(),
+                                                  instop.bit());
+        }
         builder.create<mlir::StoreOp>(
             location, cast_bit_op.bit_result(), bit_value,
             llvm::makeArrayRef(std::vector<mlir::Value>{v}));

@@ -234,7 +234,8 @@ def CreateCallableOp : QuantumOp<"createCallable", []> {
     let printer = [{  auto op = *this;
       p << "q.createCallable" << "(" << op.functors() << ") ";
       if (!op.captures().empty()) {
-        p << "capture " << op.captures();
+        p << "capture " << op.captures() << "(" << op.captures().getType()
+          << ")";
       }
     }];
 }
