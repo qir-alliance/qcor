@@ -644,10 +644,22 @@ antlrcpp::Any qasm3_expression_generator::visitMultiplicativeExpression(
 
   if (auto mult_expr = ctx->multiplicativeExpression()) {
     auto bin_op = ctx->binary_op->getText();
-
-    visitExpressionTerminator(mult_expr->expressionTerminator());
-    auto lhs = current_value;
-
+    mlir::Value lhs = [&](){
+      // Handle nested multiplicative expressions:
+      if (mult_expr->binary_op) {
+        // The nested multiplicativeExpression within this MultiplicativeExpressionContext
+        // also has a binary op:
+        // Need to visit this whole multiplicativeExpression:
+        visitMultiplicativeExpression(mult_expr);
+        return current_value;
+      } else {
+        // Just a terminator value:
+        visitExpressionTerminator(mult_expr->expressionTerminator());
+        return current_value;
+      }
+    }(); 
+    
+    // Get the RHS
     visitExpressionTerminator(ctx->expressionTerminator());
     auto rhs = current_value;
 
@@ -751,7 +763,11 @@ antlrcpp::Any qasm3_expression_generator::visitExpressionTerminator(
         attr = mlir::IntegerAttr::get(builder.getI64Type(), -1);
       }
       auto const_op = builder.create<mlir::ConstantOp>(location, attr);
-      createOp<mlir::MulFOp>(location, const_op, current_value);
+      if (current_value.getType().isa<mlir::FloatType>()) {
+        createOp<mlir::MulFOp>(location, const_op, current_value);
+      } else {
+        createOp<mlir::MulIOp>(location, const_op, current_value);
+      }
     }
     return 0;
   }
