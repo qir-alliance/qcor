@@ -22,7 +22,6 @@ std::shared_ptr<xacc::Accelerator> qpu;
 std::string qpu_name = "qpp";
 std::string qpu_config = "";
 QRT_MODE mode = QRT_MODE::FTQC;
-// Thien debug: enable this permanently
 bool enable_extended_nisq = true;
 std::unordered_map<Result *, size_t> nisq_result_to_creg_idx = {};
 std::vector<std::unique_ptr<Array>> allocated_arrays;
@@ -129,7 +128,12 @@ void __quantum__rt__initialize(int argc, int8_t **argv) {
       xacc::internal_compiler::__print_opt_stats = true;
     }
   }
-
+  // enable extended nisq mode for a couple of QPU's:
+  static const std::vector<std::string> IF_STMT_CAPABLE_QPUS{"qpp", "aer",
+                                                             "honeywell"};
+  enable_extended_nisq =
+      (mode == QRT_MODE::NISQ) &&
+      xacc::container::contains(IF_STMT_CAPABLE_QPUS, qpu_name);
   initialize();
 }
 
