@@ -144,4 +144,42 @@ void ScopedSymbolTable::evaluate_const_global(const std::string variable_name,
   // add_symbol(variable_name, x, {"const"});
   return;
 }
+
+void ScopedSymbolTable::add_measure_bit_assignment(
+    const mlir::Value &bit_var, const mlir::Value &result_var) {
+  assert(result_var.getType().isa<mlir::OpaqueType>());
+  bit_var_ptr_to_meas_result_var[bit_var.getAsOpaquePointer()] = result_var;
+}
+
+std::optional<mlir::Value>
+ScopedSymbolTable::try_lookup_meas_result(const mlir::Value &bit_var) {
+  const auto iter =
+      bit_var_ptr_to_meas_result_var.find(bit_var.getAsOpaquePointer());
+  if (iter != bit_var_ptr_to_meas_result_var.end()) {
+    return iter->second;
+  }
+  return std::nullopt;
+}
+
+std::optional<mlir::Value>
+ScopedSymbolTable::try_lookup_meas_result(const std::string &bit_var_name) {
+  if (!has_symbol(bit_var_name)) {
+    return std::nullopt;
+  }
+  return try_lookup_meas_result(get_symbol(bit_var_name));
+}
+
+std::unordered_map<std::string, mlir::Value>
+ScopedSymbolTable::get_all_visible_symbols() {
+  std::unordered_map<std::string, mlir::Value> all_symbols;
+  for (int i = current_scope; i >= 0; i--) {
+    for (auto &[k, v] : scoped_symbol_tables[i]) {
+      // Don't override if seeing duplicated variables.
+      if (all_symbols.find(k) == all_symbols.end()) {
+        all_symbols[k] = v;
+      }
+    }
+  }
+  return all_symbols;
+}
 }  // namespace qcor

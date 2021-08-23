@@ -51,6 +51,28 @@ void OpenQasmV3MLIRGenerator::initialize_mlirgen(
   file_name = function;
   add_entry_point = _add_entry_point;
 
+  // Only enable the rewrite to NISQ If-statements when the compilation 
+  // targets NISQ qrt for some specific QPUs:
+  static const std::vector<std::string> IF_STMT_CAPABLE_QPUS{"qpp", "aer",
+                                                             "honeywell"};
+  if (extra_quantum_args.find("qrt") != extra_quantum_args.end() &&
+      extra_quantum_args["qrt"] == "nisq") {
+    // Default is qpp (i.e., not provided)
+    if (extra_quantum_args.find("qpu") == extra_quantum_args.end()) {
+      enable_qir_apply_ifelse = true;
+    } else {
+      for (const auto &name_to_check : IF_STMT_CAPABLE_QPUS) {
+        const auto qpu_name = extra_quantum_args["qpu"];
+        if (qpu_name.rfind(name_to_check, 0) == 0) {
+          // QPU start with aer, honeywell, etc.
+          // (it could have backend name customization after ':')
+          enable_qir_apply_ifelse = true;
+          break;
+        }
+      }
+    }
+  }
+
   // Useful opaque type defs
   llvm::StringRef qubit_type_name("Qubit"), array_type_name("Array"),
       result_type_name("Result");
@@ -146,7 +168,8 @@ void OpenQasmV3MLIRGenerator::mlirgen(const std::string &src) {
   using namespace qasm3;
 
   if (!visitor) {
-    visitor = std::make_shared<qasm3_visitor>(builder, m_module, file_name);
+    visitor = std::make_shared<qasm3_visitor>(builder, m_module, file_name,
+                                              enable_qir_apply_ifelse);
   }
 
   ANTLRInputStream input(src);

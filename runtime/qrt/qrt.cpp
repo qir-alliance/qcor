@@ -176,7 +176,9 @@ void u3(const qubit &qidx, const double theta, const double phi,
 
 void reset(const qubit &qidx) { qrt_impl->reset(qidx); }
 
-bool mz(const qubit &qidx) { return qrt_impl->mz(qidx); }
+bool mz(const qubit &qidx, std::pair<std::string, size_t> *optional_creg) {
+  return qrt_impl->mz(qidx, optional_creg);
+}
 
 void cnot(const qubit &src_idx, const qubit &tgt_idx) {
   qrt_impl->cnot(src_idx, tgt_idx);

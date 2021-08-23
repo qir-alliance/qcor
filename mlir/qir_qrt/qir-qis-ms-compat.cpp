@@ -1,9 +1,10 @@
+#include "CommonGates.hpp"
 #include "qir-qrt-ms-compat.hpp"
 #include "qir-qrt.hpp"
+#include "qrt.hpp"
 #include <iostream>
 #include <math.h>
 #include <stdexcept>
-#include "qrt.hpp"
 
 namespace {
 static std::vector<Pauli> extractPauliIds(Array *paulis) {
@@ -392,7 +393,57 @@ void __quantum__qis__reset__body(Qubit *q) { __quantum__qis__reset(q); }
 void __quantum__qis__applyifelseintrinsic__body(Result *r,
                                                 Callable *clb_on_zero,
                                                 Callable *clb_on_one) {
-  std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
+  if (verbose)
+    std::cout << "CALL: " << __PRETTY_FUNCTION__ << "\n";
+
+  if (mode == QRT_MODE::NISQ && enable_extended_nisq) {
+    if (verbose)
+      std::cout << "NISQ mode If statement generation\n";
+    // NOTE: We use a different pointer value (not the static ResultOne and
+    // ResultZero) in NISQ mode to store the lookup key to look up classical
+    // register id to construct IfStmt IR.
+    if (clb_on_zero || clb_on_one) {
+      assert(r != ResultOne && r != ResultZero);
+      assert(nisq_result_to_creg_idx.find(r) != nisq_result_to_creg_idx.end());
+      // nisq_result_to_creg_idx should have an entry for this Result *
+      const auto bit_idx = nisq_result_to_creg_idx[r];
+      auto current_prog = ::quantum::qrt_impl->get_current_program();
+      auto ifStmt = std::make_shared<xacc::quantum::IfStmt>();
+      ifStmt->setBits({bit_idx});
+      xacc::InstructionParameter creg_name("qir_creg");
+      ifStmt->setParameter(0, creg_name);
+      // Set the NISQ program to the ifStmt
+      ::quantum::qrt_impl->set_current_program(
+          std::make_shared<qcor::CompositeInstruction>(ifStmt));
+      // We don't support else block atm yet.
+      assert(!clb_on_zero);
+      // Execute the callable: this will append NISQ instructions to the IfStmt
+      // Important: implicit in this is the fact that the Callable capture the
+      // whole context of the parent scope..
+      clb_on_one->invoke(nullptr, nullptr);
+
+      // Add the whole IfStmt to the program
+      current_prog->addInstruction(ifStmt);
+
+      // Debug:
+      if (verbose) {
+        std::cout << "Collected If statement: \n" << ifStmt->toString() << "\n";
+      }
+      // Restore the main program.
+      ::quantum::qrt_impl->set_current_program(current_prog);
+    }
+  } else {
+    assert(r);
+    if (*r) {
+      if (clb_on_one) {
+        clb_on_one->invoke(nullptr, nullptr);
+      }
+    } else {
+      if (clb_on_zero) {
+        clb_on_zero->invoke(nullptr, nullptr);
+      }
+    }
+  }
 }
 void __quantum__qis__applyconditionallyintrinsic__body(
     Array *rs1, Array *rs2, Callable *clb_on_equal,
