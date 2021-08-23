@@ -11,7 +11,9 @@ class OpenQasmV3MLIRGenerator : public qcor::QuantumMLIRGenerator {
   std::string file_name = "main";
   bool add_entry_point = true;
   bool add_custom_return = false;
-
+  // Enable special code-gen mode for specific targets that
+  // support NISQ-like conditional statements.
+  bool enable_qir_apply_ifelse = false;
   mlir::Type return_type;
 
   mlir::Type qubit_type;

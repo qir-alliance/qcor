@@ -4,7 +4,6 @@
 include "QuantumDialect.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 
-
 def QubitType : OpaqueType<"quantum", "Qubit", "opaque qubit type">;
 def ResultType : OpaqueType<"quantum", "Result", "opaque result type">;
 def ArrayType : OpaqueType<"quantum", "Array", "opaque array type">;
@@ -228,10 +227,27 @@ def TupleUnpackOp : QuantumOp<"tupleUnpack", []> {
 }
 
 def CreateCallableOp : QuantumOp<"createCallable", []> {
-    let arguments = (ins FlatSymbolRefAttr:$functors);
+    let arguments = (ins FlatSymbolRefAttr:$functors, Variadic<AnyType>:$captures);
     let results = (outs CallableType:$callable);
     let printer = [{  auto op = *this;
-  p << "q.createCallable" << "(" << op.functors() << ") : " << op.callable().getType(); }];
+      p << "q.createCallable" << "(" << op.functors() << ") ";
+      if (!op.captures().empty()) {
+        p << "capture " << op.captures() << "(" << op.captures().getType()
+          << ")";
+      }
+    }];
+}
+
+def ConditionalOp : QuantumOp<"ifOp", []> {
+  let summary = "if-then-else operation conditioned on a quantum Measure";
+  // Must be conditioned on a Result type (only then clause for now...)
+  let arguments = (ins ResultType:$result_bit, CallableType:$then_callable);
+  let results = (outs);
+
+  let printer = [{
+    auto op = *this;
+    p << "q.If " << op.result_bit() << " { invoke " << op.then_callable() << " }";
+  }];
 }
 
 #endif // Quantum_OPS

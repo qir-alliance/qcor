@@ -76,7 +76,8 @@ public:
   virtual void reset(const qubit &qidx) override { applyGate("Reset", {qidx}); }
 
   // Measure-Z
-  virtual bool mz(const qubit &qidx) override {
+  virtual bool mz(const qubit &qidx,
+                  std::pair<std::string, size_t> *optional_creg) override {
     applyGate("Measure", {qidx});
     // Return the measure result stored in the q reg.
     return (*qReg)[qidx.second];

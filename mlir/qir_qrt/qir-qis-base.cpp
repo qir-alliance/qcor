@@ -123,10 +123,20 @@ Result *__quantum__qis__mz(Qubit *q) {
   if (verbose)
     printf("[qir-qrt] Measuring qubit %lu\n", q->id);
   std::size_t qcopy = q->id;
-  auto bit = ::quantum::mz({"q", qcopy});
-  if (mode == QRT_MODE::FTQC)
-    if (verbose)
-      printf("[qir-qrt] Result was %d.\n", bit);
-  return bit ? ResultOne : ResultZero;
+  if (mode == QRT_MODE::NISQ && enable_extended_nisq) {
+    Result *new_result = new Result();
+    nisq_result_to_creg_idx[new_result] = nisq_result_to_creg_idx.size();
+    std::pair<std::string, size_t> creg =
+        std::make_pair("qir_creg", nisq_result_to_creg_idx[new_result]);
+    // Create a NISQ measure storing to the specific creg.
+    ::quantum::mz({"q", qcopy}, &creg);
+    return new_result;
+  } else {
+    auto bit = ::quantum::mz({"q", qcopy});
+    if (mode == QRT_MODE::FTQC)
+      if (verbose)
+        printf("[qir-qrt] Result was %d.\n", bit);
+    return bit ? ResultOne : ResultZero;
+  }
 }
 }

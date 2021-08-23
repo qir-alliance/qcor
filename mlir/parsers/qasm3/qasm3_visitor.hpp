@@ -30,8 +30,10 @@ class qasm3_visitor : public qasm3::qasm3BaseVisitor {
   ScopedSymbolTable* getScopedSymbolTable() { return &symbol_table; }
 
   // The constructor, instantiates commonly used opaque types
-  qasm3_visitor(mlir::OpBuilder b, mlir::ModuleOp m, std::string& fname)
-      : builder(b), file_name(fname), m_module(m) {
+  qasm3_visitor(mlir::OpBuilder b, mlir::ModuleOp m, std::string &fname,
+                bool enable_nisq_conditional = false)
+      : builder(b), file_name(fname), m_module(m),
+        enable_nisq_ifelse(enable_nisq_conditional) {
     auto context = b.getContext();
     llvm::StringRef qubit_type_name("Qubit"), array_type_name("Array"),
         result_type_name("Result");
@@ -189,7 +191,7 @@ class qasm3_visitor : public qasm3::qasm3BaseVisitor {
   mlir::OpBuilder builder;
   mlir::ModuleOp m_module;
   std::string file_name = "";
-
+  bool enable_nisq_ifelse = false;  
   // We keep reference to these blocks so that
   // we can handle break/continue correctly
   mlir::Block* current_loop_exit_block;

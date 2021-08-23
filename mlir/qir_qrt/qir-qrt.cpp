@@ -22,6 +22,8 @@ std::shared_ptr<xacc::Accelerator> qpu;
 std::string qpu_name = "qpp";
 std::string qpu_config = "";
 QRT_MODE mode = QRT_MODE::FTQC;
+bool enable_extended_nisq = false;
+std::unordered_map<Result *, size_t> nisq_result_to_creg_idx = {};
 std::vector<std::unique_ptr<Array>> allocated_arrays;
 // Map of single-qubit allocations,
 // i.e. arrays of size 1.
@@ -125,6 +127,18 @@ void __quantum__rt__initialize(int argc, int8_t **argv) {
     } else if (arg == "-print-opt-stats") {
       xacc::internal_compiler::__print_opt_stats = true;
     }
+  }
+  // enable extended nisq mode for a couple of QPU's:
+  static const std::vector<std::string> IF_STMT_CAPABLE_QPUS{"qpp", "aer",
+                                                             "honeywell"};
+  if (mode == QRT_MODE::NISQ) {
+    for (const auto &name_to_check : IF_STMT_CAPABLE_QPUS)
+      if (qpu_name.rfind(name_to_check, 0) == 0) {
+        // QPU start with aer, honeywell, etc.
+        // (it could have backend name customization after ':')
+        enable_extended_nisq = true;
+        break;
+      }
   }
 
   initialize();

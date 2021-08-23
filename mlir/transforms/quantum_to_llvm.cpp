@@ -23,6 +23,7 @@
 #include "lowering/ValueSemanticsInstOpLowering.hpp"
 #include "lowering/CallableLowering.hpp"
 #include "lowering/ComputeMarkerLowering.hpp"
+#include "lowering/ConditionalOpLowering.hpp"
 
 namespace qcor {
 mlir::Type get_quantum_type(std::string type, mlir::MLIRContext *context) {
@@ -50,8 +51,10 @@ struct QuantumLLVMTypeConverter : public LLVMTypeConverter {
       return LLVM::LLVMPointerType::get(get_quantum_type("Callable", context));
     } else if (type.getTypeData() == "Tuple") {
       return LLVM::LLVMPointerType::get(get_quantum_type("Tuple", context));
+    } else if (type.getTypeData() == "Result") {
+      return LLVM::LLVMPointerType::get(get_quantum_type("Result", context));
     }
-    std::cout << "ERROR WE DONT KNOW WHAT THIS TYPE IS\n";
+    std::cout << "ERROR WE DONT KNOW WHAT THIS TYPE IS: " << std::string(type.getTypeData()) << "\n";
     exit(0);
     return mlir::IntegerType::get(context, 64);
   }
@@ -118,6 +121,7 @@ void QuantumToLLVMLoweringPass::runOnOperation() {
   patterns.insert<EndCtrlURegionOpLowering>(&getContext());
   patterns.insert<TupleUnpackOpLowering>(&getContext());
   patterns.insert<CreateCallableOpLowering>(&getContext());
+  patterns.insert<ConditionalOpLowering>(&getContext());
 
   // We want to completely lower to LLVM, so we use a `FullConversion`. This
   // ensures that only legal operations will remain after the conversion.
