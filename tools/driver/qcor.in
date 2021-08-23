@@ -252,7 +252,7 @@ def main(argv=None):
 
         if accName == 'honeywell':
             # get user email and password
-            import getpass, requests, json
+            import getpass, requests, json, datetime
             email = input(bcolors.BOLD+bcolors.OKBLUE+'Enter Honeywell User Email: '+bcolors.ENDC)
             p = getpass.getpass(prompt=bcolors.BOLD+bcolors.OKBLUE+'Password: '+bcolors.ENDC)
             r = requests.post('https://qapi.honeywell.com/v1/login', data='{{"email":"{}", "password":"{}"}}'.format(email,p))
@@ -260,7 +260,11 @@ def main(argv=None):
             if 'error' in rd:
                 print(bcolors.BOLD+bcolors.FAIL+'[qcor-exec] Error with honeywell login: ', rd['error']['text'])
                 exit(1)
-            s = 'key:{}\nrefresh:{}\nemail:{}\n'.format(rd['id-token'],rd['refresh-token'], email)
+            now = datetime.datetime.now()
+            # print(now.year, now.month, now.day, now.hour, now.minute, now.second)
+            # 2015 5 6 8 53 40
+            t = '{}_{}_{}_{}_{}_{}'.format(now.year, now.month, now.day, now.hour, now.minute, now.second)
+            s = 'key:{}\nrefresh:{}\ntime:{}\n'.format(rd['id-token'],rd['refresh-token'], t)
             f = open(os.getenv('HOME')+'/.honeywell_config', 'w')
             f.write(s)
             f.close()
