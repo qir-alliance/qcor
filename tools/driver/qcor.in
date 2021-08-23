@@ -246,9 +246,26 @@ def main(argv=None):
     if '-set-credentials' in sys.argv[1:]:
         idx = sys.argv.index('-set-credentials')
         accName = sys.argv[idx+1]
-        if accName not in ['ibm', 'qcs', 'rigetti', 'dwave']:
+        if accName not in ['ibm', 'qcs', 'rigetti', 'dwave', 'honeywell']:
             print('invalid remote qpu name: ', accName)
             exit(1)
+
+        if accName == 'honeywell':
+            # get user email and password
+            import getpass, requests, json
+            email = input(bcolors.BOLD+bcolors.OKBLUE+'Enter Honeywell User Email: '+bcolors.ENDC)
+            p = getpass.getpass(prompt=bcolors.BOLD+bcolors.OKBLUE+'Password: '+bcolors.ENDC)
+            r = requests.post('https://qapi.honeywell.com/v1/login', data='{{"email":"{}", "password":"{}"}}'.format(email,p))
+            rd = json.loads(r.text)
+            if 'error' in rd:
+                print(bcolors.BOLD+bcolors.FAIL+'[qcor-exec] Error with honeywell login: ', rd['error']['text'])
+                exit(1)
+            s = 'key:{}\nrefresh:{}\nemail:{}\n'.format(rd['id-token'],rd['refresh-token'], email)
+            f = open(os.getenv('HOME')+'/.honeywell_config', 'w')
+            f.write(s)
+            f.close()
+            info('Credentials saved to $HOME/.honeywell_config.')
+            exit(0)
 
         try:
             kidx = sys.argv.index('-key')
@@ -276,6 +293,7 @@ def main(argv=None):
             print('Writing to $HOME/.ibm_config \n\n')
             print(s)
             exit(0)
+
 
     if '-print-credentials' in sys.argv[1:]:
         idx = sys.argv.index('-print-credentials')
