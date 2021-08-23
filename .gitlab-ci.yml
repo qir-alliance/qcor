@@ -60,6 +60,7 @@ docker run_docker_deploy:
   - cd docker/ci/alpine/qcor && docker build -t qcor/cli . --no-cache
   - cd ../code-server && docker build -t qcor/qcor . --no-cache
   - cd ../qsharp-code-server && docker build -t qcor/qsharp-qcor . --no-cache
+  - cd ../code-server-dev && docker build -t qcor/qcor-dev . --no-cache
   - echo "$REGISTRY_PASSWORD" | docker login -u qcor --password-stdin
   - docker push qcor/cli
   - docker push qcor/qcor
