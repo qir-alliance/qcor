@@ -1,6 +1,7 @@
 #include "qir-qrt.hpp"
 
 #include <alloca.h>
+
 #include <regex>
 
 #include "config_file_parser.hpp"
@@ -77,8 +78,8 @@ qcor::qreg qalloc(const uint64_t size) {
 std::vector<std::string> config_tracker;
 
 void __quantum__rt__set_config_parameter(int8_t *key, int8_t *value) {
-  std::string casted_key (reinterpret_cast<char *>(key));
-  std::string casted_value (reinterpret_cast<char *>(value));
+  std::string casted_key(reinterpret_cast<char *>(key));
+  std::string casted_value(reinterpret_cast<char *>(value));
 
   if (casted_key == "qpu") {
     qpu_name = casted_value;
@@ -92,7 +93,6 @@ void __quantum__rt__set_config_parameter(int8_t *key, int8_t *value) {
       ::__print_final_submission_filename = casted_value;
     }
   }
-
 }
 
 void __quantum__rt__initialize(int argc, int8_t **argv) {
@@ -176,6 +176,63 @@ void initialize() {
     if (!qpu_config.empty()) {
       auto parser = xacc::getService<xacc::ConfigFileParsingUtil>("ini");
       qpu_config_map = parser->parse(qpu_config);
+    } else {
+      auto process_qpu_backend_str = [](const std::string &qpu_backend_str)
+          -> std::pair<std::string, xacc::HeterogeneousMap> {
+        bool has_extra_config = qpu_backend_str.find("[") != std::string::npos;
+        auto qpu_name =
+            (has_extra_config)
+                ? qpu_backend_str.substr(0, qpu_backend_str.find_first_of("["))
+                : qpu_backend_str;
+
+        xacc::HeterogeneousMap options;
+        if (has_extra_config) {
+          auto first = qpu_backend_str.find_first_of("[");
+          auto second = qpu_backend_str.find_first_of("]");
+          auto qpu_config =
+              qpu_backend_str.substr(first + 1, second - first - 1);
+
+          auto key_values = xacc::split(qpu_config, ',');
+          for (auto key_value : key_values) {
+            auto tmp = xacc::split(key_value, ':');
+            auto key = tmp[0];
+            auto value = tmp[1];
+            if (key == "qcor_qpu_config") {
+              // If the config is provided in a file:
+              // We could check for file extension here to
+              // determine a parsing plugin.
+              // Currently, we only support a simple key-value format (INI
+              // like). e.g. String like config: name=XACC Boolean configs
+              // true_val=true
+              // false_val=false
+              // Array/vector configs
+              // array=[1,2,3]
+              // array_double=[1.0,2.0,3.0]
+              auto parser = xacc::getService<xacc::ConfigFileParsingUtil>("ini");
+              options = parser->parse(value);
+            } else {
+              // check if int first, then double,
+              // finally just throw it in as a string
+              try {
+                auto i = std::stoi(value);
+                options.insert(key, i);
+              } catch (std::exception &e) {
+                try {
+                  auto d = std::stod(value);
+                  options.insert(key, d);
+                } catch (std::exception &e) {
+                  options.insert(key, value);
+                }
+              }
+            }
+          }
+        }
+
+        return std::make_pair(qpu_name, options);
+      };
+      const auto [qpu_name_tmp, config] = process_qpu_backend_str(qpu_name);
+      qpu_config_map = config;
+      qpu_name = qpu_name_tmp;
     }
 
     if (!qpu_config_map.keyExists<int>("shots") && shots > 0 &&
@@ -375,9 +432,12 @@ void __quantum__rt__end_adj_u_region() {
   return;
 }
 
-
-void __quantum__rt__mark_compute() {::quantum::qrt_impl->__begin_mark_segment_as_compute();}
-void __quantum__rt__unmark_compute() {::quantum::qrt_impl->__end_mark_segment_as_compute();}
+void __quantum__rt__mark_compute() {
+  ::quantum::qrt_impl->__begin_mark_segment_as_compute();
+}
+void __quantum__rt__unmark_compute() {
+  ::quantum::qrt_impl->__end_mark_segment_as_compute();
+}
 
 void __quantum__rt__start_ctrl_u_region() {
   // Cache the current runtime into the stack if not already.
@@ -537,7 +597,7 @@ void __quantum__rt__finalize() {
     xacc::internal_compiler::execute_pass_manager();
     ::quantum::submit(global_qreg.get());
   }
-  
+
   // QRT finalization
   ::quantum::finalize();
 }
