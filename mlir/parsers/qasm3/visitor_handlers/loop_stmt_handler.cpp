@@ -83,6 +83,8 @@ antlrcpp::Any qasm3_visitor::visitLoopStatement(
       auto allocation =
           allocate_1d_memory(location, n_expr, builder.getI64Type());
 
+      // FIXME: using Affine For loop:
+      // the body builder needs to load the element at the loop index.
       // allocate i64 memref of size n_expr
       // for i in {1,2,3} -> affine.for i : 0 to 3 { element = load(memref, i) }
       int counter = 0;
@@ -305,10 +307,9 @@ antlrcpp::Any qasm3_visitor::visitLoopStatement(
       const std::string program_block_str = program_block->getText();
       // std::cout << "HOWDY:\n" << program_block_str << "\n";
 
-      // HACK: Currently, we don't handle 'if', 'break', 'continue'
+      // HACK: Currently, we don't handle 'break', 'continue'
       // in the Affine for loop yet.
-      if (program_block_str.find("if") == std::string::npos &&
-          program_block_str.find("break") == std::string::npos &&
+      if (program_block_str.find("break") == std::string::npos &&
           program_block_str.find("continue") == std::string::npos &&
           // This is equivalent to an "if"
           program_block_str.find("QCOR_EXPECT_TRUE") == std::string::npos &&
@@ -329,6 +330,7 @@ antlrcpp::Any qasm3_visitor::visitLoopStatement(
             },
             builder, location);
       } else {
+        // TODO: Remove this code path once we convert control flow to Affine/SCF
         // Need to use the legacy for loop construction for now...
         // Create a new scope for the for loop
         symbol_table.enter_new_scope();
@@ -426,6 +428,8 @@ antlrcpp::Any qasm3_visitor::visitLoopStatement(
     }
 
   } else {
+    // FIXME: convert to mlir::scf::WhileOp (should be easy since it's
+    // conditioned on an i1 value) 
     // this is a while loop
     auto while_expr = loop_signature->booleanExpression();
 
@@ -479,7 +483,8 @@ antlrcpp::Any qasm3_visitor::visitControlDirective(
   auto location = get_location(builder, file_name, context);
 
   auto stmt = context->getText();
-
+  // FIXME: using Affine/SCF Ops:
+  // affine.yield
   if (stmt == "break") {
     builder.create<mlir::BranchOp>(location, current_loop_exit_block);
   } else if (stmt == "continue") {
