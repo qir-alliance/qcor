@@ -206,11 +206,13 @@ antlrcpp::Any qasm3_visitor::visitBranchingStatement(
   exp_generator.visit(conditional_expr);
   // Boolean check value:
   auto expr_value = exp_generator.current_value;
-
+  // Must be an i1 (bool)
+  assert(expr_value.getType().isa<mlir::IntegerType>() &&
+         expr_value.getType().getIntOrFloatBitWidth() == 1);
   // Create SCF If Op:
   // SCF IfOp (switching on a boolean value) matches what we need here,
-  // an AffineIfOp requires an integer set and will be lowered to SCF's IfOp later,
-  // hence is not a good solution.
+  // an AffineIfOp requires an integer set and will be lowered to SCF's IfOp
+  // later, hence is not a good solution.
   const bool hasElseBlock = context->programBlock().size() == 2;
   auto scfIfOp = builder.create<mlir::scf::IfOp>(location, mlir::TypeRange(),
                                            expr_value, hasElseBlock);

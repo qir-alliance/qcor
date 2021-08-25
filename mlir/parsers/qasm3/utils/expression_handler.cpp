@@ -232,8 +232,10 @@ antlrcpp::Any qasm3_expression_generator::visitComparsionExpression(
       auto lhs_bw = lhs.getType().getIntOrFloatBitWidth();
       auto rhs_bw = rhs.getType().getIntOrFloatBitWidth();
 
-      if (lhs.getType().isa<mlir::IntegerType>()) {
-        if (!rhs.getType().isa<mlir::IntegerType>()) {
+      if (lhs.getType().isa<mlir::IntegerType>() ||
+          lhs.getType().isa<mlir::IndexType>()) {
+        if (!rhs.getType().isa<mlir::IntegerType>() &&
+            !rhs.getType().isa<mlir::IndexType>()) {
           printErrorMessage("for comparison " + op +
                                 " lhs was an integer type, but rhs was not.",
                             compare, {lhs, rhs});
@@ -259,6 +261,10 @@ antlrcpp::Any qasm3_expression_generator::visitComparsionExpression(
         }
         update_current_value(builder.create<mlir::CmpFOp>(
             location, antlr_to_mlir_fpredicate[op], lhs, rhs));
+      } else {
+        // Sth wrong, we cannot handle this atm.
+        printErrorMessage("Unhandled comparison " + op + ": ", compare,
+                          {lhs, rhs});
       }
       return 0;
     } else {
