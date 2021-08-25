@@ -324,7 +324,9 @@ antlrcpp::Any qasm3_visitor::visitLoopStatement(
             [&](mlir::Value loop_var) {
               // Create a new scope for the for loop
               symbol_table.enter_new_scope();
-              symbol_table.add_symbol(idx_var_name, loop_var, {}, true);
+              auto loop_var_cast = builder.create<mlir::IndexCastOp>(
+                  location, builder.getI64Type(), loop_var);
+              symbol_table.add_symbol(idx_var_name, loop_var_cast, {}, true);
               visitChildren(program_block);
               symbol_table.exit_scope();
             },
