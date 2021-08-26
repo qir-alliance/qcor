@@ -1,7 +1,7 @@
 
 #include "expression_handler.hpp"
-#include "qasm3_visitor.hpp"
 #include "mlir/Dialect/SCF/SCF.h"
+#include "qasm3_visitor.hpp"
 namespace {
 // ATM, we don't try to convert everything to the
 // special Quantum If-Then-Else Op.
@@ -10,7 +10,8 @@ namespace {
 // i.e., this serve mainly as a stop-gap before fully-FTQC runtimes become
 // available.
 
-// FIXME: Define a Target Capability setting and make the compiler aware of that.
+// FIXME: Define a Target Capability setting and make the compiler aware of
+// that.
 
 // Capture binary comparison conditional.
 // Note: currently, only bit-level is modeled.
@@ -95,7 +96,7 @@ mlir::Value create_capture_callable_gen(
                                               wrapped_func, unpackOp.result());
   builder.create<mlir::ReturnOp>(builder.getUnknownLoc());
   moduleOp.push_back(function_op);
-  
+
   // !! We only ever invoke the body functor, create dummy functors for adj/ctrl
   for (const auto &suffix :
        {"__adj__wrapper", "__ctl__wrapper", "__ctladj__wrapper"}) {
@@ -121,7 +122,7 @@ mlir::Value create_capture_callable_gen(
 
 namespace qcor {
 antlrcpp::Any qasm3_visitor::visitBranchingStatement(
-    qasm3Parser::BranchingStatementContext* context) {
+    qasm3Parser::BranchingStatementContext *context) {
   auto location = get_location(builder, file_name, context);
 
   // Get the conditional expression
@@ -201,42 +202,127 @@ antlrcpp::Any qasm3_visitor::visitBranchingStatement(
     }
   }
 
-  // Map it to a Value
-  qasm3_expression_generator exp_generator(builder, symbol_table, file_name);
-  exp_generator.visit(conditional_expr);
-  // Boolean check value:
-  auto expr_value = exp_generator.current_value;
-  // Must be an i1 (bool)
-  assert(expr_value.getType().isa<mlir::IntegerType>() &&
-         expr_value.getType().getIntOrFloatBitWidth() == 1);
-  // Create SCF If Op:
-  // SCF IfOp (switching on a boolean value) matches what we need here,
-  // an AffineIfOp requires an integer set and will be lowered to SCF's IfOp
-  // later, hence is not a good solution.
-  const bool hasElseBlock = context->programBlock().size() == 2;
-  auto scfIfOp = builder.create<mlir::scf::IfOp>(location, mlir::TypeRange(),
-                                           expr_value, hasElseBlock);
+  // Manually write the conditional block:
+  // If there is 'break', 'continue' (ControlDirective) in the body.
+  // The reason being: these break/continue will be translated to BranchOp
+  // which are overlapping with the BranchOp implicitly added at the end of SCF::IfOp.
+  // e.g., 
+  // br ^bb1 (e.g., out of the outer loop) <-- added by ControlDirectiveContext handler
+  // br ^bb2 (e.g., to the end of the if statement) <-- added by the implicit yield op
+  // The verify step (MLIR -> LLVM) will complain this....
+  if (hasChildNodeOfType<qasm3Parser::ControlDirectiveContext>(*context)) {
+    qasm3_expression_generator exp_generator(builder, symbol_table, file_name);
+    exp_generator.visit(conditional_expr);
+    auto expr_value = exp_generator.current_value;
 
-  // Build up the 'then' region:
-  auto thenBodyBuilder = scfIfOp.getThenBodyBuilder();
-  auto cached_builder = builder;
-  builder = thenBodyBuilder;
-  symbol_table.enter_new_scope();
-  // Get the conditional code and visit the nodes
-  auto conditional_code = context->programBlock(0);
-  visitChildren(conditional_code);    
-  symbol_table.exit_scope();
+    // build up the program block
+    auto currRegion = builder.getBlock()->getParent();
+    auto savept = builder.saveInsertionPoint();
+    auto thenBlock = builder.createBlock(currRegion, currRegion->end());
+    auto elseBlock = builder.createBlock(currRegion, currRegion->end());
+    mlir::Block *exitBlock = nullptr;
+    // If we have an else block from programBlock,
+    // then create a stand alone exit block that both
+    // then and else can fall to
+    if (context->programBlock().size() == 2) {
+      exitBlock = builder.createBlock(currRegion, currRegion->end());
+    } else {
+      exitBlock = elseBlock;
+    }
 
-  if (hasElseBlock) {
-    auto elseBodyBuilder = scfIfOp.getElseBodyBuilder();
-    builder = elseBodyBuilder;
+    // Build up the THEN Block
+    builder.setInsertionPointToStart(thenBlock);
     symbol_table.enter_new_scope();
-    // Visit the second programBlock
-    visitChildren(context->programBlock(1));
+    // Get the conditional code and visit the nodes
+    auto conditional_code = context->programBlock(0);
+    visitChildren(conditional_code);
+
+    // Need to check if we have a branch out of
+    // this thenBlock, if so do not add a branch
+    // to the exitblock
+    mlir::Operation &last_op = thenBlock->back();
+    auto branchOps = thenBlock->getOps<mlir::BranchOp>();
+    auto branch_to_exit = true;
+    for (auto b : branchOps) {
+      if (b.dest() == current_loop_exit_block ||
+          b.dest() == current_loop_header_block ||
+          b.dest() == current_loop_incrementor_block) {
+        branch_to_exit = false;
+        break;
+      }
+    }
+    if (branch_to_exit) {
+      builder.create<mlir::BranchOp>(location, exitBlock);
+    }
     symbol_table.exit_scope();
+
+    // If we have a second program block then we have an else stmt
+    builder.setInsertionPointToStart(elseBlock);
+    if (context->programBlock().size() == 2) {
+      symbol_table.enter_new_scope();
+      visitChildren(context->programBlock(1));
+      branch_to_exit = true;
+      for (auto b : branchOps) {
+        if (b.dest() == current_loop_exit_block ||
+            b.dest() == current_loop_header_block ||
+            b.dest() == current_loop_incrementor_block) {
+          branch_to_exit = false;
+          break;
+        }
+      }
+      if (branch_to_exit) {
+        builder.create<mlir::BranchOp>(location, exitBlock);
+      }
+
+      symbol_table.exit_scope();
+    }
+
+    // Restore the insertion point and create the conditional statement
+    builder.restoreInsertionPoint(savept);
+    builder.create<mlir::CondBranchOp>(location, expr_value, thenBlock,
+                                       elseBlock);
+    builder.setInsertionPointToStart(exitBlock);
+
+    symbol_table.set_last_created_block(exitBlock);
+  } else {
+    // Using SCF::IfOp
+    // Map it to a Value
+    qasm3_expression_generator exp_generator(builder, symbol_table, file_name);
+    exp_generator.visit(conditional_expr);
+    // Boolean check value:
+    auto expr_value = exp_generator.current_value;
+    // Must be an i1 (bool)
+    assert(expr_value.getType().isa<mlir::IntegerType>() &&
+           expr_value.getType().getIntOrFloatBitWidth() == 1);
+    // Create SCF If Op:
+    // SCF IfOp (switching on a boolean value) matches what we need here,
+    // an AffineIfOp requires an integer set and will be lowered to SCF's IfOp
+    // later, hence is not a good solution.
+    const bool hasElseBlock = context->programBlock().size() == 2;
+    auto scfIfOp = builder.create<mlir::scf::IfOp>(location, mlir::TypeRange(),
+                                                   expr_value, hasElseBlock);
+
+    // Build up the 'then' region:
+    auto thenBodyBuilder = scfIfOp.getThenBodyBuilder();
+    auto cached_builder = builder;
+    builder = thenBodyBuilder;
+    symbol_table.enter_new_scope();
+    // Get the conditional code and visit the nodes
+    auto conditional_code = context->programBlock(0);
+    visitChildren(conditional_code);
+    symbol_table.exit_scope();
+
+    if (hasElseBlock) {
+      auto elseBodyBuilder = scfIfOp.getElseBodyBuilder();
+      builder = elseBodyBuilder;
+      symbol_table.enter_new_scope();
+      // Visit the second programBlock
+      visitChildren(context->programBlock(1));
+      symbol_table.exit_scope();
+    }
+    // Restore builder
+    builder = cached_builder;
   }
-  // Restore builder
-  builder = cached_builder;
   return 0;
 }
-}  // namespace qcor
+} // namespace qcor

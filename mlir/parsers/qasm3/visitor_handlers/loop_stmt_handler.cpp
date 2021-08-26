@@ -307,17 +307,13 @@ antlrcpp::Any qasm3_visitor::visitLoopStatement(
       const std::string program_block_str = program_block->getText();
       // std::cout << "HOWDY:\n" << program_block_str << "\n";
 
-      // HACK: Currently, we don't handle 'break', 'continue'
+      // HACK: Currently, we don't handle 'break', 'continue' or nested loop
       // in the Affine for loop yet.
-      if (program_block_str.find("break") == std::string::npos &&
-          program_block_str.find("continue") == std::string::npos &&
-          // This is equivalent to an "if"
-          program_block_str.find("QCOR_EXPECT_TRUE") == std::string::npos &&
-          // We can only handle nested for loops if the inner one is also an
-          // affine one For now, don't do that since we're not sure.
-          program_block_str.find("for") == std::string::npos &&
-          // While loop is not converted to affine yet.
-          program_block_str.find("while") == std::string::npos) {
+      if (!hasChildNodeOfType<qasm3Parser::ControlDirectiveContext>(
+              *program_block) &&
+          !hasChildNodeOfType<qasm3Parser::LoopStatementContext>(
+              *program_block) &&
+          (program_block_str.find("QCOR_EXPECT_TRUE") == std::string::npos)) {
         // Can use Affine for loop....
         affineLoopBuilder(
             a_value, b_value, c,
