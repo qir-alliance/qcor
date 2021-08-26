@@ -42,8 +42,9 @@ double hadamard_test(StatePrep state_prep, Unitary unitary,
   }
  
   // We have counts, so use that
+  // P0 - P1 = <psi|U|psi>
   double count1 = (double)q.counts().find("1")->second;
   double count2 = (double)q.counts().find("0")->second;
-  return std::fabs((count1 - count2) / (count1 + count2));
+  return (count2 - count1) / (count1 + count2);
 }
 }  // namespace qcor

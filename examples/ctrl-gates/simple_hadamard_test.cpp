@@ -5,10 +5,13 @@ __qpu__ void h_gate(qreg q) { H(q[0]); }
 
 int main() {
   int n_state_qubits = 1;
-  auto expectation = qcor::hadamard_test(x_gate, x_gate, n_state_qubits);
-  print("<X> = ", expectation);
+  auto expectation = qcor::hadamard_test(h_gate, x_gate, n_state_qubits);
+  print("< + | X | + > = ", expectation);
   
   expectation = qcor::hadamard_test(x_gate, h_gate, n_state_qubits);
-  print("<H> = ", expectation);
+  print("< 1 | H | 1 > = ", expectation);
+
+  expectation = qcor::hadamard_test(x_gate, x_gate, n_state_qubits);
+  print("< 1 | X | 1 > = ", expectation);
   return 0;
 }
