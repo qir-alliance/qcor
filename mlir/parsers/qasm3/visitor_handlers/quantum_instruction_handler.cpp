@@ -765,21 +765,12 @@ antlrcpp::Any qasm3_visitor::visitSubroutineCall(
                   tmp_key.end());
     qreg_names.push_back(tmp_key);
 
-    mlir::Value tmp;
-    if (symbol_table.has_symbol(tmp_key)) {
-      tmp = symbol_table.get_symbol(tmp_key);
-    } else {
-      qasm3_expression_generator qubit_exp_generator(builder, symbol_table,
-                                                     file_name, qubit_type);
-      qubit_exp_generator.visit(expression);
-      auto qbit_or_qreg = qubit_exp_generator.current_value;
-      tmp = qbit_or_qreg;
-      if (!symbol_table.has_symbol(tmp_key))
-        symbol_table.add_symbol(tmp_key, tmp);
-    }
-
+    qasm3_expression_generator qubit_exp_generator(builder, symbol_table,
+                                                   file_name, qubit_type);
+    qubit_exp_generator.visit(expression);
+    auto tmp = qubit_exp_generator.current_value;
+    assert(tmp.getType().isa<mlir::OpaqueType>());
     qbit_values.push_back(tmp);
-
     qubit_symbol_table_keys.push_back(tmp_key);
   }
 

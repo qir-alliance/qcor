@@ -177,18 +177,19 @@ antlrcpp::Any qasm3_visitor::visitQuantumMeasurementAssignment(
           mlir::Value bit_idx_val = get_or_create_constant_index_value(
               bit_idx, location, 64, symbol_table, builder);
 
-          auto extract = builder.create<mlir::quantum::ExtractQubitOp>(
-              location, qubit_type, value, idx_val);
+          auto extract_qubit = get_or_extract_qubit(measured_qreg, qbit_idx, location,
+                                              symbol_table, builder);
 
           auto instop = builder.create<mlir::quantum::InstOp>(
               location, result_type, str_attr,
-              llvm::makeArrayRef(extract.qbit()),
+              llvm::makeArrayRef(extract_qubit),
               llvm::makeArrayRef(std::vector<mlir::Value>{}));
           auto cast_bit_op = builder.create<mlir::quantum::ResultCastOp>(
               location, builder.getIntegerType(1), instop.bit());
           builder.create<mlir::StoreOp>(
               location, cast_bit_op.bit_result(), bit_value,
               llvm::makeArrayRef(std::vector<mlir::Value>{bit_idx_val}));
+          symbol_table.invalidate_qubit_extracts(measured_qreg, {qbit_idx});
         }
 
         return 0;
@@ -206,6 +207,11 @@ antlrcpp::Any qasm3_visitor::visitQuantumMeasurementAssignment(
       auto instop = builder.create<mlir::quantum::InstOp>(
           location, result_type, str_attr, llvm::makeArrayRef(value),
           llvm::makeArrayRef(std::vector<mlir::Value>{}));
+      const std::string qubit_var_name =
+          symbol_table.get_symbol_var_name(value);
+      if (!qubit_var_name.empty()) {
+        symbol_table.erase_symbol(qubit_var_name);
+      }
 
       // Get the bit or bit[]
       mlir::Value v;
@@ -290,6 +296,7 @@ antlrcpp::Any qasm3_visitor::visitQuantumMeasurementAssignment(
             context);
       }
 
+      const auto qreg_name = symbol_table.get_symbol_var_name(value);
       for (int i = 0; i < nqubits; i++) {
         // q.Extract must use integer type (not index type)
         mlir::Value q_idx_val = get_or_create_constant_integer_value(
@@ -297,13 +304,13 @@ antlrcpp::Any qasm3_visitor::visitQuantumMeasurementAssignment(
         mlir::Value idx_val = get_or_create_constant_index_value(
             i, location, 64, symbol_table, builder);
 
-        auto extract = builder.create<mlir::quantum::ExtractQubitOp>(
-            location, qubit_type, value, q_idx_val);
+        assert(!qreg_name.empty());
+        auto extract_qubit =
+            get_or_extract_qubit(qreg_name, i, location, symbol_table, builder);
 
         auto instop = builder.create<mlir::quantum::InstOp>(
-            location, result_type, str_attr, llvm::makeArrayRef(extract.qbit()),
+            location, result_type, str_attr, llvm::makeArrayRef(extract_qubit),
             llvm::makeArrayRef(std::vector<mlir::Value>{}));
-        
         // Cast Measure Result -> Bit (i1)
         auto cast_bit_op = builder.create<mlir::quantum::ResultCastOp>(
             location, builder.getIntegerType(1), instop.bit());
@@ -312,6 +319,7 @@ antlrcpp::Any qasm3_visitor::visitQuantumMeasurementAssignment(
             location, cast_bit_op.bit_result(), bit_value,
             llvm::makeArrayRef(std::vector<mlir::Value>{idx_val}));
       }
+      symbol_table.invalidate_qubit_extracts(qreg_name);
     }
 
   } else {
