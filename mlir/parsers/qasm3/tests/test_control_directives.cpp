@@ -1,5 +1,55 @@
-#include "gtest/gtest.h"
 #include "qcor_mlir_api.hpp"
+#include "gtest/gtest.h"
+
+namespace {
+// returns count of non-overlapping occurrences of 'sub' in 'str'
+int countSubstring(const std::string &str, const std::string &sub) {
+  if (sub.length() == 0)
+    return 0;
+  int count = 0;
+  for (size_t offset = str.find(sub); offset != std::string::npos;
+       offset = str.find(sub, offset + sub.length())) {
+    ++count;
+  }
+  return count;
+}
+} // namespace
+
+// Check Affine-SCF constructs
+TEST(qasm3VisitorTester, checkCFG_AffineScf) {
+  const std::string qasm_code = R"#(OPENQASM 3;
+include "qelib1.inc";
+
+int[64] iterate_value = 0;
+int[64] value_5 = 0;
+int[64] value_2 = 0;
+for i in [0:10] {
+    iterate_value = i;
+    if (i == 5) {
+        print("Iterate over 5");
+        value_5 = 5;
+    }
+    if (i == 2) {
+        print("Iterate over 2");
+        value_2 = 2;
+       
+    }
+    print("i = ", i);
+}
+
+QCOR_EXPECT_TRUE(iterate_value == 9);
+QCOR_EXPECT_TRUE(value_5 == 5);
+QCOR_EXPECT_TRUE(value_2 == 2);
+print("made it out of the loop");
+)#";
+  auto mlir = qcor::mlir_compile(qasm_code, "affine_scf",
+                                 qcor::OutputType::MLIR, false);
+  std::cout << mlir << "\n";
+  // 1 for loop, 2 if blocks
+  EXPECT_EQ(countSubstring(mlir, "affine.for"), 1);
+  EXPECT_EQ(countSubstring(mlir, "scf.if"), 2);
+  EXPECT_FALSE(qcor::execute(qasm_code, "affine_scf"));
+}
 
 TEST(qasm3VisitorTester, checkCtrlDirectives) {
   const std::string uint_index = R"#(OPENQASM 3;
@@ -31,6 +81,92 @@ print("made it out of the loop");
                                  qcor::OutputType::MLIR, false);
   std::cout << mlir << "\n";
   EXPECT_FALSE(qcor::execute(uint_index, "uint_index"));
+}
+
+TEST(qasm3VisitorTester, checkIqpewithIf) {
+  const std::string qasm_code = R"#(OPENQASM 3;
+include "qelib1.inc";
+
+// Expected to get 4 bits (iteratively) of 1011 (or 1101 LSB) = 11(decimal):
+// phi_est = 11/16 (denom = 16 since we have 4 bits)
+// => phi = 2pi * 11/16 = 11pi/8 = 2pi - 5pi/8
+// i.e. we estimate the -5*pi/8 angle...
+qubit q[2];
+const bits_precision = 4;
+bit c[bits_precision];
+
+// Prepare the eigen-state: |1>
+x q[1];
+
+// First bit
+h q[0];
+// Controlled rotation: CU^k
+for i in [0:8] {
+  cphase(-5*pi/8) q[0], q[1];
+}
+h q[0];
+// Measure and reset
+measure q[0] -> c[0];
+reset q[0];
+
+// Second bit
+h q[0];
+for i in [0:4] {
+  cphase(-5*pi/8) q[0], q[1];
+}
+// Conditional rotation
+if (c[0] == 1) {
+  rz(-pi/2) q[0];
+}
+h q[0];
+// Measure and reset
+measure q[0] -> c[1];
+reset q[0];
+
+// Third bit
+h q[0];
+for i in [0:2] {
+  cphase(-5*pi/8) q[0], q[1];
+}
+// Conditional rotation
+if (c[0] == 1) {
+  rz(-pi/4) q[0];
+}
+if (c[1] == 1) {
+  rz(-pi/2) q[0];
+}
+h q[0];
+// Measure and reset
+measure q[0] -> c[2];
+reset q[0];
+
+// Fourth bit
+h q[0];
+cphase(-5*pi/8) q[0], q[1];
+// Conditional rotation
+if (c[0] == 1) {
+  rz(-pi/8) q[0];
+}
+if (c[1] == 1) {
+  rz(-pi/4) q[0];
+}
+if (c[2] == 1) {
+  rz(-pi/2) q[0];
+}
+h q[0];
+measure q[0] -> c[3];
+
+print(c[0], c[1], c[2], c[3]);
+QCOR_EXPECT_TRUE(c[0] == 1);
+QCOR_EXPECT_TRUE(c[1] == 1);
+QCOR_EXPECT_TRUE(c[2] == 0);
+QCOR_EXPECT_TRUE(c[3] == 1);
+)#";
+  // Make sure we can compile this in FTQC.
+  // i.e., usual if ...
+  auto mlir = qcor::mlir_compile(qasm_code, "iqpe",
+                                 qcor::OutputType::LLVMIR, false);
+  std::cout << mlir << "\n";
 }
 
 

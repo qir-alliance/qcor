@@ -267,6 +267,17 @@ class qasm3_visitor : public qasm3::qasm3BaseVisitor {
 
     return allocation;
   }
+
+  template <class NodeType>
+  bool hasChildNodeOfType(antlr4::tree::ParseTree &in_node) {
+    for (auto &child_node : in_node.children) {
+      if (dynamic_cast<NodeType *>(child_node) ||
+          hasChildNodeOfType<NodeType>(*child_node)) {
+        return true;
+      }
+    }
+    return false;
+  }
 };
 
 }  // namespace qcor
