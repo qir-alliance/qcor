@@ -140,6 +140,15 @@ antlrcpp::Any qasm3_expression_generator::visitTerminal(
           assert(!qreg_name.empty());
           mlir::Value extracted_qubit = get_or_extract_qubit(
               qreg_name, index_val, location, symbol_table, builder);
+          if (!symbol_table.verify_qubit_ssa_dominance_property(
+                  extracted_qubit, builder.getInsertionBlock())) {
+            symbol_table.erase_symbol(
+                symbol_table.array_qubit_symbol_name(qreg_name, index_val));
+            // Re-extract (the value cached in the symbol table is not suitable
+            // for this scope)
+            extracted_qubit = get_or_extract_qubit(
+                qreg_name, index_val, location, symbol_table, builder);
+          }
           update_current_value(extracted_qubit);
         } else {
           // We're getting accessing qubits at unknown indices...
