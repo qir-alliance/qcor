@@ -23,7 +23,8 @@ void SimplifyQubitExtractPass::runOnOperation() {
   using extract_qubit_map_type =
       std::unordered_map<mlir::Operation *,
                          std::unordered_map<int64_t, mlir::Value>>;
-  std::unordered_map<mlir::Region *, extract_qubit_map_type> region_scoped_extract_qubit_map;
+  std::unordered_map<mlir::Region *, extract_qubit_map_type>
+      region_scoped_extract_qubit_map;
 
   // Map const qubit extract to its first extract
   getOperation().walk([&](mlir::quantum::ExtractQubitOp op) {
@@ -57,6 +58,27 @@ void SimplifyQubitExtractPass::runOnOperation() {
           } else {
             mlir::Value previous_extract = previous_qreg_extract[index_const];
             op.qbit().replaceAllUsesWith(previous_extract);
+          }
+
+          // Erase the extract cache in the parent scope as well:
+          // i.e., when the child scope (e.g., if block) is accessing this
+          // qubit (doing an extract), don't extend the use-def chain in the
+          // parent scope passing this point.
+          auto parent_op = region->getParentOp();
+          if (parent_op) {
+            if (auto parent_region = parent_op->getBlock()->getParent()) {
+              if (region_scoped_extract_qubit_map.find(parent_region) !=
+                  region_scoped_extract_qubit_map.end()) {
+                auto &parent_region_map =
+                    region_scoped_extract_qubit_map[parent_region];
+                if (parent_region_map.find(qreg_create_op) !=
+                    parent_region_map.end()) {
+                  auto &parent_qreg_extract_map =
+                      parent_region_map[qreg_create_op];
+                  parent_qreg_extract_map.erase(index_const);
+                }
+              }
+            }
           }
         }
       }

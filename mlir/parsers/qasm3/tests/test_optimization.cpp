@@ -460,6 +460,7 @@ h q[0];
 bit d;
 d = measure q[0];
 print("measure =", d);
+QCOR_EXPECT_TRUE(d == 1);
 )#";
   auto llvm =
       qcor::mlir_compile(src, "test_kernel1", qcor::OutputType::LLVMIR, false);
@@ -470,6 +471,11 @@ print("measure =", d);
   const auto last = llvm.find_first_of("}");
   llvm = llvm.substr(0, last + 1);
   std::cout << "LLVM:\n" << llvm << "\n";
+  // 2 Hadamard gates, 1 Z gate
+  // (Z gate in the conditional block)
+  EXPECT_EQ(countSubstring(llvm, "__quantum__qis__h"), 2);
+  EXPECT_EQ(countSubstring(llvm, "__quantum__qis__z"), 1);
+  EXPECT_FALSE(qcor::execute(src, "test_kernel1"));
 }
 
 int main(int argc, char **argv) {
