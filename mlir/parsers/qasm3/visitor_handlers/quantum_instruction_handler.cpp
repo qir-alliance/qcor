@@ -41,6 +41,34 @@ void qasm3_visitor::createInstOps_HandleBroadcast(
     return nqubits;
   };
 
+  const bool are_qubits_properly_dominated = [&]() {
+    if (!has_array_type(qbit_values)) {
+      for (auto &q_operand : qbit_values) {
+        if (!symbol_table.verify_qubit_ssa_dominance_property(
+                q_operand, builder.getInsertionBlock())) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }();
+  std::cout << "Gate: " << name << "\n";
+  // We need to erase SSA value of any qubit operands
+  // that are not dominated in this region so that it is re-extracted.
+  if (!are_qubits_properly_dominated) {
+    std::cout << "  -> FAILED to verify domination\n";
+    for (auto &q_operand : qbit_values) {
+      if (!symbol_table.verify_qubit_ssa_dominance_property(
+              q_operand, builder.getInsertionBlock())) {
+        const std::string qubit_var =
+            symbol_table.get_symbol_var_name(q_operand);
+        if (!qubit_var.empty()) {
+          symbol_table.erase_symbol(qubit_var);
+        }
+      }
+    }
+  }
+
   auto str_attr = builder.getStringAttr(name);
 
   // FIXME Extremely hacky way to handle gate broadcasting

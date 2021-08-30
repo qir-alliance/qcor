@@ -232,4 +232,25 @@ void ScopedSymbolTable::erase_symbol(const std::string &var_name) {
     table.erase_symbol(var_name);
   }
 }
+
+bool ScopedSymbolTable::verify_qubit_ssa_dominance_property(
+    mlir::Value qubit, mlir::Block* current_block) {
+  assert(qubit.getType().isa<mlir::OpaqueType>() &&
+         qubit.getType().getTypeData() == "Qubit");
+
+  // Checking that the QVS Op that **produces** this qubit is in the same
+  // region as this op.
+  // i.e., if the Op that produces this qubit SSA is in a for or if region,
+  // this qubit SSA is **not** properly dominated. Hence, requires a re-extract. 
+  if (auto *useOp = qubit.getDefiningOp()) {
+    if (mlir::dyn_cast_or_null<mlir::quantum::ValueSemanticsInstOp>(useOp)) {
+      mlir::Block *block2 = useOp->getBlock();
+      mlir::Region *region1 = current_block->getParent();
+      mlir::Region *region2 = block2->getParent();
+      return region1 == region2;
+    }
+  }
+
+  return true;
+}
 } // namespace qcor

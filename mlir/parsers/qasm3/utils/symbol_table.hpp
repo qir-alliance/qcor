@@ -465,6 +465,12 @@ public:
   std::optional<size_t> get_qreg_size(const std::string &qreg_name);
   void erase_symbol(const std::string& var_name);
 
+
+  // Checking if a qubit SSA operand has its use properly dominated in a block.
+  // i.e., returns false is this value was produced by an Op in a separate region,
+  // such as If or For loop.
+  bool verify_qubit_ssa_dominance_property(mlir::Value qubit,
+                                           mlir::Block *current_block);
   void add_measure_bit_assignment(const mlir::Value &bit_var,
                                   const mlir::Value &result_var);
   std::optional<mlir::Value> try_lookup_meas_result(const mlir::Value &bit_var);

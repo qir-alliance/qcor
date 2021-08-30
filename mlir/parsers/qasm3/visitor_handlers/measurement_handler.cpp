@@ -209,7 +209,7 @@ antlrcpp::Any qasm3_visitor::visitQuantumMeasurementAssignment(
           llvm::makeArrayRef(std::vector<mlir::Value>{}));
       const std::string qubit_var_name =
           symbol_table.get_symbol_var_name(value);
-      if (!qubit_var_name.empty()) {
+      if (!qubit_var_name.empty() && qubit_var_name != measured_qreg) {
         symbol_table.erase_symbol(qubit_var_name);
       }
 
