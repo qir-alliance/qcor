@@ -167,6 +167,8 @@ QCOR_EXPECT_TRUE(c[3] == 1);
   auto mlir = qcor::mlir_compile(qasm_code, "iqpe",
                                  qcor::OutputType::LLVMIR, false);
   std::cout << mlir << "\n";
+  // Execute (FTQC + optimization): validate expected results: 1101
+  EXPECT_FALSE(qcor::execute(qasm_code, "iqpe"));
 }
 
 
