@@ -1,6 +1,9 @@
 #include "expression_handler.hpp"
 #include "exprtk.hpp"
 #include "qasm3_visitor.hpp"
+#include "mlir/Dialect/SCF/SCF.h"
+#include "mlir/IR/BlockAndValueMapping.h"
+
 using symbol_table_t = exprtk::symbol_table<double>;
 using expression_t = exprtk::expression<double>;
 using parser_t = exprtk::parser<double>;
@@ -9,7 +12,7 @@ namespace {
 /// Creates a single affine "for" loop, iterating from lbs to ubs with
 /// the given step.
 /// to construct the body of the loop and is passed the induction variable.
-void affineLoopBuilder(mlir::Value lbs_val, mlir::Value ubs_val, int64_t step,
+mlir::AffineForOp affineLoopBuilder(mlir::Value lbs_val, mlir::Value ubs_val, int64_t step,
                        std::function<void(mlir::Value)> bodyBuilderFn,
                        mlir::OpBuilder &builder, mlir::Location &loc) {
   if (!ubs_val.getType().isa<mlir::IndexType>()) {
@@ -28,7 +31,7 @@ void affineLoopBuilder(mlir::Value lbs_val, mlir::Value ubs_val, int64_t step,
     mlir::ValueRange lbs(lbs_val);
     mlir::ValueRange ubs(ubs_val);
     // Create the actual loop
-    builder.create<mlir::AffineForOp>(
+    return builder.create<mlir::AffineForOp>(
         loc, lbs, builder.getMultiDimIdentityMap(lbs.size()), ubs,
         builder.getMultiDimIdentityMap(ubs.size()), step, llvm::None,
         [&](mlir::OpBuilder &nestedBuilder, mlir::Location nestedLoc,
@@ -47,7 +50,7 @@ void affineLoopBuilder(mlir::Value lbs_val, mlir::Value ubs_val, int64_t step,
     ubs_val = builder.create<mlir::MulIOp>(loc, ubs_val, minus_one).result();
     mlir::ValueRange lbs(lbs_val);
     mlir::ValueRange ubs(ubs_val);
-    builder.create<mlir::AffineForOp>(
+    return builder.create<mlir::AffineForOp>(
         loc, lbs, builder.getMultiDimIdentityMap(lbs.size()), ubs,
         builder.getMultiDimIdentityMap(ubs.size()), -step, llvm::None,
         [&](mlir::OpBuilder &nestedBuilder, mlir::Location nestedLoc,
@@ -309,13 +312,9 @@ antlrcpp::Any qasm3_visitor::visitLoopStatement(
 
       // HACK: Currently, we don't handle 'break', 'continue' or nested loop
       // in the Affine for loop yet.
-      if (!hasChildNodeOfType<qasm3Parser::ControlDirectiveContext>(
-              *program_block) &&
-          !hasChildNodeOfType<qasm3Parser::LoopStatementContext>(
-              *program_block) &&
-          (program_block_str.find("QCOR_EXPECT_TRUE") == std::string::npos)) {
+      if (program_block_str.find("QCOR_EXPECT_TRUE") == std::string::npos) {
         // Can use Affine for loop....
-        affineLoopBuilder(
+        auto forLoop = affineLoopBuilder(
             a_value, b_value, c,
             [&](mlir::Value loop_var) {
               // Create a new scope for the for loop
@@ -327,6 +326,43 @@ antlrcpp::Any qasm3_visitor::visitLoopStatement(
               symbol_table.exit_scope();
             },
             builder, location);
+        if (!loop_break_vars.empty()) {
+          mlir::OpBuilder::InsertionGuard g(builder);
+          builder.setInsertionPointToStart(
+              &(forLoop.getLoopBody().getBlocks().front()));
+          mlir::Value mustBreak =
+              builder.create<mlir::LoadOp>(location, loop_break_vars.top());
+          assert(mustBreak.getType().isa<mlir::IntegerType>() &&
+                 mustBreak.getType().getIntOrFloatBitWidth() == 1);
+          loop_break_vars.pop();
+          // Wrap/Outline the loop body in an IfOp:
+          auto scfIfOp = builder.create<mlir::scf::IfOp>(
+              location, mlir::TypeRange(), mustBreak, false);
+          size_t count = 0;
+          std::vector<mlir::Operation *> ops_to_clone;
+          for (auto op_iter = forLoop.getLoopBody().op_begin();
+               op_iter != forLoop.getLoopBody().op_end(); ++op_iter) {
+            mlir::Operation &op = *op_iter;
+            count++;
+            // The first 2 are the Load and If that we just inserted
+            if (count <= 2) {
+              continue;
+            }
+            ops_to_clone.emplace_back(&op);
+          }
+          // Last one is affine yield
+          // should be left outside:
+          assert(
+              mlir::dyn_cast_or_null<mlir::AffineYieldOp>(ops_to_clone.back()));
+          ops_to_clone.pop_back();
+          for (auto &op : ops_to_clone) {
+            scfIfOp.getThenBodyBuilder().clone(*op);
+          }
+
+          for (auto &op : ops_to_clone) {
+            op->remove();
+          }
+        }
       } else {
         // TODO: Remove this code path once we convert control flow to Affine/SCF
         // Need to use the legacy for loop construction for now...
@@ -471,33 +507,6 @@ antlrcpp::Any qasm3_visitor::visitLoopStatement(
     // correctly
 
     symbol_table.set_last_created_block(exitBlock);
-  }
-
-  return 0;
-}
-
-antlrcpp::Any qasm3_visitor::visitControlDirective(
-    qasm3Parser::ControlDirectiveContext* context) {
-  auto location = get_location(builder, file_name, context);
-
-  auto stmt = context->getText();
-  // FIXME: using Affine/SCF Ops:
-  // affine.yield
-  if (stmt == "break") {
-    builder.create<mlir::BranchOp>(location, current_loop_exit_block);
-  } else if (stmt == "continue") {
-    if (current_loop_incrementor_block) {
-      builder.create<mlir::BranchOp>(location, current_loop_incrementor_block);
-    } else if (current_loop_header_block) {
-      // this is a while loop
-      builder.create<mlir::BranchOp>(location, current_loop_header_block);
-    } else {
-      printErrorMessage(
-          "Something went wrong with continue, no valid block to branch to.");
-    }
-  } else {
-    printErrorMessage("we do not yet support the " + stmt +
-                      " control directive.");
   }
 
   return 0;

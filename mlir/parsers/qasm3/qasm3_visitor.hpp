@@ -215,7 +215,8 @@ class qasm3_visitor : public qasm3::qasm3BaseVisitor {
   mlir::Type qubit_type;
   mlir::Type array_type;
   mlir::Type result_type;
-
+  
+  std::stack<mlir::Value> loop_break_vars;
   // This method will add correct number of InstOps
   // based on quantum gate broadcasting
   void createInstOps_HandleBroadcast(std::string name,
