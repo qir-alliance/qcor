@@ -52,7 +52,7 @@ void qasm3_visitor::createInstOps_HandleBroadcast(
     }
     return true;
   }();
-  std::cout << "Gate: " << name << "\n";
+  // std::cout << "Gate: " << name << "\n";
 
   const auto get_qreg_extract_info = [](const std::string &qbit_var_name)
       -> std::optional<std::pair<std::string, size_t>> {
@@ -74,7 +74,7 @@ void qasm3_visitor::createInstOps_HandleBroadcast(
   // We need to erase SSA value of any qubit operands
   // that are not dominated in this region so that it is re-extracted.
   if (!are_qubits_properly_dominated) {
-    std::cout << "  -> FAILED to verify domination\n";
+    // std::cout << "  -> FAILED to verify domination\n";
     for (auto &q_operand : qbit_values) {
       if (!symbol_table.verify_qubit_ssa_dominance_property(
               q_operand, builder.getInsertionBlock())) {

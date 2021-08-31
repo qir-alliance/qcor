@@ -51,6 +51,12 @@ antlrcpp::Any qasm3_visitor::visitQuantumMeasurementAssignment(
       // create memref of size qreg_size, measure all qubits,
       // and store the bit results to each element of the memref,
       // then return that.
+      // NOT IMPLEMENTED YET
+      printErrorMessage("visiting this node is not implemented, havent seen it "
+                        "yet. if you hit "
+                        "this, let alex know",
+                        context);
+
       return 0;
     }
   }
