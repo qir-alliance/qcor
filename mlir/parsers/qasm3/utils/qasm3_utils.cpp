@@ -68,13 +68,28 @@ mlir::Type get_custom_opaque_type(const std::string& type,
   return mlir::OpaqueType::get(context, dialect, type_name);
 }
 
+// Get or extract qubit to handle qubit SSA dominance properties:
+// e.g., if the last-known qubit SSA was produced by QVS inside a sub region,
+// such as if statements, the SSA var will not be used.
+// Rather, a new extract from qreg will be issue to start the new use-def chain.
 mlir::Value get_or_extract_qubit(const std::string &qreg_name,
                                  const std::size_t idx, mlir::Location location,
                                  ScopedSymbolTable &symbol_table,
                                  mlir::OpBuilder &builder) {
   auto key = symbol_table.array_qubit_symbol_name(qreg_name, idx);
   if (symbol_table.has_symbol(key)) {
-    return symbol_table.get_symbol(key);  // global_symbol_table[key];
+    // Check if the cached qubit SSA var dominance properties in the current
+    // scope:
+    mlir::Value qubit_value = symbol_table.get_symbol(key);
+    if (!symbol_table.verify_qubit_ssa_dominance_property(
+            qubit_value, builder.getInsertionBlock())) {
+      // The cache SSA value is not valid:
+      symbol_table.erase_symbol(key);
+      return get_or_extract_qubit(qreg_name, idx, location, symbol_table,
+                                  builder);
+    } else {
+      return qubit_value;
+    }
   } else {
     auto qubits = symbol_table.get_symbol(qreg_name);
     mlir::Value pos = get_or_create_constant_integer_value(

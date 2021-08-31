@@ -40,61 +40,8 @@ void qasm3_visitor::createInstOps_HandleBroadcast(
     }
     return nqubits;
   };
-
-  const bool are_qubits_properly_dominated = [&]() {
-    if (!has_array_type(qbit_values)) {
-      for (auto &q_operand : qbit_values) {
-        if (!symbol_table.verify_qubit_ssa_dominance_property(
-                q_operand, builder.getInsertionBlock())) {
-          return false;
-        }
-      }
-    }
-    return true;
-  }();
-  // std::cout << "Gate: " << name << "\n";
-
-  const auto get_qreg_extract_info = [](const std::string &qbit_var_name)
-      -> std::optional<std::pair<std::string, size_t>> {
-    const auto pos = qbit_var_name.find("%");
-    if (pos != std::string::npos) {
-      const std::string qreg_name = qbit_var_name.substr(0, pos);
-      const std::string idx_str = qbit_var_name.substr(pos + 1);
-      try {
-        const size_t idx = std::stoi(idx_str);
-        return std::make_pair(qreg_name, idx);
-      } catch (...) {
-        return std::nullopt;
-      }
-    }
-
-    return std::nullopt;
-  };
-
-  // We need to erase SSA value of any qubit operands
-  // that are not dominated in this region so that it is re-extracted.
-  if (!are_qubits_properly_dominated) {
-    // std::cout << "  -> FAILED to verify domination\n";
-    for (auto &q_operand : qbit_values) {
-      if (!symbol_table.verify_qubit_ssa_dominance_property(
-              q_operand, builder.getInsertionBlock())) {
-        const std::string qubit_var =
-            symbol_table.get_symbol_var_name(q_operand);
-        if (!qubit_var.empty()) {
-          symbol_table.erase_symbol(qubit_var);
-          const auto qreg_extract_info = get_qreg_extract_info(qubit_var);
-          if (qreg_extract_info.has_value()) {
-            auto [qreg_name, index_val] = qreg_extract_info.value();
-            q_operand = get_or_extract_qubit(qreg_name, index_val, location,
-                                             symbol_table, builder);
-          }
-        }
-      }
-    }
-  }
-
+  
   auto str_attr = builder.getStringAttr(name);
-
   // FIXME Extremely hacky way to handle gate broadcasting
   // The cases we consider are...
   // QINST qubit

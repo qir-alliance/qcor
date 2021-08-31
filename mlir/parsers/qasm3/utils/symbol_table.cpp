@@ -236,7 +236,7 @@ void ScopedSymbolTable::erase_symbol(const std::string &var_name) {
 bool ScopedSymbolTable::verify_qubit_ssa_dominance_property(
     mlir::Value qubit, mlir::Block* current_block) {
   assert(qubit.getType().isa<mlir::OpaqueType>() &&
-         qubit.getType().getTypeData() == "Qubit");
+         qubit.getType().dyn_cast<mlir::OpaqueType>().getTypeData() == "Qubit");
 
   // Checking that the QVS Op that **produces** this qubit is in the same
   // region as this op.
