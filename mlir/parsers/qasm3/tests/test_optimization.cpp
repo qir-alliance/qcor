@@ -478,6 +478,98 @@ QCOR_EXPECT_TRUE(d == 1);
   EXPECT_FALSE(qcor::execute(src, "test_kernel1"));
 }
 
+TEST(qasm3PassManagerTester, checkCPhaseMerge) {
+  const std::string qasm_code = R"#(OPENQASM 3;
+include "qelib1.inc";
+
+// Expected to get 4 bits (iteratively) of 1011 (or 1101 LSB) = 11(decimal):
+// phi_est = 11/16 (denom = 16 since we have 4 bits)
+// => phi = 2pi * 11/16 = 11pi/8 = 2pi - 5pi/8
+// i.e. we estimate the -5*pi/8 angle...
+qubit q[2];
+const bits_precision = 4;
+bit c[bits_precision];
+
+// Prepare the eigen-state: |1>
+x q[1];
+
+// First bit
+h q[0];
+// Controlled rotation: CU^k
+for i in [0:8] {
+  cphase(-5*pi/8) q[0], q[1];
+}
+h q[0];
+// Measure and reset
+measure q[0] -> c[0];
+reset q[0];
+
+// Second bit
+h q[0];
+for i in [0:4] {
+  cphase(-5*pi/8) q[0], q[1];
+}
+// Conditional rotation
+if (c[0] == 1) {
+  rz(-pi/2) q[0];
+}
+h q[0];
+// Measure and reset
+measure q[0] -> c[1];
+reset q[0];
+
+// Third bit
+h q[0];
+for i in [0:2] {
+  cphase(-5*pi/8) q[0], q[1];
+}
+// Conditional rotation
+if (c[0] == 1) {
+  rz(-pi/4) q[0];
+}
+if (c[1] == 1) {
+  rz(-pi/2) q[0];
+}
+h q[0];
+// Measure and reset
+measure q[0] -> c[2];
+reset q[0];
+
+// Fourth bit
+h q[0];
+cphase(-5*pi/8) q[0], q[1];
+// Conditional rotation
+if (c[0] == 1) {
+  rz(-pi/8) q[0];
+}
+if (c[1] == 1) {
+  rz(-pi/4) q[0];
+}
+if (c[2] == 1) {
+  rz(-pi/2) q[0];
+}
+h q[0];
+measure q[0] -> c[3];
+
+print(c[0], c[1], c[2], c[3]);
+QCOR_EXPECT_TRUE(c[0] == 1);
+QCOR_EXPECT_TRUE(c[1] == 1);
+QCOR_EXPECT_TRUE(c[2] == 0);
+QCOR_EXPECT_TRUE(c[3] == 1);
+)#";
+  auto llvm =
+      qcor::mlir_compile(qasm_code, "test_kernel1", qcor::OutputType::LLVMIR, false);
+  std::cout << "LLVM:\n" << llvm << "\n";
+
+  // Get the main kernel section only
+  llvm = llvm.substr(llvm.find("@__internal_mlir_test_kernel1"));
+  const auto last = llvm.find_first_of("}");
+  llvm = llvm.substr(0, last + 1);
+  std::cout << "LLVM:\n" << llvm << "\n";
+  // All CPhase gates in for loops have been unrolled and then merged.
+  EXPECT_EQ(countSubstring(llvm, "__quantum__qis__cphase"), 4);
+}
+
 int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);
   auto ret = RUN_ALL_TESTS();

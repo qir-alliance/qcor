@@ -30,6 +30,7 @@ void CPhaseRotationMergingPass::runOnOperation() {
     if (inst_name != "cphase") {
       return;
     }
+    assert(op.getOperands().size() == 3);
     // Get the src ret qubit and the tgt ret qubit
     auto src_return_val = op.result().front();
     auto tgt_return_val = op.result().back();
@@ -135,7 +136,7 @@ void CPhaseRotationMergingPass::runOnOperation() {
 
         auto new_inst = rewriter.create<mlir::quantum::ValueSemanticsInstOp>(
             op.getLoc(), llvm::makeArrayRef(ret_types), result_inst_name,
-            llvm::makeArrayRef(op.getOperand(0)),
+            llvm::makeArrayRef({op.getOperand(0), op.getOperand(1)}),
             llvm::makeArrayRef({add_op.result()}));
         // Input -> Output mapping (this instruction is to be removed)
         auto next_inst_result_0 = next_inst.result().front();
