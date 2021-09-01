@@ -243,8 +243,6 @@ antlrcpp::Any qasm3_visitor::visitBranchingStatement(
   // Check if this if/else contains loop control directives:
   const bool containsLoopDirectives = scfIfOp->hasAttr("control-directive");
   if (containsLoopDirectives) {
-    std::cout << "If op triggers control directive: \n";
-    scfIfOp.dump();
     // At this point, wrap the following code in an If (check for loop
     // continuation condition.)
     auto [cond1, cond2] = for_loop_control_vars.top();

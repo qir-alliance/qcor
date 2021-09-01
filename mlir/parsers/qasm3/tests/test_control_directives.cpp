@@ -15,42 +15,6 @@ int countSubstring(const std::string &str, const std::string &sub) {
 }
 } // namespace
 
-// Check Affine-SCF constructs
-TEST(qasm3VisitorTester, checkCFG_AffineScf) {
-  const std::string qasm_code = R"#(OPENQASM 3;
-include "qelib1.inc";
-
-int[64] iterate_value = 0;
-int[64] value_5 = 0;
-int[64] value_2 = 0;
-for i in [0:10] {
-    iterate_value = i;
-    if (i == 5) {
-        print("Iterate over 5");
-        value_5 = 5;
-    }
-    if (i == 2) {
-        print("Iterate over 2");
-        value_2 = 2;
-       
-    }
-    print("i = ", i);
-}
-
-QCOR_EXPECT_TRUE(iterate_value == 9);
-QCOR_EXPECT_TRUE(value_5 == 5);
-QCOR_EXPECT_TRUE(value_2 == 2);
-print("made it out of the loop");
-)#";
-  auto mlir = qcor::mlir_compile(qasm_code, "affine_scf",
-                                 qcor::OutputType::MLIR, false);
-  std::cout << mlir << "\n";
-  // 1 for loop, 2 if blocks
-  EXPECT_EQ(countSubstring(mlir, "affine.for"), 1);
-  EXPECT_EQ(countSubstring(mlir, "scf.if"), 2);
-  EXPECT_FALSE(qcor::execute(qasm_code, "affine_scf"));
-}
-
 TEST(qasm3VisitorTester, checkCtrlDirectives) {
   const std::string uint_index = R"#(OPENQASM 3;
 include "qelib1.inc";
@@ -80,6 +44,54 @@ print("made it out of the loop");
   auto mlir = qcor::mlir_compile(uint_index, "uint_index",
                                  qcor::OutputType::MLIR, false);
   std::cout << mlir << "\n";
+  // We're now using Affine and SCF
+  EXPECT_EQ(countSubstring(mlir, "affine.for"), 1);
+  EXPECT_GT(countSubstring(mlir, "scf.if"), 1);
+  EXPECT_FALSE(qcor::execute(uint_index, "uint_index"));
+}
+
+TEST(qasm3VisitorTester, checkCtrlDirectivesComplex) {
+  const std::string uint_index = R"#(OPENQASM 3;
+OPENQASM 3;
+include "qelib1.inc";
+
+int[64] iterate_value = 0;
+int[64] hit_continue_value = 0;
+for i in [0:10] {
+    iterate_value = i;
+    if (i == 5) {
+        print("breaking at 5");
+        break;
+    } else {
+      if (i == 3) { 
+        print("breaking at 3");
+        break;
+      }
+    }
+    if (i == 2) {
+      hit_continue_value = i;
+      print("continuing at 2");
+      continue;
+    }
+
+    if (iterate_value == 2) {
+      hit_continue_value = 5;
+      print("SHOULD NEVER BE HERE!!!");
+    } 
+    
+    print("i = ", i);
+}
+
+QCOR_EXPECT_TRUE(hit_continue_value == 2);
+// The break at 3 in the else loop will be activated first.
+QCOR_EXPECT_TRUE(iterate_value == 3);
+print("made it out of the loop");)#";
+  auto mlir = qcor::mlir_compile(uint_index, "uint_index",
+                                 qcor::OutputType::MLIR, false);
+  std::cout << mlir << "\n";
+  // We're now using Affine and SCF
+  EXPECT_EQ(countSubstring(mlir, "affine.for"), 1);
+  EXPECT_GT(countSubstring(mlir, "scf.if"), 1);
   EXPECT_FALSE(qcor::execute(uint_index, "uint_index"));
 }
 
