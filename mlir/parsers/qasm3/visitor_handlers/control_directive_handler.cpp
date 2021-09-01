@@ -32,33 +32,24 @@ antlrcpp::Any qasm3_visitor::visitControlDirective(
       printErrorMessage("Illegal break directive: unconditional break.");
     }
 
-    // Strategy: predicating every statement potentially executed after at least
-    // one break on the absence of break.
+    // Set an attribute so that we can detect this after handling this.
+    parentIfOp->setAttr("control-directive",
+                       mlir::IntegerAttr::get(builder.getIntegerType(1), 1));
+    assert(!for_loop_control_vars.empty());
+    auto [cond1, cond2] = for_loop_control_vars.top();
 
-    // Create a 'mustBreak' bool at the outer scope:
-    mlir::Value mustBreak;
-    {
-      mlir::OpBuilder::InsertionGuard g(builder);
-      builder.setInsertionPointToStart(
-          &(m_module.getRegion().getBlocks().front()));
-      mustBreak = builder.create<mlir::AllocaOp>(
-          location, mlir::MemRefType::get(llvm::ArrayRef<int64_t>{},
-                                          builder.getI1Type()));
-      // store false (at the outer scope)
-      builder.create<mlir::StoreOp>(
-          location,
-          get_or_create_constant_integer_value(0, location, builder.getI1Type(),
-                                               symbol_table, builder),
-          mustBreak);
-    }
-
-    // Store true here:
+    // Store false to both the break and continue:
+    // i.e., bypass the whole for loop and the rest of the loop body:
     builder.create<mlir::StoreOp>(
         location,
-        get_or_create_constant_integer_value(1, location, builder.getI1Type(),
+        get_or_create_constant_integer_value(0, location, builder.getI1Type(),
                                              symbol_table, builder),
-        mustBreak);
-    loop_break_vars.push(mustBreak);
+        cond1);
+    builder.create<mlir::StoreOp>(
+        location,
+        get_or_create_constant_integer_value(0, location, builder.getI1Type(),
+                                             symbol_table, builder),
+        cond2);
   } else if (stmt == "continue") {
     // TODO: Handle this case.
     if (current_loop_incrementor_block) {

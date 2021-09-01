@@ -313,6 +313,35 @@ antlrcpp::Any qasm3_visitor::visitLoopStatement(
       // HACK: Currently, we don't handle 'break', 'continue' or nested loop
       // in the Affine for loop yet.
       if (program_block_str.find("QCOR_EXPECT_TRUE") == std::string::npos) {
+        const bool isLoopBreakable =
+            hasChildNodeOfType<qasm3Parser::ControlDirectiveContext>(*context);
+        auto cachedBuilder = builder;
+        if (isLoopBreakable) {
+          // Add the two loop control bool vars:
+          mlir::OpBuilder::InsertionGuard g(builder);
+          // Top-level if control (skipping the whole loop if false)
+          mlir::Value executeWholeLoop = builder.create<mlir::AllocaOp>(
+              location, mlir::MemRefType::get(llvm::ArrayRef<int64_t>{},
+                                              builder.getI1Type()));
+          // Loop body control: skipping portions of the the body if
+          // false: e.g., handle 'continue'-like directive.
+          mlir::Value executeThisBlock = builder.create<mlir::AllocaOp>(
+              location, mlir::MemRefType::get(llvm::ArrayRef<int64_t>{},
+                                              builder.getI1Type()));
+          // store true
+          builder.create<mlir::StoreOp>(
+              location,
+              get_or_create_constant_integer_value(
+                  1, location, builder.getI1Type(), symbol_table, builder),
+              executeWholeLoop);
+          builder.create<mlir::StoreOp>(
+              location,
+              get_or_create_constant_integer_value(
+                  1, location, builder.getI1Type(), symbol_table, builder),
+              executeThisBlock);
+          for_loop_control_vars.push(
+              std::make_pair(executeWholeLoop, executeThisBlock));
+        }
         // Can use Affine for loop....
         auto forLoop = affineLoopBuilder(
             a_value, b_value, c,
@@ -322,47 +351,30 @@ antlrcpp::Any qasm3_visitor::visitLoopStatement(
               auto loop_var_cast = builder.create<mlir::IndexCastOp>(
                   location, builder.getI64Type(), loop_var);
               symbol_table.add_symbol(idx_var_name, loop_var_cast, {}, true);
-              visitChildren(program_block);
+
+              if (isLoopBreakable) {
+                auto [cond1, cond2] = for_loop_control_vars.top();
+                // Wrap/Outline the loop body in an IfOp:
+                auto scfIfOp = builder.create<mlir::scf::IfOp>(
+                    location, mlir::TypeRange(),
+                    builder.create<mlir::LoadOp>(location, cond1), false);
+                auto thenBodyBuilder = scfIfOp.getThenBodyBuilder();
+                auto cached_builder = builder;
+                builder = thenBodyBuilder;
+                visitChildren(program_block);
+                builder = cached_builder;
+              } else {
+                visitChildren(program_block);
+              }
+
               symbol_table.exit_scope();
+
+              if (isLoopBreakable) {
+                for_loop_control_vars.pop();
+              }
             },
             builder, location);
-        if (!loop_break_vars.empty()) {
-          mlir::OpBuilder::InsertionGuard g(builder);
-          builder.setInsertionPointToStart(
-              &(forLoop.getLoopBody().getBlocks().front()));
-          mlir::Value mustBreak =
-              builder.create<mlir::LoadOp>(location, loop_break_vars.top());
-          assert(mustBreak.getType().isa<mlir::IntegerType>() &&
-                 mustBreak.getType().getIntOrFloatBitWidth() == 1);
-          loop_break_vars.pop();
-          // Wrap/Outline the loop body in an IfOp:
-          auto scfIfOp = builder.create<mlir::scf::IfOp>(
-              location, mlir::TypeRange(), mustBreak, false);
-          size_t count = 0;
-          std::vector<mlir::Operation *> ops_to_clone;
-          for (auto op_iter = forLoop.getLoopBody().op_begin();
-               op_iter != forLoop.getLoopBody().op_end(); ++op_iter) {
-            mlir::Operation &op = *op_iter;
-            count++;
-            // The first 2 are the Load and If that we just inserted
-            if (count <= 2) {
-              continue;
-            }
-            ops_to_clone.emplace_back(&op);
-          }
-          // Last one is affine yield
-          // should be left outside:
-          assert(
-              mlir::dyn_cast_or_null<mlir::AffineYieldOp>(ops_to_clone.back()));
-          ops_to_clone.pop_back();
-          for (auto &op : ops_to_clone) {
-            scfIfOp.getThenBodyBuilder().clone(*op);
-          }
-
-          for (auto &op : ops_to_clone) {
-            op->remove();
-          }
-        }
+        builder = cachedBuilder;
       } else {
         // TODO: Remove this code path once we convert control flow to Affine/SCF
         // Need to use the legacy for loop construction for now...

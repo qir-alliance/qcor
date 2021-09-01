@@ -215,8 +215,17 @@ class qasm3_visitor : public qasm3::qasm3BaseVisitor {
   mlir::Type qubit_type;
   mlir::Type array_type;
   mlir::Type result_type;
-  
-  std::stack<mlir::Value> loop_break_vars;
+
+  // Loop control vars for break/continue implementation with Region-based
+  // Affine/SCF Ops.
+  // Strategy:
+  /// - A break-able for loop will have a bool (first in the pair) to control
+  /// the loop body execution. i.e., bypass the whole loop if the break
+  /// condition is triggered.
+  /// - The second bool is the continue condition which will bypass all
+  /// the remaining ops in the body.
+  /// We use a stack to handle nested loops, which are all break-able.
+  std::stack<std::pair<mlir::Value, mlir::Value>> for_loop_control_vars;
   // This method will add correct number of InstOps
   // based on quantum gate broadcasting
   void createInstOps_HandleBroadcast(std::string name,
