@@ -52,7 +52,6 @@ print("made it out of the loop");
 
 TEST(qasm3VisitorTester, checkCtrlDirectivesComplex) {
   const std::string uint_index = R"#(OPENQASM 3;
-OPENQASM 3;
 include "qelib1.inc";
 
 int[64] iterate_value = 0;

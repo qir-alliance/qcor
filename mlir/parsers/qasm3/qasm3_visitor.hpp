@@ -236,6 +236,14 @@ class qasm3_visitor : public qasm3::qasm3BaseVisitor {
                                      mlir::Location location,
                                      antlr4::ParserRuleContext* context);
 
+  // Helper to handle range-based for loop
+  void createRangeBasedForLoop(qasm3Parser::LoopStatementContext *context);
+  // Helper to handle set-based for loop:
+  // e.g., for i in {1,4,6,7}:
+  void createSetBasedForLoop(qasm3Parser::LoopStatementContext *context);
+  // While loop
+  void createWhileLoop(qasm3Parser::LoopStatementContext *context);
+
   // This function serves as a utility for creating a MemRef and
   // corresponding AllocOp of a given 1d shape. It will also store
   // initial values to all elements of the 1d array.
