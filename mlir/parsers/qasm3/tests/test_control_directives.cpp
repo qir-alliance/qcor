@@ -94,6 +94,41 @@ print("made it out of the loop");)#";
   EXPECT_FALSE(qcor::execute(uint_index, "uint_index"));
 }
 
+TEST(qasm3VisitorTester, checkCtrlDirectivesSetBasedForLoop) {
+  const std::string uint_index = R"#(OPENQASM 3;
+include "qelib1.inc";
+
+int[64] sum_value = 0;
+int[64] break_value = 0;
+int[64] loop_count = 0;
+
+for val in {1,3,5,7} {
+  print("iter: ", val);
+  if (val < 4) {
+    sum_value += val;
+  } else {
+    break_value = val;
+    break;
+  }
+
+  loop_count += 1;
+}
+
+print(sum_value);
+print(loop_count);
+print(break_value);
+QCOR_EXPECT_TRUE(sum_value == 4);
+QCOR_EXPECT_TRUE(loop_count == 2);
+QCOR_EXPECT_TRUE(break_value == 5);)#";
+  auto mlir = qcor::mlir_compile(uint_index, "uint_index",
+                                 qcor::OutputType::MLIR, false);
+  std::cout << mlir << "\n";
+  // Make sure we're using Affine and SCF
+  EXPECT_EQ(countSubstring(mlir, "affine.for"), 1);
+  EXPECT_GT(countSubstring(mlir, "scf.if"), 1);
+  EXPECT_FALSE(qcor::execute(uint_index, "uint_index"));
+}
+
 TEST(qasm3VisitorTester, checkIqpewithIf) {
   const std::string qasm_code = R"#(OPENQASM 3;
 include "qelib1.inc";
