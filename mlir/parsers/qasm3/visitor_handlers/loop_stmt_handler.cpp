@@ -408,52 +408,36 @@ void qasm3_visitor::createWhileLoop(
   auto loop_signature = context->loopSignature();
   auto program_block = context->programBlock();
   assert(loop_signature->booleanExpression());
+  auto main_block = builder.saveInsertionPoint();
+  auto cachedBuilder = builder;
+  mlir::scf::WhileOp whileOp = builder.create<mlir::scf::WhileOp>(
+      location, mlir::TypeRange() /*resultTypes*/,
+      mlir::ValueRange() /*operands*/);
 
-  // FIXME: convert to mlir::scf::WhileOp (should be easy since it's
-  // conditioned on an i1 value)
-  // this is a while loop
-  auto while_expr = loop_signature->booleanExpression();
+  mlir::Block *before = builder.createBlock(&whileOp.before(), {}, {});
+  mlir::Block *after = builder.createBlock(&whileOp.after(), {}, {});
 
-  // Create a new scope for the for loop
-  symbol_table.enter_new_scope();
-
-  auto currRegion = builder.getBlock()->getParent();
-
-  auto savept = builder.saveInsertionPoint();
-  auto headerBlock = builder.createBlock(currRegion, currRegion->end());
-  auto bodyBlock = builder.createBlock(currRegion, currRegion->end());
-  auto exitBlock = builder.createBlock(currRegion, currRegion->end());
-
-  builder.restoreInsertionPoint(savept);
-  builder.create<mlir::BranchOp>(location, headerBlock);
-
-  builder.setInsertionPointToEnd(headerBlock);
+  // Build the "before" region:
+  // In a "while" loop, this region computes the condition. 
+  builder.setInsertionPointToStart(&whileOp.before().front());
   qasm3_expression_generator exp_generator(builder, symbol_table, file_name);
-  exp_generator.visit(while_expr);
-  auto expr_value = exp_generator.current_value;
-  builder.create<mlir::CondBranchOp>(location, expr_value, bodyBlock,
-                                     exitBlock);
+  exp_generator.visit(loop_signature->booleanExpression());
+  mlir::Value cond = exp_generator.current_value;
+  builder.create<mlir::scf::ConditionOp>(location, cond, before->getArguments());
+  builder.setInsertionPointToStart(&whileOp.after().front());
 
-  builder.setInsertionPointToStart(bodyBlock);
-  current_loop_exit_block = exitBlock;
-  current_loop_header_block = headerBlock;
+  // Build the "after" region:
+  // In a "while" loop, this region is the loop body.
+  builder.setInsertionPointToStart(&whileOp.after().front());
+  {
+    symbol_table.enter_new_scope();
+    visitChildren(program_block);
+    symbol_table.exit_scope();
+    // 'After' block must end with a yield op.
+    builder.create<mlir::scf::YieldOp>(location);
+  }
 
-  visitChildren(program_block);
-
-  current_loop_header_block = nullptr;
-  current_loop_exit_block = nullptr;
-
-  builder.create<mlir::BranchOp>(location, headerBlock);
-  builder.setInsertionPointToStart(exitBlock);
-
-  symbol_table.exit_scope();
-
-  // This is where we do some manipulation of
-  // the basic blocks, lets store the current last block
-  // so that finalize_mlirgen() can add return and deallocs
-  // correctly
-
-  symbol_table.set_last_created_block(exitBlock);
+  builder = cachedBuilder;
+  builder.restoreInsertionPoint(main_block);
 }
-
 } // namespace qcor
