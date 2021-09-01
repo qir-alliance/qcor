@@ -129,6 +129,36 @@ QCOR_EXPECT_TRUE(break_value == 5);)#";
   EXPECT_FALSE(qcor::execute(uint_index, "uint_index"));
 }
 
+TEST(qasm3VisitorTester, checkCtrlDirectivesWhileLoop) {
+  const std::string uint_index = R"#(OPENQASM 3;
+include "qelib1.inc";
+
+int[32] i = 0;
+int[32] j = 0;
+while (i < 10) {
+  // Before break
+  i += 1;
+  if (i == 8) {
+    print("Breaking at", i);
+    break;
+  }
+  // After break
+  j += 1;
+}
+
+print("make to the end, i =", i);
+print("make to the end, j =", j);
+QCOR_EXPECT_TRUE(i == 8);
+QCOR_EXPECT_TRUE(j == 7);
+)#";
+  auto mlir = qcor::mlir_compile(uint_index, "uint_index",
+                                 qcor::OutputType::MLIR, false);
+  std::cout << mlir << "\n";
+  // Make sure we're using Affine While loop
+  EXPECT_EQ(countSubstring(mlir, "scf.while"), 1);
+  EXPECT_FALSE(qcor::execute(uint_index, "uint_index"));
+}
+
 TEST(qasm3VisitorTester, checkIqpewithIf) {
   const std::string qasm_code = R"#(OPENQASM 3;
 include "qelib1.inc";
