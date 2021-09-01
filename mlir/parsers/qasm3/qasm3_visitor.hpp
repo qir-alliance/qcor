@@ -225,7 +225,7 @@ class qasm3_visitor : public qasm3::qasm3BaseVisitor {
   /// - The second bool is the continue condition which will bypass all
   /// the remaining ops in the body.
   /// We use a stack to handle nested loops, which are all break-able.
-  std::stack<std::pair<mlir::Value, mlir::Value>> for_loop_control_vars;
+  std::stack<std::pair<mlir::Value, mlir::Value>> loop_control_directive_bool_vars;
   // This method will add correct number of InstOps
   // based on quantum gate broadcasting
   void createInstOps_HandleBroadcast(std::string name,

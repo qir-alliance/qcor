@@ -33,8 +33,8 @@ antlrcpp::Any qasm3_visitor::visitControlDirective(
     // Set an attribute so that we can detect this after handling this.
     parentIfOp->setAttr("control-directive",
                        mlir::IntegerAttr::get(builder.getIntegerType(1), 1));
-    assert(!for_loop_control_vars.empty());
-    auto [cond1, cond2] = for_loop_control_vars.top();
+    assert(!loop_control_directive_bool_vars.empty());
+    auto [cond1, cond2] = loop_control_directive_bool_vars.top();
 
     // Store false to both the break and continue:
     // i.e., bypass the whole for loop and the rest of the loop body:
@@ -64,8 +64,8 @@ antlrcpp::Any qasm3_visitor::visitControlDirective(
     // Set an attribute so that we can detect this after handling this.
     parentIfOp->setAttr("control-directive",
                         mlir::IntegerAttr::get(builder.getIntegerType(1), 1));
-    assert(!for_loop_control_vars.empty());
-    auto [cond1, cond2] = for_loop_control_vars.top();
+    assert(!loop_control_directive_bool_vars.empty());
+    auto [cond1, cond2] = loop_control_directive_bool_vars.top();
 
     // Just bypass rest of the loop body (after this point)
     // i.e., not disable the whol loop.

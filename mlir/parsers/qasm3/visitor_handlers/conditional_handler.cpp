@@ -245,7 +245,7 @@ antlrcpp::Any qasm3_visitor::visitBranchingStatement(
   if (containsLoopDirectives) {
     // At this point, wrap the following code in an If (check for loop
     // continuation condition.)
-    auto [cond1, cond2] = for_loop_control_vars.top();
+    auto [cond1, cond2] = loop_control_directive_bool_vars.top();
     // Wrap/Outline the loop body in an IfOp:
     auto continuationIfOp = builder.create<mlir::scf::IfOp>(
         location, mlir::TypeRange(),

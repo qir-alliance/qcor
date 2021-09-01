@@ -247,7 +247,7 @@ void qasm3_visitor::createRangeBasedForLoop(
         get_or_create_constant_integer_value(1, location, builder.getI1Type(),
                                              symbol_table, builder),
         executeThisBlock);
-    for_loop_control_vars.push(
+    loop_control_directive_bool_vars.push(
         std::make_pair(executeWholeLoop, executeThisBlock));
   }
   // Can use Affine for loop....
@@ -261,7 +261,7 @@ void qasm3_visitor::createRangeBasedForLoop(
         symbol_table.add_symbol(idx_var_name, loop_var_cast, {}, true);
 
         if (isLoopBreakable) {
-          auto [cond1, cond2] = for_loop_control_vars.top();
+          auto [cond1, cond2] = loop_control_directive_bool_vars.top();
           // Wrap/Outline the loop body in an IfOp:
           auto scfIfOp = builder.create<mlir::scf::IfOp>(
               location, mlir::TypeRange(),
@@ -278,7 +278,7 @@ void qasm3_visitor::createRangeBasedForLoop(
         symbol_table.exit_scope();
 
         if (isLoopBreakable) {
-          for_loop_control_vars.pop();
+          loop_control_directive_bool_vars.pop();
         }
       },
       builder, location);
@@ -361,7 +361,7 @@ void qasm3_visitor::createSetBasedForLoop(
         get_or_create_constant_integer_value(1, location, builder.getI1Type(),
                                              symbol_table, builder),
         executeThisBlock);
-    for_loop_control_vars.push(
+    loop_control_directive_bool_vars.push(
         std::make_pair(executeWholeLoop, executeThisBlock));
   }
 
@@ -379,7 +379,7 @@ void qasm3_visitor::createSetBasedForLoop(
         symbol_table.add_symbol(idx_var_name, loop_var, {}, true);
 
         if (isLoopBreakable) {
-          auto [cond1, cond2] = for_loop_control_vars.top();
+          auto [cond1, cond2] = loop_control_directive_bool_vars.top();
           // Wrap/Outline the loop body in an IfOp:
           auto scfIfOp = builder.create<mlir::scf::IfOp>(
               location, mlir::TypeRange(),
@@ -395,7 +395,7 @@ void qasm3_visitor::createSetBasedForLoop(
         symbol_table.exit_scope();
 
         if (isLoopBreakable) {
-          for_loop_control_vars.pop();
+          loop_control_directive_bool_vars.pop();
         }
       },
       builder, location);
@@ -410,6 +410,36 @@ void qasm3_visitor::createWhileLoop(
   assert(loop_signature->booleanExpression());
   auto main_block = builder.saveInsertionPoint();
   auto cachedBuilder = builder;
+  const bool isLoopBreakable =
+      hasChildNodeOfType<qasm3Parser::ControlDirectiveContext>(*context);
+
+  if (isLoopBreakable) {
+    // Add the two loop control bool vars:
+    mlir::OpBuilder::InsertionGuard g(builder);
+    // Top-level if control (skipping the whole loop if false)
+    mlir::Value executeWholeLoop = builder.create<mlir::AllocaOp>(
+        location,
+        mlir::MemRefType::get(llvm::ArrayRef<int64_t>{}, builder.getI1Type()));
+    // Loop body control: skipping portions of the the body if
+    // false: e.g., handle 'continue'-like directive.
+    mlir::Value executeThisBlock = builder.create<mlir::AllocaOp>(
+        location,
+        mlir::MemRefType::get(llvm::ArrayRef<int64_t>{}, builder.getI1Type()));
+    // store true
+    builder.create<mlir::StoreOp>(
+        location,
+        get_or_create_constant_integer_value(1, location, builder.getI1Type(),
+                                             symbol_table, builder),
+        executeWholeLoop);
+    builder.create<mlir::StoreOp>(
+        location,
+        get_or_create_constant_integer_value(1, location, builder.getI1Type(),
+                                             symbol_table, builder),
+        executeThisBlock);
+    loop_control_directive_bool_vars.push(
+        std::make_pair(executeWholeLoop, executeThisBlock));
+  }
+
   mlir::scf::WhileOp whileOp = builder.create<mlir::scf::WhileOp>(
       location, mlir::TypeRange() /*resultTypes*/,
       mlir::ValueRange() /*operands*/);
@@ -423,8 +453,18 @@ void qasm3_visitor::createWhileLoop(
   qasm3_expression_generator exp_generator(builder, symbol_table, file_name);
   exp_generator.visit(loop_signature->booleanExpression());
   mlir::Value cond = exp_generator.current_value;
-  builder.create<mlir::scf::ConditionOp>(location, cond, before->getArguments());
-  builder.setInsertionPointToStart(&whileOp.after().front());
+
+  if (isLoopBreakable) {
+    auto [cond1, cond2] = loop_control_directive_bool_vars.top();
+    // Do a logical AND (&&) with the while condition.
+    mlir::Value extended_cond = builder.create<mlir::AndOp>(
+        location, builder.create<mlir::LoadOp>(location, cond1), cond);
+    builder.create<mlir::scf::ConditionOp>(location, extended_cond,
+                                           before->getArguments());
+  } else {
+    builder.create<mlir::scf::ConditionOp>(location, cond,
+                                           before->getArguments());
+  }
 
   // Build the "after" region:
   // In a "while" loop, this region is the loop body.
@@ -433,11 +473,17 @@ void qasm3_visitor::createWhileLoop(
     symbol_table.enter_new_scope();
     visitChildren(program_block);
     symbol_table.exit_scope();
-    // 'After' block must end with a yield op.
-    builder.create<mlir::scf::YieldOp>(location);
+  }
+
+  if (isLoopBreakable) {
+    loop_control_directive_bool_vars.pop();
   }
 
   builder = cachedBuilder;
+  // 'After' block must end with a yield op.
+  mlir::Operation &lastOp = whileOp.after().front().getOperations().back();
+  builder.setInsertionPointAfter(&lastOp);
+  builder.create<mlir::scf::YieldOp>(location);
   builder.restoreInsertionPoint(main_block);
 }
 } // namespace qcor
