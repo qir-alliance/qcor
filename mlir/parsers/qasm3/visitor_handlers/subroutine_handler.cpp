@@ -435,8 +435,11 @@ antlrcpp::Any qasm3_visitor::visitReturnStatement(
             value = builder.create<mlir::LoadOp>(location, value, zero_index);
           }
         } else {
-          value =
-              builder.create<mlir::LoadOp>(location, value); //, zero_index);
+          // If value is a memref val, load it.
+          if (value.getType().isa<mlir::MemRefType>()) {
+            value =
+                builder.create<mlir::LoadOp>(location, value); //, zero_index);
+          }
         }
       } else {
         printErrorMessage("We do not return memrefs from subroutines.",
