@@ -70,34 +70,23 @@ affineLoopBuilder(mlir::Value lbs_val, mlir::Value ubs_val, int64_t step,
 namespace qcor {
 antlrcpp::Any
 qasm3_visitor::visitLoopStatement(qasm3Parser::LoopStatementContext *context) {
-  auto program_block = context->programBlock();
-  const std::string program_block_str = program_block->getText();
-  if (program_block_str.find("QCOR_EXPECT_TRUE") != std::string::npos) {
-    // QCOR_EXPECT_TRUE will involve early escape (return)
-    // hence is not compatible with Region-based dataflow style (Affine/SCF)
-    // Since this QCOR_EXPECT_TRUE is for testing only.
-    // Don't support it for now.
-    // Will need to figure out how to make it work with Affine/SCF.
-    printErrorMessage(
-        "QCOR_EXPECT_TRUE in loop is not supported now. Stay tuned.", context);
-  }
-  auto loop_signature = context->loopSignature();
-  if (auto membership_test = loop_signature->membershipTest()) {
+  if (auto membership_test = context->loopSignature()->membershipTest()) {
     // this is a for loop
     auto set_declaration = membership_test->setDeclaration();
     if (set_declaration->LBRACE()) {
+      // Set-based for loop:
+      // e.g., for i in {1,3,5,6}
       createSetBasedForLoop(context);
-    } else if (auto range = set_declaration->rangeDefinition()) {
-      // this is a range definition
-      //     rangeDefinition
-      // : LBRACKET expression? COLON expression? ( COLON expression )? RBRACKET
-      // ;
+    } else if (set_declaration->rangeDefinition()) {
+      // Range-based for loop
+      // e.g., for i in [0:10]
       createRangeBasedForLoop(context);
     } else {
       printErrorMessage(
           "For loops must be of form 'for i in {SET}' or 'for i in [RANGE]'.");
     }
   } else {
+    // While loop:
     createWhileLoop(context);
   }
 
