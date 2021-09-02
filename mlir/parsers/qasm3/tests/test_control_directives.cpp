@@ -159,6 +159,37 @@ QCOR_EXPECT_TRUE(j == 7);
   EXPECT_FALSE(qcor::execute(uint_index, "uint_index"));
 }
 
+TEST(qasm3VisitorTester, checkEarlyReturn) {
+  const std::string uint_index = R"#(OPENQASM 3;
+include "qelib1.inc";
+
+def generate_number(int[64]: count) -> int[64] {
+  for i in [0:count] {
+    if (i > 10) {
+      print("Return at ", i);
+      return 5;
+    }
+    print("i =", i);
+  }
+
+  print("make it to the end");
+  return 1;  
+}
+
+int[64] val1 = generate_number(4);
+print("Result 1 =", val1);
+QCOR_EXPECT_TRUE(val1 == 1);
+// Call it with 20 -> activate the early return
+int[64] val2 = generate_number(20);
+print("Result 2 =", val2);
+QCOR_EXPECT_TRUE(val2 == 5);
+)#";
+  auto mlir = qcor::mlir_compile(uint_index, "uint_index",
+                                 qcor::OutputType::MLIR, false);
+  std::cout << mlir << "\n";
+  EXPECT_FALSE(qcor::execute(uint_index, "uint_index"));
+}
+
 TEST(qasm3VisitorTester, checkIqpewithIf) {
   const std::string qasm_code = R"#(OPENQASM 3;
 include "qelib1.inc";

@@ -166,6 +166,14 @@ class qasm3_visitor : public qasm3::qasm3BaseVisitor {
   /// the remaining ops in the body.
   /// We use a stack to handle nested loops, which are all break-able.
   std::stack<std::pair<mlir::Value, mlir::Value>> loop_control_directive_bool_vars;
+
+  // Early return loop control directive: return statement in the loop body.
+  // This will escape all loops until the *FuncOp* body and return.
+  // Note: MLIR validation will require ReturnOp in the **Region** of a FuncOp.
+  // First value: the boolean to control the early return (if true)
+  // Second value: the return value.
+  std::optional<std::pair<mlir::Value, std::optional<mlir::Value>>>
+      region_early_return_vars;
   // This method will add correct number of InstOps
   // based on quantum gate broadcasting
   void createInstOps_HandleBroadcast(std::string name,
@@ -183,6 +191,17 @@ class qasm3_visitor : public qasm3::qasm3BaseVisitor {
   void createSetBasedForLoop(qasm3Parser::LoopStatementContext *context);
   // While loop
   void createWhileLoop(qasm3Parser::LoopStatementContext *context);
+  // Insert MLIR loop break
+  void insertLoopBreak(mlir::Location &location,
+                       mlir::OpBuilder *optional_builder = nullptr);
+  void insertLoopContinue(mlir::Location &location,
+                       mlir::OpBuilder *optional_builder = nullptr);
+  // Insert a conditional return.
+  // Assert that the insert location is *returnable*
+  // i.e., in the FuncOp region.
+  void conditionalReturn(mlir::Location &location, mlir::Value cond,
+                         mlir::Value returnVal,
+                         mlir::OpBuilder *optional_builder = nullptr);
 
   // This function serves as a utility for creating a MemRef and
   // corresponding AllocOp of a given 1d shape. It will also store

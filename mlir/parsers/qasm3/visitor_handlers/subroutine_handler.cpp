@@ -463,10 +463,24 @@ antlrcpp::Any qasm3_visitor::visitReturnStatement(
   }
   is_return_stmt = false;
 
-  builder.create<mlir::ReturnOp>(
-      builder.getUnknownLoc(),
-      llvm::makeArrayRef(std::vector<mlir::Value>{value}));
-  subroutine_return_statment_added = true;
+  auto parentOp = builder.getBlock()->getParent()->getParentOp();
+  if (parentOp && mlir::dyn_cast_or_null<mlir::FuncOp>(parentOp)) {
+    builder.create<mlir::ReturnOp>(
+        location, llvm::makeArrayRef(std::vector<mlir::Value>{value}));
+    subroutine_return_statment_added = true;
+  } else {
+    assert(region_early_return_vars.has_value());
+    // Handling early return:
+    auto &[boolVar, returnVar] = region_early_return_vars.value();
+    builder.create<mlir::StoreOp>(
+        location,
+        get_or_create_constant_integer_value(1, location, builder.getI1Type(),
+                                             symbol_table, builder),
+        boolVar);
+    builder.create<mlir::StoreOp>(location, value, returnVar.value());
+    insertLoopBreak(location);
+  }
+
   return 0;
 }
 } // namespace qcor

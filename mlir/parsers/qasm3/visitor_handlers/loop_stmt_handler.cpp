@@ -210,7 +210,44 @@ void qasm3_visitor::createRangeBasedForLoop(
   }
 
   // Check if the loop is break-able (contains control directive node)
+  // The loop contains an early return.
+  const bool loopEarlyReturn =
+      hasChildNodeOfType<qasm3Parser::ReturnStatementContext>(*context) ||
+      hasChildNodeOfType<qasm3Parser::Qcor_test_statementContext>(*context);
+  // Top-level only
+  if (loopEarlyReturn && !region_early_return_vars.has_value()) {
+    mlir::OpBuilder::InsertionGuard g(builder);
+    mlir::Value shouldReturn = builder.create<mlir::AllocaOp>(
+        location,
+        mlir::MemRefType::get(llvm::ArrayRef<int64_t>{}, builder.getI1Type()));
+    // Store false:
+    builder.create<mlir::StoreOp>(
+        location,
+        get_or_create_constant_integer_value(0, location, builder.getI1Type(),
+                                             symbol_table, builder),
+        shouldReturn);
+
+    // Note: we don't know what the return value is yet
+    if (current_function_return_type) {
+      llvm::ArrayRef<int64_t> shaperef{};
+      mlir::Value return_var_memref = builder.create<mlir::AllocaOp>(
+          location,
+          mlir::MemRefType::get(shaperef, current_function_return_type));
+      region_early_return_vars =
+          std::make_pair(shouldReturn, return_var_memref);
+    } else {
+      llvm::ArrayRef<int64_t> shaperef{};
+      mlir::Value return_var_memref = builder.create<mlir::AllocaOp>(
+          location, mlir::MemRefType::get(shaperef, builder.getI32Type()));
+      region_early_return_vars =
+          std::make_pair(shouldReturn, return_var_memref);
+    }
+  }
+
+  // Loop has control directives (break/continue)
+  // A loop has return statement must be breakable
   const bool isLoopBreakable =
+      loopEarlyReturn ||
       hasChildNodeOfType<qasm3Parser::ControlDirectiveContext>(*context);
   auto cachedBuilder = builder;
   if (isLoopBreakable) {
@@ -272,6 +309,24 @@ void qasm3_visitor::createRangeBasedForLoop(
       },
       builder, location);
   builder = cachedBuilder;
+
+  auto parentOp = builder.getBlock()->getParent()->getParentOp();
+  if (parentOp && mlir::dyn_cast_or_null<mlir::FuncOp>(parentOp)) {
+    if (region_early_return_vars.has_value()) {
+      auto &[boolVar, returnVar] = region_early_return_vars.value();
+      mlir::Value returnedValue;
+      if (returnVar.has_value()) {
+        assert(returnVar.value().getType().isa<mlir::MemRefType>());
+        returnedValue =
+            builder.create<mlir::LoadOp>(location, returnVar.value());
+      }
+
+      conditionalReturn(location,
+                        builder.create<mlir::LoadOp>(location, boolVar),
+                        returnedValue);
+      region_early_return_vars.reset();
+    }
+  }
 }
 
 void qasm3_visitor::createSetBasedForLoop(

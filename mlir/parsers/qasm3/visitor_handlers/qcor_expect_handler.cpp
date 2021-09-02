@@ -37,9 +37,29 @@ antlrcpp::Any qasm3_visitor::visitQcor_test_statement(
           location, str_type, str_attr, var_name_attr);
   thenBodyBuilder.create<mlir::quantum::PrintOp>(
       location, llvm::makeArrayRef(std::vector<mlir::Value>{string_literal}));
-  auto integer_attr = mlir::IntegerAttr::get(thenBodyBuilder.getI32Type(), 1);
-  auto ret = builder.create<mlir::ConstantOp>(location, integer_attr);
-  thenBodyBuilder.create<mlir::ReturnOp>(location, llvm::ArrayRef<mlir::Value>(ret));
+
+  if (region_early_return_vars.has_value()) {
+    insertLoopBreak(location, &thenBodyBuilder);
+    // This is in an affine region (loops)
+    auto &[boolVar, returnVar] = region_early_return_vars.value();
+    builder.create<mlir::StoreOp>(location, expr_value, boolVar);
+    mlir::Value one_i32 = builder.create<mlir::ConstantOp>(
+        location, mlir::IntegerAttr::get(thenBodyBuilder.getI32Type(), 1));
+    builder.create<mlir::StoreOp>(location, one_i32, returnVar.value());
+    auto &[cond1, cond2] = loop_control_directive_bool_vars.top();
+    // Wrap/Outline the loop body in an IfOp:
+    auto continuationIfOp = builder.create<mlir::scf::IfOp>(
+        location, mlir::TypeRange(),
+        builder.create<mlir::LoadOp>(location, cond2), false);
+    auto continuationThenBodyBuilder = continuationIfOp.getThenBodyBuilder();
+    builder = continuationThenBodyBuilder;
+  } else {
+    // Outside scope: just do early return
+    conditionalReturn(
+        location, expr_value,
+        builder.create<mlir::ConstantOp>(
+            location, mlir::IntegerAttr::get(thenBodyBuilder.getI32Type(), 1)));
+  }
 
   return 0;
 }
