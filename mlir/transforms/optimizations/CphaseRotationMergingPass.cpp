@@ -1,4 +1,4 @@
-#include "CPhaseRotationMergingPass.hpp"
+#include "CphaseRotationMergingPass.hpp"
 #include "Quantum/QuantumOps.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
