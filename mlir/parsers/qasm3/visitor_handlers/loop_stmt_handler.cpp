@@ -508,7 +508,6 @@ void qasm3_visitor::createWhileLoop(
   auto loop_signature = context->loopSignature();
   auto program_block = context->programBlock();
   assert(loop_signature->booleanExpression());
-  auto main_block = builder.saveInsertionPoint();
   auto cachedBuilder = builder;
   
   // Check if the loop is break-able (contains control directive node)
@@ -619,14 +618,15 @@ void qasm3_visitor::createWhileLoop(
   }
 
   builder = cachedBuilder;
+  // 'After' block must end with a yield op.
+  {
+    mlir::OpBuilder::InsertionGuard g(builder);
+    mlir::Operation &lastOp = whileOp.after().front().getOperations().back();
+    builder.setInsertionPointAfter(&lastOp);
+    builder.create<mlir::scf::YieldOp>(location);
+  }
 
   // Handle potential return statement in the loop.
   handleReturnInLoop(location);
-
-  // 'After' block must end with a yield op.
-  mlir::Operation &lastOp = whileOp.after().front().getOperations().back();
-  builder.setInsertionPointAfter(&lastOp);
-  builder.create<mlir::scf::YieldOp>(location);
-  builder.restoreInsertionPoint(main_block);
 }
 } // namespace qcor

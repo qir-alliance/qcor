@@ -223,7 +223,6 @@ QCOR_EXPECT_TRUE(val2 == 3);
   EXPECT_FALSE(qcor::execute(uint_index, "uint_index"));
 }
 
-
 TEST(qasm3VisitorTester, checkEarlyReturnNestedLoop) {
   const std::string uint_index = R"#(OPENQASM 3;
 include "qelib1.inc";
@@ -271,6 +270,115 @@ QCOR_EXPECT_TRUE(val == 23);
 val = generate_number(1, 20);
 print("Result =", val);
 QCOR_EXPECT_TRUE(val == 3);
+)#";
+  auto mlir = qcor::mlir_compile(uint_index, "uint_index",
+                                 qcor::OutputType::MLIR, false);
+  std::cout << mlir << "\n";
+  EXPECT_FALSE(qcor::execute(uint_index, "uint_index"));
+}
+
+// Nesting for and while loops
+TEST(qasm3VisitorTester, checkEarlyReturnNestedWhileLoop) {
+  const std::string uint_index = R"#(OPENQASM 3;
+include "qelib1.inc";
+
+def generate_number(int[64]: break_value, int[64]: max_run) -> int[64] {
+  int[64] run_count = 0;
+  int[64] i = 0;
+  while(run_count < max_run) {
+    for j in [0:10] {
+      run_count += 1;
+      if (i == j && i > break_value) {
+        print("Return at i = ", i);
+        print("Return at j = ", j);
+        return run_count;
+      }
+
+      print("i =", i);
+      print("j =", j);
+    }
+    i += 1;
+    print("Out of inner loop");
+  }
+
+  print("make it to the end");
+  return 0;  
+}
+
+// Case 1: early return @ (i == j && i > break_value) 
+// => 23 runs (return run_count in this path)
+int[64] val = generate_number(1, 100);
+print("Result =", val);
+QCOR_EXPECT_TRUE(val == 23);
+
+// Case 2: return at the end
+// Make it to the end since run_count will hit 20 
+// before hitting the early return condition.
+val = generate_number(1, 20);
+print("Result =", val);
+QCOR_EXPECT_TRUE(val == 0);
+)#";
+  auto mlir = qcor::mlir_compile(uint_index, "uint_index",
+                                 qcor::OutputType::MLIR, false);
+  std::cout << mlir << "\n";
+  EXPECT_FALSE(qcor::execute(uint_index, "uint_index"));
+}
+
+// Test a complex construction with nesting of different loop types,
+// break, return, etc...
+TEST(qasm3VisitorTester, checkControlDirectiveKitchenSink) {
+  const std::string uint_index = R"#(OPENQASM 3;
+include "qelib1.inc";
+
+def find_number(int[64]: target, int[64]: max_run) -> int[64] {
+  int[64] run_count = 0;
+  for i in { 1, 3, 5, 7, 9} {
+    while(run_count < max_run) {
+      for j in [0:10] {
+        run_count += 1;
+        if (i == target && j == i) {
+          print("Return at i = ", i);
+          print("Return at j = ", j);
+          print("Return run_count = ", run_count);
+          return run_count;
+        }
+
+        print("i =", i);
+        print("j =", j);
+      }
+      // Finish the searching [0->10], break the while loop
+      // This is a weird construction,
+      // just for testing.
+      break;
+    }
+    print("Make it out of the loop");
+    print("run_count = ", run_count);
+  }
+  
+  print("Not found");
+  return 0;
+}
+
+int[64] val = find_number(3, 100);
+print("Result  =", val);
+// Find number 3 at 14 iterations.
+QCOR_EXPECT_TRUE(val == 14);
+
+
+val = find_number(2, 100);
+print("Result =", val);
+// Cannot find number 2 in the set:
+QCOR_EXPECT_TRUE(val == 0);
+
+val = find_number(7, 20);
+print("Result =", val);
+// Cannot find number 7 with only 20 iterations
+QCOR_EXPECT_TRUE(val == 0);
+
+val = find_number(7, 100);
+print("Result =", val);
+// But will find it at iteration 38...
+QCOR_EXPECT_TRUE(val == 38);
 )#";
   auto mlir = qcor::mlir_compile(uint_index, "uint_index",
                                  qcor::OutputType::MLIR, false);
@@ -359,13 +467,12 @@ QCOR_EXPECT_TRUE(c[3] == 1);
 )#";
   // Make sure we can compile this in FTQC.
   // i.e., usual if ...
-  auto mlir = qcor::mlir_compile(qasm_code, "iqpe",
-                                 qcor::OutputType::LLVMIR, false);
+  auto mlir =
+      qcor::mlir_compile(qasm_code, "iqpe", qcor::OutputType::LLVMIR, false);
   std::cout << mlir << "\n";
   // Execute (FTQC + optimization): validate expected results: 1101
   EXPECT_FALSE(qcor::execute(qasm_code, "iqpe"));
 }
-
 
 int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);
