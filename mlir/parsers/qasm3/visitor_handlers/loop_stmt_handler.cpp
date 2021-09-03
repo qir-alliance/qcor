@@ -93,6 +93,41 @@ qasm3_visitor::visitLoopStatement(qasm3Parser::LoopStatementContext *context) {
   return 0;
 }
 
+void qasm3_visitor::handleReturnInLoop(mlir::Location &location) {
+  if (region_early_return_vars.has_value()) {
+    auto parentOp = builder.getBlock()->getParent()->getParentOp();
+    // Make it out to the Function scope:
+    if (parentOp && mlir::dyn_cast_or_null<mlir::FuncOp>(parentOp)) {
+      auto &[boolVar, returnVar] = region_early_return_vars.value();
+      mlir::Value returnedValue;
+      if (returnVar.has_value()) {
+        assert(returnVar.value().getType().isa<mlir::MemRefType>());
+        returnedValue =
+            builder.create<mlir::LoadOp>(location, returnVar.value());
+      }
+      conditionalReturn(location,
+                        builder.create<mlir::LoadOp>(location, boolVar),
+                        returnedValue);
+      region_early_return_vars.reset();
+      assert(symbol_table.get_last_created_block());
+    } else if (!loop_control_directive_bool_vars.empty()) {
+      // The outer loop needs to set-up as a breakable loop as well.
+      auto &[boolVar, returnVar] = region_early_return_vars.value();
+      auto returnIfOp = builder.create<mlir::scf::IfOp>(
+          location, mlir::TypeRange(),
+          builder.create<mlir::LoadOp>(location, boolVar), false);
+      // Break the outer loop if the return flag has been set
+      auto opBuilder = returnIfOp.getThenBodyBuilder();
+      insertLoopBreak(location, &opBuilder);
+      // Treating the remaining code in the outer loop after the nested loop
+      // as conditional (i.e., could be bypassed if the continue condition set).
+      insertLoopContinue(location);
+    } else {
+      printErrorMessage("Internal error: Unable to handle return statement in a loop.");
+    }
+  }
+}
+
 void qasm3_visitor::createRangeBasedForLoop(
     qasm3Parser::LoopStatementContext *context) {
   auto location = get_location(builder, file_name, context);
@@ -309,24 +344,7 @@ void qasm3_visitor::createRangeBasedForLoop(
       },
       builder, location);
   builder = cachedBuilder;
-
-  auto parentOp = builder.getBlock()->getParent()->getParentOp();
-  if (parentOp && mlir::dyn_cast_or_null<mlir::FuncOp>(parentOp)) {
-    if (region_early_return_vars.has_value()) {
-      auto &[boolVar, returnVar] = region_early_return_vars.value();
-      mlir::Value returnedValue;
-      if (returnVar.has_value()) {
-        assert(returnVar.value().getType().isa<mlir::MemRefType>());
-        returnedValue =
-            builder.create<mlir::LoadOp>(location, returnVar.value());
-      }
-
-      conditionalReturn(location,
-                        builder.create<mlir::LoadOp>(location, boolVar),
-                        returnedValue);
-      region_early_return_vars.reset();
-    }
-  }
+  handleReturnInLoop(location);
 }
 
 void qasm3_visitor::createSetBasedForLoop(
@@ -379,7 +397,44 @@ void qasm3_visitor::createSetBasedForLoop(
                                                   symbol_table, builder);
 
   // Check if the loop is break-able (contains control directive node)
+  // The loop contains an early return.
+  const bool loopEarlyReturn =
+      hasChildNodeOfType<qasm3Parser::ReturnStatementContext>(*context) ||
+      hasChildNodeOfType<qasm3Parser::Qcor_test_statementContext>(*context);
+  // Top-level only
+  if (loopEarlyReturn && !region_early_return_vars.has_value()) {
+    mlir::OpBuilder::InsertionGuard g(builder);
+    mlir::Value shouldReturn = builder.create<mlir::AllocaOp>(
+        location,
+        mlir::MemRefType::get(llvm::ArrayRef<int64_t>{}, builder.getI1Type()));
+    // Store false:
+    builder.create<mlir::StoreOp>(
+        location,
+        get_or_create_constant_integer_value(0, location, builder.getI1Type(),
+                                             symbol_table, builder),
+        shouldReturn);
+
+    // Note: we don't know what the return value is yet
+    if (current_function_return_type) {
+      llvm::ArrayRef<int64_t> shaperef{};
+      mlir::Value return_var_memref = builder.create<mlir::AllocaOp>(
+          location,
+          mlir::MemRefType::get(shaperef, current_function_return_type));
+      region_early_return_vars =
+          std::make_pair(shouldReturn, return_var_memref);
+    } else {
+      llvm::ArrayRef<int64_t> shaperef{};
+      mlir::Value return_var_memref = builder.create<mlir::AllocaOp>(
+          location, mlir::MemRefType::get(shaperef, builder.getI32Type()));
+      region_early_return_vars =
+          std::make_pair(shouldReturn, return_var_memref);
+    }
+  }
+
+  // Loop has control directives (break/continue)
+  // A loop has return statement must be breakable
   const bool isLoopBreakable =
+      loopEarlyReturn ||
       hasChildNodeOfType<qasm3Parser::ControlDirectiveContext>(*context);
   auto cachedBuilder = builder;
   if (isLoopBreakable) {
@@ -444,6 +499,7 @@ void qasm3_visitor::createSetBasedForLoop(
       },
       builder, location);
   builder = cachedBuilder;
+  handleReturnInLoop(location);
 }
 
 void qasm3_visitor::createWhileLoop(
@@ -454,7 +510,46 @@ void qasm3_visitor::createWhileLoop(
   assert(loop_signature->booleanExpression());
   auto main_block = builder.saveInsertionPoint();
   auto cachedBuilder = builder;
+  
+  // Check if the loop is break-able (contains control directive node)
+  // The loop contains an early return.
+  const bool loopEarlyReturn =
+      hasChildNodeOfType<qasm3Parser::ReturnStatementContext>(*context) ||
+      hasChildNodeOfType<qasm3Parser::Qcor_test_statementContext>(*context);
+  // Top-level only
+  if (loopEarlyReturn && !region_early_return_vars.has_value()) {
+    mlir::OpBuilder::InsertionGuard g(builder);
+    mlir::Value shouldReturn = builder.create<mlir::AllocaOp>(
+        location,
+        mlir::MemRefType::get(llvm::ArrayRef<int64_t>{}, builder.getI1Type()));
+    // Store false:
+    builder.create<mlir::StoreOp>(
+        location,
+        get_or_create_constant_integer_value(0, location, builder.getI1Type(),
+                                             symbol_table, builder),
+        shouldReturn);
+
+    // Note: we don't know what the return value is yet
+    if (current_function_return_type) {
+      llvm::ArrayRef<int64_t> shaperef{};
+      mlir::Value return_var_memref = builder.create<mlir::AllocaOp>(
+          location,
+          mlir::MemRefType::get(shaperef, current_function_return_type));
+      region_early_return_vars =
+          std::make_pair(shouldReturn, return_var_memref);
+    } else {
+      llvm::ArrayRef<int64_t> shaperef{};
+      mlir::Value return_var_memref = builder.create<mlir::AllocaOp>(
+          location, mlir::MemRefType::get(shaperef, builder.getI32Type()));
+      region_early_return_vars =
+          std::make_pair(shouldReturn, return_var_memref);
+    }
+  }
+
+  // Loop has control directives (break/continue)
+  // A loop has return statement must be breakable
   const bool isLoopBreakable =
+      loopEarlyReturn ||
       hasChildNodeOfType<qasm3Parser::ControlDirectiveContext>(*context);
 
   if (isLoopBreakable) {
@@ -524,6 +619,10 @@ void qasm3_visitor::createWhileLoop(
   }
 
   builder = cachedBuilder;
+
+  // Handle potential return statement in the loop.
+  handleReturnInLoop(location);
+
   // 'After' block must end with a yield op.
   mlir::Operation &lastOp = whileOp.after().front().getOperations().back();
   builder.setInsertionPointAfter(&lastOp);

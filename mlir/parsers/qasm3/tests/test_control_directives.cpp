@@ -224,6 +224,60 @@ QCOR_EXPECT_TRUE(val2 == 3);
 }
 
 
+TEST(qasm3VisitorTester, checkEarlyReturnNestedLoop) {
+  const std::string uint_index = R"#(OPENQASM 3;
+include "qelib1.inc";
+
+def generate_number(int[64]: break_value, int[64]: max_run) -> int[64] {
+  int[64] run_count = 0;
+  for i in [0:10] {
+    for j in [0:10] {
+      run_count += 1;
+      if (run_count > max_run) {
+        print("Exceeding max run count of", max_run);
+        return 3;
+      }
+      
+      if (i == j && i > break_value) {
+        print("Return at i = ", i);
+        print("Return at j = ", j);
+        return run_count;
+      }
+
+      print("i =", i);
+      print("j =", j);
+    }
+    print("Out of inner loop");
+  }
+
+  print("make it to the end");
+  return 0;  
+}
+
+// Case 1: run to the end.
+int[64] val = generate_number(10, 100);
+print("Result =", val);
+QCOR_EXPECT_TRUE(val == 0);
+
+// Case 2: Return @ (i == j && i > break_value) 
+// i = 0: 10; i = 1: 10; i = 2: j = 0, 1, 2 
+// => 23 runs (return run_count in this path)
+val = generate_number(1, 100);
+print("Result =", val);
+QCOR_EXPECT_TRUE(val == 23);
+
+// Case 3: return due to max_run limit
+// limit to 20 (less than 23) => return value 3
+val = generate_number(1, 20);
+print("Result =", val);
+QCOR_EXPECT_TRUE(val == 3);
+)#";
+  auto mlir = qcor::mlir_compile(uint_index, "uint_index",
+                                 qcor::OutputType::MLIR, false);
+  std::cout << mlir << "\n";
+  EXPECT_FALSE(qcor::execute(uint_index, "uint_index"));
+}
+
 TEST(qasm3VisitorTester, checkIqpewithIf) {
   const std::string qasm_code = R"#(OPENQASM 3;
 include "qelib1.inc";

@@ -43,8 +43,9 @@ antlrcpp::Any qasm3_visitor::visitQcor_test_statement(
     // This is in an affine region (loops)
     auto &[boolVar, returnVar] = region_early_return_vars.value();
     builder.create<mlir::StoreOp>(location, expr_value, boolVar);
-    mlir::Value one_i32 = builder.create<mlir::ConstantOp>(
-        location, mlir::IntegerAttr::get(thenBodyBuilder.getI32Type(), 1));
+    mlir::Value one_i32 = get_or_create_constant_integer_value(
+        1, location, thenBodyBuilder.getI32Type(), symbol_table,
+        thenBodyBuilder);
     builder.create<mlir::StoreOp>(location, one_i32, returnVar.value());
     auto &[cond1, cond2] = loop_control_directive_bool_vars.top();
     // Wrap/Outline the loop body in an IfOp:

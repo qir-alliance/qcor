@@ -196,6 +196,7 @@ class qasm3_visitor : public qasm3::qasm3BaseVisitor {
                        mlir::OpBuilder *optional_builder = nullptr);
   void insertLoopContinue(mlir::Location &location,
                        mlir::OpBuilder *optional_builder = nullptr);
+  void handleReturnInLoop(mlir::Location &location);
   // Insert a conditional return.
   // Assert that the insert location is *returnable*
   // i.e., in the FuncOp region.
