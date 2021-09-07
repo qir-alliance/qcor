@@ -26,6 +26,11 @@ void ScopedSymbolTable::replace_symbol(mlir::Value old_value,
   }
 }
 
+std::string ScopedSymbolTable::get_symbol_var_name(mlir::Value value) {
+  auto iter = replacement_helper.find(value.getAsOpaquePointer());
+  return iter != replacement_helper.end() ? iter->second : "";
+}
+
 std::optional<int64_t>
 ScopedSymbolTable::try_evaluate_constant_integer_expression(
     const std::string expr_str) {
@@ -182,4 +187,70 @@ ScopedSymbolTable::get_all_visible_symbols() {
   }
   return all_symbols;
 }
-}  // namespace qcor
+
+std::optional<size_t> ScopedSymbolTable::get_qreg_size(const std::string &qreg_name) {
+  if (!has_symbol(qreg_name)) {
+    return std::nullopt;
+  }
+  auto qreg_value = get_symbol(qreg_name);
+  if (qreg_value.getType().isa<mlir::OpaqueType>() &&
+      qreg_value.getType().cast<mlir::OpaqueType>().getTypeData() == "Array") {
+    // Should be Array type:
+    if (auto op = qreg_value.getDefiningOp<mlir::quantum::QallocOp>()) {
+      return op.size().getLimitedValue();
+    } else {
+      auto attributes = get_variable_attributes(qreg_name);
+      if (!attributes.empty()) {
+        try {
+          return std::stoi(attributes[0]);
+        } catch (...) {
+          return std::nullopt;
+        }
+      }
+    }
+  }
+  return std::nullopt;
+}
+
+void ScopedSymbolTable::invalidate_qubit_extracts(
+    const std::string &qreg_name, const std::vector<int> &indices) {
+  if (indices.empty()) {
+    const auto reg_size = get_qreg_size(qreg_name).value();
+    for (size_t i = 0; i < reg_size; ++i) {
+      erase_symbol(array_qubit_symbol_name(qreg_name, i));
+    }
+  } else {
+    const auto reg_size = get_qreg_size(qreg_name).value();
+    for (const auto &idx : indices) {
+      assert(idx < reg_size);
+      erase_symbol(array_qubit_symbol_name(qreg_name, idx));
+    }
+  }
+}
+void ScopedSymbolTable::erase_symbol(const std::string &var_name) {
+  for (auto &table : scoped_symbol_tables) {
+    table.erase_symbol(var_name);
+  }
+}
+
+bool ScopedSymbolTable::verify_qubit_ssa_dominance_property(
+    mlir::Value qubit, mlir::Block* current_block) {
+  assert(qubit.getType().isa<mlir::OpaqueType>() &&
+         qubit.getType().dyn_cast<mlir::OpaqueType>().getTypeData() == "Qubit");
+
+  // Checking that the QVS Op that **produces** this qubit is in the same
+  // region as this op.
+  // i.e., if the Op that produces this qubit SSA is in a for or if region,
+  // this qubit SSA is **not** properly dominated. Hence, requires a re-extract. 
+  if (auto *useOp = qubit.getDefiningOp()) {
+    if (mlir::dyn_cast_or_null<mlir::quantum::ValueSemanticsInstOp>(useOp)) {
+      mlir::Block *block2 = useOp->getBlock();
+      mlir::Region *region1 = current_block->getParent();
+      mlir::Region *region2 = block2->getParent();
+      return region1 == region2;
+    }
+  }
+
+  return true;
+}
+} // namespace qcor

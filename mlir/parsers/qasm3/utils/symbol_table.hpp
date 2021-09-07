@@ -76,6 +76,14 @@ struct SymbolTable {
     var_name_to_value[var_name] = value;
   }
 
+  void erase_symbol(const std::string &var_name) {
+    auto iter = ref_var_name_to_orig_var_name.find(var_name);
+    if (iter != ref_var_name_to_orig_var_name.end()) {
+      var_name_to_value.erase(iter->second);
+    } else {
+      var_name_to_value.erase(var_name);
+    }
+  }
   // Compatible w/ a raw map (assuming the variable is original/root)
   mlir::Value &operator[](const std::string &var_name) {
     return var_name_to_value[var_name];
@@ -209,6 +217,8 @@ public:
   }
 
   void replace_symbol(mlir::Value old_value, mlir::Value new_value);
+  // Returns an empty string if this Value is not tracked in the symbol table.
+  std::string get_symbol_var_name(mlir::Value value);
 
   std::vector<std::string> get_seen_function_names() {
     std::vector<std::string> fnames;
@@ -435,6 +445,32 @@ public:
     return array_qubit_symbol_name(qreg_name, std::to_string(index));
   }
 
+  // Invalidate all qubit symbol tracking:
+  // e.g., q%1, q%2, etc.
+  // This will force a re-extract afterward, i.e. disconnect the SSA chain.
+  // Rationale: 
+  // In cases whereby the qubit SSA use-def chain cannot be tracked reliably,
+  // we need to flush the tracking, i.e., effectively adding a barrier in the use-def chain.
+  // for example, 
+  // - Gates (QVS Op) in a conditional block: we disconnect the SSA chain before and after the contional blocks
+  // for any qubits that are involved in that block.
+  // - Ambiguous qubits: e.g. q[i] (i is not known at compile time), we need to flush the entire 
+  // use-def chain on register q.
+  // - Function call: passing a qreg to a subroutine.
+  // Notes: during optimization passes, we may be able to reconnect/reconstruct some SSA chains   
+  // thanks to inlining and loop-unrolling.
+  // Empty `indices` list indicates that we flush all qubits.
+  void invalidate_qubit_extracts(const std::string &qreg_name,
+                                 const std::vector<int> &indices = {});
+  std::optional<size_t> get_qreg_size(const std::string &qreg_name);
+  void erase_symbol(const std::string& var_name);
+
+
+  // Checking if a qubit SSA operand has its use properly dominated in a block.
+  // i.e., returns false is this value was produced by an Op in a separate region,
+  // such as If or For loop.
+  bool verify_qubit_ssa_dominance_property(mlir::Value qubit,
+                                           mlir::Block *current_block);
   void add_measure_bit_assignment(const mlir::Value &bit_var,
                                   const mlir::Value &result_var);
   std::optional<mlir::Value> try_lookup_meas_result(const mlir::Value &bit_var);

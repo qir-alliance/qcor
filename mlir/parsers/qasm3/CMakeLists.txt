@@ -6,17 +6,7 @@ if (APPLE)
   set(ANTLR_LIB ${XACC_ROOT}/lib/libantlr4-runtime.dylib)
 endif()
 
-file(GLOB SRC *.cpp antlr/generated/*.cpp utils/*.cpp 
-   visitor_handlers/quantum_types_handler.cpp
-   visitor_handlers/quantum_instruction_handler.cpp
-   visitor_handlers/classical_types_handler.cpp
-   visitor_handlers/measurement_handler.cpp
-   visitor_handlers/loop_stmt_handler.cpp
-   visitor_handlers/conditional_handler.cpp
-   visitor_handlers/subroutine_handler.cpp
-   visitor_handlers/alias_handler.cpp
-   visitor_handlers/compute_action_handler.cpp
-   )
+file(GLOB SRC *.cpp antlr/generated/*.cpp utils/*.cpp visitor_handlers/*.cpp)
 
 add_library(${LIBRARY_NAME} SHARED ${SRC})
 target_compile_features(${LIBRARY_NAME} 

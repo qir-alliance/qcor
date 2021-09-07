@@ -114,65 +114,10 @@ class qasm3_visitor : public qasm3::qasm3BaseVisitor {
   // Visit the compute-action-uncompute expression
   antlrcpp::Any visitCompute_action_stmt(qasm3Parser::Compute_action_stmtContext *context) override;
 
+  // QCOR_EXPECT_TRUE handler
   antlrcpp::Any visitQcor_test_statement(
-      qasm3Parser::Qcor_test_statementContext* context) override {
-    auto location = get_location(builder, file_name, context);
+      qasm3Parser::Qcor_test_statementContext *context) override;
 
-    auto boolean_expr = context->booleanExpression();
-    qasm3_expression_generator exp_generator(builder, symbol_table, file_name);
-    exp_generator.visit(boolean_expr);
-    auto expr_value = exp_generator.current_value;
-
-    // So we have a conditional result, want
-    // to negate it and see if == true
-    expr_value = builder.create<mlir::CmpIOp>(
-        location, mlir::CmpIPredicate::ne, expr_value,
-        get_or_create_constant_integer_value(1, location, builder.getI1Type(),
-                                             symbol_table, builder));
-
-    auto currRegion = builder.getBlock()->getParent();
-    auto savept = builder.saveInsertionPoint();
-    auto thenBlock = builder.createBlock(currRegion, currRegion->end());
-    mlir::Block* exitBlock = builder.createBlock(currRegion, currRegion->end());
-
-    // Build up the THEN Block
-    builder.setInsertionPointToStart(thenBlock);
-
-    auto sl = "QCOR Test Failure: " + context->getText() + "\n";
-    llvm::StringRef string_type_name("StringType");
-    mlir::Identifier dialect =
-        mlir::Identifier::get("quantum", builder.getContext());
-    auto str_type =
-        mlir::OpaqueType::get(builder.getContext(), dialect, string_type_name);
-    auto str_attr = builder.getStringAttr(sl);
-
-    std::hash<std::string> hasher;
-    auto hash = hasher(sl);
-    std::stringstream ss;
-    ss << "__internal_string_literal__" << hash;
-    std::string var_name = ss.str();
-    auto var_name_attr = builder.getStringAttr(var_name);
-
-    auto string_literal = builder.create<mlir::quantum::CreateStringLiteralOp>(
-        location, str_type, str_attr, var_name_attr);
-    builder.create<mlir::quantum::PrintOp>(
-        location, llvm::makeArrayRef(std::vector<mlir::Value>{string_literal}));
-
-    auto integer_attr = mlir::IntegerAttr::get(builder.getI32Type(), 1);
-    auto ret = builder.create<mlir::ConstantOp>(location, integer_attr);
-    builder.create<mlir::ReturnOp>(location, llvm::ArrayRef<mlir::Value>(ret));
-
-    // Restore the insertion point and create the conditional statement
-    builder.restoreInsertionPoint(savept);
-    builder.create<mlir::CondBranchOp>(location, expr_value, thenBlock,
-                                       exitBlock);
-    builder.setInsertionPointToStart(exitBlock);
-
-    symbol_table.set_last_created_block(exitBlock);
-
-    return 0;
-  }
-  
   antlrcpp::Any visitPragma(qasm3Parser::PragmaContext *ctx) override {
     // Handle the #pragma { export; } directive
     // Mark the export bool flag so that the later sub-routine handler will pick it up.
@@ -192,11 +137,6 @@ class qasm3_visitor : public qasm3::qasm3BaseVisitor {
   mlir::ModuleOp m_module;
   std::string file_name = "";
   bool enable_nisq_ifelse = false;  
-  // We keep reference to these blocks so that
-  // we can handle break/continue correctly
-  mlir::Block* current_loop_exit_block;
-  mlir::Block* current_loop_header_block;
-  mlir::Block* current_loop_incrementor_block;
 
   // The symbol table, keeps track of current scope
   ScopedSymbolTable symbol_table;
@@ -216,6 +156,24 @@ class qasm3_visitor : public qasm3::qasm3BaseVisitor {
   mlir::Type array_type;
   mlir::Type result_type;
 
+  // Loop control vars for break/continue implementation with Region-based
+  // Affine/SCF Ops.
+  // Strategy:
+  /// - A break-able for loop will have a bool (first in the pair) to control
+  /// the loop body execution. i.e., bypass the whole loop if the break
+  /// condition is triggered.
+  /// - The second bool is the continue condition which will bypass all
+  /// the remaining ops in the body.
+  /// We use a stack to handle nested loops, which are all break-able.
+  std::stack<std::pair<mlir::Value, mlir::Value>> loop_control_directive_bool_vars;
+
+  // Early return loop control directive: return statement in the loop body.
+  // This will escape all loops until the *FuncOp* body and return.
+  // Note: MLIR validation will require ReturnOp in the **Region** of a FuncOp.
+  // First value: the boolean to control the early return (if true)
+  // Second value: the return value.
+  std::optional<std::pair<mlir::Value, std::optional<mlir::Value>>>
+      region_early_return_vars;
   // This method will add correct number of InstOps
   // based on quantum gate broadcasting
   void createInstOps_HandleBroadcast(std::string name,
@@ -225,6 +183,26 @@ class qasm3_visitor : public qasm3::qasm3BaseVisitor {
                                      std::vector<mlir::Value> param_values,
                                      mlir::Location location,
                                      antlr4::ParserRuleContext* context);
+
+  // Helper to handle range-based for loop
+  void createRangeBasedForLoop(qasm3Parser::LoopStatementContext *context);
+  // Helper to handle set-based for loop:
+  // e.g., for i in {1,4,6,7}:
+  void createSetBasedForLoop(qasm3Parser::LoopStatementContext *context);
+  // While loop
+  void createWhileLoop(qasm3Parser::LoopStatementContext *context);
+  // Insert MLIR loop break
+  void insertLoopBreak(mlir::Location &location,
+                       mlir::OpBuilder *optional_builder = nullptr);
+  void insertLoopContinue(mlir::Location &location,
+                       mlir::OpBuilder *optional_builder = nullptr);
+  void handleReturnInLoop(mlir::Location &location);
+  // Insert a conditional return.
+  // Assert that the insert location is *returnable*
+  // i.e., in the FuncOp region.
+  void conditionalReturn(mlir::Location &location, mlir::Value cond,
+                         mlir::Value returnVal,
+                         mlir::OpBuilder *optional_builder = nullptr);
 
   // This function serves as a utility for creating a MemRef and
   // corresponding AllocOp of a given 1d shape. It will also store

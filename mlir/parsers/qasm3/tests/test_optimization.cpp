@@ -25,8 +25,7 @@ x q[0];
 cx q[0], q[1];
 cx q[0], q[1];
 )#";
-  auto llvm =
-      qcor::mlir_compile(src, "test", qcor::OutputType::LLVMIR, true);
+  auto llvm = qcor::mlir_compile(src, "test", qcor::OutputType::LLVMIR, true);
   std::cout << "LLVM:\n" << llvm << "\n";
   // No instrucions left
   EXPECT_TRUE(llvm.find("__quantum__qis") == std::string::npos);
@@ -69,7 +68,7 @@ rz(2.4566) q[1];
   auto llvm =
       qcor::mlir_compile(src, "test_kernel", qcor::OutputType::LLVMIR, false);
   std::cout << "LLVM:\n" << llvm << "\n";
-  
+
   // Get the function LLVM only (not __internal_mlir_XXXX, etc.)
   llvm = llvm.substr(llvm.find("@test_kernel"));
   // 2 instrucions left: rx and rz
@@ -90,10 +89,10 @@ h q[0];
   auto llvm =
       qcor::mlir_compile(src, "test_kernel", qcor::OutputType::LLVMIR, false);
   std::cout << "LLVM:\n" << llvm << "\n";
-  
+
   // Get the function LLVM only (not __internal_mlir_XXXX, etc.)
   llvm = llvm.substr(llvm.find("@test_kernel"));
-  // 1 instrucions left: rx 
+  // 1 instrucions left: rx
   EXPECT_EQ(countSubstring(llvm, "__quantum__qis"), 1);
   EXPECT_EQ(countSubstring(llvm, "__quantum__qis__rx"), 1);
 }
@@ -135,7 +134,7 @@ oracle q[0];
   auto llvm =
       qcor::mlir_compile(src, "test_kernel", qcor::OutputType::LLVMIR, false);
   std::cout << "LLVM:\n" << llvm << "\n";
-  
+
   // Get the main kernel section only (there is the oracle LLVM section as well)
   llvm = llvm.substr(llvm.find("@test_kernel"));
   const auto last = llvm.find_first_of("}");
@@ -163,7 +162,7 @@ cx q[0], q[1];
   auto llvm =
       qcor::mlir_compile(src, "test_kernel", qcor::OutputType::LLVMIR, false);
   std::cout << "LLVM:\n" << llvm << "\n";
-  
+
   // Get the main kernel section only (there is the oracle LLVM section as well)
   llvm = llvm.substr(llvm.find("@test_kernel"));
   const auto last = llvm.find_first_of("}");
@@ -190,8 +189,8 @@ for i in [0:10] {
   auto llvm =
       qcor::mlir_compile(src, "test_kernel", qcor::OutputType::LLVMIR, false);
   std::cout << "LLVM:\n" << llvm << "\n";
-  
-  // Get the main kernel section only 
+
+  // Get the main kernel section only
   llvm = llvm.substr(llvm.find("@__internal_mlir_test_kernel"));
   const auto last = llvm.find_first_of("}");
   llvm = llvm.substr(0, last + 1);
@@ -218,8 +217,8 @@ for i in [0:100] {
   auto llvm =
       qcor::mlir_compile(src, "test_kernel", qcor::OutputType::LLVMIR, false);
   std::cout << "LLVM:\n" << llvm << "\n";
-  
-  // Get the main kernel section only 
+
+  // Get the main kernel section only
   llvm = llvm.substr(llvm.find("@__internal_mlir_test_kernel"));
   const auto last = llvm.find_first_of("}");
   llvm = llvm.substr(0, last + 1);
@@ -268,8 +267,8 @@ for i in [0:100] {
   auto llvm =
       qcor::mlir_compile(src, "test_kernel", qcor::OutputType::LLVMIR, false);
   std::cout << "LLVM:\n" << llvm << "\n";
-  
-  // Get the main kernel section only 
+
+  // Get the main kernel section only
   llvm = llvm.substr(llvm.find("@__internal_mlir_test_kernel"));
   const auto last = llvm.find_first_of("}");
   llvm = llvm.substr(0, last + 1);
@@ -313,8 +312,8 @@ for i in [0:100] {
   auto llvm =
       qcor::mlir_compile(src, "test_kernel", qcor::OutputType::LLVMIR, false);
   std::cout << "LLVM:\n" << llvm << "\n";
-  
-  // Get the main kernel section only 
+
+  // Get the main kernel section only
   llvm = llvm.substr(llvm.find("@__internal_mlir_test_kernel"));
   const auto last = llvm.find_first_of("}");
   llvm = llvm.substr(0, last + 1);
@@ -423,8 +422,8 @@ for i in [0:2*n + 1] {
  x qb;
 }
 )#";
-    auto llvm =
-        qcor::mlir_compile(src, "test_kernel1", qcor::OutputType::LLVMIR, false);
+    auto llvm = qcor::mlir_compile(src, "test_kernel1",
+                                   qcor::OutputType::LLVMIR, false);
     std::cout << "LLVM:\n" << llvm << "\n";
 
     // Get the main kernel section only
@@ -435,6 +434,140 @@ for i in [0:2*n + 1] {
     // One X gate left
     EXPECT_EQ(countSubstring(llvm, "__quantum__qis__x"), 1);
   }
+}
+
+TEST(qasm3PassManagerTester, checkConditionalBlock) {
+  const std::string src = R"#(OPENQASM 3;
+include "qelib1.inc";
+bit c;
+qubit q[2];
+
+h q[0];
+x q[1];
+c = measure q[1];
+if (c == 1) {
+  // Always execute:
+  z q[0];
+}
+
+h q[0];
+
+// This should be: H - Z - H == X 
+// Check that the two H's before and after 'if'
+// don't connect.
+// i.e., checking that we don't accidentally cancel the two H gates
+// => left with Z => measure 0 vs. expected 1.
+bit d;
+d = measure q[0];
+print("measure =", d);
+QCOR_EXPECT_TRUE(d == 1);
+)#";
+  auto llvm =
+      qcor::mlir_compile(src, "test_kernel1", qcor::OutputType::LLVMIR, false);
+  std::cout << "LLVM:\n" << llvm << "\n";
+
+  // Get the main kernel section only
+  llvm = llvm.substr(llvm.find("@__internal_mlir_test_kernel1"));
+  const auto last = llvm.find_first_of("}");
+  llvm = llvm.substr(0, last + 1);
+  std::cout << "LLVM:\n" << llvm << "\n";
+  // 2 Hadamard gates, 1 Z gate
+  // (Z gate in the conditional block)
+  EXPECT_EQ(countSubstring(llvm, "__quantum__qis__h"), 2);
+  EXPECT_EQ(countSubstring(llvm, "__quantum__qis__z"), 1);
+  EXPECT_FALSE(qcor::execute(src, "test_kernel1"));
+}
+
+TEST(qasm3PassManagerTester, checkCPhaseMerge) {
+  const std::string qasm_code = R"#(OPENQASM 3;
+include "qelib1.inc";
+
+// Expected to get 4 bits (iteratively) of 1011 (or 1101 LSB) = 11(decimal):
+// phi_est = 11/16 (denom = 16 since we have 4 bits)
+// => phi = 2pi * 11/16 = 11pi/8 = 2pi - 5pi/8
+// i.e. we estimate the -5*pi/8 angle...
+qubit q[2];
+const bits_precision = 4;
+bit c[bits_precision];
+
+// Prepare the eigen-state: |1>
+x q[1];
+
+// First bit
+h q[0];
+// Controlled rotation: CU^k
+for i in [0:8] {
+  cphase(-5*pi/8) q[0], q[1];
+}
+h q[0];
+// Measure and reset
+measure q[0] -> c[0];
+reset q[0];
+
+// Second bit
+h q[0];
+for i in [0:4] {
+  cphase(-5*pi/8) q[0], q[1];
+}
+// Conditional rotation
+if (c[0] == 1) {
+  rz(-pi/2) q[0];
+}
+h q[0];
+// Measure and reset
+measure q[0] -> c[1];
+reset q[0];
+
+// Third bit
+h q[0];
+for i in [0:2] {
+  cphase(-5*pi/8) q[0], q[1];
+}
+// Conditional rotation
+if (c[0] == 1) {
+  rz(-pi/4) q[0];
+}
+if (c[1] == 1) {
+  rz(-pi/2) q[0];
+}
+h q[0];
+// Measure and reset
+measure q[0] -> c[2];
+reset q[0];
+
+// Fourth bit
+h q[0];
+cphase(-5*pi/8) q[0], q[1];
+// Conditional rotation
+if (c[0] == 1) {
+  rz(-pi/8) q[0];
+}
+if (c[1] == 1) {
+  rz(-pi/4) q[0];
+}
+if (c[2] == 1) {
+  rz(-pi/2) q[0];
+}
+h q[0];
+measure q[0] -> c[3];
+
+print(c[0], c[1], c[2], c[3]);
+QCOR_EXPECT_TRUE(c[0] == 1);
+QCOR_EXPECT_TRUE(c[1] == 1);
+QCOR_EXPECT_TRUE(c[2] == 0);
+QCOR_EXPECT_TRUE(c[3] == 1);
+)#";
+  auto llvm =
+      qcor::mlir_compile(qasm_code, "test_kernel1", qcor::OutputType::LLVMIR, false);
+  std::cout << "LLVM:\n" << llvm << "\n";
+
+  // Get the main kernel section only
+  llvm = llvm.substr(llvm.find("@__internal_mlir_test_kernel1"));
+  const auto last = llvm.find_first_of("}");
+  llvm = llvm.substr(0, last + 1);
+  std::cout << "LLVM:\n" << llvm << "\n";
+  // All CPhase gates in for loops have been unrolled and then merged.
+  EXPECT_EQ(countSubstring(llvm, "__quantum__qis__cphase"), 4);
 }
 
 int main(int argc, char **argv) {

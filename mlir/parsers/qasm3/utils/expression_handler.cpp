@@ -126,9 +126,32 @@ antlrcpp::Any qasm3_expression_generator::visitTerminal(
           current_value = builder.create<mlir::IndexCastOp>(
               location, builder.getI64Type(), current_value);
         }
-        update_current_value(builder.create<mlir::quantum::ExtractQubitOp>(
-            location, get_custom_opaque_type("Qubit", builder.getContext()),
-            indexed_variable_value, current_value));
+        
+        // This is a qubit extract from qubit array:
+        // Need to use the qreg name convention:
+        // i.e. qreg%index
+        if (auto constantOp =
+                current_value.getDefiningOp<mlir::ConstantOp>()) {
+          // If the index is a constant value:
+          const auto index_val =
+              constantOp.getValue().cast<mlir::IntegerAttr>().getInt();
+          const std::string qreg_name = symbol_table.get_symbol_var_name(indexed_variable_value);
+          // If cannot lookup, this indicates a logic error (failed to add the qreg to the symbol table).
+          assert(!qreg_name.empty());
+          mlir::Value extracted_qubit = get_or_extract_qubit(
+              qreg_name, index_val, location, symbol_table, builder);
+          update_current_value(extracted_qubit);
+        } else {
+          // We're getting accessing qubits at unknown indices...
+          // (current_value cannot be const-eval'ed)
+          const std::string qreg_name =
+              symbol_table.get_symbol_var_name(indexed_variable_value);
+          symbol_table.invalidate_qubit_extracts(qreg_name);
+
+          update_current_value(builder.create<mlir::quantum::ExtractQubitOp>(
+              location, get_custom_opaque_type("Qubit", builder.getContext()),
+              indexed_variable_value, current_value));
+        }
       } else if (indexed_variable_value.getType().isa<mlir::OpaqueType>() &&
                  indexed_variable_value.getType()
                          .cast<mlir::OpaqueType>()

@@ -40,9 +40,8 @@ void qasm3_visitor::createInstOps_HandleBroadcast(
     }
     return nqubits;
   };
-
+  
   auto str_attr = builder.getStringAttr(name);
-
   // FIXME Extremely hacky way to handle gate broadcasting
   // The cases we consider are...
   // QINST qubit
@@ -303,14 +302,13 @@ antlrcpp::Any qasm3_visitor::visitQuantumGateCall(
           symbol_table.array_qubit_symbol_name(qbit_var_name, idx_str);
       mlir::Value value;
       try {
-        if (symbol_table.has_symbol(qubit_symbol_name)) {
-          value = symbol_table.get_symbol(qubit_symbol_name);
-        } else {
-          // try catch is on this std::stoi(), if idx_str is not an integer,
-          // then we drop out and try to evaluate the expression.
-          value = get_or_extract_qubit(qbit_var_name, std::stoi(idx_str),
-                                       location, symbol_table, builder);
-        }
+        // try catch is on this std::stoi(), if idx_str is not an integer,
+        // then we drop out and try to evaluate the expression.
+        const auto idx_val = std::stoi(idx_str);
+        // Note: always use get_or_extract_qubit which has built-in qubit SSA
+        // validation/adjust.
+        value = get_or_extract_qubit(qbit_var_name, idx_val, location,
+                                     symbol_table, builder);
       } catch (...) {
         if (symbol_table.has_symbol(idx_str)) {
           auto qubits = symbol_table.get_symbol(qbit_var_name);
@@ -322,6 +320,9 @@ antlrcpp::Any qasm3_visitor::visitQuantumGateCall(
             qbit = builder.create<mlir::IndexCastOp>(
                 location, builder.getI64Type(), qbit);
           }
+
+          // This is qubit extract by a variable index:
+          symbol_table.invalidate_qubit_extracts(qbit_var_name);
           value = builder.create<mlir::quantum::ExtractQubitOp>(
               location, qubit_type, qubits, qbit);
           if (!symbol_table.has_symbol(qubit_symbol_name))
@@ -765,21 +766,12 @@ antlrcpp::Any qasm3_visitor::visitSubroutineCall(
                   tmp_key.end());
     qreg_names.push_back(tmp_key);
 
-    mlir::Value tmp;
-    if (symbol_table.has_symbol(tmp_key)) {
-      tmp = symbol_table.get_symbol(tmp_key);
-    } else {
-      qasm3_expression_generator qubit_exp_generator(builder, symbol_table,
-                                                     file_name, qubit_type);
-      qubit_exp_generator.visit(expression);
-      auto qbit_or_qreg = qubit_exp_generator.current_value;
-      tmp = qbit_or_qreg;
-      if (!symbol_table.has_symbol(tmp_key))
-        symbol_table.add_symbol(tmp_key, tmp);
-    }
-
+    qasm3_expression_generator qubit_exp_generator(builder, symbol_table,
+                                                   file_name, qubit_type);
+    qubit_exp_generator.visit(expression);
+    auto tmp = qubit_exp_generator.current_value;
+    assert(tmp.getType().isa<mlir::OpaqueType>());
     qbit_values.push_back(tmp);
-
     qubit_symbol_table_keys.push_back(tmp_key);
   }
 

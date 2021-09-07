@@ -69,7 +69,14 @@ LogicalResult CreateStringLiteralOpLowering::matchAndRewrite(
       StringRef(slOpText.str().c_str(), slOpText.str().length() + 1),
       parentModule);
 
-  variables.insert({slVarName.str(), new_global_str});
+  // The string literal var must be **overriden** by closest scope.
+  // This will prevent dangling references b/w different scopes leading to
+  // dominance checking failed.
+  // Notes: the above getOrCreateGlobalString will just get a *reference*
+  // to the globally-allocated string.
+  // i.e., each scope must use its own reference (potentially to the same
+  // string). Otherwise, we'll have dominance check failure.
+  variables.insert_or_assign(slVarName.str(), new_global_str);
 
   rewriter.eraseOp(op);
 

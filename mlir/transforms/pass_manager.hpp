@@ -6,7 +6,7 @@
 #include "optimizations/RotationMergingPass.hpp"
 #include "optimizations/SimplifyQubitExtractPass.hpp"
 #include "optimizations/SingleQubitGateMergingPass.hpp"
-
+#include "optimizations/CphaseRotationMergingPass.hpp"
 #include "quantum_to_llvm.hpp"
 // Construct QCOR MLIR pass manager:
 // Make sure we use the same set of passes and configs
@@ -34,6 +34,8 @@ void configureOptimizationPasses(mlir::PassManager &passManager) {
     
     // Rotation merging
     passManager.addPass(std::make_unique<RotationMergingPass>());
+    passManager.addPass(std::make_unique<CPhaseRotationMergingPass>());
+
     // General gate sequence re-synthesize
     passManager.addPass(std::make_unique<SingleQubitGateMergingPass>());
     // Try permute gates to realize more merging opportunities

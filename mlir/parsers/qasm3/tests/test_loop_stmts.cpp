@@ -64,6 +64,8 @@ QCOR_EXPECT_TRUE(i == 10);
   auto mlir2 = qcor::mlir_compile(while_stmt, "while_stmt",
                                  qcor::OutputType::MLIR, false);
   std::cout << mlir2 << "\n";
+  // We're using SCF while loop:
+  EXPECT_TRUE(mlir2.find("scf.while") != std::string::npos);
   EXPECT_FALSE(qcor::execute(while_stmt, "while_stmt"));
 
     const std::string decrement = R"#(OPENQASM 3;
