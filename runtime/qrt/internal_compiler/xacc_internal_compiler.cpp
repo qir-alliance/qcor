@@ -9,6 +9,9 @@
 #include <CompositeInstruction.hpp>
 #include <stdlib.h>
 
+// Need to finalize the QuantumRuntime
+#include "qrt.hpp"
+
 namespace xacc {
 namespace internal_compiler {
 std::shared_ptr<Accelerator> qpu = nullptr;
@@ -22,7 +25,10 @@ void compiler_InitializeXACC(const char *qpu_backend,
   if (!xacc::isInitialized()) {
     xacc::Initialize(cmd_line_args);
     xacc::external::load_external_language_plugins();
-    auto at_exit = []() { xacc::Finalize(); };
+    auto at_exit = []() {
+      if (quantum::qrt_impl) quantum::qrt_impl->finalize();
+      xacc::Finalize();
+    };
     atexit(at_exit);
   }
   setAccelerator(qpu_backend);
@@ -32,7 +38,10 @@ void compiler_InitializeXACC(const char *qpu_backend, int shots) {
   if (!xacc::isInitialized()) {
     xacc::Initialize();
     xacc::external::load_external_language_plugins();
-    auto at_exit = []() { xacc::Finalize(); };
+    auto at_exit = []() {
+      if (quantum::qrt_impl) quantum::qrt_impl->finalize();
+      xacc::Finalize();
+    };
     atexit(at_exit);
   }
 

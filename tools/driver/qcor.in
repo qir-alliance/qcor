@@ -16,6 +16,127 @@ def info(msg):
     print('{}[qcor-exec]{} {}{}'.format(bcolors.BOLD+bcolors.OKBLUE,
                                        bcolors.ENDC+bcolors.BOLD, msg, bcolors.ENDC))
 
+def import_or_install(package, pip_name = None):
+    import pip
+    m = None
+    try:
+        m = __import__(package)
+    except ImportError:
+        info('{} not installed, but needed for qcor plugin install. Automatically installing with pip.'.format(
+            package if pip_name == None else pip_name))
+        pip.main(['install', package if pip_name ==
+                  None else pip_name, '--user'])
+        m = __import__(package)
+    return m
+
+
+def install_plugin(url, config_name=None):
+    info("Installing plugin at {}{}.".format(url, '' if config_name ==
+                                             None else " with {} config".format(config_name)))
+
+    # Import necessary modules, install if not available
+    yaml = import_or_install('yaml')
+    shutil = import_or_install('shutil')
+    distro = import_or_install('distro')
+    git = import_or_install('git', 'gitpython')
+
+    # Local Declarations, paths etc
+    home = os.getenv('HOME')
+    sep = '/'
+    install_path = home+sep+'.qcor_plugin_installs'
+    proj_name = url.split('/')[-1]
+
+    # Make the install_dir if it doesn't exist
+    os.makedirs(install_path, exist_ok=True)
+
+    # clone the remote plugin repo
+    if os.path.isdir(install_path+sep+proj_name):
+        # pull instead
+        info("plugin repo directory exists, pulling latest from remote.")
+        repo = git.Repo(install_path+sep+proj_name).remotes.origin.pull()
+    else:
+        info("cloning the plugin repo.")
+        git.Repo.clone_from(url, install_path+sep+proj_name)
+
+    # Move there and make the build directory
+    os.chdir(install_path+sep+proj_name)
+    os.makedirs('build', exist_ok=True)
+    info("Working in {}".format(install_path+sep+proj_name))
+
+    # Read the plugin install file, load to yaml / dict
+    f = open(install_path+sep+proj_name+sep+'.qcor_plugin.yml', 'r')
+    plugin_install_text = f.read()
+    f.close()
+    plugin_install_yaml = yaml.load(
+        plugin_install_text, Loader=yaml.FullLoader)
+
+    # What distribution are we? ubuntu, alpine, etc.
+    distro_id, distro_version = distro.id(), distro.version()
+
+    # run any necessary commands to install dependencies for this distro
+    if 'dependencies' in plugin_install_yaml:
+        deps = plugin_install_yaml['dependencies']
+        # First, is this distro / os in the list? 
+        # If not, warn the user that things may go wrong
+        if distro_id not in deps:
+            info('Cannot find dependency install instructions for distro with id {}.\nProceeding without dependencies (this may lead to error).'.format(distro_id))
+        else:
+            # If no 'all', or if the current version is not in the list
+            # warn the user things may go wrong
+            if 'all' not in deps[distro_id].keys() and distro_version not in [str(v) for v in deps[distro_id].keys()]:
+                info('all or version {} not specified in dependencies for this distro.\nProceeding without dependencies (this may lead to error).'.format(
+                    distro_version))
+            else:
+                # we do have all or the correct version block, 
+                # run the dep install commands
+                info("Installing deps for {} version {}.".format(distro_id, float(distro_version) if 'all' not in deps[distro_id] else 'all'))
+                for command in deps[distro_id][float(distro_version) if 'all' not in deps[distro_id] else 'all']:
+                    info('{}'.format(command))
+                    os.system(command)
+    
+    # Time to configure the build with CMake
+    # by default we set the XACC_DIR and INSTALL_PREFIX flags
+    cmake_args = ['-DXACC_DIR={}'.format(
+        '@XACC_ROOT@'), '-DCMAKE_INSTALL_PREFIX={}'.format('@CMAKE_INSTALL_PREFIX@/plugins')]
+    if config_name != None:
+        # User may specify a specific config type (like if they want to build some optional support)
+        # make sure its a valid name
+        if config_name not in plugin_install_yaml['configure']:
+            print(bcolors.BOLD+bcolors.FAIL +
+                  '[qcor-exec] Config name {} not valid in .qcor_plugin.yaml.'.format(config_name)+bcolors.ENDC)
+            exit(1)
+        # if it is, grab it and add the flags
+        config = plugin_install_yaml['configure'][config_name]
+        for c in config:
+            info("Adding CMake Config Flag: ", c)
+            cmake_args += ['-D{}'.format(c)]
+
+    # We assume top-level CMakeLists.txt is there, if not look for relative path
+    source_dir = '..'  # just the top-level, from within build
+    if 'source_dir' in plugin_install_yaml['configure']:
+        source_dir += '/'+plugin_install_yaml['configure']['source_dir']
+
+    # Move to the build dir and start running cmake and make
+    os.chdir('build')
+    info("Configuring in {}".format(install_path+sep+proj_name+sep+'build'))
+    cmake_command = ['@CMAKE_COMMAND@', source_dir] + cmake_args 
+    make_command = ['make', 'install']
+    try:
+        info("cmake {}".format(' '.join([c for c in cmake_command][1:])))
+        result = subprocess.run(cmake_command, check=True)
+        info("make install")
+        result = subprocess.run(make_command, check=True)
+    except subprocess.CalledProcessError as e:
+        print(e.output)
+        print(e.returncode)
+        exit(1)
+    info('{} plugin installed successfully.'.format(proj_name))
+    os.chdir('../../')
+
+    if 'example' in plugin_install_yaml:
+        info("Example code and compile command demonstrating installed plugin (copy and paste to terminal):\n\n{}".format(
+            plugin_install_yaml['example']))
+
 # Helper to generate Q# build config by running the SDK
 # Input: the source file directory where the build
 # csproj will be saved to.
@@ -116,6 +237,16 @@ def main(argv=None):
         verbose=True
         sys.argv.remove('-v')
 
+    if '-install-plugin' in sys.argv[1:]:
+        idx = sys.argv[1:].index('-install-plugin')
+        url = sys.argv[1:][idx+1]
+        config_name = None
+        if '-plugin-config' in sys.argv[1:]:
+            idx = sys.argv[1:].index('-plugin-config')
+            config_name = sys.argv[1:][idx+1]
+        install_plugin(url, config_name)
+        exit(0)
+
     keep_bit_code_files = False
     baseLibs = ['-rdynamic', '-Wl,-rpath,@XACC_ROOT@/lib:@CMAKE_INSTALL_PREFIX@/lib:@LLVM_INSTALL_PREFIX@/lib:@CMAKE_INSTALL_PREFIX@/clang-plugins',
                 '-L', '@CMAKE_INSTALL_PREFIX@/lib', '-lqcor', '-lqrt', '-lqcor-jit', '-lqcor-quasimo',
@@ -199,6 +330,9 @@ def main(argv=None):
         parser.add_argument('-rebuild-pch', metavar='', help='Build the pre-compiled header for the qcor language extension to speed up compile times.')
         parser.add_argument('-print-final-submission', metavar='', help='print the final quantum circuit for backend submission (ignored in FTQC).')
         parser.add_argument('-print-csp-source', metavar='', help='print the result of the Clang Syntax Handler.')
+        parser.add_argument('-install-plugin', metavar='', help='print the result of the Clang Syntax Handler.')
+        parser.add_argument('-plugin-config', metavar='', help='print the result of the Clang Syntax Handler.')
+
         # FIXME ADD NO FAST COMPILE FLAG (TURN OFF PCH, MAINLY FOR BENCHMARK COMPARISONS)
         
         # Q# options to be passed to the Q# QIR generator:
@@ -782,4 +916,5 @@ if __name__ == "__main__":
         sys.exit(r)
     except Exception as e:
         if r != 0 or e != None:
+            print(e)
             print(bcolors.BOLD+bcolors.FAIL+'[qcor-exec] fatal error.'+bcolors.ENDC)

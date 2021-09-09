@@ -51,6 +51,8 @@ private:
   // Resources metric
   // Gate name to count
   std::unordered_map<std::string, size_t> gateNameToCount;
+  bool use_clifford_t = false;
+  std::shared_ptr<xacc::CompositeInstruction> counter_composite;
   // TODO:
   // - We could in-principle perform gate layering during tracing
   // i.e., gates on non-overlapping qubits.

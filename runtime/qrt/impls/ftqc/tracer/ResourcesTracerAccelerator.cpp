@@ -1,6 +1,8 @@
 #include "ResourcesTracerAccelerator.hpp"
+
 #include <iomanip>
 #include <random>
+
 #include "xacc_service.hpp"
 
 using namespace xacc;
@@ -18,6 +20,17 @@ void TracerAccelerator::initialize(const HeterogeneousMap &params) {
       qubitIdToMeasureProbs[i] = meas1Probs[i];
     }
   }
+
+  // Check for clifford+t == true, 1, or "true"
+  use_clifford_t = params.get_or_default("clifford+t", false);
+  if (!use_clifford_t)
+    use_clifford_t = params.get_or_default("clifford+t", (int)0);
+  if (!use_clifford_t)
+    use_clifford_t =
+        params.get_or_default("clifford+t", std::string("false")) == "true";
+
+  counter_composite =
+      xacc::getIRProvider("quantum")->createComposite("counter_composite");
 }
 
 // For NISQ: resource estimation is simply printing out the circuit....
@@ -37,11 +50,7 @@ void TracerAccelerator::apply(std::shared_ptr<AcceleratorBuffer> buffer,
   for (const auto &bitId : inst->bits()) {
     qubit_idxs.emplace(bitId);
   }
-  if (gateNameToCount.find(inst->name()) == gateNameToCount.end()) {
-    gateNameToCount[inst->name()] = 1;
-  } else {
-    gateNameToCount[inst->name()] += 1;
-  }
+  counter_composite->addInstruction(inst);
   // Emulate measure:
   if (inst->name() == "Measure") {
     const double meas1Prob = getMeas1Prob(inst->bits()[0]);
@@ -60,10 +69,29 @@ void TracerAccelerator::apply(std::shared_ptr<AcceleratorBuffer> buffer,
 }
 
 void TracerAccelerator::printResourcesEstimationReport() {
+  if (use_clifford_t) {
+    if (!xacc::hasService<xacc::IRTransformation>("gridsynth")) {
+      xacc::error(
+          "Cannot output clifford+t resources, gridsynth not "
+          "installed. Install with \nqcor -install-plugin "
+          "https://code.ornl.gov/qci/gridsynth");
+    }
+    auto irt = xacc::getIRTransformation("gridsynth");
+    irt->apply(counter_composite, nullptr);
+  }
+
+  for (auto inst : counter_composite->getInstructions()) {
+    if (gateNameToCount.find(inst->name()) == gateNameToCount.end()) {
+      gateNameToCount[inst->name()] = 1;
+    } else {
+      gateNameToCount[inst->name()] += 1;
+    }
+  }
+
   // Print resources estimation result:
   // Currently, simply print gate count:
   std::cout << "Resources Estimation Result:\n";
-  std::cout << "Number of qubit required: " << qubit_idxs.size() << "\n";
+  std::cout << "Number of qubits required: " << qubit_idxs.size() << "\n";
   size_t totalNumberGates = 0, totalCtrlOperations = 0;
   std::stringstream stream;
   const size_t nbColumns = 2;
@@ -90,7 +118,7 @@ void TracerAccelerator::printResourcesEstimationReport() {
     }
   }
 
-  // Print each row, and count total number of instructions, and 
+  // Print each row, and count total number of instructions, and
   // count any 2 qubit control operations.
   for (const auto &[gateName, count] : gateNameToCount) {
     printEachRow(gateName, count);
@@ -106,4 +134,4 @@ void TracerAccelerator::printResourcesEstimationReport() {
   std::cout << "Gate Count Report: \n";
   std::cout << stream.str();
 }
-} // namespace qcor
+}  // namespace qcor
