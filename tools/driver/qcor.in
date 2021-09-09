@@ -330,8 +330,8 @@ def main(argv=None):
         parser.add_argument('-rebuild-pch', metavar='', help='Build the pre-compiled header for the qcor language extension to speed up compile times.')
         parser.add_argument('-print-final-submission', metavar='', help='print the final quantum circuit for backend submission (ignored in FTQC).')
         parser.add_argument('-print-csp-source', metavar='', help='print the result of the Clang Syntax Handler.')
-        parser.add_argument('-install-plugin', metavar='', help='print the result of the Clang Syntax Handler.')
-        parser.add_argument('-plugin-config', metavar='', help='print the result of the Clang Syntax Handler.')
+        parser.add_argument('-install-plugin', nargs=1, help='Install the plugin at the given git repository URL. Usage -install-plugin URL.')
+        parser.add_argument('-plugin-config', nargs=1, help='Specify a specific plugin install configuration. Usage -plugin-config NAME.')
 
         # FIXME ADD NO FAST COMPILE FLAG (TURN OFF PCH, MAINLY FOR BENCHMARK COMPARISONS)
         
