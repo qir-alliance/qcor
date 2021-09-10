@@ -1135,7 +1135,7 @@ template <typename... Args>
 std::string openqasm(KernelSignature<Args...> &kernelCallable, Args... args) {
   auto tempKernel = qcor::__internal__::create_composite("temp_as_openqasm");
   kernelCallable(tempKernel, args...);
-  xacc::internal_compiler::execute_pass_manager();
+  xacc::internal_compiler::execute_pass_manager(tempKernel);
   return __internal__::translate("staq", tempKernel);
 }
 
@@ -1144,7 +1144,7 @@ void print_kernel(KernelSignature<Args...> &kernelCallable, std::ostream &os,
                   Args... args) {
   auto tempKernel = qcor::__internal__::create_composite("temp_print");
   kernelCallable(tempKernel, args...);
-  xacc::internal_compiler::execute_pass_manager();
+  xacc::internal_compiler::execute_pass_manager(tempKernel);
   os << tempKernel->toString() << "\n";
 }
 
