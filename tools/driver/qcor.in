@@ -226,6 +226,8 @@ def generate_qsc_build_command(target_name, src_dir, input_files, qdk_ver, build
     pass
   return qsc_cmd
 
+fatal_error_verbose = False
+
 def main(argv=None):
     compiler = '@CLANG_EXECUTABLE@'
     verbose=False
@@ -236,6 +238,10 @@ def main(argv=None):
     if '-v' in sys.argv[1:]:
         verbose=True
         sys.argv.remove('-v')
+
+    if '-fatal-error-verbose' in sys.argv[1:]:
+        fatal_error_verbose = True
+        sys.argv.remove('-fatal-error-verbose')
 
     if '-install-plugin' in sys.argv[1:]:
         idx = sys.argv[1:].index('-install-plugin')
@@ -306,6 +312,8 @@ def main(argv=None):
                                      fromfile_prefix_chars='@')
         parser.add_argument('-v', metavar='',
                         help='turn on qcor verbose mode - prints actual clang calls plus extra info while compiling.')
+        parser.add_argument('-fatal-error-verbose', metavar='',
+                        help='turn on qcor verbose mode for fatal error.')
         parser.add_argument('-qpu', metavar=('name[:backend]'), help='specify quantum backend name. this corresponds to the name of an xacc accelerator (plus optional backend name).\nExamples include qcs:Aspen-4-2Q-H, ibm:ibmq_valencia, tnqvm, etc.')
         parser.add_argument('-qpu-config',help='specify file name containing backend qpu configuration.')
         parser.add_argument('-shots', metavar=('n_shots'), nargs=1,help='provide the number of shots to execute on shot-enabled backend.')
@@ -916,5 +924,6 @@ if __name__ == "__main__":
         sys.exit(r)
     except Exception as e:
         if r != 0 or e != None:
-            print(e)
             print(bcolors.BOLD+bcolors.FAIL+'[qcor-exec] fatal error.'+bcolors.ENDC)
+            if fatal_error_verbose:
+                print(e)
