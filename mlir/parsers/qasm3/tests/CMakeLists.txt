@@ -33,6 +33,11 @@ add_test(NAME qcor_qasm3_test_loops COMMAND qasm3CompilerTester_LoopStmts)
 target_include_directories(qasm3CompilerTester_LoopStmts PRIVATE . ../../ ${XACC_ROOT}/include/gtest)
 target_link_libraries(qasm3CompilerTester_LoopStmts qcor-mlir-api gtest gtest_main)
 
+add_executable(qasm3CompilerTester_QuantumDeclarations test_quantum_declaration.cpp)
+add_test(NAME qcor_qasm3_test_qdecls COMMAND qasm3CompilerTester_QuantumDeclarations)
+target_include_directories(qasm3CompilerTester_QuantumDeclarations PRIVATE . ../../ ${XACC_ROOT}/include/gtest)
+target_link_libraries(qasm3CompilerTester_QuantumDeclarations qcor-mlir-api gtest gtest_main)
+
 add_executable(qasm3CompilerTester_QuantumInstructions test_quantum_instructions.cpp)
 add_test(NAME qcor_qasm3_test_qinsts COMMAND qasm3CompilerTester_QuantumInstructions)
 target_include_directories(qasm3CompilerTester_QuantumInstructions PRIVATE . ../../ ${XACC_ROOT}/include/gtest)

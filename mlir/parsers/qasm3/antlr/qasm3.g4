@@ -45,10 +45,10 @@ statement
     ;
 
 compute_action_stmt
-    : 'compute' compute_block=programBlock 'action' action_block=programBlock 
+    : 'compute' compute_block=programBlock 'action' action_block=programBlock
     ;
 
-qcor_test_statement 
+qcor_test_statement
     : 'QCOR_EXPECT_TRUE' LPAREN booleanExpression RPAREN SEMICOLON
     ;
 
@@ -93,7 +93,7 @@ quantumType
     ;
 
 quantumDeclaration
-    : quantumType indexIdentifierList
+    : 'qreg' Identifier designator? | 'qubit' designator? Identifier
     ;
 
 quantumArgument
@@ -435,23 +435,23 @@ loopSignature
 
 loopStatement: loopSignature programBlock ;
 
-cLikeLoopStatement 
-    : 'for' LPAREN 
-            classicalType Identifier equalsExpression ';' 
-            booleanExpression ';' 
+cLikeLoopStatement
+    : 'for' LPAREN
+            classicalType Identifier equalsExpression ';'
+            booleanExpression ';'
             expression
-            RPAREN 
-            LBRACE 
-              programBlock 
+            RPAREN
+            LBRACE
+              programBlock
             RBRACE
     | 'for' LPAREN
               classicalType Identifier ':' 'range' LPAREN expression RPAREN
-            RPAREN 
-            LBRACE 
-              programBlock 
-            RBRACE 
+            RPAREN
+            LBRACE
+              programBlock
+            RBRACE
     ;
-    
+
 controlDirectiveStatement
     : controlDirective SEMICOLON
     ;
@@ -484,7 +484,7 @@ returnStatement : 'return' statement;
 subroutineBlock
     : LBRACE statement* returnStatement? RBRACE
     // Begin QCOR Extension
-    // Allow a special 'extern' keyword in place of the subroutine definition 
+    // Allow a special 'extern' keyword in place of the subroutine definition
     // to denote a declaration of an externally-provided quantum subroutine.
     | EXTERN SEMICOLON
     // End QCOR Extension
@@ -585,7 +585,7 @@ ARROW : '->' ;
 MINUS : '-' ;
 
 // Begin QCOR Extension
-EXTERN : 'extern' ; 
+EXTERN : 'extern' ;
 // End QCOR Extension
 
 Constant : ( 'pi' | 'π' | 'tau' | '𝜏' | 'euler' | 'ℇ' );

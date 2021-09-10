@@ -28,6 +28,8 @@
 *.out
 *.app
 /build/
+/cmake-build-debug
+.idea
 /plugins/
 /.cproject
 /.project

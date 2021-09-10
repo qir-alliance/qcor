@@ -511,8 +511,8 @@ public:
   public:
     QuantumDeclarationContext(antlr4::ParserRuleContext *parent, size_t invokingState);
     virtual size_t getRuleIndex() const override;
-    QuantumTypeContext *quantumType();
-    IndexIdentifierListContext *indexIdentifierList();
+    antlr4::tree::TerminalNode *Identifier();
+    DesignatorContext *designator();
 
     virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
     virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
