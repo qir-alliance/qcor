@@ -35,7 +35,7 @@ def install_plugin(url, config_name=None):
                                              None else " with {} config".format(config_name)))
 
     # Import necessary modules, install if not available
-    yaml = import_or_install('yaml')
+    yaml = import_or_install('yaml', 'PyYAML')
     shutil = import_or_install('shutil')
     distro = import_or_install('distro')
     git = import_or_install('git', 'gitpython')
