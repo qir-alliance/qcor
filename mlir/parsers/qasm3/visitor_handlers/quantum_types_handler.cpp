@@ -33,9 +33,11 @@ antlrcpp::Any qasm3_visitor::visitQuantumDeclaration(
     auto var_name = idx_identifier->Identifier()->getText();
     auto exp_list = idx_identifier->expressionList();
     if (exp_list) {
-      try {
-        size = std::stoi(exp_list->expression(0)->getText());
-      } catch (...) {
+      auto opt_size = symbol_table.try_evaluate_constant_integer_expression(
+          exp_list->expression(0)->getText());
+      if (opt_size.has_value()) {
+        size = opt_size.value();
+      } else {
         // check if this is a constant expression
         qasm3_expression_generator exp_generator(builder, symbol_table,
                                                  file_name);
