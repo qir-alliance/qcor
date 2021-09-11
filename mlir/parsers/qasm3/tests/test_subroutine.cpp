@@ -69,7 +69,7 @@ def deuteron(float[64]:theta) qubit[2]:q -> float[64] {
 }
 
 float[64] theta, exp_val;
-qubit qq[2];
+qubit[2] qq;
 // Try a theta value:
 const step = 2 * pi / 19;
 theta = -pi + step;

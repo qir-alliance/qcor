@@ -210,6 +210,7 @@ if ( cc[1] == 1) {
     std::cout << mlir << "\n";
 }
 
+
 TEST(qasm3VisitorTester, checkSecondIfStmt) {
     const std::string if_stmt = R"#(OPENQASM 3;
 include "qelib1.inc";
@@ -248,7 +249,7 @@ int[32] i = 3;
 bit temp;
 if(temp==0 && i==3) {
   print("we are here");
-//  temp = measure q; //this line blows up memory.
+  //temp = measure q; //this line blows up memory.
 }
 
 )#";
@@ -257,6 +258,7 @@ if(temp==0 && i==3) {
     std::cout << mlir << "\n";
     qcor::execute(complex_if, "complex_if");
 }
+
 
 TEST(qasm3VisitorTester, checkWhile) {
     const std::string while_stmt = R"#(OPENQASM 3;
@@ -362,21 +364,20 @@ def parity(bit[n]:cin) -> bit {
 //}
 
 // TO IMPLEMENT
-
-TEST(qasm3VisitorTester, checkMeasureRange) {
-    const std::string meas_range = R"#(OPENQASM 3;
-include "qelib1.inc";
-qubit[4] a;
-qubit[4] b;
-bit ans[5];
-measure b[1:3] -> ans[1:3];
-ans[1:3] = measure b[1:3];
-)#";
-    auto mlir = qcor::mlir_compile(meas_range, "meas_range",
-                                   qcor::OutputType::MLIR, false);
-
-    std::cout << "meas_range MLIR:\n" << mlir << "\n";
-}
+//TEST(qasm3VisitorTester, checkMeasureRange) {
+//    const std::string meas_range = R"#(OPENQASM 3;
+//include "qelib1.inc";
+//qubit[4] a;
+//qubit[4] b;
+//bit ans[5];
+//measure b[1:3] -> ans[1:3];
+//ans[1:3] = measure b[1:3];
+//)#";
+//    auto mlir = qcor::mlir_compile(meas_range, "meas_range",
+//                                   qcor::OutputType::MLIR, false);
+//
+//    std::cout << "meas_range MLIR:\n" << mlir << "\n";
+//}
 
 //TODO: Gate causes SegFault should look into it.
 //TEST(qasm3VisitorTester, checkGate) {
@@ -392,11 +393,10 @@ ans[1:3] = measure b[1:3];
 //}
 //qubit[2] q;
 //qubit[3] r;
-////cphase(pi / 2) q[0], q[1];
+//cphase(pi / 2) q[0], q[1];
 //qubit s;
 //qubit t;
-//// cphase(pi / 2) s, t;
-//
+//cphase(pi / 2) s, t;
 //)#";
 //    auto mlir = qcor::mlir_compile(gate_def, "gate_def",
 //                                   qcor::OutputType::MLIR, false);
@@ -479,7 +479,6 @@ bit flags[2] = "11";
 print(int[2](flags));
 // while(int[2](flags) != 0) {
 //   print(flags[0]);
-
 // }
 )#";
     auto mlir = qcor::mlir_compile(while2, "while2",

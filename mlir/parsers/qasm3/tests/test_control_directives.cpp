@@ -394,7 +394,7 @@ include "qelib1.inc";
 // phi_est = 11/16 (denom = 16 since we have 4 bits)
 // => phi = 2pi * 11/16 = 11pi/8 = 2pi - 5pi/8
 // i.e. we estimate the -5*pi/8 angle...
-qubit q[2];
+qubit[2] q;
 const bits_precision = 4;
 bit c[bits_precision];
 

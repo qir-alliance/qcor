@@ -4,7 +4,6 @@ namespace qcor {
 
     antlrcpp::Any qasm3_visitor::visitQuantumDeclaration(
             qasm3Parser::QuantumDeclarationContext* context) {
-        std::cout << "TEST" << std::endl;
         // quantumDeclaration
         //     : quantumType indexIdentifierList
         //     ;

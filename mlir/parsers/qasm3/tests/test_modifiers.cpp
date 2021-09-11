@@ -53,7 +53,8 @@ pow(2) @ inv @ s a;
 measure a -> bb;
 QCOR_EXPECT_TRUE(bb == 0);
 
-qubit z, zz;
+qubit z;
+qubit zz;
 int count = 0;
 for i in [0:100] {
   h z;

@@ -18,7 +18,7 @@ int countSubstring(const std::string &str, const std::string &sub) {
 TEST(qasm3PassManagerTester, checkIdentityPairRemoval) {
   const std::string src = R"#(OPENQASM 3;
 include "qelib1.inc";
-qubit q[2];
+qubit[2] q;
 
 x q[0];
 x q[0];
@@ -34,7 +34,7 @@ cx q[0], q[1];
 TEST(qasm3PassManagerTester, checkResetSimplification) {
   const std::string src = R"#(OPENQASM 3;
 include "qelib1.inc";
-qubit q[2];
+qubit[2] q;
 
 reset q[0];
 x q[1];
@@ -58,7 +58,7 @@ reset q[0];
 TEST(qasm3PassManagerTester, checkRotationMerge) {
   const std::string src = R"#(OPENQASM 3;
 include "qelib1.inc";
-qubit q[2];
+qubit[2] q;
 
 x q[0];
 z q[1];
@@ -81,7 +81,7 @@ TEST(qasm3PassManagerTester, checkSingleQubitGateMergeOpt) {
   // Merge to X == rx(pi)
   const std::string src = R"#(OPENQASM 3;
 include "qelib1.inc";
-qubit q[2];
+qubit[2] q;
 h q[0];
 z q[0];
 h q[0];
@@ -101,7 +101,7 @@ TEST(qasm3PassManagerTester, checkRemoveUnusedQirCalls) {
   // Complete cancellation => remove extract and qalloc as well
   const std::string src = R"#(OPENQASM 3;
 include "qelib1.inc";
-qubit q[2];
+qubit[2] q;
 cx q[0], q[1];
 h q[0];
 z q[0];
@@ -127,7 +127,7 @@ gate oracle b {
   x b;
 }
 
-qubit q[2];
+qubit[2] q;
 x q[0];
 oracle q[0];
 )#";
@@ -152,7 +152,7 @@ TEST(qasm3PassManagerTester, checkPermuteAndCancel) {
   const std::string src = R"#(OPENQASM 3;
 include "qelib1.inc";
 
-qubit q[2];
+qubit[2] q;
 
 rz(0.123) q[0];
 cx q[0], q[1];
@@ -180,7 +180,7 @@ TEST(qasm3PassManagerTester, checkLoopUnroll) {
   // cancel all X gates; combine rx
   const std::string src = R"#(OPENQASM 3;
 include "stdgates.inc";
-qubit q[2];
+qubit[2] q;
 for i in [0:10] {
     x q[0];
     rx(0.123) q[1];
@@ -205,7 +205,7 @@ TEST(qasm3PassManagerTester, checkLoopUnrollTrotter) {
   // Trotter decompose
   const std::string src = R"#(OPENQASM 3;
 include "stdgates.inc";
-qubit qq[2];
+qubit[2] qq;
 for i in [0:100] {
     h qq;
     cx qq[0], qq[1];
@@ -256,7 +256,7 @@ def cnot_ladder_inv() qubit[4]:q {
   h q[0];
 }
 
-qubit q[4];
+qubit[4] q;
 double theta = 0.01;
 for i in [0:100] {
   cnot_ladder q;
@@ -301,7 +301,7 @@ def cnot_ladder_inv() qubit[4]:q {
   h q;
 }
 
-qubit q[4];
+qubit[4] q;
 double theta = 0.01;
 for i in [0:100] {
   cnot_ladder q;
@@ -334,7 +334,7 @@ TEST(qasm3PassManagerTester, checkQubitArrayAlias) {
     const std::string src = R"#(OPENQASM 3;
 include "qelib1.inc";
 
-qubit q[6];
+qubit[6] q;
 let my_reg = q[1, 3, 5];
 
 h q[1];
@@ -361,7 +361,7 @@ h q[1];
     const std::string src = R"#(OPENQASM 3;
 include "qelib1.inc";
 
-qubit q[4];
+qubit[4] q;
 let first_and_last_qubit = q[0] || q[3];
 
 cx q[0], q[3];
@@ -440,7 +440,7 @@ TEST(qasm3PassManagerTester, checkConditionalBlock) {
   const std::string src = R"#(OPENQASM 3;
 include "qelib1.inc";
 bit c;
-qubit q[2];
+qubit[2] q;
 
 h q[0];
 x q[1];
@@ -486,7 +486,7 @@ include "qelib1.inc";
 // phi_est = 11/16 (denom = 16 since we have 4 bits)
 // => phi = 2pi * 11/16 = 11pi/8 = 2pi - 5pi/8
 // i.e. we estimate the -5*pi/8 angle...
-qubit q[2];
+qubit[2] q;
 const bits_precision = 4;
 bit c[bits_precision];
 

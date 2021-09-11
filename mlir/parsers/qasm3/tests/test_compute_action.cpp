@@ -18,7 +18,7 @@ int countSubstring(const std::string &str, const std::string &sub) {
 TEST(qasm3ComputeActionTester, checkSimple) {
   const std::string src = R"#(OPENQASM 3;
 
-qubit q[4];
+qubit[4] q;
 let bottom_three = q[1:3];
 
 compute {
@@ -41,7 +41,11 @@ compute {
 TEST(qasm3ComputeActionTester, checkCtrlOpt) {
   const std::string src = R"#(OPENQASM 3;
 
-qubit qq, rr, ss, vv, ww;
+qubit qq;
+qubit rr;
+qubit ss;
+qubit vv;
+qubit ww;
 
 gate test22 q, r, s, v {
     compute {

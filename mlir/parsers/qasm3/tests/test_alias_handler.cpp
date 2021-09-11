@@ -4,7 +4,7 @@
 TEST(qasm3VisitorTester, checkAlias) {
   const std::string alias_by_indicies = R"#(OPENQASM 3;
 include "qelib1.inc";
-qubit q[6];
+qubit[6] q;
 // Test 1: Alias by indices
 // myreg[0,1,2] refers to the qubit q[1,3,5]
 let myreg = q[1, 3, 5];

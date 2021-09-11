@@ -14,7 +14,8 @@ int[5] xx=2, yy=1;
 QCOR_EXPECT_TRUE(xx == 2);
 QCOR_EXPECT_TRUE(yy == 1);
 
-qubit q1[6], q2;
+qubit[6] q1;
+qubit q2;
 bit b1[4]="0100", b2 = "1";
 QCOR_EXPECT_TRUE(b1[0] == 0);
 QCOR_EXPECT_TRUE(b1[1] == 1);

@@ -5,7 +5,7 @@ TEST(qasm3VisitorTester, checkPow) {
   const std::string check_pow = R"#(OPENQASM 3;
 include "qelib1.inc";
 
-qubit z[2];
+qubit[2] z;
 int count = 0;
 for i in [0:100] {
   h z[0];

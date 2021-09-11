@@ -4,7 +4,7 @@
 TEST(qasm3VisitorTester, checkQuantumBroadcast) {
   const std::string broadcast = R"#(OPENQASM 3;
 include "qelib1.inc";
-qubit q[4];
+qubit[4] q;
 x q;
 bit m[4];
 m = measure q;
