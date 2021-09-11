@@ -99,7 +99,7 @@ xx = measure qqq;
     auto mlir = qcor::mlir_compile(measure_test, "measure_test",
                                    qcor::OutputType::MLIR, false);
     std::cout << "MLIR:\n" << mlir << "\n";
-    // qcor::execute(measure_test, "test");
+//     qcor::execute(measure_test, "test");
 }
 
 TEST(qasm3VisitorTester, checkQuantumInsts) {
@@ -249,14 +249,14 @@ int[32] i = 3;
 bit temp;
 if(temp==0 && i==3) {
   print("we are here");
-  //temp = measure q; //this line blows up memory.
+  temp = measure q;
 }
 
 )#";
     auto mlir = qcor::mlir_compile(complex_if, "complex_if",
                                    qcor::OutputType::MLIR, false);
     std::cout << mlir << "\n";
-    qcor::execute(complex_if, "complex_if");
+//    qcor::execute(complex_if, "complex_if");
 }
 
 
