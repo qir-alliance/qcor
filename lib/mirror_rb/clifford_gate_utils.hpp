@@ -10,6 +10,9 @@ namespace utils {
 // rz - sx - rz - sx - rz
 using GenRot_t = std::tuple<double, double, double>;
 enum class PauliLabel { I, X, Y, Z };
+static inline std::vector<PauliLabel>
+    ALL_PAULI_OPS({PauliLabel::I, PauliLabel::X, PauliLabel::Y, PauliLabel::Z});
+
 // Symplectic matrix and phase vector representations
 using Smatrix_t = std::vector<std::vector<int>>;
 using Pvec_t = std::vector<int>;
@@ -22,7 +25,7 @@ using CliffordGateLayer_t =
 // - in_pauli: the randomined Pauli op
 GenRot_t computeRotationInPauliFrame(const GenRot_t &in_rot,
                                      PauliLabel in_newPauli,
-                                     PauliLabel &io_netPauli);
+                                     PauliLabel in_netPauli);
 
 // Creates a dictionary of the symplectic representations of
 // Clifford gates.
@@ -43,5 +46,7 @@ Srep_t computeCircuitSymplecticRepresentations(
 // Multiplies two cliffords in the symplectic representation.
 // C2 times C1 (i.e., C1 acts first)
 Srep_t composeCliffords(const Srep_t &C1, const Srep_t &C2);
+
+std::vector<PauliLabel> find_pauli_labels(const Pvec_t& pvec);
 } // namespace utils
 } // namespace qcor

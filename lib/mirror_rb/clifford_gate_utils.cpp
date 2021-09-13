@@ -1,8 +1,8 @@
 #include "clifford_gate_utils.hpp"
+#include <Eigen/Dense>
 #include <cassert>
 #include <cmath>
 #include <set>
-#include <Eigen/Dense>
 
 namespace {
 double mod_2pi(double theta) {
@@ -21,24 +21,24 @@ namespace qcor {
 namespace utils {
 GenRot_t computeRotationInPauliFrame(const GenRot_t &in_rot,
                                      PauliLabel in_newPauli,
-                                     PauliLabel &io_netPauli) {
+                                     PauliLabel in_netPauli) {
   auto [theta1, theta2, theta3] = in_rot;
 
-  if (io_netPauli == PauliLabel::X || io_netPauli == PauliLabel::Z) {
+  if (in_netPauli == PauliLabel::X || in_netPauli == PauliLabel::Z) {
     theta2 *= -1.0;
   }
-  if (io_netPauli == PauliLabel::X || io_netPauli == PauliLabel::Y) {
+  if (in_netPauli == PauliLabel::X || in_netPauli == PauliLabel::Y) {
     theta3 *= -1.0;
     theta1 *= -1.0;
   }
 
   // if x or y
-  if (in_newPauli == PauliLabel::X || io_netPauli == PauliLabel::Y) {
+  if (in_newPauli == PauliLabel::X || in_netPauli == PauliLabel::Y) {
     theta1 = -theta1 + M_PI;
     theta2 = theta2 + M_PI;
   }
   // if y or z
-  if (in_newPauli == PauliLabel::Y || io_netPauli == PauliLabel::Z) {
+  if (in_newPauli == PauliLabel::Y || in_netPauli == PauliLabel::Z) {
     theta1 = theta1 + M_PI;
   }
 
@@ -296,6 +296,24 @@ Srep_t computeCircuitSymplecticRepresentations(
     std::tie(s, p) = composeCliffords(std::make_pair(s, p), layerRep);
   }
   return std::make_pair(s, p);
+}
+
+std::vector<PauliLabel> find_pauli_labels(const Pvec_t &pvec) {
+  assert(pvec.size() % 2 == 0);
+  const auto n = pvec.size() / 2;
+  std::vector<int> v(n, 0);
+  for (int i = 0; i < n; ++i) {
+    v[i] = (pvec[i] / 2) + 2 * (pvec[n + i] / 2);
+  }
+  // [0,0]=I, [2,0]=Z, [0,2]=X, and [2,2]=Y.
+  std::vector<PauliLabel> result;
+  for (const auto &el : v) {
+    assert(el < 4);
+    static const std::vector<PauliLabel> ARRAY{PauliLabel::I, PauliLabel::Z,
+                                               PauliLabel::X, PauliLabel::Y};
+    result.emplace_back(ARRAY[el]);
+  }
+  return result;
 }
 } // namespace utils
 } // namespace qcor
