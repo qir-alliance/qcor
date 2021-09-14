@@ -23,6 +23,27 @@ getLayer(std::shared_ptr<xacc::CompositeInstruction> circuit, int layerId) {
   assert(!result.empty());
   return result;
 }
+
+std::shared_ptr<xacc::Instruction>
+rotationToU3Gate(std::shared_ptr<xacc::Instruction> gate) {
+  assert(gate->bits().size() == 1);
+  const double theta = InstructionParameterToDouble(gate->getParameter(0));
+  auto gateProvider = xacc::getService<xacc::IRProvider>("quantum");
+  if (gate->name() == "Rx") {
+    return gateProvider->createInstruction(
+        "U", {gate->bits()[0]}, {theta, -1.0 * M_PI / 2.0, M_PI / 2.0});
+  }
+  if (gate->name() == "Ry") {
+    return gateProvider->createInstruction("U", {gate->bits()[0]},
+                                           {theta, 0.0, 0.0});
+  }
+  if (gate->name() == "Rz") {
+    return gateProvider->createInstruction("U", {gate->bits()[0]},
+                                           {0.0, theta, 0.0});
+  }
+  assert(false);
+  return nullptr;
+}
 } // namespace
 
 namespace qcor {
@@ -88,10 +109,10 @@ createMirrorCircuit(std::shared_ptr<CompositeInstruction> in_circuit) {
   for (int layer = d - 1; layer >= 0; --layer) {
     auto current_layers = getLayer(in_circuit->as_xacc(), layer);
     for (const auto &gate : current_layers) {
-      // Only handle "U3" gate for now.
-      // TODO: convert all single-qubit rotation gates to U3
-      if (gate->name() == "U") {
-        const auto u3_angles = decomposeU3Angle(gate);
+      if (gate->name() == "U" || gate->name() == "Rx" || gate->name() == "Ry" ||
+          gate->name() == "Rz") {
+        auto u3Gate = gate->name() == "U" ? gate : rotationToU3Gate(gate);
+        const auto u3_angles = decomposeU3Angle(u3Gate);
         const auto [theta1_inv, theta2_inv, theta3_inv] =
             qcor::utils::invU3Gate(u3_angles);
         const size_t qubit = gate->bits()[0];
@@ -102,6 +123,10 @@ createMirrorCircuit(std::shared_ptr<CompositeInstruction> in_circuit) {
                                            gate->name())) {
         // Handle Clifford gates:
         in_circuit->addInstruction(gate->clone());
+      } else {
+        xacc::error(
+            "Gate " + gate->name() +
+            " is not currently supported. Thien, please implement it!!!");
       }
     }
   } 
@@ -149,9 +174,9 @@ createMirrorCircuit(std::shared_ptr<CompositeInstruction> in_circuit) {
 
     const auto current_net_paulis_as_layer = pauliListToLayer(net_paulis);
     for (const auto &gate : current_layers) {
-      // Only handle "U3" gate for now.
-      // TODO: convert all single-qubit gates to U3
-      if (gate->name() == "U") {
+      if (gate->name() == "U" || gate->name() == "Rx" || gate->name() == "Ry" ||
+          gate->name() == "Rz") {
+        auto u3Gate = gate->name() == "U" ? gate : rotationToU3Gate(gate);
         const auto new_paulis_as_layer = pauliListToLayer(new_paulis);
         const auto new_net_paulis_reps =
             qcor::utils::computeCircuitSymplecticRepresentations(
@@ -170,7 +195,7 @@ createMirrorCircuit(std::shared_ptr<CompositeInstruction> in_circuit) {
         }
 
         const size_t qubit = gate->bits()[0];
-        const auto [theta1, theta2, theta3] = decomposeU3Angle(gate);
+        const auto [theta1, theta2, theta3] = decomposeU3Angle(u3Gate);
         // Compute the pseudo_inverse gate:
         const auto [theta1_new, theta2_new, theta3_new] =
             qcor::utils::computeRotationInPauliFrame(
