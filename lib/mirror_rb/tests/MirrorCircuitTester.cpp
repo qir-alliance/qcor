@@ -90,6 +90,49 @@ TEST(MirrorCircuitTester, checkMultipleU3) {
   EXPECT_EQ(allBitStrings.size(), 4);
 }
 
+TEST(MirrorCircuitTester, checkCliffordGates) {
+  auto provider = xacc::getIRProvider("quantum");
+  constexpr int NUM_TESTS = 1000;
+  auto accelerator = xacc::getAccelerator("qpp", {{"shots", 1024}});
+  std::set<std::string> allBitStrings;
+  for (int i = 0; i < NUM_TESTS; ++i) {
+    auto circuit = provider->createComposite(std::string("test") + std::to_string(i));
+    const double theta1 = random_angle();
+    const double phi1 = random_angle();
+    const double lambda1 = random_angle();
+    circuit->addInstruction(provider->createInstruction(
+        "U", {0},
+        std::vector<xacc::InstructionParameter>{theta1, phi1, lambda1}));
+    const double theta2 = random_angle();
+    const double phi2 = random_angle();
+    const double lambda2 = random_angle();
+    circuit->addInstruction(provider->createInstruction(
+        "U", {1},
+        std::vector<xacc::InstructionParameter>{theta2, phi2, lambda2}));
+    circuit->addInstruction(provider->createInstruction("CNOT", {0, 1}));
+    circuit->addInstruction(provider->createInstruction("H", {0}));
+    circuit->addInstruction(provider->createInstruction("H", {1}));
+    auto [mirror_cir, expected_result] = qcor::createMirrorCircuit(
+        std::make_shared<qcor::CompositeInstruction>(circuit));
+    const std::string expectedBitString =
+        std::to_string(expected_result[0]) + std::to_string(expected_result[1]);
+    std::cout << "HOWDY: \n" << mirror_cir->toString() << "\n";
+    std::cout << "Expected bitstring: " << expectedBitString << "\n";
+    auto mirror_circuit = provider->createComposite("test_mirror");
+    mirror_circuit->addInstructions(mirror_cir->getInstructions());
+    mirror_circuit->addInstruction(provider->createInstruction("Measure", {0}));
+    mirror_circuit->addInstruction(provider->createInstruction("Measure", {1}));
+    auto mc_buffer = xacc::qalloc(2);
+    accelerator->execute(mc_buffer, mirror_circuit);
+    mc_buffer->print();
+    EXPECT_EQ(mc_buffer->getMeasurementCounts().size(), 1);
+    EXPECT_EQ(mc_buffer->getMeasurementCounts()[expectedBitString], 1024);
+    allBitStrings.emplace(expectedBitString);
+  }
+  // Cover both cases (randomized Pauli worked)
+  EXPECT_EQ(allBitStrings.size(), 4);
+}
+
 int main(int argc, char **argv) {
   xacc::Initialize();
   ::testing::InitGoogleTest(&argc, argv);

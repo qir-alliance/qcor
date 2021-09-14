@@ -36,9 +36,8 @@ createMirrorCircuit(std::shared_ptr<CompositeInstruction> in_circuit) {
   std::vector<qcor::utils::PauliLabel> net_paulis(n,
                                                   qcor::utils::PauliLabel::I);
 
-  // Sympletic group for Pauli gates:
-  const auto srep_dict =
-      qcor::utils::computeGateSymplecticRepresentations({"I", "X", "Y", "Z"});
+  // Sympletic group 
+  const auto srep_dict = qcor::utils::computeGateSymplecticRepresentations();
 
   const auto pauliListToLayer =
       [](const std::vector<qcor::utils::PauliLabel> &in_paulis) {
@@ -83,12 +82,14 @@ createMirrorCircuit(std::shared_ptr<CompositeInstruction> in_circuit) {
     return gateProvider->createInstruction(
         "U", {qubit}, {theta2 - M_PI, theta3 - 3.0 * M_PI, theta1});
   };
+  static const std::vector<std::string> SELF_ADJOINT_CLIFFORD_GATES{
+      "H", "X", "Y", "Z", "CNOT", "Swap"};
   const auto d = in_circuit->depth();
   for (int layer = d - 1; layer >= 0; --layer) {
     auto current_layers = getLayer(in_circuit->as_xacc(), layer);
     for (const auto &gate : current_layers) {
       // Only handle "U3" gate for now.
-      // TODO: convert all single-qubit gates to U3
+      // TODO: convert all single-qubit rotation gates to U3
       if (gate->name() == "U") {
         const auto u3_angles = decomposeU3Angle(gate);
         const auto [theta1_inv, theta2_inv, theta3_inv] =
@@ -97,6 +98,10 @@ createMirrorCircuit(std::shared_ptr<CompositeInstruction> in_circuit) {
         in_circuit->addInstruction(gateProvider->createInstruction(
             "U", {qubit},
             {theta2_inv - M_PI, theta1_inv - 3.0 * M_PI, theta3_inv}));
+      } else if (xacc::container::contains(SELF_ADJOINT_CLIFFORD_GATES,
+                                           gate->name())) {
+        // Handle Clifford gates:
+        in_circuit->addInstruction(gate->clone());
       }
     }
   } 
@@ -125,27 +130,45 @@ createMirrorCircuit(std::shared_ptr<CompositeInstruction> in_circuit) {
       return random_paulis;
     }(n);
 
-    const auto new_paulis_as_layer = pauliListToLayer(new_paulis);
-    const auto current_net_paulis_as_layer = pauliListToLayer(net_paulis);
-    const auto new_net_paulis_reps =
-        qcor::utils::computeCircuitSymplecticRepresentations(
-            {new_paulis_as_layer, current_net_paulis_as_layer}, n, srep_dict);
-
-    // Update the tracking net
-    net_paulis = qcor::utils::find_pauli_labels(new_net_paulis_reps.second);
-    {
-      std::stringstream ss;
-      ss << "Net Pauli: ";
-      for (const auto &p : net_paulis) {
-        ss << p << " ";
+    const auto gateToLayerInfo = [](xacc::InstPtr gate, int nbQubits) {
+      qcor::utils::CliffordGateLayer_t result;
+      std::vector<int> operands;
+      for (const auto &bit : gate->bits()) {
+        operands.emplace_back(bit);
       }
-      xacc::info(ss.str());
-    }
 
+      for (int i = 0; i < nbQubits; ++i) {
+        if (!xacc::container::contains(operands, i)) {
+          result.emplace_back(std::make_pair("I", std::vector<int>{i}));
+        }
+      }
+
+      result.emplace_back(std::make_pair(gate->name(), operands));
+      return result;
+    };
+
+    const auto current_net_paulis_as_layer = pauliListToLayer(net_paulis);
     for (const auto &gate : current_layers) {
       // Only handle "U3" gate for now.
       // TODO: convert all single-qubit gates to U3
       if (gate->name() == "U") {
+        const auto new_paulis_as_layer = pauliListToLayer(new_paulis);
+        const auto new_net_paulis_reps =
+            qcor::utils::computeCircuitSymplecticRepresentations(
+                {new_paulis_as_layer, current_net_paulis_as_layer}, n,
+                srep_dict);
+
+        // Update the tracking net
+        net_paulis = qcor::utils::find_pauli_labels(new_net_paulis_reps.second);
+        {
+          std::stringstream ss;
+          ss << "Net Pauli: ";
+          for (const auto &p : net_paulis) {
+            ss << p << " ";
+          }
+          xacc::info(ss.str());
+        }
+
         const size_t qubit = gate->bits()[0];
         const auto [theta1, theta2, theta3] = decomposeU3Angle(gate);
         // Compute the pseudo_inverse gate:
@@ -155,6 +178,27 @@ createMirrorCircuit(std::shared_ptr<CompositeInstruction> in_circuit) {
                 net_paulis[qubit]);
         mirrorCircuit.emplace_back(
             createU3GateFromAngle(qubit, theta1_new, theta2_new, theta3_new));
+      } else if (xacc::container::contains(SELF_ADJOINT_CLIFFORD_GATES,
+                                           gate->name())) {
+        mirrorCircuit.emplace_back(gate->clone());
+        // we need to account for how the net pauli changes when it gets passed
+        // through the clifford layers
+        const auto new_net_paulis_reps =
+            qcor::utils::computeCircuitSymplecticRepresentations(
+                {gateToLayerInfo(gate, n), current_net_paulis_as_layer,
+                 gateToLayerInfo(gate, n)},
+                n, srep_dict);
+
+        // Update the tracking net
+        net_paulis = qcor::utils::find_pauli_labels(new_net_paulis_reps.second);
+        {
+          std::stringstream ss;
+          ss << "Net Pauli: ";
+          for (const auto &p : net_paulis) {
+            ss << p << " ";
+          }
+          xacc::info(ss.str());
+        }
       }
     }
   }
