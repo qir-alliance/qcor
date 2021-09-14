@@ -13,7 +13,7 @@ getLayer(std::shared_ptr<xacc::CompositeInstruction> circuit, int layerId) {
   std::vector<std::shared_ptr<xacc::Instruction>> result;
   assert(layerId < circuit->depth());
   auto graphView = circuit->toGraph();
-  for (int i = 1; i < graphView->order() - 2; i++) {
+  for (int i = 1; i < graphView->order() - 1; i++) {
     auto node = graphView->getVertexProperties(i);
     if (node.get<int>("layer") == layerId) {
       result.emplace_back(
@@ -64,7 +64,51 @@ createMirrorCircuit(std::shared_ptr<CompositeInstruction> in_circuit) {
         }
         return result;
       };
-  for (int layer = 0; layer < in_circuit->depth(); ++layer) {
+  
+  // in_circuit->as_xacc()->toGraph()->write(std::cout);
+  const auto decomposeU3Angle = [](xacc::InstPtr u3_gate) {
+    const double theta = InstructionParameterToDouble(u3_gate->getParameter(0));
+    const double phi = InstructionParameterToDouble(u3_gate->getParameter(1));
+    const double lam = InstructionParameterToDouble(u3_gate->getParameter(2));
+    // Convert to 3 rz angles:
+    const double theta1 = lam;
+    const double theta2 = theta + M_PI;
+    const double theta3 = phi + 3.0 * M_PI;
+    return std::make_tuple(theta1, theta2, theta3);
+  };
+
+  const auto createU3GateFromAngle = [](size_t qubit, double theta1,
+                                        double theta2, double theta3) {
+    auto gateProvider = xacc::getService<xacc::IRProvider>("quantum");
+    return gateProvider->createInstruction(
+        "U", {qubit}, {theta2 - M_PI, theta3 - 3.0 * M_PI, theta1});
+  };
+  const auto d = in_circuit->depth();
+  for (int layer = d - 1; layer >= 0; --layer) {
+    auto current_layers = getLayer(in_circuit->as_xacc(), layer);
+    for (const auto &gate : current_layers) {
+      // Only handle "U3" gate for now.
+      // TODO: convert all single-qubit gates to U3
+      if (gate->name() == "U") {
+        const auto u3_angles = decomposeU3Angle(gate);
+        const auto [theta1_inv, theta2_inv, theta3_inv] =
+            qcor::utils::invU3Gate(u3_angles);
+        const size_t qubit = gate->bits()[0];
+        in_circuit->addInstruction(
+            gateProvider->createInstruction("Rz", {qubit}, {theta3_inv}));
+        in_circuit->addInstruction(
+            gateProvider->createInstruction("Rx", {qubit}, {M_PI / 2.0}));
+        in_circuit->addInstruction(
+            gateProvider->createInstruction("Rz", {qubit}, {theta2_inv}));
+        in_circuit->addInstruction(
+            gateProvider->createInstruction("Rx", {qubit}, {M_PI / 2.0}));
+        in_circuit->addInstruction(
+            gateProvider->createInstruction("Rz", {qubit}, {theta1_inv}));
+      }
+    }
+  }
+
+  for (int layer = 0; layer < d; ++layer) {
     auto current_layers = getLayer(in_circuit->as_xacc(), layer);
     // New random Pauli layer
     const std::vector<qcor::utils::PauliLabel> new_paulis = [](int nQubits) {
@@ -93,23 +137,14 @@ createMirrorCircuit(std::shared_ptr<CompositeInstruction> in_circuit) {
       // TODO: convert all single-qubit gates to U3
       if (gate->name() == "U") {
         const size_t qubit = gate->bits()[0];
-        const double theta =
-            InstructionParameterToDouble(gate->getParameter(0));
-        const double phi = InstructionParameterToDouble(gate->getParameter(1));
-        const double lam = InstructionParameterToDouble(gate->getParameter(2));
-        // Convert to 3 rz angles:
-        const double theta1 = lam;
-        const double theta2 = theta + M_PI;
-        const double theta3 = phi + 3.0 * M_PI;
+        const auto [theta1, theta2, theta3] = decomposeU3Angle(gate);
         // Compute the pseudo_inverse gate:
         const auto [theta1_new, theta2_new, theta3_new] =
             qcor::utils::computeRotationInPauliFrame(
                 std::make_tuple(theta1, theta2, theta3), new_paulis[qubit],
                 net_paulis[qubit]);
-
-        mirrorCircuit.emplace_back(gateProvider->createInstruction(
-            "U", {qubit},
-            {theta2_new - M_PI, theta3_new - 3.0 * M_PI, theta1_new}));
+        mirrorCircuit.emplace_back(
+            createU3GateFromAngle(qubit, theta1_new, theta2_new, theta3_new));
       }
     }
   }

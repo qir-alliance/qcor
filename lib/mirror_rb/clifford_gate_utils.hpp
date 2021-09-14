@@ -3,7 +3,7 @@
 #include <vector>
 #include <string>
 #include <unordered_map>
-
+#include <iostream>
 namespace qcor {
 namespace utils {
 // Generalized rotation (3 angles)
@@ -12,6 +12,22 @@ using GenRot_t = std::tuple<double, double, double>;
 enum class PauliLabel { I, X, Y, Z };
 static inline std::vector<PauliLabel>
     ALL_PAULI_OPS({PauliLabel::I, PauliLabel::X, PauliLabel::Y, PauliLabel::Z});
+inline std::ostream &operator<<(std::ostream &out, PauliLabel value) {
+  std::string s;
+#define PROCESS_VAL(p)                                                         \
+  case (p):                                                                    \
+    s = #p;                                                                    \
+    break;
+  switch (value) {
+    PROCESS_VAL(PauliLabel::I);
+    PROCESS_VAL(PauliLabel::X);
+    PROCESS_VAL(PauliLabel::Y);
+    PROCESS_VAL(PauliLabel::Z);
+  }
+#undef PROCESS_VAL
+
+  return out << s.back();
+}
 
 // Symplectic matrix and phase vector representations
 using Smatrix_t = std::vector<std::vector<int>>;
@@ -26,7 +42,10 @@ using CliffordGateLayer_t =
 GenRot_t computeRotationInPauliFrame(const GenRot_t &in_rot,
                                      PauliLabel in_newPauli,
                                      PauliLabel in_netPauli);
-
+// makes a compiled version of the inverse of a compiled general unitary
+// negate angles for inverse based on central pauli, account for recompiling the
+// X(-pi/2) into X(pi/2)
+GenRot_t invU3Gate(const GenRot_t &in_rot);
 // Creates a dictionary of the symplectic representations of
 // Clifford gates.
 // Returns a dictionary of (s matrix, phase vector) pairs,

@@ -24,6 +24,9 @@ GenRot_t computeRotationInPauliFrame(const GenRot_t &in_rot,
                                      PauliLabel in_netPauli) {
   auto [theta1, theta2, theta3] = in_rot;
 
+  theta1 = mod_2pi(theta1);
+  theta2 = mod_2pi(theta2);
+  theta3 = mod_2pi(theta3);
   if (in_netPauli == PauliLabel::X || in_netPauli == PauliLabel::Z) {
     theta2 *= -1.0;
   }
@@ -33,12 +36,12 @@ GenRot_t computeRotationInPauliFrame(const GenRot_t &in_rot,
   }
 
   // if x or y
-  if (in_newPauli == PauliLabel::X || in_netPauli == PauliLabel::Y) {
+  if (in_newPauli == PauliLabel::X || in_newPauli == PauliLabel::Y) {
     theta1 = -theta1 + M_PI;
     theta2 = theta2 + M_PI;
   }
   // if y or z
-  if (in_newPauli == PauliLabel::Y || in_netPauli == PauliLabel::Z) {
+  if (in_newPauli == PauliLabel::Y || in_newPauli == PauliLabel::Z) {
     theta1 = theta1 + M_PI;
   }
 
@@ -46,7 +49,14 @@ GenRot_t computeRotationInPauliFrame(const GenRot_t &in_rot,
   theta1 = mod_2pi(theta1);
   theta2 = mod_2pi(theta2);
   theta3 = mod_2pi(theta3);
+  return std::make_tuple(theta1, theta2, theta3);
+}
 
+GenRot_t invU3Gate(const GenRot_t &in_rot) {
+  auto [theta1, theta2, theta3] = in_rot;
+  theta1 = mod_2pi(M_PI - theta1);
+  theta2 = mod_2pi(-theta2);
+  theta3 = mod_2pi(-theta3 + M_PI);
   return std::make_tuple(theta1, theta2, theta3);
 }
 
@@ -226,7 +236,7 @@ Srep_t composeCliffords(const Srep_t &C1, const Srep_t &C2) {
   }
 
   Mat_t u = Mat_t::Zero(2 * n, 2 * n);
-  u(Eigen::seq(n, 2 * n), Eigen::seq(0, n)) = Mat_t::Identity(n, n);
+  u(Eigen::seq(n, 2 * n - 1), Eigen::seq(0, n - 1)) = Mat_t::Identity(n, n);
 
   Vec_t vec1 = s1.transpose() * p2;
   Mat_t inner = (s2.transpose() * u) * s2;
