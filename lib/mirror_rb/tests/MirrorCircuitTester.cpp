@@ -16,8 +16,10 @@ double random_angle() {
 TEST(MirrorCircuitTester, checkU3Inverse) {
   auto provider = xacc::getIRProvider("quantum");
   constexpr int NUM_TESTS = 1000;
+  auto accelerator = xacc::getAccelerator("qpp", {{"shots", 1024}});
+  std::set<std::string> allBitStrings;
   for (int i = 0; i < NUM_TESTS; ++i) {
-    auto circuit = provider->createComposite("test");
+    auto circuit = provider->createComposite(std::string("test") + std::to_string(i));
     const double theta = random_angle();
     const double phi = random_angle();
     const double lambda = random_angle();
@@ -25,16 +27,67 @@ TEST(MirrorCircuitTester, checkU3Inverse) {
         "U", {0}, std::vector<xacc::InstructionParameter>{theta, phi, lambda}));
     auto [mirror_cir, expected_result] = qcor::createMirrorCircuit(
         std::make_shared<qcor::CompositeInstruction>(circuit));
-    auto accelerator = xacc::getAccelerator("qpp", {{"shots", 1024}});
-    // circuit->addInstructions(mirror_cir->getInstructions());
-    circuit->addInstruction(provider->createInstruction("Measure", {0}));
-    // std::cout << "HOWDY: \n" << circuit->toString() << "\n";
-    auto buffer = xacc::qalloc(1);
-    accelerator->execute(buffer, circuit);
-    buffer->print();
-    EXPECT_EQ(buffer->getMeasurementCounts().size(), 1);
-    EXPECT_EQ(buffer->getMeasurementCounts()["0"], 1024);
+    EXPECT_EQ(expected_result.size(), 1);
+    EXPECT_EQ(mirror_cir->nInstructions(), 2);
+    std::cout << "Expected: " << expected_result[0] << "\n";
+    std::cout << "HOWDY: \n" << mirror_cir->toString() << "\n";
+    auto mirror_circuit = provider->createComposite("test_mirror");
+    mirror_circuit->addInstructions(mirror_cir->getInstructions());
+    mirror_circuit->addInstruction(provider->createInstruction("Measure", {0}));
+    auto mc_buffer = xacc::qalloc(1);
+    accelerator->execute(mc_buffer, mirror_circuit);
+    mc_buffer->print();
+    EXPECT_EQ(mc_buffer->getMeasurementCounts().size(), 1);
+    EXPECT_EQ(
+        mc_buffer->getMeasurementCounts()[std::to_string(expected_result[0])],
+        1024);
+    allBitStrings.emplace(std::to_string(expected_result[0]));
   }
+  // Cover both cases (randomized Pauli worked)
+  EXPECT_EQ(allBitStrings.size(), 2);
+}
+
+// Layer of U3's on multiple qubits
+TEST(MirrorCircuitTester, checkMultipleU3) {
+  auto provider = xacc::getIRProvider("quantum");
+  constexpr int NUM_TESTS = 1000;
+  auto accelerator = xacc::getAccelerator("qpp", {{"shots", 1024}});
+  std::set<std::string> allBitStrings;
+  for (int i = 0; i < NUM_TESTS; ++i) {
+    auto circuit = provider->createComposite(std::string("test") + std::to_string(i));
+    const double theta1 = random_angle();
+    const double phi1 = random_angle();
+    const double lambda1 = random_angle();
+    circuit->addInstruction(provider->createInstruction(
+        "U", {0}, std::vector<xacc::InstructionParameter>{theta1, phi1, lambda1}));
+
+    const double theta2 = random_angle();
+    const double phi2 = random_angle();
+    const double lambda2 = random_angle();
+    circuit->addInstruction(provider->createInstruction(
+        "U", {1}, std::vector<xacc::InstructionParameter>{theta2, phi2, lambda2}));
+    auto [mirror_cir, expected_result] = qcor::createMirrorCircuit(
+        std::make_shared<qcor::CompositeInstruction>(circuit));
+    EXPECT_EQ(expected_result.size(), 2);
+    EXPECT_EQ(mirror_cir->nInstructions(), 4);
+    std::cout << "Expected: " << expected_result[0] << expected_result[1] << "\n";
+    std::cout << "HOWDY: \n" << mirror_cir->toString() << "\n";
+    auto mirror_circuit = provider->createComposite("test_mirror");
+    mirror_circuit->addInstructions(mirror_cir->getInstructions());
+    mirror_circuit->addInstruction(provider->createInstruction("Measure", {0}));
+    mirror_circuit->addInstruction(provider->createInstruction("Measure", {1}));
+    auto mc_buffer = xacc::qalloc(2);
+    accelerator->execute(mc_buffer, mirror_circuit);
+    mc_buffer->print();
+    const std::string expectedBitString =
+        std::to_string(expected_result[0]) + std::to_string(expected_result[1]);
+    EXPECT_EQ(mc_buffer->getMeasurementCounts().size(), 1);
+    EXPECT_EQ(mc_buffer->getMeasurementCounts()[expectedBitString], 1024);
+    allBitStrings.emplace(expectedBitString);
+  }
+  // We should have seen all 4 possible cases with that number of randomized
+  // Pauli runs
+  EXPECT_EQ(allBitStrings.size(), 4);
 }
 
 int main(int argc, char **argv) {
