@@ -113,6 +113,14 @@ createMirrorCircuit(std::shared_ptr<CompositeInstruction> in_circuit) {
       for (int i = 0; i < nQubits; ++i) {
         random_paulis.emplace_back(qcor::utils::ALL_PAULI_OPS[dis(gen)]);
       }
+      {
+        std::stringstream ss;
+        ss << "Random Pauli: ";
+        for (const auto &p : random_paulis) {
+          ss << p << " ";
+        }
+        xacc::info(ss.str());
+      }
 
       return random_paulis;
     }(n);
@@ -125,6 +133,15 @@ createMirrorCircuit(std::shared_ptr<CompositeInstruction> in_circuit) {
 
     // Update the tracking net
     net_paulis = qcor::utils::find_pauli_labels(new_net_paulis_reps.second);
+    {
+      std::stringstream ss;
+      ss << "Net Pauli: ";
+      for (const auto &p : net_paulis) {
+        ss << p << " ";
+      }
+      xacc::info(ss.str());
+    }
+
     for (const auto &gate : current_layers) {
       // Only handle "U3" gate for now.
       // TODO: convert all single-qubit gates to U3
