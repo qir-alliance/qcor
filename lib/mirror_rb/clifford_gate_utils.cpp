@@ -184,6 +184,7 @@ Srep_t computeLayerSymplecticRepresentations(const CliffordGateLayer_t &layers,
     assert(iter != srep_dict.end());
     const auto &[matrix, phase] = iter->second;
     const auto nforgate = operands.size();
+    assert(nforgate > 0);
     for (int ind1 = 0; ind1 < operands.size(); ++ind1) {
       const auto qindex1 = operands[ind1];
       assert(seen_qubits.find(qindex1) == seen_qubits.end());
@@ -299,6 +300,10 @@ Srep_t computeCircuitSymplecticRepresentations(
   // Initilize
   Pvec_t p(2 * nQubits, 0);
   Smatrix_t s(2 * nQubits, p);
+  // S must be initialized as an identity matrix
+  for (int i = 0; i < 2 * nQubits; ++i) {
+    s[i][i] = 1;
+  }
   for (const auto &layer : layers) {
     const auto layerRep =
         computeLayerSymplecticRepresentations(layer, nQubits, srep_dict);

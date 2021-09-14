@@ -47,16 +47,16 @@ createMirrorCircuit(std::shared_ptr<CompositeInstruction> in_circuit) {
           const auto pauli = in_paulis[i];
           switch (pauli) {
           case qcor::utils::PauliLabel::I:
-            result.emplace_back(std::make_pair("I", i));
+            result.emplace_back(std::make_pair("I", std::vector<int>{i}));
             break;
           case qcor::utils::PauliLabel::X:
-            result.emplace_back(std::make_pair("X", i));
+            result.emplace_back(std::make_pair("X", std::vector<int>{i}));
             break;
           case qcor::utils::PauliLabel::Y:
-            result.emplace_back(std::make_pair("Y", i));
+            result.emplace_back(std::make_pair("Y", std::vector<int>{i}));
             break;
           case qcor::utils::PauliLabel::Z:
-            result.emplace_back(std::make_pair("Z", i));
+            result.emplace_back(std::make_pair("Z", std::vector<int>{i}));
             break;
           default:
             __builtin_unreachable();
@@ -94,21 +94,14 @@ createMirrorCircuit(std::shared_ptr<CompositeInstruction> in_circuit) {
         const auto [theta1_inv, theta2_inv, theta3_inv] =
             qcor::utils::invU3Gate(u3_angles);
         const size_t qubit = gate->bits()[0];
-        in_circuit->addInstruction(
-            gateProvider->createInstruction("Rz", {qubit}, {theta3_inv}));
-        in_circuit->addInstruction(
-            gateProvider->createInstruction("Rx", {qubit}, {M_PI / 2.0}));
-        in_circuit->addInstruction(
-            gateProvider->createInstruction("Rz", {qubit}, {theta2_inv}));
-        in_circuit->addInstruction(
-            gateProvider->createInstruction("Rx", {qubit}, {M_PI / 2.0}));
-        in_circuit->addInstruction(
-            gateProvider->createInstruction("Rz", {qubit}, {theta1_inv}));
+        in_circuit->addInstruction(gateProvider->createInstruction(
+            "U", {qubit},
+            {theta2_inv - M_PI, theta1_inv - 3.0 * M_PI, theta3_inv}));
       }
     }
-  }
-
-  for (int layer = 0; layer < d; ++layer) {
+  } 
+  const int newDepth = in_circuit->depth();
+  for (int layer = 0; layer < newDepth; ++layer) {
     auto current_layers = getLayer(in_circuit->as_xacc(), layer);
     // New random Pauli layer
     const std::vector<qcor::utils::PauliLabel> new_paulis = [](int nQubits) {
