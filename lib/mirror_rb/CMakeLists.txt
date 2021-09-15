@@ -41,14 +41,7 @@ install(TARGETS ${LIBRARY_NAME} DESTINATION ${CMAKE_INSTALL_PREFIX}/plugins)
 if (QCOR_BUILD_TESTS)
   add_subdirectory(tests)
 endif()
-
-
-
-
-
-
-
-												 
+ 
 if(APPLE)
   set_target_properties(${LIBRARY_NAME}
                         PROPERTIES INSTALL_RPATH "@loader_path/../lib;${LLVM_INSTALL_PREFIX}/lib")
