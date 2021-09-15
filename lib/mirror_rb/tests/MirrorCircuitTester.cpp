@@ -17,7 +17,7 @@ double random_angle() {
 
 TEST(MirrorCircuitTester, checkU3Inverse) {
   auto provider = xacc::getIRProvider("quantum");
-  constexpr int NUM_TESTS = 1000;
+  constexpr int NUM_TESTS = 100;
   auto accelerator = xacc::getAccelerator("qpp", {{"shots", 1024}});
   std::set<std::string> allBitStrings;
   for (int i = 0; i < NUM_TESTS; ++i) {
@@ -52,7 +52,7 @@ TEST(MirrorCircuitTester, checkU3Inverse) {
 // Layer of U3's on multiple qubits
 TEST(MirrorCircuitTester, checkMultipleU3) {
   auto provider = xacc::getIRProvider("quantum");
-  constexpr int NUM_TESTS = 1000;
+  constexpr int NUM_TESTS = 100;
   auto accelerator = xacc::getAccelerator("qpp", {{"shots", 1024}});
   std::set<std::string> allBitStrings;
   for (int i = 0; i < NUM_TESTS; ++i) {
@@ -94,7 +94,7 @@ TEST(MirrorCircuitTester, checkMultipleU3) {
 
 TEST(MirrorCircuitTester, checkCliffordGates) {
   auto provider = xacc::getIRProvider("quantum");
-  constexpr int NUM_TESTS = 1000;
+  constexpr int NUM_TESTS = 100;
   auto accelerator = xacc::getAccelerator("qpp", {{"shots", 1024}});
   std::set<std::string> allBitStrings;
   for (int i = 0; i < NUM_TESTS; ++i) {
@@ -137,7 +137,7 @@ TEST(MirrorCircuitTester, checkCliffordGates) {
 
 TEST(MirrorCircuitTester, checkDeuteron) {
   auto provider = xacc::getIRProvider("quantum");
-  constexpr int NUM_TESTS = 1000;
+  constexpr int NUM_TESTS = 100;
   auto accelerator = xacc::getAccelerator("qpp", {{"shots", 1024}});
   std::set<std::string> allBitStrings;
   for (int i = 0; i < NUM_TESTS; ++i) {
