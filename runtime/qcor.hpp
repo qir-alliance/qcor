@@ -52,6 +52,9 @@ public:
 #ifdef __internal__qcor__print__final__submission
     xacc::internal_compiler::__print_final_submission = true;
 #endif
+#ifdef __internal__qcor__validate__execution
+    xacc::internal_compiler::__validate_nisq_execution = true;
+#endif
   }
 };
 internal_startup startup;

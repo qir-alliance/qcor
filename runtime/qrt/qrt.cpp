@@ -24,6 +24,7 @@ std::vector<int> __qubit_map = {};
 std::string __qrt_env = "nisq";
 bool __print_final_submission = false;
 std::string __print_final_submission_filename = "";
+bool __validate_nisq_execution = false;
 
 void execute_pass_manager(
     std::shared_ptr<qcor::CompositeInstruction> optional_composite) {

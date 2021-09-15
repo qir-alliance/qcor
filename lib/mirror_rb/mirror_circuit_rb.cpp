@@ -4,10 +4,27 @@
 #include "qcor_ir.hpp"
 #include "qcor_pimpl_impl.hpp"
 #include "xacc.hpp"
+#include "xacc_plugin.hpp"
 #include "xacc_service.hpp"
 #include <cassert>
 #include <random>
-#include "xacc_plugin.hpp"
+namespace {
+std::vector<std::shared_ptr<xacc::Instruction>>
+getLayer(std::shared_ptr<xacc::CompositeInstruction> circuit, int layerId) {
+  std::vector<std::shared_ptr<xacc::Instruction>> result;
+  assert(layerId < circuit->depth());
+  auto graphView = circuit->toGraph();
+  for (int i = 1; i < graphView->order() - 1; i++) {
+    auto node = graphView->getVertexProperties(i);
+    if (node.get<int>("layer") == layerId) {
+      result.emplace_back(
+          circuit->getInstruction(node.get<std::size_t>("id") - 1)->clone());
+    }
+  }
+  assert(!result.empty());
+  return result;
+}
+} // namespace
 namespace xacc {
 namespace quantum {
 // Helper to convert a gate
@@ -76,7 +93,7 @@ public:
   }
 
   void visit(Measure &measure) override {
-    xacc::error("The mirror circuit must not contain measure gates.");
+    // Ignore measure
   }
 
   void visit(Identity &i) override {}
@@ -129,32 +146,41 @@ public:
     visit(ry2);
   }
 
-  std::shared_ptr<CompositeInstruction> getProgram() { return m_program; }
+  std::shared_ptr<CompositeInstruction> getProgram() { return balanceLayer(); }
 
 private:
+  std::shared_ptr<CompositeInstruction> balanceLayer() {
+    // Balance all layers
+    // The mirroring protocol doesn't work well when there are layers that has
+    // no gate on a qubit line, hence, just add an Identity there:
+    auto program = m_gateRegistry->createComposite("temp_composite");
+    const auto d = m_program->depth();
+    const auto nbQubits = m_program->nPhysicalBits();
+    for (int layer = 0; layer < d; ++layer) {
+      std::set<int> qubits;
+      auto current_layers = getLayer(m_program, layer);
+      for (const auto &gate : current_layers) {
+        program->addInstruction(gate);
+        for (const auto &bit : gate->bits()) {
+          qubits.emplace(bit);
+        }
+      }
+      if (qubits.size() < nbQubits) {
+        for (int i = 0; i < nbQubits; ++i) {
+          if (!xacc::container::contains(qubits, i)) {
+            program->addInstruction(
+                m_gateRegistry->createInstruction("U", {(size_t)i}, {0.0, 0.0, 0.0}));
+          }
+        }
+      }
+    }
+    return program;
+  }
   std::shared_ptr<CompositeInstruction> m_program;
   std::shared_ptr<xacc::IRProvider> m_gateRegistry;
 };
 } // namespace quantum
 } // namespace xacc
-
-namespace {
-std::vector<std::shared_ptr<xacc::Instruction>>
-getLayer(std::shared_ptr<xacc::CompositeInstruction> circuit, int layerId) {
-  std::vector<std::shared_ptr<xacc::Instruction>> result;
-  assert(layerId < circuit->depth());
-  auto graphView = circuit->toGraph();
-  for (int i = 1; i < graphView->order() - 1; i++) {
-    auto node = graphView->getVertexProperties(i);
-    if (node.get<int>("layer") == layerId) {
-      result.emplace_back(
-          circuit->getInstruction(node.get<std::size_t>("id") - 1)->clone());
-    }
-  }
-  assert(!result.empty());
-  return result;
-}
-} // namespace
 
 namespace qcor {
 std::pair<bool, xacc::HeterogeneousMap> MirrorCircuitValidator::validate(
@@ -173,7 +199,7 @@ std::pair<bool, xacc::HeterogeneousMap> MirrorCircuitValidator::validate(
   if (options.keyExists<double>("epsilon")) {
     eps = options.get<double>("epsilon");
   }
-  
+
   qpu->updateConfiguration({{"shots", n_shots}});
   std::vector<double> trial_success_probs;
   auto provider = xacc::getIRProvider("quantum");
@@ -219,7 +245,8 @@ std::pair<bool, xacc::HeterogeneousMap> MirrorCircuitValidator::validate(
 }
 
 std::pair<std::shared_ptr<CompositeInstruction>, std::vector<bool>>
-MirrorCircuitValidator::createMirrorCircuit(std::shared_ptr<CompositeInstruction> in_circuit) {
+MirrorCircuitValidator::createMirrorCircuit(
+    std::shared_ptr<CompositeInstruction> in_circuit) {
   std::vector<std::shared_ptr<xacc::Instruction>> mirrorCircuit;
   auto gateProvider = xacc::getService<xacc::IRProvider>("quantum");
 
