@@ -1,4 +1,5 @@
 #include "mirror_circuit_rb.hpp"
+#include "AllGateVisitor.hpp"
 #include "clifford_gate_utils.hpp"
 #include "qcor_ir.hpp"
 #include "qcor_pimpl_impl.hpp"
@@ -6,6 +7,136 @@
 #include "xacc_service.hpp"
 #include <cassert>
 #include <random>
+
+namespace xacc {
+namespace quantum {
+// Helper to convert a gate
+class GateConverterVisitor : public AllGateVisitor {
+public:
+  GateConverterVisitor() {
+    m_gateRegistry = xacc::getService<xacc::IRProvider>("quantum");
+    m_program = m_gateRegistry->createComposite("temp_composite");
+  }
+
+  // Keep these 2 gates:
+  void visit(CNOT &cnot) override { m_program->addInstruction(cnot.clone()); }
+  void visit(U &u) override { m_program->addInstruction(u.clone()); }
+
+  // Rotation gates:
+  void visit(Ry &ry) override {
+    const double theta = InstructionParameterToDouble(ry.getParameter(0));
+    m_program->addInstruction(m_gateRegistry->createInstruction(
+        "U", {ry.bits()[0]}, {theta, 0.0, 0.0}));
+  }
+
+  void visit(Rx &rx) override {
+    const double theta = InstructionParameterToDouble(rx.getParameter(0));
+    m_program->addInstruction(m_gateRegistry->createInstruction(
+        "U", {rx.bits()[0]}, {theta, -1.0 * M_PI / 2.0, M_PI / 2.0}));
+  }
+
+  void visit(Rz &rz) override {
+    const double theta = InstructionParameterToDouble(rz.getParameter(0));
+    m_program->addInstruction(m_gateRegistry->createInstruction(
+        "U", {rz.bits()[0]}, {0.0, theta, 0.0}));
+  }
+
+  void visit(X &x) override {
+    Rx rx(x.bits()[0], M_PI);
+    visit(rx);
+  }
+  void visit(Y &y) override {
+    Ry ry(y.bits()[0], M_PI);
+    visit(ry);
+  }
+  void visit(Z &z) override {
+    Rz rz(z.bits()[0], M_PI);
+    visit(rz);
+  }
+  void visit(S &s) override {
+    Rz rz(s.bits()[0], M_PI / 2.0);
+    visit(rz);
+  }
+  void visit(Sdg &sdg) override {
+    Rz rz(sdg.bits()[0], -M_PI / 2.0);
+    visit(rz);
+  }
+  void visit(T &t) override {
+    Rz rz(t.bits()[0], M_PI / 4.0);
+    visit(rz);
+  }
+  void visit(Tdg &tdg) override {
+    Rz rz(tdg.bits()[0], -M_PI / 4.0);
+    visit(rz);
+  }
+
+  void visit(Hadamard &h) override {
+    m_program->addInstruction(m_gateRegistry->createInstruction(
+        "U", {h.bits()[0]}, {M_PI / 2.0, 0.0, M_PI}));
+  }
+
+  void visit(Measure &measure) override {
+    xacc::error("The mirror circuit must not contain measure gates.");
+  }
+
+  void visit(Identity &i) override {}
+
+  void visit(CY &cy) override {
+    // controlled-Y = Sdg(target) - CX - S(target)
+    CNOT c1(cy.bits());
+    Sdg sdg(cy.bits()[1]);
+    S s(cy.bits()[1]);
+
+    visit(sdg);
+    visit(c1);
+    visit(s);
+  }
+
+  void visit(CZ &cz) override {
+    // CZ = H(target) - CX - H(target)
+    CNOT c1(cz.bits());
+    Hadamard h1(cz.bits()[1]);
+    Hadamard h2(cz.bits()[1]);
+
+    visit(h1);
+    visit(c1);
+    visit(h2);
+  }
+
+  void visit(CRZ &crz) override {
+    const auto theta = InstructionParameterToDouble(crz.getParameter(0));
+    // Decompose
+    Rz rz1(crz.bits()[1], theta / 2);
+    CNOT c1(crz.bits());
+    Rz rz2(crz.bits()[1], -theta / 2);
+    CNOT c2(crz.bits());
+
+    // Revisit:
+    visit(rz1);
+    visit(c1);
+    visit(rz2);
+    visit(c2);
+  }
+
+  void visit(CH &ch) override {
+    // controlled-H = Ry(pi/4, target) - CX - Ry(-pi/4, target)
+    CNOT c1(ch.bits());
+    Ry ry1(ch.bits()[1], M_PI_4);
+    Ry ry2(ch.bits()[1], -M_PI_4);
+
+    visit(ry1);
+    visit(c1);
+    visit(ry2);
+  }
+
+  std::shared_ptr<CompositeInstruction> getProgram() { return m_program; }
+
+private:
+  std::shared_ptr<CompositeInstruction> m_program;
+  std::shared_ptr<xacc::IRProvider> m_gateRegistry;
+};
+} // namespace quantum
+} // namespace xacc
 
 namespace {
 std::vector<std::shared_ptr<xacc::Instruction>>
@@ -23,27 +154,6 @@ getLayer(std::shared_ptr<xacc::CompositeInstruction> circuit, int layerId) {
   assert(!result.empty());
   return result;
 }
-
-std::shared_ptr<xacc::Instruction>
-rotationToU3Gate(std::shared_ptr<xacc::Instruction> gate) {
-  assert(gate->bits().size() == 1);
-  const double theta = InstructionParameterToDouble(gate->getParameter(0));
-  auto gateProvider = xacc::getService<xacc::IRProvider>("quantum");
-  if (gate->name() == "Rx") {
-    return gateProvider->createInstruction(
-        "U", {gate->bits()[0]}, {theta, -1.0 * M_PI / 2.0, M_PI / 2.0});
-  }
-  if (gate->name() == "Ry") {
-    return gateProvider->createInstruction("U", {gate->bits()[0]},
-                                           {theta, 0.0, 0.0});
-  }
-  if (gate->name() == "Rz") {
-    return gateProvider->createInstruction("U", {gate->bits()[0]},
-                                           {0.0, theta, 0.0});
-  }
-  assert(false);
-  return nullptr;
-}
 } // namespace
 
 namespace qcor {
@@ -52,12 +162,23 @@ createMirrorCircuit(std::shared_ptr<CompositeInstruction> in_circuit) {
   std::vector<std::shared_ptr<xacc::Instruction>> mirrorCircuit;
   auto gateProvider = xacc::getService<xacc::IRProvider>("quantum");
 
-  const int n = in_circuit->nPhysicalBits();
+  // Gate conversion:
+  xacc::quantum::GateConverterVisitor visitor;
+  xacc::InstructionIterator it(in_circuit->as_xacc());
+  while (it.hasNext()) {
+    auto nextInst = it.next();
+    if (nextInst->isEnabled() && !nextInst->isComposite()) {
+      nextInst->accept(&visitor);
+    }
+  }
+
+  auto program = visitor.getProgram();
+  const int n = program->nPhysicalBits();
   // Tracking the Pauli layer as it is commuted through
   std::vector<qcor::utils::PauliLabel> net_paulis(n,
                                                   qcor::utils::PauliLabel::I);
 
-  // Sympletic group 
+  // Sympletic group
   const auto srep_dict = qcor::utils::computeGateSymplecticRepresentations();
 
   const auto pauliListToLayer =
@@ -84,8 +205,8 @@ createMirrorCircuit(std::shared_ptr<CompositeInstruction> in_circuit) {
         }
         return result;
       };
-  
-  // in_circuit->as_xacc()->toGraph()->write(std::cout);
+
+  // program->as_xacc()->toGraph()->write(std::cout);
   const auto decomposeU3Angle = [](xacc::InstPtr u3_gate) {
     const double theta = InstructionParameterToDouble(u3_gate->getParameter(0));
     const double phi = InstructionParameterToDouble(u3_gate->getParameter(1));
@@ -103,36 +224,29 @@ createMirrorCircuit(std::shared_ptr<CompositeInstruction> in_circuit) {
     return gateProvider->createInstruction(
         "U", {qubit}, {theta2 - M_PI, theta3 - 3.0 * M_PI, theta1});
   };
-  static const std::vector<std::string> SELF_ADJOINT_CLIFFORD_GATES{
-      "H", "X", "Y", "Z", "CNOT", "Swap"};
-  const auto d = in_circuit->depth();
+
+  const auto d = program->depth();
   for (int layer = d - 1; layer >= 0; --layer) {
-    auto current_layers = getLayer(in_circuit->as_xacc(), layer);
+    auto current_layers = getLayer(program, layer);
     for (const auto &gate : current_layers) {
-      if (gate->name() == "U" || gate->name() == "Rx" || gate->name() == "Ry" ||
-          gate->name() == "Rz") {
-        auto u3Gate = gate->name() == "U" ? gate : rotationToU3Gate(gate);
-        const auto u3_angles = decomposeU3Angle(u3Gate);
+      if (gate->bits().size() == 1) {
+        assert(gate->name() == "U");
+        const auto u3_angles = decomposeU3Angle(gate);
         const auto [theta1_inv, theta2_inv, theta3_inv] =
             qcor::utils::invU3Gate(u3_angles);
         const size_t qubit = gate->bits()[0];
-        in_circuit->addInstruction(gateProvider->createInstruction(
+        program->addInstruction(gateProvider->createInstruction(
             "U", {qubit},
             {theta2_inv - M_PI, theta1_inv - 3.0 * M_PI, theta3_inv}));
-      } else if (xacc::container::contains(SELF_ADJOINT_CLIFFORD_GATES,
-                                           gate->name())) {
-        // Handle Clifford gates:
-        in_circuit->addInstruction(gate->clone());
       } else {
-        xacc::error(
-            "Gate " + gate->name() +
-            " is not currently supported. Thien, please implement it!!!");
+        assert(gate->name() == "CNOT");
+        program->addInstruction(gate->clone());
       }
     }
-  } 
-  const int newDepth = in_circuit->depth();
+  }
+  const int newDepth = program->depth();
   for (int layer = 0; layer < newDepth; ++layer) {
-    auto current_layers = getLayer(in_circuit->as_xacc(), layer);
+    auto current_layers = getLayer(program, layer);
     // New random Pauli layer
     const std::vector<qcor::utils::PauliLabel> new_paulis = [](int nQubits) {
       static std::random_device rd;
@@ -174,9 +288,8 @@ createMirrorCircuit(std::shared_ptr<CompositeInstruction> in_circuit) {
 
     const auto current_net_paulis_as_layer = pauliListToLayer(net_paulis);
     for (const auto &gate : current_layers) {
-      if (gate->name() == "U" || gate->name() == "Rx" || gate->name() == "Ry" ||
-          gate->name() == "Rz") {
-        auto u3Gate = gate->name() == "U" ? gate : rotationToU3Gate(gate);
+      if (gate->bits().size() == 1) {
+        assert(gate->name() == "U");
         const auto new_paulis_as_layer = pauliListToLayer(new_paulis);
         const auto new_net_paulis_reps =
             qcor::utils::computeCircuitSymplecticRepresentations(
@@ -195,7 +308,7 @@ createMirrorCircuit(std::shared_ptr<CompositeInstruction> in_circuit) {
         }
 
         const size_t qubit = gate->bits()[0];
-        const auto [theta1, theta2, theta3] = decomposeU3Angle(u3Gate);
+        const auto [theta1, theta2, theta3] = decomposeU3Angle(gate);
         // Compute the pseudo_inverse gate:
         const auto [theta1_new, theta2_new, theta3_new] =
             qcor::utils::computeRotationInPauliFrame(
@@ -203,8 +316,7 @@ createMirrorCircuit(std::shared_ptr<CompositeInstruction> in_circuit) {
                 net_paulis[qubit]);
         mirrorCircuit.emplace_back(
             createU3GateFromAngle(qubit, theta1_new, theta2_new, theta3_new));
-      } else if (xacc::container::contains(SELF_ADJOINT_CLIFFORD_GATES,
-                                           gate->name())) {
+      } else {
         mirrorCircuit.emplace_back(gate->clone());
         // we need to account for how the net pauli changes when it gets passed
         // through the clifford layers
@@ -236,8 +348,7 @@ createMirrorCircuit(std::shared_ptr<CompositeInstruction> in_circuit) {
     target_bitString.emplace_back(telp_p[i] == 2);
   }
 
-  auto mirror_comp =
-      gateProvider->createComposite(in_circuit->name() + "_MIRROR");
+  auto mirror_comp = gateProvider->createComposite(program->name() + "_MIRROR");
   mirror_comp->addInstructions(mirrorCircuit);
   return std::make_pair(std::make_shared<CompositeInstruction>(mirror_comp),
                         target_bitString);
