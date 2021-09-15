@@ -25,7 +25,7 @@ TEST(MirrorCircuitTester, checkU3Inverse) {
     const double lambda = random_angle();
     circuit->addInstruction(provider->createInstruction(
         "U", {0}, std::vector<xacc::InstructionParameter>{theta, phi, lambda}));
-    auto [mirror_cir, expected_result] = qcor::createMirrorCircuit(
+    auto [mirror_cir, expected_result] = qcor::MirrorCircuitValidator::createMirrorCircuit(
         std::make_shared<qcor::CompositeInstruction>(circuit));
     EXPECT_EQ(expected_result.size(), 1);
     EXPECT_EQ(mirror_cir->nInstructions(), 2);
@@ -66,7 +66,7 @@ TEST(MirrorCircuitTester, checkMultipleU3) {
     const double lambda2 = random_angle();
     circuit->addInstruction(provider->createInstruction(
         "U", {1}, std::vector<xacc::InstructionParameter>{theta2, phi2, lambda2}));
-    auto [mirror_cir, expected_result] = qcor::createMirrorCircuit(
+    auto [mirror_cir, expected_result] = qcor::MirrorCircuitValidator::createMirrorCircuit(
         std::make_shared<qcor::CompositeInstruction>(circuit));
     EXPECT_EQ(expected_result.size(), 2);
     EXPECT_EQ(mirror_cir->nInstructions(), 4);
@@ -112,7 +112,7 @@ TEST(MirrorCircuitTester, checkCliffordGates) {
     circuit->addInstruction(provider->createInstruction("CNOT", {0, 1}));
     circuit->addInstruction(provider->createInstruction("H", {0}));
     circuit->addInstruction(provider->createInstruction("H", {1}));
-    auto [mirror_cir, expected_result] = qcor::createMirrorCircuit(
+    auto [mirror_cir, expected_result] = qcor::MirrorCircuitValidator::createMirrorCircuit(
         std::make_shared<qcor::CompositeInstruction>(circuit));
     const std::string expectedBitString =
         std::to_string(expected_result[0]) + std::to_string(expected_result[1]);
@@ -145,17 +145,17 @@ TEST(MirrorCircuitTester, checkDeuteron) {
     circuit->addInstruction(provider->createInstruction(
         "Ry", {1}, std::vector<xacc::InstructionParameter>{random_angle()}));
     circuit->addInstruction(provider->createInstruction("CNOT", {1, 0}));
-    auto [mirror_cir, expected_result] = qcor::createMirrorCircuit(
+    auto [mirror_cir, expected_result] = qcor::MirrorCircuitValidator::createMirrorCircuit(
         std::make_shared<qcor::CompositeInstruction>(circuit));
-    std::cout << "Expected: " << expected_result[0] << expected_result[1] << "\n";
-    std::cout << "HOWDY: \n" << mirror_cir->toString() << "\n";
+    // std::cout << "Expected: " << expected_result[0] << expected_result[1] << "\n";
+    // std::cout << "HOWDY: \n" << mirror_cir->toString() << "\n";
     auto mirror_circuit = provider->createComposite("test_mirror");
     mirror_circuit->addInstructions(mirror_cir->getInstructions());
     mirror_circuit->addInstruction(provider->createInstruction("Measure", {0}));
     mirror_circuit->addInstruction(provider->createInstruction("Measure", {1}));
     auto mc_buffer = xacc::qalloc(2);
     accelerator->execute(mc_buffer, mirror_circuit);
-    mc_buffer->print();
+    // mc_buffer->print();
     const std::string expectedBitString =
         std::to_string(expected_result[0]) + std::to_string(expected_result[1]);
     EXPECT_EQ(mc_buffer->getMeasurementCounts().size(), 1);

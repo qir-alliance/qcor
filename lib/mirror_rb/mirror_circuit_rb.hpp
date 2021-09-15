@@ -3,11 +3,19 @@
 #include <vector>
 #include <string>
 #include <utility>
+#include "qrt.hpp"
 
-// !Temporary: we'll figure out an interface for this later:
 namespace qcor {
-class CompositeInstruction;
-// Return the 'mirrored' circuit along with the expected result.
-std::pair<std::shared_ptr<CompositeInstruction>, std::vector<bool>>
-createMirrorCircuit(std::shared_ptr<CompositeInstruction> in_circuit);
+class MirrorCircuitValidator : public BackendValidator {
+public:
+  virtual const std::string name() const override { return "mirror-rb"; }
+  virtual const std::string description() const override { return ""; }
+  virtual std::pair<bool, xacc::HeterogeneousMap>
+  validate(std::shared_ptr<xacc::Accelerator> qpu,
+           std::shared_ptr<qcor::CompositeInstruction> program,
+           xacc::HeterogeneousMap options) override;
+  // Return the 'mirrored' circuit along with the expected result.
+  static std::pair<std::shared_ptr<CompositeInstruction>, std::vector<bool>>
+  createMirrorCircuit(std::shared_ptr<CompositeInstruction> in_circuit);
+};
 } // namespace qcor

@@ -157,8 +157,60 @@ getLayer(std::shared_ptr<xacc::CompositeInstruction> circuit, int layerId) {
 } // namespace
 
 namespace qcor {
+std::pair<bool, xacc::HeterogeneousMap> MirrorCircuitValidator::validate(
+    std::shared_ptr<xacc::Accelerator> qpu,
+    std::shared_ptr<qcor::CompositeInstruction> program,
+    xacc::HeterogeneousMap options) {
+  // Some default values
+  int n_trials = 1000;
+  // 10% error allowed... (away from the expected bitstring)
+  double eps = 0.1;
+  int n_shots = 1024;
+
+  if (options.keyExists<int>("trials")) {
+    n_trials = options.get<int>("trials");
+  }
+  if (options.keyExists<double>("epsilon")) {
+    eps = options.get<double>("epsilon");
+  }
+  
+  qpu->updateConfiguration({{"shots", n_shots}});
+  std::vector<double> trial_success_probs;
+  auto provider = xacc::getIRProvider("quantum");
+  for (int i = 0; i < n_trials; ++i) {
+    auto [mirror_circuit, expected_result] =
+        qcor::MirrorCircuitValidator::createMirrorCircuit(program);
+    const std::string expectedBitString = [&]() {
+      std::string bitStr;
+      for (const auto &bit : expected_result) {
+        bitStr += std::to_string(bit);
+      }
+      return bitStr;
+    }();
+
+    for (size_t qId = 0; qId < mirror_circuit->nPhysicalBits(); ++qId) {
+      mirror_circuit->addInstruction(
+          provider->createInstruction("Measure", {qId}));
+    }
+
+    auto mc_buffer = xacc::qalloc(mirror_circuit->nPhysicalBits());
+    qpu->execute(mc_buffer, mirror_circuit->as_xacc());
+    // mc_buffer->print();
+
+    const auto bitStrProb =
+        mc_buffer->computeMeasurementProbability(expectedBitString);
+    trial_success_probs.emplace_back(bitStrProb);
+  }
+  xacc::HeterogeneousMap data;
+  data.insert("trial-success-probabilities", trial_success_probs);
+  const bool pass_fail_result =
+      std::all_of(trial_success_probs.begin(), trial_success_probs.end(),
+                  [&eps](double val) { return val > 1.0 - eps; });
+  return std::make_pair(pass_fail_result, data);
+}
+
 std::pair<std::shared_ptr<CompositeInstruction>, std::vector<bool>>
-createMirrorCircuit(std::shared_ptr<CompositeInstruction> in_circuit) {
+MirrorCircuitValidator::createMirrorCircuit(std::shared_ptr<CompositeInstruction> in_circuit) {
   std::vector<std::shared_ptr<xacc::Instruction>> mirrorCircuit;
   auto gateProvider = xacc::getService<xacc::IRProvider>("quantum");
 

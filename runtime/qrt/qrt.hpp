@@ -13,6 +13,7 @@ namespace qcor {
 using namespace xacc::internal_compiler;
 
 namespace xacc {
+class Accelerator;
 class AcceleratorBuffer;
 // class CompositeInstruction;
 class Instruction;
@@ -256,6 +257,13 @@ void execute_pass_manager(
     std::shared_ptr<qcor::CompositeInstruction> optional_composite = nullptr);
 std::string get_native_code(std::shared_ptr<qcor::CompositeInstruction> program,
                             xacc::HeterogeneousMap options);
+// Hook to validate backend execution of a circuit
+// e.g., via circuit mirror technique
+// returns a pass/fail bool along with a untyped result data.
+// options data may include method-specific configurations.
+std::pair<bool, xacc::HeterogeneousMap> validate_backend_execution(
+    std::shared_ptr<qcor::CompositeInstruction> program = nullptr,
+    xacc::HeterogeneousMap options = {});
 } // namespace internal_compiler
 } // namespace xacc
 namespace qcor {
@@ -279,6 +287,16 @@ protected:
   // that was allocated by this Allocator.
   std::vector<xacc::internal_compiler::qubit *> m_allocatedQubits;
   std::shared_ptr<xacc::AcceleratorBuffer> m_buffer;
+};
+
+// An abstract interface for backend validator
+class BackendValidator : public xacc::Identifiable {
+public:
+  // This interface is WIP: we just make it as generic as possible.
+  virtual std::pair<bool, xacc::HeterogeneousMap>
+  validate(std::shared_ptr<xacc::Accelerator> qpu,
+           std::shared_ptr<qcor::CompositeInstruction> program,
+           xacc::HeterogeneousMap options = {}) = 0;
 };
 } // namespace qcor
 #endif
