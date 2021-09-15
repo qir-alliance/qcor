@@ -7,7 +7,7 @@
 #include "xacc_service.hpp"
 #include <cassert>
 #include <random>
-
+#include "xacc_plugin.hpp"
 namespace xacc {
 namespace quantum {
 // Helper to convert a gate
@@ -182,6 +182,9 @@ std::pair<bool, xacc::HeterogeneousMap> MirrorCircuitValidator::validate(
         qcor::MirrorCircuitValidator::createMirrorCircuit(program);
     const std::string expectedBitString = [&]() {
       std::string bitStr;
+      if (qpu->getBitOrder() == xacc::Accelerator::BitOrder::MSB) {
+        std::reverse(expected_result.begin(), expected_result.end());
+      }
       for (const auto &bit : expected_result) {
         bitStr += std::to_string(bit);
       }
@@ -195,8 +198,14 @@ std::pair<bool, xacc::HeterogeneousMap> MirrorCircuitValidator::validate(
 
     auto mc_buffer = xacc::qalloc(mirror_circuit->nPhysicalBits());
     qpu->execute(mc_buffer, mirror_circuit->as_xacc());
-    // mc_buffer->print();
-
+    {
+      std::stringstream ss;
+      ss << "Trial " << i << "\n";
+      ss << "Circuit:\n" << mirror_circuit->toString() << "\n";
+      ss << "Result:\n" << mc_buffer->toString() << "\n";
+      ss << "Expected bitstring:" << expectedBitString << "\n";
+      xacc::info(ss.str());
+    }
     const auto bitStrProb =
         mc_buffer->computeMeasurementProbability(expectedBitString);
     trial_success_probs.emplace_back(bitStrProb);
@@ -406,3 +415,4 @@ MirrorCircuitValidator::createMirrorCircuit(std::shared_ptr<CompositeInstruction
                         target_bitString);
 }
 } // namespace qcor
+REGISTER_PLUGIN(qcor::MirrorCircuitValidator, qcor::BackendValidator)

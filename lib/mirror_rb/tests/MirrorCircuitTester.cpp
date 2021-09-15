@@ -5,6 +5,8 @@
 #include "mirror_circuit_rb.hpp"
 #include "qcor_ir.hpp"
 #include <random>
+#include "NoiseModel.hpp"
+
 namespace {
 double random_angle() {
   static std::uniform_real_distribution<double> dis(-M_PI, M_PI);
@@ -165,6 +167,36 @@ TEST(MirrorCircuitTester, checkDeuteron) {
   // We should have seen all 4 possible cases with that number of randomized
   // Pauli runs
   EXPECT_EQ(allBitStrings.size(), 4);
+}
+
+TEST(MirrorCircuitTester, checkNoise) {
+  const std::string msb_noise_model =
+      R"({"gate_noise": [{"gate_name": "CNOT", "register_location": ["0", "1"], "noise_channels": [{"matrix": [[[[0.99498743710662, 0.0], [0.0, 0.0], [0.0, 0.0], [0.0, 0.0]], [[0.0, 0.0], [0.99498743710662, 0.0], [0.0, 0.0], [0.0, 0.0]], [[0.0, 0.0], [0.0, 0.0], [0.99498743710662, 0.0], [0.0, 0.0]], [[0.0, 0.0], [0.0, 0.0], [0.0, 0.0], [0.99498743710662, 0.0]]], [[[0.0, 0.0], [0.05773502691896258, 0.0], [0.0, 0.0], [0.0, 0.0]], [[0.05773502691896258, 0.0], [0.0, 0.0], [0.0, 0.0], [0.0, 0.0]], [[0.0, 0.0], [0.0, 0.0], [0.0, 0.0], [0.05773502691896258, 0.0]], [[0.0, 0.0], [0.0, 0.0], [0.05773502691896258, 0.0], [0.0, 0.0]]], [[[0.0, 0.0], [0.0, -0.05773502691896258], [0.0, 0.0], [0.0, 0.0]], [[0.0, 0.05773502691896258], [0.0, 0.0], [0.0, 0.0], [0.0, 0.0]], [[0.0, 0.0], [0.0, 0.0], [0.0, 0.0], [0.0, -0.05773502691896258]], [[0.0, 0.0], [0.0, 0.0], [0.0, 0.05773502691896258], [0.0, 0.0]]], [[[0.05773502691896258, 0.0], [0.0, 0.0], [0.0, 0.0], [0.0, 0.0]], [[0.0, 0.0], [-0.05773502691896258, 0.0], [0.0, 0.0], [-0.0, 0.0]], [[0.0, 0.0], [0.0, 0.0], [0.05773502691896258, 0.0], [0.0, 0.0]], [[0.0, 0.0], [-0.0, 0.0], [0.0, 0.0], [-0.05773502691896258, 0.0]]]]}]}], "bit_order": "MSB"})";
+
+  auto noiseModel = xacc::getService<xacc::NoiseModel>("json");
+  noiseModel->initialize({{"noise-model", msb_noise_model}});
+  const std::string ibmNoiseJson = noiseModel->toJson();
+  auto accelerator =
+      xacc::getAccelerator("aer", {{"noise-model", ibmNoiseJson}});
+  auto provider = xacc::getIRProvider("quantum");
+  auto circuit = provider->createComposite(std::string("test"));
+  circuit->addInstruction(provider->createInstruction("H", {0}));
+  circuit->addInstruction(provider->createInstruction("H", {1}));
+  circuit->addInstruction(provider->createInstruction("CNOT", {0, 1}));
+  // xacc::set_verbose(true);
+  auto validator = xacc::getService<qcor::BackendValidator>("mirror-rb");
+  {
+    auto [success, data] = validator->validate(
+        accelerator, std::make_shared<qcor::CompositeInstruction>(circuit));
+    EXPECT_TRUE(success);
+  }
+  {
+    // Validate with a tighter limit (0.01 == 1%)
+    auto [success, data] = validator->validate(
+        accelerator, std::make_shared<qcor::CompositeInstruction>(circuit),
+        {{"epsilon", 0.01}});
+    EXPECT_FALSE(success);
+  }
 }
 
 int main(int argc, char **argv) {
