@@ -348,6 +348,11 @@ def main(argv=None):
         parser.add_argument('-qs-runtime', metavar='', help='Specifies the classical capabilites of the QIR runtime. Valid options: BasicQuantumFunctionality, BasicMeasurementFeedback, FullComputation')
         parser.add_argument('-qdk-version', metavar='', help='Specifies the Microsoft Quantum SDK version to use.')
 
+        # Flag to enable validation:
+        # Currently, it means enabling Pauli-randomized mirror circuit benchmarking:
+        # i.e., executing a set of benchmarking circuits related to the original circuit that we know the expected bitstring
+        parser.add_argument('-validate', metavar='', help='Enables backend execution validation via the mirror circuit technique.')
+
         args = parser.parse_args(sys.argv)
 
     if '-pythonpath' in sys.argv[1:]:
@@ -608,6 +613,13 @@ def main(argv=None):
         if qrtName == 'ftqc': 
             sys.argv += ['-D_QCOR_FTQC_RUNTIME']
     
+    if '-validate' in sys.argv[1:]:
+        sys.argv.remove('-validate')
+        sys.argv += ['-D__internal__qcor__validate__execution']
+        if '-D_QCOR_FTQC_RUNTIME' in sys.argv:
+            print('Execution validation cannot be used with FTQC runtime.')
+            exit(1)
+
     # if not empty
     if '@QCOR_APPEND_PLUGIN_PATH@':
         sys.argv += ['-D__internal__qcor__compile__plugin__path=\"@QCOR_APPEND_PLUGIN_PATH@\"']

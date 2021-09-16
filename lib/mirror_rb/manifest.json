@@ -1,0 +1,6 @@
+{
+  "bundle.symbolic_name" : "qcor_mirror_rb",
+  "bundle.activator" : true,
+  "bundle.name" : "Mirror Circuit Randomized Bechmarking",
+  "bundle.description" : ""
+}

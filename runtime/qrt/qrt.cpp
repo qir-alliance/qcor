@@ -24,6 +24,7 @@ std::vector<int> __qubit_map = {};
 std::string __qrt_env = "nisq";
 bool __print_final_submission = false;
 std::string __print_final_submission_filename = "";
+bool __validate_nisq_execution = false;
 
 void execute_pass_manager(
     std::shared_ptr<qcor::CompositeInstruction> optional_composite) {
@@ -89,7 +90,18 @@ std::string get_native_code(std::shared_ptr<qcor::CompositeInstruction> program,
                             xacc::HeterogeneousMap options) {
   return get_qpu()->getNativeCode(program->as_xacc(), options);
 }
-}  // namespace internal_compiler
+
+std::pair<bool, xacc::HeterogeneousMap>
+validate_backend_execution(std::shared_ptr<qcor::CompositeInstruction> program,
+                           xacc::HeterogeneousMap options) {
+  // FWIW, we only have this method...
+  static const std::string DEFAULT_METHOD = "mirror-rb";
+  auto validate_program =
+      program ? program : ::quantum::qrt_impl->get_current_program();
+  auto validator = xacc::getService<qcor::BackendValidator>(DEFAULT_METHOD);
+  return validator->validate(get_qpu(), validate_program, options);
+}
+} // namespace internal_compiler
 }  // namespace xacc
 namespace quantum {
 int current_shots = 0;
