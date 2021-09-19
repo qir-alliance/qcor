@@ -153,6 +153,10 @@ antlrcpp::Any qasm3_visitor::visitQuantumGateDefinition(
   std::vector<mlir::Value> result_qubit_vals;
   for (auto arg : entryBlock.getArguments()) {
     mlir::Value last_user = arg;
+    if (arg.getType().isF64()) {
+        result_qubit_vals.push_back(arg);
+        continue;
+    }
     auto users = last_user.getUsers();
 
     while (!users.empty()) {
