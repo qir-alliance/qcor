@@ -70,6 +70,29 @@ for i in [0:22] {
   EXPECT_TRUE(qcor::execute(src2, "test"));
 }
 
+TEST(qasm3VisitorTester, checkGate) {
+  const std::string gate_def = R"#(OPENQASM 3;
+gate cphase(x) a, b
+{
+  U(0, 0, x / 2) a;
+  CX a, b;
+  U(0, 0, -x / 2) b;
+  CX a, b;
+  U(0, 0, x / 2) b;
+}
+)#";
+  auto mlir = qcor::mlir_compile(gate_def, "gate_def",
+                                 qcor::OutputType::MLIR, false);
+
+  std::cout << "gate_def MLIR:\n" << mlir << "\n";
+
+  qcor::execute(gate_def, "gate_def");
+
+  std::cout << "LLVM:\n"
+            << qcor::mlir_compile(gate_def, "gate_def",
+                                  qcor::OutputType::LLVMIR, false)
+            << "\n";
+}
 
 int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);
