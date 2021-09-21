@@ -66,14 +66,11 @@ bit ans[9];
 uint[8] a_in = 1;  
 uint[8] b_in = 15; 
 
-for i in [0:8] {
-  // FIXME: not able to do this inline....
-  bool b1 = bool(a_in[i]);
-  bool b2 = bool(b_in[i]);
-  if (b1) {
+for i in [0:8] {  
+  if (bool(a_in[i])) {
     x a[i];
   }
-  if (b2) {
+  if (bool(b_in[i])) {
     x b[i];
   }
 }

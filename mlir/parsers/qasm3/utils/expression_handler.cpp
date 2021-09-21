@@ -307,7 +307,9 @@ antlrcpp::Any qasm3_expression_generator::visitComparsionExpression(
             ? current_value.getType().cast<mlir::MemRefType>().getElementType()
             : current_value.getType();
 
-    current_value = builder.create<mlir::LoadOp>(location, current_value);
+    if (current_value.getType().isa<mlir::MemRefType>()) {
+      current_value = builder.create<mlir::LoadOp>(location, current_value);
+    }
     // ,
     // get_or_create_constant_index_value(0, location, 64, symbol_table,
     //                                    builder));
