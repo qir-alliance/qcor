@@ -152,6 +152,12 @@ antlrcpp::Any qasm3_visitor::visitQuantumGateDefinition(
   // from this custom gate definition
   std::vector<mlir::Value> result_qubit_vals;
   for (auto arg : entryBlock.getArguments()) {
+    // check if argument is a gate param
+    if (arg.getType().isF64()) {
+        result_qubit_vals.push_back(arg);
+    // skip use chain traversal
+        continue;
+    }
     mlir::Value last_user = arg;
     auto users = last_user.getUsers();
 
