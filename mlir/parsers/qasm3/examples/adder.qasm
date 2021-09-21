@@ -4,7 +4,7 @@
  */
 // Summit compile:
 // Summit set-up:
-// module load cmake/3.20.2 python/3.8.10 gcc/9.3.0 cuda/11.4.0
+// module load cmake/3.20.2 python/3.8.10 gcc/9.3.0 cuda/11.4.0 openblas/0.3.15-omp
 // Interactive node request:
 // bsub -Is -W 1:00 -nnodes 1 -P PHYXXX $SHELL
 // Note: Summit can be **fully-booked** (running leadership-type jobs) hence the above
@@ -23,7 +23,14 @@
 // QCOR: (must add paths to the specific gcc module paths)
 // cmake .. -DXACC_DIR=~/.xacc -DLLVM_ROOT=~/.llvm -DMLIR_DIR=~/.llvm/lib/cmake/mlir -DQCOR_BUILD_TESTS=TRUE -DCMAKE_BUILD_TYPE=Debug -DQCOR_EXTRA_HEADERS="/sw/summit/gcc/9.3.0-2/include/c++/9.3.0/powerpc64le-unknown-linux-gnu/;/sw/summit/gcc/9.3.0-2/include/c++/9.3.0/"
 
+// EXATN and TNQVM Build:
+// CC=gcc CXX=g++ FC=gfortran cmake .. -DEXATN_BUILD_TESTS=TRUE -DBLAS_LIB=OPENBLAS -DBLAS_PATH=/sw/summit/spack-envs/base/opt/linux-rhel8-ppc64le/gcc-9.3.0/openblas-0.3.15-ydivokmxgbws566z3akrpxovkwm3rkcr/lib -DMPI_LIB=OPENMPI -DMPI_ROOT_DIR=/sw/summit/spack-envs/base/opt/linux-rhel8-ppc64le/gcc-9.3.0/spectrum-mpi-10.4.0.3-20210112-2s7kpbzydf6val7k2d3e6cz3zdhtcwlw -DENABLE_CUDA=True -DCUDA_HOST_COMPILER=/sw/summit/gcc/9.3.0-2/bin/g++ -DCMAKE_INSTALL_PREFIX=~/.exatn
+
+// cmake .. -DXACC_DIR=~/.xacc -DEXATN_DIR=~/.exatn
+
 // export PATH=~/.xacc/bin:$PATH
+
+// Install DM-SIM plugin: qcor -install-plugin https://github.com/ORNL-QCI/DM-Sim.git
 
 OPENQASM 3;
 
