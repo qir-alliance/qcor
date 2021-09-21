@@ -76,7 +76,6 @@ QallocOpLowering::matchAndRewrite(Operation *op, ArrayRef<Value> operands,
 
   // Remove the old QuantumDialect QallocOp
   rewriter.replaceOp(op, qbit_array);
-  rewriter.eraseOp(op);
   // Save the qubit array variable to the symbol table
   variables.insert({qreg_name, qbit_array});
 

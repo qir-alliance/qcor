@@ -70,7 +70,7 @@ antlrcpp::Any qasm3_expression_generator::visitTerminal(
       // location)); number_value.dump(); auto idx_minus_1 =
       // builder.create<mlir::SubIOp>(location, current_value,
       // get_or_create_constant_integer_value(1, location));
-      auto bw = indexed_variable_value.getType().getIntOrFloatBitWidth();
+      // auto bw = indexed_variable_value.getType().getIntOrFloatBitWidth();
       
       // NOTE: UnsignedShiftRightOp (std dialect) expects operands of type "signless-integer-like"
       // i.e. although it treats the operants as unsigned, they must be of type signless (int not uint). 
