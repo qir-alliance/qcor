@@ -171,7 +171,14 @@ LogicalResult IntegerCastOpLowering::matchAndRewrite(
   mlir::IntegerType type = to_be_cast.getType().cast<mlir::IntegerType>();
   auto cast_op = rewriter.create<LLVM::DialectCastOp>(
       loc, rewriter.getIntegerType(type.getWidth(), false), to_be_cast);
-  rewriter.replaceOp(op, cast_op.res());
+  if (resultCastOp.getType().getWidth() < type.getWidth()) {
+    auto trunc_op = rewriter.create<LLVM::TruncOp>(loc, resultCastOp.getType(),
+                                                   cast_op.res());
+    rewriter.replaceOp(op, trunc_op.res());
+  } else {
+    rewriter.replaceOp(op, cast_op.res());
+  }
+
   return success();
 }
 }  // namespace qcor

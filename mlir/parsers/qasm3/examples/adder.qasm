@@ -62,11 +62,9 @@ qubit a[8];
 qubit b[8];
 qubit cout;
 bit ans[9];
-
-// FIXME: left shift casting to handle different type:
-// e.g. i8 vs. i64 (shift value)
-uint[64] a_in = 1;  
-uint[64] b_in = 15; 
+// Input values:
+uint[8] a_in = 1;  
+uint[8] b_in = 15; 
 
 for i in [0:8] {
   // FIXME: not able to do this inline....
