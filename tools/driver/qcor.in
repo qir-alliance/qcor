@@ -264,7 +264,7 @@ def main(argv=None):
     if '@CMAKE_SYSTEM_NAME@' != 'Darwin':
         baseLibs += ['-lqir-qrt']
 
-    baseIncludes = ['-I', '@XACC_ROOT@/include/xacc', '-I', '@CMAKE_INSTALL_PREFIX@/include/qcor',
+    baseIncludes = ['-I', '@XACC_ROOT@/include/xacc', '-I', '@XACC_ROOT@/include/cppmicroservices4', '-I', '@CMAKE_INSTALL_PREFIX@/include/qcor',
                     '-I', '@XACC_ROOT@/include/quantum/gate', '-I', '@XACC_ROOT@/include/eigen']
     if '-internal-no-pch' in sys.argv[1:]:
         if verbose:
