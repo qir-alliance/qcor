@@ -229,6 +229,7 @@ def generate_qsc_build_command(target_name, src_dir, input_files, qdk_ver, build
 fatal_error_verbose = False
 
 def main(argv=None):
+    global fatal_error_verbose
     compiler = '@CLANG_EXECUTABLE@'
     verbose=False
 
