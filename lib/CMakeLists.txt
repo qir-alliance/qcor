@@ -1,4 +1,5 @@
 add_subdirectory(quasimo)
+add_subdirectory(mirror_rb)
 
 # Install QCOR standard library header
 file(GLOB LIB_HEADERS qcor_*)

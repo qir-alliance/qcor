@@ -406,6 +406,24 @@ class NISQ : public ::quantum::QuantumRuntime,
       xacc::storeBuffer(xacc::as_shared_ptr(buffer));
       xacc::internal_compiler::execute(
           buffer, program->as_xacc());
+      if (__validate_nisq_execution) {
+        auto [validated, validationData] = validate_backend_execution(program);
+        if (!validated) {
+          std::cout << "Failed to validate the execution of the program on the "
+                    << get_qpu()->name() << " backend.\n";
+          // NOTES: currently, we validate the whole program (all layers),
+          // we can run layer-by-layer to determine at which depth the program
+          // starts to fail.
+          std::cout << "Result buffer:\n";
+          buffer->print();
+          throw std::logic_error(
+              "Failed to validate backend execution in validation mode.\n");
+        }
+        else {
+          std::cout << "Successfully validate the execution of the program on the "
+                    << get_qpu()->name() << " backend.\n";
+        }
+      }
     }
 
     clearProgram();

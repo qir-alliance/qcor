@@ -231,6 +231,8 @@ fatal_error_verbose = False
 def main(argv=None):
     global fatal_error_verbose
     compiler = '@CLANG_EXECUTABLE@'
+    # .o -> executable linker (use the Clang compiler by default)
+    obj_linker = compiler
     verbose=False
 
     if '--verbose' in sys.argv[1:]:
@@ -273,6 +275,18 @@ def main(argv=None):
     else:
         defaultFlags = ['-std=c++17', '-include', '@CMAKE_INSTALL_PREFIX@/include/qcor/qcor_lang_ext.hpp',
                         '-fplugin=@CMAKE_INSTALL_PREFIX@/clang-plugins/libqcor-syntax-handler@CMAKE_SHARED_LIBRARY_SUFFIX@']
+
+    if '-linker' in sys.argv[1:]:
+        # Ability to use another linker for the final compilation stage.
+        # In some (custom) systems, e.g., Summit, our compiled-from-source Clang-CSP compiler
+        # may not work properly. Hence, just allowing users to use the system-wide compiler.
+        idx = sys.argv.index('-linker')
+        linker_to_use = sys.argv[idx+1]
+        sys.argv.remove(linker_to_use)
+        sys.argv.remove('-linker')
+        if verbose:
+            info('Using ' + linker_to_use + ' linker')
+        obj_linker = linker_to_use
 
     extra_flags = '@QCOR_EXTRA_COMPILER_FLAGS@'.split(' ')
     if len(extra_flags):
@@ -348,6 +362,11 @@ def main(argv=None):
         parser.add_argument('-qs-build-exe', metavar='', help='Q# QIR generator to emit alias functions for entry points.')
         parser.add_argument('-qs-runtime', metavar='', help='Specifies the classical capabilites of the QIR runtime. Valid options: BasicQuantumFunctionality, BasicMeasurementFeedback, FullComputation')
         parser.add_argument('-qdk-version', metavar='', help='Specifies the Microsoft Quantum SDK version to use.')
+
+        # Flag to enable validation:
+        # Currently, it means enabling Pauli-randomized mirror circuit benchmarking:
+        # i.e., executing a set of benchmarking circuits related to the original circuit that we know the expected bitstring
+        parser.add_argument('-validate', metavar='', help='Enables backend execution validation via the mirror circuit technique.')
 
         args = parser.parse_args(sys.argv)
 
@@ -609,6 +628,13 @@ def main(argv=None):
         if qrtName == 'ftqc': 
             sys.argv += ['-D_QCOR_FTQC_RUNTIME']
     
+    if '-validate' in sys.argv[1:]:
+        sys.argv.remove('-validate')
+        sys.argv += ['-D__internal__qcor__validate__execution']
+        if '-D_QCOR_FTQC_RUNTIME' in sys.argv:
+            print('Execution validation cannot be used with FTQC runtime.')
+            exit(1)
+
     # if not empty
     if '@QCOR_APPEND_PLUGIN_PATH@':
         sys.argv += ['-D__internal__qcor__compile__plugin__path=\"@QCOR_APPEND_PLUGIN_PATH@\"']
@@ -901,7 +927,7 @@ def main(argv=None):
             exit(1)
     else:
         # This is a .o file, so execute the link phase
-        commands = [compiler]
+        commands = [obj_linker]
         if len(extra_flags):
             commands += extra_flags
         commands += ['-Wno-unused-command-line-argument', '-Wno-override-module'] + baseLibs + sys.argv[1:]
@@ -909,7 +935,10 @@ def main(argv=None):
         if verbose:
             info('{}'.format(' '.join([c for c in commands])))
         try:
-            result = subprocess.run(commands, check=True)
+            if obj_linker == compiler:
+              result = subprocess.run(commands, check=True)
+            else:
+              os.system('{}'.format(' '.join([c for c in commands])))
         except subprocess.CalledProcessError as e:
             print(e.output)
             print(e.returncode)
