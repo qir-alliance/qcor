@@ -109,6 +109,8 @@ public:
   qreg(const int n);
   qreg(const qreg &other);
   qreg(std::vector<qubit> &qubits);
+  auto begin() { return internal_qubits.begin(); }
+  auto end() { return internal_qubits.end(); }
   qubit operator[](const std::size_t i);
   qreg extract_range(const std::size_t& start, const std::size_t& end);
   qreg extract_range(const Range &&range);
