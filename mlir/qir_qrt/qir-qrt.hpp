@@ -194,6 +194,7 @@ void __quantum__rt__fail(QirString *str);
 void __quantum__rt__message(QirString *str);
 }
 
+#ifndef __INTERNAL__DISABLE__QCOR__QIR__COMPAT__
 namespace qcor {
 using qubit = Qubit *;
 struct qreg {
@@ -228,3 +229,4 @@ void initialize(std::vector<std::string> args);
 void initialize(int argc, char **argv);
 qreg qalloc(const uint64_t size);
 }  // namespace qcor
+#endif
