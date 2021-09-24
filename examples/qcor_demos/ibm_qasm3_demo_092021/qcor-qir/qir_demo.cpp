@@ -9,6 +9,18 @@
 // i.e. T|1> = exp(i*pi/4)|1>
 // We use 3 counting bits => totally 4 qubits.
 
+// Using QIR Implementation library C-API
+
+// qcor qir_demo.cpp
+// ./a.out -qrt nisq -shots 1000
+
+// code /home/cades/dev/qcor/mlir/qir_qrt/qir-qis-base.cpp and look at some impls
+
+// qcor qir_demo.cpp -S -emit-llvm 
+// wc -l qir_demo.ll
+// qcor qir_demo.cpp -emit-llvm -S -O3 -internal-no-pch
+// wc -l qir_demo.ll
+
 Qubit* extract_qubit(Array* a, int idx);
 void iqft(Array* q);
 

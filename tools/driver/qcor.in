@@ -304,8 +304,9 @@ def main(argv=None):
         if verbose:
             info('Rebuilding pre-compiled header for qcor_lang_ext.hpp.')
 
-        result = subprocess.run([compiler, '-std=c++17', '-x', 'c++-header', '@CMAKE_INSTALL_PREFIX@/include/qcor/qcor_lang_ext.hpp',
-                                 '-o', '@CMAKE_INSTALL_PREFIX@/include/qcor/qcor_lang_ext.hpp.pch'] + baseIncludes, check=True)
+        pch_commands = [compiler, '-std=c++17', '-x', 'c++-header', '@CMAKE_INSTALL_PREFIX@/include/qcor/qcor_lang_ext.hpp',
+                                 '-o', '@CMAKE_INSTALL_PREFIX@/include/qcor/qcor_lang_ext.hpp.pch']
+        result = subprocess.run(pch_commands + baseIncludes, check=True)
         exit(0)
     
     # This flag is primarily for our testers to point to the 
@@ -884,7 +885,7 @@ def main(argv=None):
         sys.argv.append(filename)
 
         sys.argv[0] = compiler
-        commands = [compiler] + defaultFlags + sHandlerArgs + baseIncludes
+        commands = [compiler] + defaultFlags + ['-Wno-unused-command-line-argument', '-Wno-override-module'] + sHandlerArgs + baseIncludes
         if compileOnly:
             commands += sys.argv[1:]
         else:
@@ -903,7 +904,7 @@ def main(argv=None):
     elif fileType == '' and filename == '':
         if '-x' in sys.argv[1:] and 'c++' in sys.argv[1:]:
             sys.argv[0] = compiler
-            commands = [compiler] + defaultFlags + sHandlerArgs + baseIncludes 
+            commands = [compiler] + defaultFlags + ['-Wno-unused-command-line-argument', '-Wno-override-module'] + sHandlerArgs + baseIncludes 
             if compileOnly:
                 commands += sys.argv[1:]
             else:
