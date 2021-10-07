@@ -1,11 +1,13 @@
-//===- StandaloneOps.h - Standalone dialect ops -----------------*- C++ -*-===//
-//
-// This file is licensed under the Apache License v2.0 with LLVM Exceptions.
-// See https://llvm.org/LICENSE.txt for license information.
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//===----------------------------------------------------------------------===//
-
+/*******************************************************************************
+ * Copyright (c) 2018-, UT-Battelle, LLC.
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the BSD 3-Clause License 
+ * which accompanies this distribution. 
+ *
+ * Contributors:
+ *   Alexander J. McCaskey - initial API and implementation
+ *   Thien Nguyen - implementation
+ *******************************************************************************/
 #pragma once
 
 #include "mlir/IR/BuiltinTypes.h"
