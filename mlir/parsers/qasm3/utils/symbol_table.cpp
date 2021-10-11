@@ -224,6 +224,9 @@ std::optional<size_t> ScopedSymbolTable::get_qreg_size(const std::string &qreg_n
 
 void ScopedSymbolTable::invalidate_qubit_extracts(
     const std::string &qreg_name, const std::vector<int> &indices) {
+  if (!get_qreg_size(qreg_name).has_value()) {
+    return;
+  }
   if (indices.empty()) {
     const auto reg_size = get_qreg_size(qreg_name).value();
     for (size_t i = 0; i < reg_size; ++i) {
