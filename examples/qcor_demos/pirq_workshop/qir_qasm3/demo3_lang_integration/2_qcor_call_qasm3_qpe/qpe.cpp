@@ -1,7 +1,7 @@
 #include "qir_nisq_kernel_utils.hpp"
 
 // Compile:
-// qcor qft.qasm qpe.cpp -shots 1024 
+// qcor iqft.qasm qpe.cpp -shots 1024 
 using QPEOracleSignature = KernelSignature<qubit>;
 
 // External QASM3 function with signature void(qreg, int)
