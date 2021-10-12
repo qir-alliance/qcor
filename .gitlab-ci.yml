@@ -39,18 +39,18 @@ docker run_macosx_catalina_bottles:
   - $HOME/catalina/run_build.sh $AIDEQC_ACCESS_TOKEN
   allow_failure: true
   
-docker run_macosx_mojave_bottles:
-  stage: deploy
-  only:
-    - schedules
-  tags: 
-    - mojave
-  script:
-  - id=$(docker run -d -it --device /dev/kvm -p 50922:10022 -v "${HOME}/mojave/mac_hdd_ng.img:/image" sickcodes/docker-osx:naked)
-  - sleep 240
-  - ssh mojave-ci "PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin bash run_bottle_build.sh $AIDEQC_ACCESS_TOKEN"
-  - docker stop $id && docker rm -v $id
-  allow_failure: true
+# docker run_macosx_mojave_bottles:
+#   stage: deploy
+#   only:
+#     - schedules
+#   tags: 
+#     - mojave
+#   script:
+#   - id=$(docker run -d -it --device /dev/kvm -p 50922:10022 -v "${HOME}/mojave/mac_hdd_ng.img:/image" sickcodes/docker-osx:naked)
+#   - sleep 240
+#   - ssh mojave-ci "PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin bash run_bottle_build.sh $AIDEQC_ACCESS_TOKEN"
+#   - docker stop $id && docker rm -v $id
+#   allow_failure: true
 
 docker run_docker_deploy:
   stage: deploy
