@@ -214,8 +214,9 @@ std::pair<bool, xacc::HeterogeneousMap> MirrorCircuitValidator::validate(
   std::vector<double> trial_success_probs;
   auto provider = xacc::getIRProvider("quantum");
   for (int i = 0; i < n_trials; ++i) {
-    auto [mirror_circuit, expected_result] =
-        qcor::MirrorCircuitValidator::createMirrorCircuit(program);
+    auto mirror_data = qcor::MirrorCircuitValidator::createMirrorCircuit(program);
+    auto mirror_circuit = mirror_data.first;
+    auto expected_result = mirror_data.second;
     const std::string expectedBitString = [&]() {
       std::string bitStr;
       if (qpu->getBitOrder() == xacc::Accelerator::BitOrder::MSB) {
