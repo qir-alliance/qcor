@@ -23,6 +23,12 @@
 #include "xacc_service.hpp"
 #include "qcor_observable.hpp"
 
+namespace qcor {
+namespace __internal__ {
+std::string DEFAULT_GRADIENT_METHOD = "central";
+}
+} // namespace qcor
+
 namespace xacc {
 namespace internal_compiler {
 // Extern vars:
@@ -99,6 +105,10 @@ void apply_decorators(const std::string &decorator_cmdline_string) {
 std::string get_native_code(std::shared_ptr<qcor::CompositeInstruction> program,
                             xacc::HeterogeneousMap options) {
   return get_qpu()->getNativeCode(program->as_xacc(), options);
+}
+
+void set_autograd_method(const std::string &method_name) {
+  qcor::__internal__::DEFAULT_GRADIENT_METHOD = method_name;
 }
 
 std::pair<bool, xacc::HeterogeneousMap>

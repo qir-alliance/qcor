@@ -296,7 +296,7 @@ std::string run_token_collector(
           mutable_parameters.begin(),
           "__" + kernel_name + "_" + counter_str + "__compute_functor");
 
-      auto src_code = __internal__::qcor::construct_kernel_subtype(
+      auto src_code = ::__internal__::qcor::construct_kernel_subtype(
           tmpss.str(), internal_kernel_function_name, mutable_arg_types,
           mutable_parameters, bufferNames);
 

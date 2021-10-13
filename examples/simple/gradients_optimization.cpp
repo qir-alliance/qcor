@@ -1,3 +1,12 @@
+// Compile with:
+// qcor gradients_optimization.cpp
+// By default, kernel::autograd will use `central` gradient strategy.
+// This can be changed by using the `-autograd` qcor compiler flag:
+// e.g.,
+// qcor -autograd forward gradients_optimization.cpp
+// Options: forward, backward, central
+// Note: users may need to adjust the optimizer step size to guarantee
+// convergence.
 __qpu__ void ansatz(qreg q, double theta) {
   X(q[0]);
   Ry(q[1], theta);
@@ -33,7 +42,7 @@ int main(int argc, char **argv) {
   // Simple case 1: variational ansatz takes a single double
   {
     // Create the Optimizer (gradient-based)
-    auto optimizer = createOptimizer("nlopt", {{"nlopt-optimizer", "l-bfgs"}});
+    auto optimizer = createOptimizer("mlpack", {{"step-size", 1e-2}});
     ObjectiveFunction opt_function(
         [&](const std::vector<double> &x, std::vector<double> &dx) {
           auto q = qalloc(2);
@@ -54,7 +63,7 @@ int main(int argc, char **argv) {
   // Simple case 2: variational ansatz takes a vector<double>
   {
     // Create the Optimizer (gradient-based)
-    auto optimizer = createOptimizer("nlopt", {{"nlopt-optimizer", "l-bfgs"}});
+    auto optimizer = createOptimizer("mlpack", {{"step-size", 1e-2}});
     ObjectiveFunction opt_function(
         [&](const std::vector<double> &x, std::vector<double> &dx) {
           auto q = qalloc(2);
@@ -73,7 +82,7 @@ int main(int argc, char **argv) {
   }
   {
     // Create the Optimizer (gradient-based)
-    auto optimizer = createOptimizer("nlopt", {{"nlopt-optimizer", "l-bfgs"}});
+    auto optimizer = createOptimizer("mlpack", {{"step-size", 1e-2}});
     ObjectiveFunction opt_function(
         [&](const std::vector<double> &x, std::vector<double> &dx) {
           // Using kernel auto-gradient helper

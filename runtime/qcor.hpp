@@ -65,6 +65,9 @@ public:
 #ifdef __internal__qcor__validate__execution
     xacc::internal_compiler::__validate_nisq_execution = true;
 #endif
+#ifdef __internal__qcor__autograd__method
+    xacc::internal_compiler::set_autograd_method(__internal__qcor__autograd__method);
+#endif
   }
 };
 internal_startup startup;
