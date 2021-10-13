@@ -15,8 +15,6 @@
 #include "xacc_internal_compiler.hpp"
 namespace qcor {
 namespace __internal__ {
-std::string DEFAULT_GRADIENT_METHOD = "central";
-
 std::shared_ptr<GradientFunction>
 get_gradient_method(const std::string &type,
                     std::shared_ptr<ObjectiveFunction> obj_func,

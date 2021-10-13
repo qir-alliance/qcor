@@ -268,6 +268,9 @@ void execute_pass_manager(
     std::shared_ptr<qcor::CompositeInstruction> optional_composite = nullptr);
 std::string get_native_code(std::shared_ptr<qcor::CompositeInstruction> program,
                             xacc::HeterogeneousMap options);
+
+void set_autograd_method(const std::string &method_name);
+
 // Hook to validate backend execution of a circuit
 // e.g., via circuit mirror technique
 // returns a pass/fail bool along with a untyped result data.
@@ -278,6 +281,10 @@ std::pair<bool, xacc::HeterogeneousMap> validate_backend_execution(
 } // namespace internal_compiler
 } // namespace xacc
 namespace qcor {
+namespace __internal__ {
+// Default gradient method to use with kernel's autograd method
+extern std::string DEFAULT_GRADIENT_METHOD;
+} // namespace __internal__
 // Ancilla qubit allocator:
 class AncQubitAllocator : public AllocEventListener, public QubitAllocator {
 public:

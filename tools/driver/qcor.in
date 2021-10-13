@@ -379,6 +379,8 @@ def main(argv=None):
         # Currently, it means enabling Pauli-randomized mirror circuit benchmarking:
         # i.e., executing a set of benchmarking circuits related to the original circuit that we know the expected bitstring
         parser.add_argument('-validate', metavar='', help='Enables backend execution validation via the mirror circuit technique.')
+        
+        parser.add_argument('-autograd', metavar='', help='Specifies the kernel autograd method. Options: central (default), forward, backward.')
 
         args = parser.parse_args(sys.argv)
 
@@ -646,7 +648,13 @@ def main(argv=None):
         if '-D_QCOR_FTQC_RUNTIME' in sys.argv:
             print('Execution validation cannot be used with FTQC runtime.')
             exit(1)
-
+    if '-autograd' in sys.argv[1:]:
+        sidx = sys.argv.index('-autograd')
+        autogradMethodName = sys.argv[sidx+1]
+        sys.argv.remove(autogradMethodName)
+        sys.argv.remove('-autograd')
+        sys.argv += ['-D__internal__qcor__autograd__method=\"'+autogradMethodName+'\"']   
+        
     # if not empty
     if '@QCOR_APPEND_PLUGIN_PATH@':
         sys.argv += ['-D__internal__qcor__compile__plugin__path=\"@QCOR_APPEND_PLUGIN_PATH@\"']

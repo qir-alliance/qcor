@@ -87,7 +87,7 @@ class KernelForwardDifferenceGradient : public KernelGradientService {
     m_kernel_eval = _kernel_eval;
     gradient_func = [&](const std::vector<double> &x,
                         double cost_val) -> std::vector<double> {
-      return run_gradient_strategy(x, cost_val, "forward", m_step, obs,
+      return run_gradient_strategy(x, cost_val, "forward", -m_step, obs,
                                    m_kernel_eval);
     };
   }
@@ -101,7 +101,7 @@ class KernelForwardDifferenceGradient : public KernelGradientService {
     gradient_func = [&](const std::vector<double> &x,
                         double cost_val) -> std::vector<double> {
       auto obs = m_objFunc->get_observable();
-      return run_gradient_strategy(x, cost_val, "forward", m_step, obs,
+      return run_gradient_strategy(x, cost_val, "forward", -m_step, obs,
                                    m_objFunc->get_kernel_evaluator());
     };
   }
@@ -129,7 +129,7 @@ class KernelBackwardDifferenceGradient : public KernelGradientService {
     m_kernel_eval = kernel_eval;
     gradient_func = [&](const std::vector<double> &x,
                         double cost_val) -> std::vector<double> {
-      return run_gradient_strategy(x, cost_val, "forward", m_step, obs,
+      return run_gradient_strategy(x, cost_val, "backward", m_step, obs,
                                    m_kernel_eval);
     };
   }
