@@ -20,6 +20,7 @@
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/Passes.h"
 #include <iostream>
+#include <optional>
 
 namespace qcor {
 bool RotationMergingPass::should_combine(const std::string &name1,
