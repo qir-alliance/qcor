@@ -13,6 +13,7 @@
 #include <iostream>
 #include <map>
 #include <vector>
+#include <optional>
 
 #include "Quantum/QuantumOps.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"

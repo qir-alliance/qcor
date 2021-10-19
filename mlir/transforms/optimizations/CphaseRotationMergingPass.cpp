@@ -20,6 +20,7 @@
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/Passes.h"
 #include <iostream>
+#include <optional>
 
 namespace qcor {
 void CPhaseRotationMergingPass::getDependentDialects(
