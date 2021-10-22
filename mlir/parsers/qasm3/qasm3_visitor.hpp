@@ -186,7 +186,8 @@ class qasm3_visitor : public qasm3::qasm3BaseVisitor {
       region_early_return_vars;
   // This method will add correct number of InstOps
   // based on quantum gate broadcasting
-  void createInstOps_HandleBroadcast(std::string name,
+  // Returns the all the updated qubit values (as updated in the symbol table)
+  std::vector<mlir::Value> createInstOps_HandleBroadcast(std::string name,
                                      std::vector<mlir::Value> qbit_values,
                                      std::vector<std::string> qbit_names,
                                      std::vector<std::string> symbol_table_qbit_keys,

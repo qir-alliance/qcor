@@ -17,7 +17,10 @@
 #include "optimizations/SimplifyQubitExtractPass.hpp"
 #include "optimizations/SingleQubitGateMergingPass.hpp"
 #include "optimizations/CphaseRotationMergingPass.hpp"
+#include "optimizations/ModifierBlockInliner.hpp"
 #include "quantum_to_llvm.hpp"
+#include "lowering/ModifierRegionLowering.hpp"
+
 // Construct QCOR MLIR pass manager:
 // Make sure we use the same set of passes and configs
 // across different use cases of MLIR compilation.
@@ -25,6 +28,7 @@ namespace qcor {
 void configureOptimizationPasses(mlir::PassManager &passManager) {
   // Try inline both before and after loop unroll.
   passManager.addPass(mlir::createInlinerPass());
+  passManager.addPass(std::make_unique<ModifierBlockInlinerPass>());
   auto loop_unroller = mlir::createLoopUnrollPass(/*unrollFactor*/-1, /*unrollUpToFactor*/ false, /*unrollFull*/true);
   // Nest a pass manager that operates on functions within the one which
   // operates on ModuleOp.
@@ -35,7 +39,7 @@ void configureOptimizationPasses(mlir::PassManager &passManager) {
   passManager.addPass(std::make_unique<SimplifyQubitExtractPass>());
   // TODO: configure the pass pipeline to handle repeated applications of
   // passes. Add passes
-  constexpr int N_REPS = 5;
+  constexpr int N_REPS = 10;
   for (int i = 0; i < N_REPS; ++i) {
     // Simple Identity pair removals
     passManager.addPass(std::make_unique<SingleQubitIdentityPairRemovalPass>());

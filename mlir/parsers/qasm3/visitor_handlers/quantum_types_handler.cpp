@@ -164,16 +164,26 @@ antlrcpp::Any qasm3_visitor::visitQuantumGateDefinition(
   for (auto arg : entryBlock.getArguments()) {
     // check if argument is a gate param
     if (arg.getType().isF64()) {
-        result_qubit_vals.push_back(arg);
-    // skip use chain traversal
-        continue;
+      result_qubit_vals.push_back(arg);
+      // skip use chain traversal
+      continue;
     }
     mlir::Value last_user = arg;
     auto users = last_user.getUsers();
-
     while (!users.empty()) {
-      // Get the first and only user
-      auto only_user = *users.begin();
+      auto user_iter = users.begin();
+      for (const auto &user : users) {
+        // Only chase use-def chain on the top-level ops
+        // i.e., direct children of this kernel (FuncOp)
+        // e.g., skip ops inside a modifier region.
+        if (llvm::dyn_cast_or_null<mlir::FuncOp>(user->getParentOp())) {
+          break;
+        }
+        ++user_iter;
+      }
+      // Get the first and only user (quantum ops: value semantics ops or
+      // modifier regions, kernel calls)
+      auto only_user = *user_iter;
 
       // figure out which operand idx last_user 
       // corresponds to

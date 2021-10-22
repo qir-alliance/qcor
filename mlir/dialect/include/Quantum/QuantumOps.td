@@ -3,6 +3,8 @@
 
 include "QuantumDialect.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
+include "mlir/Interfaces/ControlFlowInterfaces.td"
+include "mlir/Interfaces/LoopLikeInterface.td"
 
 def QubitType : OpaqueType<"quantum", "Qubit", "opaque qubit type">;
 def ResultType : OpaqueType<"quantum", "Result", "opaque result type">;
@@ -76,54 +78,88 @@ def ArrayConcatOp : QuantumOp<"qarray_concat", []> {
   }];
 }
 
-def StartCtrlURegion : QuantumOp<"start_ctrl_u_region", []> {
-  let arguments = (ins);
-  let results = (outs);
-  let printer = [{  
-  p << "q.ctrl_region {";
-  }];
-}
-
-def EndCtrlURegion : QuantumOp<"end_ctrl_u_region", []> {
-  let arguments = (ins QubitType:$ctrl_qubit);
-  let results = (outs);
-  let printer = [{  auto op = *this;
-  p << "} (ctrl_bit = " << op.ctrl_qubit() << ") // END CTRL";
-  }];
-}
-
-def StartAdjointURegion : QuantumOp<"start_adj_u_region", []> {
-  let arguments = (ins);
-  let results = (outs);
-  let printer = [{
-  p << "q.adj_region {";
-  }];
-}
-
-def EndAdjointURegion : QuantumOp<"end_adj_u_region", []> {
-  let arguments = (ins);
-  let results = (outs);
-  let printer = [{
-  p << "} // END ADJOINT";
-  }];
-}
-
-def StartPowURegion : QuantumOp<"start_pow_u_region", []> {
-  let arguments = (ins);
-  let results = (outs);
-  let printer = [{  
-    p << "q.pow_u_region {";
-  }];
-}
-
-def EndPowURegion : QuantumOp<"end_pow_u_region", []> {
-  let arguments = (ins AnyI64:$pow);
-  let results = (outs);
+// A SSA terminator to end modifier (pow, ctrl, inv) block.
+def ModifierEndOp : QuantumOp<"modifier_end", [
+  Terminator, NoSideEffect,
+  ParentOneOf<["PowURegion, AdjURegion, CtrlURegion"]>
+]> {
+  let summary = "Implicit terminator of a modifier (ctrl/inv/pow) region";
+  let description = [{
+    `quantum.modifier_end` operations terminate modifier regions.}];
+  let arguments = (ins Variadic<QubitType>:$qubits);
+  // Printer to denote the qubit SSA values to be returned by the modifier
+  // region.
   let printer = [{  
     auto op = *this;
-    p << "} (pow = " << op.pow() << ") // END POWER";
+    p << "q.yield " << op.getOperands();
   }];
 }
+
+def PowURegion : QuantumOp<"pow_u_region", [
+  NoRegionArguments, SingleBlockImplicitTerminator<"quantum::ModifierEndOp">
+]> {
+  let summary = "Scoped Power-U Region";
+  let description = [{
+    `pow_u_region` operation represents a block of code whose quantum gates are
+          repeated a set number of times.}];
+  // Rationale: we wrap modifier block as a proper value-semantics op.
+  // i.e., forwarding SSA vars at input and output.
+  // Note: we use pow of Index type to be compatible with loop bound types.
+  // i.e., if optimization enabled, any constant `pow` values can be propagated
+  // to SCF/Affine loops w/o the need for casting (prevent loop unrolling)
+  let arguments = (ins Index:$pow, Variadic<QubitType>:$qubits);
+  let results = (outs Variadic<QubitType>:$result);
+  let regions = (region SizedRegion<1>:$body);
+  let skipDefaultBuilders = 1;
+  let builders = [
+    OpBuilderDAG<(ins "Value":$pow, "ValueRange":$qubits)>
+  ];
+
+  let printer = [{  
+    auto op = *this;
+    p << "q.pow(" << op.pow() << ")";
+    p.printRegion(op.body(), /*printEntryBlockArgs=*/false);
+  }];
+}
+
+def AdjURegion : QuantumOp<"adj_u_region", []> {
+  let summary = "Scoped Adjoint-U Region";
+  let description = [{
+    `adj_u_region` operation represents a block of code whose Adjoint should be applied.}];
+  let arguments = (ins Variadic<QubitType>:$qubits);
+  let results = (outs Variadic<QubitType>:$result);
+  let regions = (region SizedRegion<1>:$body);
+  let skipDefaultBuilders = 1;
+  let builders = [
+    OpBuilderDAG<(ins "ValueRange":$qubits)>
+  ];
+
+  let printer = [{  
+    auto op = *this;
+    p << "q.adj";
+    p.printRegion(op.body(), /*printEntryBlockArgs=*/false);
+  }];
+}
+
+def CtrlURegion : QuantumOp<"ctrl_u_region", []> {
+  let summary = "Scoped Controlled-U Region";
+  let description = [{
+    `ctrl_u_region` operation represents a block of code whose controlled version should be applied.}];
+  let arguments = (ins QubitType:$ctrl_qubit, Variadic<QubitType>:$qubits);
+  let results = (outs Variadic<QubitType>:$result);
+  let regions = (region SizedRegion<1>:$body);
+  let skipDefaultBuilders = 1;
+  let builders = [
+    OpBuilderDAG<(ins "Value":$ctrl_qubit, "ValueRange":$qubits)>
+  ];
+
+  let printer = [{  
+    auto op = *this;
+    p << "q.ctrl(" << op.ctrl_qubit() << ")";
+    p.printRegion(op.body(), /*printEntryBlockArgs=*/false);
+  }];
+}
+
 
 def ComputeMarkerOp : QuantumOp<"compute_marker", []> {
   let arguments = (ins);

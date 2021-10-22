@@ -12,6 +12,7 @@
 #include "Quantum/QuantumOps.h"
 #include "mlir/IR/OpImplementation.h"
 #include "mlir/Transforms/InliningUtils.h"
+#include "mlir/IR/Builders.h"
 
 using namespace mlir;
 using namespace mlir::quantum;
@@ -69,3 +70,44 @@ void QuantumDialect::initialize() {
 //   printer << ")";
 
 // }
+
+void PowURegion::build(OpBuilder &builder, OperationState &result, Value pow, ValueRange qubits) {
+  assert(pow.getType().isIntOrIndex());
+  result.addOperands(pow);
+  result.addOperands(qubits);
+  std::vector<Type> resultTypes;
+  for (const auto &qubitOperand : qubits) {
+    resultTypes.emplace_back(qubitOperand.getType());
+  }
+  result.addTypes(resultTypes);
+  OpBuilder::InsertionGuard guard(builder);
+  Region *body = result.addRegion();
+  builder.createBlock(body);
+}
+
+void AdjURegion::build(OpBuilder &builder, OperationState &result, ValueRange qubits) {
+  result.addOperands(qubits);
+  std::vector<Type> resultTypes;
+  for (const auto &qubitOperand : qubits) {
+    resultTypes.emplace_back(qubitOperand.getType());
+  }
+  result.addTypes(resultTypes);
+  OpBuilder::InsertionGuard guard(builder);
+  Region *body = result.addRegion();
+  builder.createBlock(body);
+}
+
+void CtrlURegion::build(OpBuilder &builder, OperationState &result, Value ctrl_bit, ValueRange qubits) {
+  assert(ctrl_bit.getType().isa<mlir::OpaqueType>());
+  result.addOperands(ctrl_bit);
+  result.addOperands(qubits);
+  std::vector<Type> resultTypes;
+  resultTypes.emplace_back(ctrl_bit.getType());
+  for (const auto &qubitOperand : qubits) {
+    resultTypes.emplace_back(qubitOperand.getType());
+  }
+  result.addTypes(resultTypes);
+  OpBuilder::InsertionGuard guard(builder);
+  Region *body = result.addRegion();
+  builder.createBlock(body);
+}
