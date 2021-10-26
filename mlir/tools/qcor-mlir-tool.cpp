@@ -91,6 +91,11 @@ static cl::opt<enum InputType> inputType(
     cl::values(clEnumValN(QASM, "qasm",
                           "load the input file as a qasm source.")));
 
+static cl::opt<bool> mlir_debug_dialect_conversion(
+    "debug-dialect-conversion",
+    cl::desc("Debug the execution of the dialect conversion framework. Similar "
+             "to '-debug-only=dialect-conversion'."));
+
 int main(int argc, char **argv) {
   mlir::registerAsmPrinterCLOptions();
   mlir::registerMLIRContextCLOptions();
@@ -98,6 +103,12 @@ int main(int argc, char **argv) {
 
   llvm::cl::ParseCommandLineOptions(argc, argv,
                                     "qcor quantum assembly compiler\n");
+
+  if (mlir_debug_dialect_conversion) {
+    llvm::DebugFlag = true;
+    llvm::setCurrentDebugType("dialect-conversion");
+  }
+
   // If any *clang* optimization is requested, turn on quantum optimization as
   // well.
   bool qoptimizations =
@@ -162,6 +173,7 @@ int main(int argc, char **argv) {
   }
 
   // Lower MLIR to LLVM
+  pm.addPass(std::make_unique<qcor::ModifierRegionRewritePass>());
   pm.addPass(std::make_unique<qcor::QuantumToLLVMLoweringPass>(
       qoptimizations, unique_function_names));
 
