@@ -122,6 +122,11 @@ void CNOTIdentityPairRemovalPass::runOnOperation() {
         return;
       }
 
+      // Next instruction must be a CNOT to merge
+      if (next_inst.name() != "cnot" && next_inst.name() != "cx") {
+        return;
+      }
+
       // They are the same operation, a cnot
       // so we have cnot src, tgt | cnot src, tgt
       auto next_inst_result_0 = next_inst.result().front();

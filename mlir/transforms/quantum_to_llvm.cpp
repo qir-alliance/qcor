@@ -12,15 +12,12 @@
 
 #include <iostream>
 
-#include "lowering/AdjointURegionLowering.hpp"
 #include "lowering/AssignQubitOpConversion.hpp"
 #include "lowering/CreateStringLiteralOpLowering.hpp"
-#include "lowering/CtrlURegionLowering.hpp"
 #include "lowering/DeallocOpLowering.hpp"
 #include "lowering/ExtractQubitOpConversion.hpp"
 #include "lowering/GeneralArrayExtractOpConversion.hpp"
 #include "lowering/InstOpLowering.hpp"
-#include "lowering/PowURegionLowering.hpp"
 #include "lowering/PrintOpLowering.hpp"
 #include "lowering/QRTFinalizeOpLowering.hpp"
 #include "lowering/QRTInitOpLowering.hpp"
@@ -34,6 +31,7 @@
 #include "lowering/CallableLowering.hpp"
 #include "lowering/ComputeMarkerLowering.hpp"
 #include "lowering/ConditionalOpLowering.hpp"
+#include "lowering/ModifierRegionLowering.hpp"
 
 namespace qcor {
 mlir::Type get_quantum_type(std::string type, mlir::MLIRContext *context) {
@@ -121,14 +119,12 @@ void QuantumToLLVMLoweringPass::runOnOperation() {
   patterns.insert<AssignQubitOpConversion>(&getContext(), variables);
   patterns.insert<QarraySliceOpLowering>(&getContext(), variables);
   patterns.insert<QarrayConcatOpLowering>(&getContext(), variables);
-  patterns.insert<StartPowURegionOpLowering>(&getContext());
-  patterns.insert<EndPowURegionOpLowering>(&getContext());
-  patterns.insert<StartAdjointURegionOpLowering>(&getContext());
-  patterns.insert<EndAdjointURegionOpLowering>(&getContext());
+  patterns.insert<AdjURegionOpLowering>(&getContext());
+  patterns.insert<PowURegionOpLowering>(&getContext());
+  patterns.insert<CtrlURegionOpLowering>(&getContext());
+  patterns.insert<EndModifierRegionOpLowering>(&getContext());
   patterns.insert<ComputeMarkerOpLowering>(&getContext());
   patterns.insert<ComputeUnMarkerOpLowering>(&getContext());
-  patterns.insert<StartCtrlURegionOpLowering>(&getContext());
-  patterns.insert<EndCtrlURegionOpLowering>(&getContext());
   patterns.insert<TupleUnpackOpLowering>(&getContext());
   patterns.insert<CreateCallableOpLowering>(&getContext());
   patterns.insert<ConditionalOpLowering>(&getContext());

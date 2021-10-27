@@ -12,12 +12,14 @@
 
 namespace qcor {
 
-void qasm3_visitor::createInstOps_HandleBroadcast(
+std::vector<mlir::Value> qasm3_visitor::createInstOps_HandleBroadcast(
     std::string name, std::vector<mlir::Value> qbit_values,
     std::vector<std::string> qreg_names,
     std::vector<std::string> symbol_table_qbit_keys,
     std::vector<mlir::Value> param_values, mlir::Location location,
     antlr4::ParserRuleContext* context) {
+  std::vector<mlir::Value> updated_qubit_values;
+  
   auto has_array_type = [this](auto& value_vector) {
     for (auto v : value_vector) {
       if (v.getType() == array_type) {
@@ -83,6 +85,7 @@ void qasm3_visitor::createInstOps_HandleBroadcast(
         int ii = 0;
         for (auto result : return_vals) {
           symbol_table.replace_symbol(extract_value, result);
+          updated_qubit_values.emplace_back(result);
           ii++;
         }
       }
@@ -123,6 +126,7 @@ void qasm3_visitor::createInstOps_HandleBroadcast(
           for (auto result : return_vals) {
             symbol_table.replace_symbol(
                 (ii == 0 ? extract_value_n : extract_value_m), result);
+            updated_qubit_values.emplace_back(result);
             ii++;
           }
         }
@@ -155,6 +159,7 @@ void qasm3_visitor::createInstOps_HandleBroadcast(
           int ii = 0;
           for (auto result : return_vals) {
             symbol_table.replace_symbol((ii == 0 ? extract_value : v), result);
+            updated_qubit_values.emplace_back(result);
             ii++;
           }
           v = return_vals[1];
@@ -186,6 +191,7 @@ void qasm3_visitor::createInstOps_HandleBroadcast(
           int ii = 0;
           for (auto result : return_vals) {
             symbol_table.replace_symbol((ii == 0 ? v : extract_value), result);
+            updated_qubit_values.emplace_back(result);
             ii++;
           }
           v = return_vals[0];
@@ -215,10 +221,12 @@ void qasm3_visitor::createInstOps_HandleBroadcast(
       int i = 0;
       for (auto result : return_vals) {
         symbol_table.replace_symbol(qbit_values[i], result);
+        updated_qubit_values.emplace_back(result);
         i++;
       }
     }
   }
+  return updated_qubit_values;
 }
 
 antlrcpp::Any qasm3_visitor::visitQuantumGateCall(
@@ -377,12 +385,10 @@ antlrcpp::Any qasm3_visitor::visitQuantumGateCall(
     }
   }
 
-  bool has_ctrl = false;
-  enum EndAction { EndCtrlU, EndAdjU, EndPowU };
-  std::stack<std::pair<EndAction, mlir::Value>> action_and_extrainfo;
+  std::stack<std::pair<mlir::OpBuilder::InsertPoint, mlir::Operation *>>
+      modifier_insertion_points_stack;
   for (auto m : modifiers) {
     if (m->getText().find("pow") != std::string::npos) {
-      builder.create<mlir::quantum::StartPowURegion>(location);
       mlir::Value power;
       if (symbol_table.has_symbol(m->expression()->getText())) {
         power = symbol_table.get_symbol(m->expression()->getText());
@@ -393,33 +399,40 @@ antlrcpp::Any qasm3_visitor::visitQuantumGateCall(
                                                         builder.getI64Type());
           }
         }
+        if (!power.getType().isIndex()) {
+          power = builder.create<mlir::IndexCastOp>(
+              location, builder.getIndexType(), power);
+        }
       } else {
         auto p = symbol_table.evaluate_constant_integer_expression(
             m->expression()->getText());
-        auto pow_attr = mlir::IntegerAttr::get(builder.getI64Type(), p);
+        assert(p >= 0);
+        auto pow_attr = mlir::IntegerAttr::get(builder.getIndexType(), p);
         power = builder.create<mlir::ConstantOp>(location, pow_attr);
       }
-      action_and_extrainfo.emplace(std::make_pair(EndAction::EndPowU, power));
+      auto powerUOp = builder.create<mlir::quantum::PowURegion>(location, power,
+                                                                qbit_values);
+      modifier_insertion_points_stack.push(std::make_pair(
+          builder.saveInsertionPoint(), powerUOp.getOperation()));
+      builder.setInsertionPointToStart(&powerUOp.body().front());
     } else if (m->getText().find("inv") != std::string::npos) {
-      builder.create<mlir::quantum::StartAdjointURegion>(location);
-      action_and_extrainfo.emplace(
-          std::make_pair(EndAction::EndAdjU, mlir::Value()));
+      auto adjUOp = builder.create<mlir::quantum::AdjURegion>(location, qbit_values);
+      modifier_insertion_points_stack.push(
+          std::make_pair(builder.saveInsertionPoint(), adjUOp.getOperation()));
+      builder.setInsertionPointToStart(&adjUOp.body().front());
     } else if (m->getText().find("ctrl") != std::string::npos) {
-      has_ctrl = true;
-      builder.create<mlir::quantum::StartCtrlURegion>(location);
-      action_and_extrainfo.emplace(
-          std::make_pair(EndAction::EndCtrlU, mlir::Value()));
+      mlir::Value ctrl_bit = *qbit_values.begin();
+      qbit_values.erase(qbit_values.begin());
+      qubit_symbol_table_keys.erase(qubit_symbol_table_keys.begin());
+      auto ctrlUOp =
+          builder.create<mlir::quantum::CtrlURegion>(location, ctrl_bit, qbit_values);
+      modifier_insertion_points_stack.push(
+          std::make_pair(builder.saveInsertionPoint(), ctrlUOp.getOperation()));
+      builder.setInsertionPointToStart(&ctrlUOp.body().front());
     }
   }
 
-  // Potentially get the ctrl qubit
-  mlir::Value ctrl_bit;
-  if (has_ctrl) {
-    ctrl_bit = *qbit_values.begin();
-    qbit_values.erase(qbit_values.begin());
-    qubit_symbol_table_keys.erase(qubit_symbol_table_keys.begin());
-  }
-
+  std::vector<mlir::Value> returnedValues;
   if (symbol_table.has_seen_function(name)) {
     std::vector<mlir::Value> operands;
     std::vector<mlir::Type> result_types;
@@ -439,87 +452,58 @@ antlrcpp::Any qasm3_visitor::visitQuantumGateCall(
     for (auto result : return_vals) {
       symbol_table.replace_symbol(qbit_values[i], result);
       i++;
+      returnedValues.emplace_back(result);
     }
 
   } else {
-    createInstOps_HandleBroadcast(name, qbit_values, qreg_names,
+    returnedValues = createInstOps_HandleBroadcast(name, qbit_values, qreg_names,
                                   qubit_symbol_table_keys, param_values,
                                   location, context);
   }
 
-  while (!action_and_extrainfo.empty()) {
-    auto top = action_and_extrainfo.top();
-    if (top.first == EndAction::EndPowU) {
-      builder.create<mlir::quantum::EndPowURegion>(location, top.second);
-    } else if (top.first == EndAction::EndAdjU) {
-      builder.create<mlir::quantum::EndAdjointURegion>(location);
-    } else if (top.first == EndAction::EndCtrlU) {
-      auto& ops_up_to_now = builder.getBlock()->getOperations();
-
-      // From here to line 505, we attempt to replace trivial 
-      // ctrl segments with known intrinsic quantum instructions, i.e.
-      // q.ctrl_region {
-      // %2 = qvs.x(%1)
-      // } (ctrl_bit = %0) // END CTRL
-      // with 
-      // %3:2 = qvs.cnot(%0, %1)
-      // in order to simplify downstream optimizations
-      //
-      // First reverse iterate from latest op added to the first StartCtrlURegionOp
-      // Keep track of all ops that are touched
-      mlir::Operation* start_ctrl;
-      std::vector<mlir::Operation*> ops_to_control;
-      for (auto iter = ops_up_to_now.rbegin(); iter != ops_up_to_now.rend();
-           ++iter) {
-        auto& op = *iter;
-        if (mlir::dyn_cast_or_null<mlir::quantum::StartCtrlURegion>(&op)) {
-          start_ctrl = &op;
-          break;
-        }
-        ops_to_control.push_back(&op);
-      }
-
-      // If there is one op only in that region, we can optimize it away easily
-      if (ops_to_control.size() == 1) {
-        // Trivial ctrl block, replace with ctrl instruction
-        if (auto inst_op =
-                mlir::dyn_cast_or_null<mlir::quantum::ValueSemanticsInstOp>(
-                    ops_to_control[0])) {
-          // For now, only handle ctrl-x, will add more later
-          if (inst_op.name().str() == "x") {
-            auto operands = inst_op.qubits();
-            std::vector<mlir::Value> new_qbits{ctrl_bit, operands[0]};
-
-            auto params = inst_op.params();
-            auto name = inst_op.name();
-
-            ops_to_control[0]->dropAllReferences();
-            ops_to_control[0]->dropAllUses();
-            ops_up_to_now.remove(*start_ctrl);
-            ops_up_to_now.remove(*ops_to_control[0]);
-
-            auto new_inst = builder.create<mlir::quantum::ValueSemanticsInstOp>(
-                location,
-                llvm::makeArrayRef(
-                    std::vector<mlir::Type>{qubit_type, qubit_type}),
-                builder.getStringAttr("cnot"), llvm::makeArrayRef(new_qbits),
-                params);
-
-            auto return_vals = new_inst.result();
-            int i = 0;
-            for (auto result : return_vals) {
-              symbol_table.replace_symbol(qbit_values[i], result);
-              i++;
-            }
-            action_and_extrainfo.pop();
-            continue;
-          }
-        }
-      }
-
-      builder.create<mlir::quantum::EndCtrlURegion>(location, ctrl_bit);
+  // This is really not needed since the nested modifier stack 
+  // only contains a single Op (could be a function call).
+  // i.e., we could restore the insertion point at the bottom of the stack.
+  while (!modifier_insertion_points_stack.empty()) {
+    auto [insertionPt, modifierOpPtr] = modifier_insertion_points_stack.top();
+    assert(returnedValues.size() == qbit_values.size());
+    // For controlled modifier, we return/yield control qubit too.
+    if (auto ctrlOp =
+            llvm::dyn_cast_or_null<mlir::quantum::CtrlURegion>(modifierOpPtr)) {
+      returnedValues.insert(returnedValues.begin(), 1, ctrlOp.ctrl_qubit());
+      qbit_values.insert(qbit_values.begin(), 1, ctrlOp.ctrl_qubit());
     }
-    action_and_extrainfo.pop();
+    auto modifierYieldOp = builder.create<mlir::quantum::ModifierEndOp>(location, returnedValues);
+    returnedValues.clear();
+    if (auto powOp = llvm::dyn_cast_or_null<mlir::quantum::PowURegion>(modifierOpPtr)) {
+      assert(powOp.getResults().size() == qbit_values.size());
+      for (int i = 0; i < qbit_values.size(); ++i) {
+        symbol_table.replace_symbol(modifierYieldOp.getOperand(i),
+                                    powOp.getResult(i));
+        returnedValues.emplace_back(powOp.getResult(i));
+      }
+    } else if (auto adjOp =
+                   llvm::dyn_cast_or_null<mlir::quantum::AdjURegion>(modifierOpPtr)) {
+      assert(adjOp.getResults().size() == qbit_values.size());
+      for (int i = 0; i < qbit_values.size(); ++i) {
+        symbol_table.replace_symbol(modifierYieldOp.getOperand(i),
+                                    adjOp.getResult(i));
+        returnedValues.emplace_back(adjOp.getResult(i));
+      }
+    } else if (auto ctrlOp =
+                   llvm::dyn_cast_or_null<mlir::quantum::CtrlURegion>(modifierOpPtr)) {
+      assert(ctrlOp.getResults().size() == qbit_values.size());
+      symbol_table.replace_symbol(ctrlOp.ctrl_qubit(), ctrlOp.getResult(0));
+      for (int i = 0; i < qbit_values.size(); ++i) {
+        symbol_table.replace_symbol(modifierYieldOp.getOperand(i),
+                                    ctrlOp.getResult(i));
+        returnedValues.emplace_back(ctrlOp.getResult(i));
+      }
+    } else {
+      assert(false);
+    }
+    builder.restoreInsertionPoint(insertionPt);
+    modifier_insertion_points_stack.pop();
   }
 
   return 0;

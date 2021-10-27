@@ -124,13 +124,9 @@ LogicalResult ValueSemanticsInstOpLowering::matchAndRewrite(
   for (size_t i = 0; i < n_qbits; i++) {
     func_args.push_back(operands[i]);
     auto result = results[i];
-
-    for (auto user : result.getUsers()) {
-
-      // Want to replace the next use of this result
-      // with the given operand[i];
-      user->replaceUsesOfWith(result, operands[i]);
-    }
+    // Want to replace the next use of this result
+    // with the given operand[i];
+    result.replaceAllUsesWith(operands[i]);
   }
 
   // once again, return type should be void unless its a measure
