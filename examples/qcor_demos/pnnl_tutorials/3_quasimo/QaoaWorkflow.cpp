@@ -3,7 +3,7 @@
 // Demonstrate qsim's QAOA workflow 
 
 // Compile and run with:
-/// $ qcor -qpu qpp QaoaWorkflow.cpp
+/// $ qcor -qpu qsim QaoaWorkflow.cpp
 /// $ ./a.out
 
 int main(int argc, char **argv) {

@@ -1,13 +1,9 @@
 #include "qcor_qsim.hpp"
-
+// qcor qite_deuteron.cpp -qpu qsim
 __qpu__ void state_prep(qreg q) { X(q[0]); }
 
-int main(int argc, char** argv) {
-  set_verbose(true);
+int main(int argc, char **argv) {
   using namespace QuaSiMo;
-
-  // Create the qsearch IR Transformation
-  auto qsearch_optimizer = createTransformation("qsearch");
 
   // Create the Hamiltonian
   auto observable = -2.1433 * X(0) * X(1) - 2.1433 * Y(0) * Y(1) +
@@ -21,15 +17,18 @@ int main(int argc, char** argv) {
   // and QITE workflow
   auto problemModel = ModelFactory::createModel(state_prep, &observable, 2, 0);
   auto workflow =
-      getWorkflow("qite", {{"steps", nbSteps},
-                           {"step-size", stepSize},
-                           {"circuit-optimizer", qsearch_optimizer}});
+      getWorkflow("qite", {{"steps", nbSteps}, {"step-size", stepSize}});
 
   // Execute
   auto result = workflow->execute(problemModel);
 
-  // Get the energy and final circuit
+  // Get the final energy and iteration values
   const auto energy = result.get<double>("energy");
-  auto finalCircuit = result.getPointerLike<CompositeInstruction>("circuit");
-  printf("\n%s\nEnergy=%f\n", finalCircuit->toString().c_str(), energy);
+  const auto energyAtStep = result.get<std::vector<double>>("exp-vals");
+  std::cout << "QITE energy: [ ";
+  for (const auto &val : energyAtStep) {
+    std::cout << val << " ";
+  }
+  std::cout << "]\n";
+  std::cout << "Ground state energy: " << energy << "\n";
 }

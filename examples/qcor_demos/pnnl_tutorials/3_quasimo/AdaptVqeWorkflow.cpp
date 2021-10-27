@@ -40,8 +40,5 @@ int main(int argc, char **argv) {
                                               {"n-electrons", nElectrons}});
   auto result = workflow->execute(problemModel);
   std::cout << "Final energy: " << result.get<double>("energy") << "\n";
-  auto final_ansatz =
-      result.getPointerLike<xacc::CompositeInstruction>("circuit");
-  std::cout << "HOWDY: \n" << final_ansatz->toString() << "\n";
   return 0;
 }

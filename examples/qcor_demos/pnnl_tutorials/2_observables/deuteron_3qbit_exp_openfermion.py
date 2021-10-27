@@ -12,7 +12,7 @@ def ansatz(q: qreg, x: List[float], exp_args: List[Operator]):
         exp_i_theta(q, x[i], exp_args[i])
 
 # Create OpenFermion operators for our quantum kernel...
-exp_args_openfermion = [FOp('0^ 1') - FOp('1^ 0'), FOp('0^ 2') - FOp('2^ 0')]
+exp_args_openfermion = [FOp('0^ 2') - FOp('2^ 0')]
 
 # We need to translate OpenFermion ops into qcor Operators to use with kernels...
 exp_args_qcor = [createOperator('fermion', fop) for fop in exp_args_openfermion]

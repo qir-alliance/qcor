@@ -35,8 +35,9 @@ int main(int argc, char **argv) {
   const auto obsVals = result.get<std::vector<double>>("exp-vals");
 
   // Print out for debugging:
+  std::cout << "<Magnetization>:\n";
   for (const auto &val : obsVals) {
-    std::cout << "<Magnetization> = " << val << "\n";
+    std::cout << val << "\n";
   }
 
   return 0;

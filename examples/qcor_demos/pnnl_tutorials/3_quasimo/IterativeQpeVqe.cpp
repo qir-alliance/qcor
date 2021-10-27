@@ -4,7 +4,7 @@
 // iterative QPE procedure.
 
 // Compile and run with:
-/// $ qcor -qpu qpp IterativeQpeVqe.cpp
+/// $ qcor IterativeQpeVqe.cpp
 /// $ ./a.out
 
 /// Ansatz to bring the state into an eigenvector state of the Hamiltonian.
@@ -37,8 +37,5 @@ int main(int argc, char **argv) {
   std::cout << "Final phase = " << phaseValue << "\n";
   // Expect: ~ -1.7 (due to limited bit precision)
   std::cout << "Energy = " << energy << "\n";
-
-  print("N Instructions at Iter:");
-  for (auto [i,n] : enumerate(n_insts)) print("iter", i, ":" , n);
   return 0;
 }
