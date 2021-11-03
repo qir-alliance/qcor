@@ -197,8 +197,10 @@ std::pair<bool, xacc::HeterogeneousMap> MirrorCircuitValidator::validate(
     std::shared_ptr<xacc::Accelerator> qpu,
     std::shared_ptr<qcor::CompositeInstruction> program,
     xacc::HeterogeneousMap options) {
-  // Some default values
-  int n_trials = 1000;
+  // Some default values: 4 Paulis for each qubit (double that to make sure we
+  // cover more cases). Max is 1000 trials for many qubits.
+  int n_trials = std::min(
+      2 * static_cast<int>(std::pow(4, program->nPhysicalBits())), 1000);
   // 10% error allowed... (away from the expected bitstring)
   double eps = 0.1;
   int n_shots = 1024;
@@ -356,14 +358,14 @@ MirrorCircuitValidator::createMirrorCircuit(
       for (int i = 0; i < nQubits; ++i) {
         random_paulis.emplace_back(qcor::utils::ALL_PAULI_OPS[dis(gen)]);
       }
-      {
-        std::stringstream ss;
-        ss << "Random Pauli: ";
-        for (const auto &p : random_paulis) {
-          ss << p << " ";
-        }
-        xacc::info(ss.str());
-      }
+      // {
+      //   std::stringstream ss;
+      //   ss << "Random Pauli: ";
+      //   for (const auto &p : random_paulis) {
+      //     ss << p << " ";
+      //   }
+      //   xacc::info(ss.str());
+      // }
 
       return random_paulis;
     }(n);
@@ -397,14 +399,14 @@ MirrorCircuitValidator::createMirrorCircuit(
 
         // Update the tracking net
         net_paulis = qcor::utils::find_pauli_labels(new_net_paulis_reps.second);
-        {
-          std::stringstream ss;
-          ss << "Net Pauli: ";
-          for (const auto &p : net_paulis) {
-            ss << p << " ";
-          }
-          xacc::info(ss.str());
-        }
+        // {
+        //   std::stringstream ss;
+        //   ss << "Net Pauli: ";
+        //   for (const auto &p : net_paulis) {
+        //     ss << p << " ";
+        //   }
+        //   xacc::info(ss.str());
+        // }
 
         const size_t qubit = gate->bits()[0];
         const auto [theta1, theta2, theta3] = decomposeU3Angle(gate);
@@ -427,14 +429,14 @@ MirrorCircuitValidator::createMirrorCircuit(
 
         // Update the tracking net
         net_paulis = qcor::utils::find_pauli_labels(new_net_paulis_reps.second);
-        {
-          std::stringstream ss;
-          ss << "Net Pauli: ";
-          for (const auto &p : net_paulis) {
-            ss << p << " ";
-          }
-          xacc::info(ss.str());
-        }
+        // {
+        //   std::stringstream ss;
+        //   ss << "Net Pauli: ";
+        //   for (const auto &p : net_paulis) {
+        //     ss << p << " ";
+        //   }
+        //   xacc::info(ss.str());
+        // }
       }
     }
   }
