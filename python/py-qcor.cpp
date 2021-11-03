@@ -645,6 +645,11 @@ PYBIND11_MODULE(_pyqcor, m) {
       "qalloc", [](int size) { return ::qalloc(size); },
       "Allocate qubit register.");
   m.def("set_shots", &qcor::set_shots, "");
+  m.def("set_validate",
+        [](bool validate) {
+          xacc::internal_compiler::__validate_nisq_execution = validate;
+        },
+        "Enable/disable backend execution validation.");
   py::class_<xacc::internal_compiler::qubit>(m, "qubit", "");
   py::class_<xacc::internal_compiler::qreg>(m, "qreg", "")
       .def("size", &xacc::internal_compiler::qreg::size, "")
