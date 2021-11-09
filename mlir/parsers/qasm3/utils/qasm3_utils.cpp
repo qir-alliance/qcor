@@ -147,13 +147,18 @@ mlir::Value get_or_create_constant_integer_value(
 mlir::Value get_or_create_constant_index_value(const std::size_t idx,
                                                mlir::Location location,
                                                int width,
-                                               ScopedSymbolTable& symbol_table,
-                                               mlir::OpBuilder& builder) {
-  auto type = mlir::IntegerType::get(builder.getContext(), width);
-  auto constant_int = get_or_create_constant_integer_value(
-      idx, location, type, symbol_table, builder);
-  return builder.create<mlir::IndexCastOp>(location, constant_int,
-                                           builder.getIndexType());
+                                               ScopedSymbolTable &symbol_table,
+                                               mlir::OpBuilder &builder) {
+  if (symbol_table.has_constant_integer(idx, width)) {
+    // If there is a cached constant integer value, cast and return it:
+    auto constant_int = symbol_table.get_constant_integer(idx, width);
+    return builder.create<mlir::IndexCastOp>(location, constant_int,
+                                             builder.getIndexType());
+  } else {
+    // Otherwise, create a new constant index value
+    auto integer_attr = mlir::IntegerAttr::get(builder.getIndexType(), idx);
+    return builder.create<mlir::ConstantOp>(location, integer_attr);
+  }
 }
 
 mlir::Type convertQasm3Type(qasm3::qasm3Parser::ClassicalTypeContext* ctx,

@@ -55,6 +55,14 @@ for i in [0:4] {
 }
 QCOR_EXPECT_TRUE(loop_count == 12);
 
+loop_count = 0;
+for i in [0:4] {
+ for j in [0:3] {
+     print(i,j);
+     loop_count += 1;
+ }
+}
+QCOR_EXPECT_TRUE(loop_count == 12);
 
 )#";
   auto mlir = qcor::mlir_compile(for_stmt, "for_stmt",
