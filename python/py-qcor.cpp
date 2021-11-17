@@ -912,6 +912,19 @@ PYBIND11_MODULE(_pyqcor, m) {
         return qcor::observe(kernel, observable, q);
       },
       "");
+  m.def("internal_observe",
+        [](std::shared_ptr<qcor::CompositeInstruction> kernel,
+           qcor::Operator &obs, xacc::internal_compiler::qreg &q) {
+          return qcor::observe(kernel, obs, q);
+        },
+        "");
+  m.def("internal_observe",
+        [](std::shared_ptr<qcor::CompositeInstruction> kernel, py::object obs,
+           xacc::internal_compiler::qreg &q) {
+          auto observable = convertToQCOROperator(obs);
+          return qcor::observe(kernel, observable, q);
+        },
+        "");
   m.def(
       "internal_autograd",
       [](py::function &kernel_eval, qcor::Operator &obs,

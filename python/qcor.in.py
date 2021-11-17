@@ -691,7 +691,14 @@ class qjit(object):
         at the given arguments. 
         """
         program = self.extract_composite(*args)
-        return internal_observe(program, observable)
+        # If the kernel has the simple signature (qreg, params...),
+        # forwards the qreg to the qcor::observe method so that users can get a handle to the qreg
+        # which contains child buffer information (e.g. bitstrings/exp-val-z of each term).
+        if (str(self.type_annotations[self.arg_names[0]]) == '<class \'_pyqcor.qreg\'>' and args[0].size() == observable.nBits()):
+            return internal_observe(program, observable, args[0])
+        else:
+            # Otherwise, just qcor will use a temp. buffer and just return the expectation value.
+            return internal_observe(program, observable)
     
     def autograd(self, observable, qreg, x_vec):
         """
