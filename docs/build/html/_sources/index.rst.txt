@@ -38,7 +38,7 @@ Questions, Bug Reporting, and Issue Tracking
 ---------------------------------------------
 
 Questions, bug reporting and issue tracking are provided by GitHub. Please
-report all bugs by creating a `new issue <https://github.com/ornl-qci/qcor/issues/new>`_.
+report all bugs by creating a `new issue <https://github.com/qir-alliance/qcor/issues/new>`_.
 You can ask questions by creating a new issue with the question tag.
 
 .. toctree::

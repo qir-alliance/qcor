@@ -34,7 +34,7 @@ RUN git clone --recursive https://github.com/eclipse/xacc && sudo chown -R coder
     && mv /home/coder/patch_glucose.hpp xacc/tpls/staq/libs/glucose/glucose.hpp \
     && cd xacc && mkdir build && cd build/ \
     && cmake .. -DCMAKE_INSTALL_PREFIX=/usr/local/aideqc/qcor && make -j8 install && cd ../.. \
-    && git clone https://github.com/ornl-qci/qcor && cd qcor && mkdir build && cd build \
+    && git clone https://github.com/qir-alliance/qcor && cd qcor && mkdir build && cd build \
     && cmake .. -G Ninja -DXACC_DIR=/usr/local/aideqc/qcor -DCMAKE_INSTALL_PREFIX=/usr/local/aideqc/qcor \
         -DLLVM_ROOT=/usr/local/aideqc/llvm -DQCOR_EXTRA_COMPILER_FLAGS="-B /usr/lib/gcc/x86_64-alpine-linux-musl/10.3.1 -L /usr/lib/gcc/x86_64-alpine-linux-musl/10.3.1" \
         -DQCOR_EXTRA_HEADERS="/usr/include/c++/10.3.1;/usr/include/c++/10.3.1/x86_64-alpine-linux-musl" \

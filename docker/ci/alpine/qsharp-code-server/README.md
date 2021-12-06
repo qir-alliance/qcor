@@ -1,9 +1,9 @@
-<img src="https://github.com/ornl-qci/qcor/blob/master/docs/assets/qcor_full_logo.svg?raw=true" alt="qcor_fig" width="600"/>
+<img src="https://github.com/qir-alliance/qcor/blob/master/docs/assets/qcor_full_logo.svg?raw=true" alt="qcor_fig" width="600"/>
 
 # Welcome to QCOR
 
 You are using the QCOR web-IDE for heterogeneous quantum-classical computing. <br>
-This project provides a pre-built image containing the entire `qcor` compiler stack, including the [`qcor`](https://github.com/ornl-qci/qcor) <br>
+This project provides a pre-built image containing the entire `qcor` compiler stack, including the [`qcor`](https://github.com/qir-alliance/qcor) <br>
 C++ compiler and Python quantum JIT environment, the [XACC](https://github.com/eclipse/xacc) framework and high-level Python API, <br>
 and the OpenQASM 3 MLIR compiler. 
 

@@ -44,7 +44,7 @@ Note that, for now, developers must clone QCOR manually:
 
 .. code:: bash 
 
-   $ git clone https://github.com/ornl-qci/qcor
+   $ git clone https://github.com/qir-alliance/qcor
    $ cd qcor && mkdir build && cd build
    $ cmake .. 
    $ [with tests] cmake .. -DQCOR_BUILD_TESTS=TRUE
