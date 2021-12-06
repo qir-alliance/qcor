@@ -21,7 +21,7 @@ RUN sudo apk add bash icu-libs krb5-libs libgcc libintl libssl1.1 libstdc++ zlib
    && sudo ln -s ~/.dotnet/dotnet /usr/bin/dotnet \
    && dotnet nuget add source "https://pkgs.dev.azure.com/ms-quantum-public/Microsoft Quantum (public)/_packaging/alpha/nuget/v3/index.json" -n qdk-alpha \
    && dotnet new -i Microsoft.Quantum.ProjectTemplates \
-   && git clone https://github.com/ornl-qci/qcor && cp -r qcor/examples cpp-examples && rm -rf qcor \
+   && git clone https://github.com/qir-alliance/qcor && cp -r qcor/examples cpp-examples && rm -rf qcor \
    && sudo apk add llvm \
    && sudo apk add xmlstarlet \
    && xmlstarlet ed --inplace -s /configuration -t elem -n config -v "" \

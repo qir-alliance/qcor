@@ -17,7 +17,7 @@ ENV USER=coder
 WORKDIR /home/coder
 ADD README.md .
 RUN sudo chown coder README.md && sudo chgrp coder README.md \
-   && git clone https://github.com/ornl-qci/qcor && cp -r qcor/examples cpp-examples \
+   && git clone https://github.com/qir-alliance/qcor && cp -r qcor/examples cpp-examples \
    && cp -r qcor/python/examples py-examples && rm -rf qcor \
    && mkdir -p /home/coder/.local/share/code-server/User \
    && printf "{\"workbench.startupEditor\": \"readme\", \"workbench.colorTheme\": \"Monokai Dimmed\", \"workbench.panel.defaultLocation\": \"right\", \"terminal.integrated.shell.linux\": \"bash\", \"files.associations\": {\"*.qasm\": \"cpp\"}}" | tee /home/coder/.local/share/code-server/User/settings.json \
