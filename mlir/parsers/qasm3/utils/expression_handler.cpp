@@ -205,6 +205,11 @@ antlrcpp::Any qasm3_expression_generator::visitTerminal(
         indexed_variable_name = "";
       } else {
         // We are loading from a variable
+
+        if (current_value.getType().isa<mlir::MemRefType>()) {
+          current_value = builder.create<mlir::LoadOp>(location, current_value);
+        }
+
         llvm::ArrayRef<mlir::Value> idx(cast_array_index_value_if_required(
             indexed_variable_value.getType(), current_value, location,
             builder));

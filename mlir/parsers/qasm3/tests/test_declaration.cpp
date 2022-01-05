@@ -80,6 +80,22 @@ for i in [0:22] {
   EXPECT_TRUE(qcor::execute(src2, "test"));
 }
 
+TEST(qasm3VisitorTester, checkCregAddressingWithMemref) {
+  const std::string broadcast = R"#(OPENQASM 3;
+include "qelib1.inc";
+int[32] i = 2;
+const j = 1;
+bit b[4] = "0101";
+
+QCOR_EXPECT_TRUE(b[i] == 0);
+QCOR_EXPECT_TRUE(b[j] == 1);
+)#";
+  auto mlir = qcor::mlir_compile(broadcast, "creg_memref_addressing",
+                                 qcor::OutputType::MLIR, false);
+
+  EXPECT_FALSE(qcor::execute(broadcast, "creg_memref_addressing"));
+}
+
 TEST(qasm3VisitorTester, checkGate) {
   const std::string gate_def = R"#(OPENQASM 3;
 gate cphase(x) a, b
