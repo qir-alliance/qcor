@@ -1,0 +1,59 @@
+name: QCOR Ubuntu Linux Build and Test
+
+on:
+  push:
+    branches:
+      - 'master'
+    # Ignore changes in these folders (not related to the build)
+    paths-ignore:
+      - 'benchmarks/**'
+      - 'docker/**'
+      - 'docs/**'
+      - 'python/examples/**'
+      - 'scripts/**'
+  pull_request:
+    paths-ignore:
+      - 'benchmarks/**'
+      - 'docker/**'
+      - 'docs/**'
+      - 'python/examples/**'
+      - 'scripts/**'
+
+concurrency:
+  # Cancel any in-progress job or run
+  group: ${{ github.workflow }}-${{ github.ref == 'refs/heads/master' && github.run_number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Linux CI
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Install dependencies
+        run: sudo apt-get -y update && sudo apt-get install -y --no-install-recommends ninja-build libssl-dev libcurl4-openssl-dev python3 libpython3-dev python3-pip libblas-dev liblapack-dev wget gnupg lsb-release
+
+      - name: Install llvm-csp
+        run:  wget -qO- https://aide-qc.github.io/deploy/aide_qc/debian/PUBLIC-KEY.gpg | sudo apt-key add - && wget -qO- "https://aide-qc.github.io/deploy/aide_qc/debian/$(lsb_release -cs)/aide-qc.list" | sudo tee -a /etc/apt/sources.list.d/aide-qc.list && sudo apt-get update && sudo apt-get install aideqc-llvm  
+
+      # Manually build+install XACC so that we can pick up the latest version.
+      - name: Build and install xacc
+        run: git clone --recursive https://github.com/eclipse/xacc && cd xacc && mkdir build && cd build && cmake .. -G Ninja && cmake --build . --target install && cd ../.. && rm -rf xacc
+
+      - name: Checkout qcor code
+        uses: actions/checkout@v2
+
+      - name: Create Build Environment
+        run: cmake -E make_directory build
+    
+      - name: Configure
+        working-directory: build/
+        run: cmake -G Ninja $GITHUB_WORKSPACE -DXACC_DIR=~/.xacc -DLLVM_ROOT=/usr/local/aideqc/llvm -DMLIR_DIR=/usr/local/aideqc/llvm/lib/cmake/mlir -DQCOR_BUILD_TESTS=TRUE 
+    
+      - name: Build
+        working-directory: build/
+        run: cmake --build . --target install
+      
+      - name: Test
+        working-directory: build/
+        run: ctest --output-on-failure
