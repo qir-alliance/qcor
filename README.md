@@ -2,7 +2,7 @@
 
 | master | 
 |:-------|
-| [![pipeline status](https://code.ornl.gov/qci/qcor/badges/master/pipeline.svg)](https://code.ornl.gov/qci/qcor/commits/master) |
+| [![pipeline status](https://github.com/qir-alliance/qcor/actions/workflows/ci-linux.yml/badge.svg?branch=master)](https://github.com/qir-alliance/qcor/actions/workflows/ci-linux.yml) |
 
 # QCOR
 
