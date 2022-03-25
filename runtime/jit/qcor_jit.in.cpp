@@ -62,6 +62,13 @@
 #include "qrt.hpp"
 #include "xacc.hpp"
 #include "xacc_internal_compiler.hpp"
+// for _QCOR_MUTEX
+#include "qcor_config.hpp"
+
+#ifdef _QCOR_MUTEX
+#include <mutex>
+#pragma message ("_QCOR_MUTEX is ON")
+#endif
 
 using namespace llvm;
 using namespace llvm::orc;
@@ -72,6 +79,12 @@ using namespace llvm::orc;
 #include <regex>
 
 namespace qcor {
+
+namespace __internal__ {
+#ifdef _QCOR_MUTEX
+std::mutex qcor_qjit_lock;
+#endif
+}
 
 using namespace clang;
 
@@ -410,6 +423,9 @@ class LLVMJIT {
 };
 
 QJIT::QJIT() {
+#ifdef _QCOR_MUTEX
+  std::lock_guard<std::mutex> l(__internal__::qcor_qjit_lock);
+#endif
   // if tmp directory doesnt exist create it
   qjit_cache_path = std::string(std::getenv("HOME")) + "/.qjit";
   if (!xacc::directoryExists(qjit_cache_path)) {
@@ -438,6 +454,10 @@ QJIT::QJIT() {
   }
 }
 void QJIT::write_cache() {
+#ifdef _QCOR_MUTEX
+  std::lock_guard<std::mutex> l(__internal__::qcor_qjit_lock);
+#endif
+
   std::string cache_file_loc = qjit_cache_path + "/qjit_cache.json";
 
   // MAKE SURE WE DONT OVERWRITE
@@ -468,6 +488,9 @@ QJIT::~QJIT() { write_cache(); }
 
 void QJIT::jit_compile(std::unique_ptr<llvm::Module> m,
                        std::vector<std::string> extra_shared_lib_paths) {
+#ifdef _QCOR_MUTEX
+  std::lock_guard<std::mutex> l(__internal__::qcor_qjit_lock);
+#endif
   std::vector<std::string> seen_functions;
   for (Function &f : *m) {
     auto name = f.getName().str();
@@ -496,6 +519,9 @@ void QJIT::jit_compile(const std::string &code,
                        const std::vector<std::string> &kernel_dependency,
                        const std::string &extra_functions_src,
                        std::vector<std::string> extra_headers) {
+#ifdef _QCOR_MUTEX
+  std::lock_guard<std::mutex> l(__internal__::qcor_qjit_lock);
+#endif
   // Run the Syntax Handler to get the kernel name and
   // the kernel code (the QuantumKernel subtype def + utility functions)
   auto [kernel_name, new_code] =
@@ -703,7 +729,6 @@ void QJIT::jit_compile(const std::string &code,
     kernel_name_to_f_ptr_parent_hetmap.insert(
         {kernel_name, parent_hetmap_rawFPtr});
   }
-
   return;
 }
 

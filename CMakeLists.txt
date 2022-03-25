@@ -52,6 +52,15 @@ endif()
 find_package(XACC REQUIRED)
 find_package(Clang 10.0.0 REQUIRED)
 
+# Multi
+if (XACC_MULTI_THREADED)
+  message(STATUS "XACC is built with _XACC_MUTEX")
+  set(_QCOR_MUTEX True)
+else()
+  message(STATUS "XACC is built with _XACC_MUTEX (default)")
+  set(_QCOR_MUTEX False)
+endif()
+
 configure_file("${CMAKE_SOURCE_DIR}/cmake/qcor_config.hpp.in"
                "${CMAKE_BINARY_DIR}/qcor_config.hpp")
 install (FILES ${CMAKE_BINARY_DIR}/qcor_config.hpp DESTINATION include/qcor)

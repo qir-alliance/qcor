@@ -10,6 +10,7 @@ add_library(${LIBRARY_NAME}
 
 target_include_directories(${LIBRARY_NAME}
                            PUBLIC .
+                                  ${XACC_ROOT}/include/xacc
                                   ${CLANG_INCLUDE_DIRS}
                                   ${LLVM_INCLUDE_DIRS})
 
