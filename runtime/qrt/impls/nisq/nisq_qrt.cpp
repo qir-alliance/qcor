@@ -392,9 +392,8 @@ class NISQ : public ::quantum::QuantumRuntime,
     auto anc_allocator = NisqQubitAllocator::getInstance();
     if (anc_allocator->get_buffer() &&
         anc_allocator->get_buffer()->size() > 0) {
-      std::vector<xacc::AcceleratorBuffer *> buffer_list{
-          buffer, anc_allocator->get_buffer().get()};
-      submit(buffer_list.data(), buffer_list.size());
+      // submit(AcceleratorBuffer**, ...) will add the ancilla buffer on its own
+      submit(&buffer, 1);
     } else {
       if (__print_final_submission) {
         std::cout << "==== NISQ JOB SUBMISSION ====\n";
@@ -467,7 +466,9 @@ class NISQ : public ::quantum::QuantumRuntime,
         os.close();
       }
     }
-    xacc::internal_compiler::execute(buffers, nBuffers, program->as_xacc());
+
+    std::vector<xacc::AcceleratorBuffer *> buffer_list(ptrs.begin(), ptrs.end());
+    xacc::internal_compiler::execute(buffer_list.data(), buffer_list.size(), program->as_xacc());
   }
 
   void set_current_program(std::shared_ptr<CompositeInstruction> p) override {
